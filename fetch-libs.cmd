@@ -1,5 +1,8 @@
 @echo off
 
+md 3rdparty
+cd 3rdparty
+
 rd /S /Q glfw
 git clone https://github.com/glfw/glfw.git
 

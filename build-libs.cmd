@@ -1,13 +1,13 @@
 @echo off
 
-cd %~dp0
-cd ..
 SET LIBRARY_DIRECTORY=%cd%/lib
 SET BINARY_DIRECTORY=%cd%/bin
-cd %~dp0
 
 SET BUILD_ENVIRONMENT="Visual Studio 14 2015 Win64"
 SET DEPENDENCIES=
+
+md 3rdparty
+cd 3rdparty
 
 FOR %%A IN (glfw,glm,glbinding,globjects) DO CALL :Build %%A
 
