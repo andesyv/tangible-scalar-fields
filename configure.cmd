@@ -1,4 +1,4 @@
-SET BUILD_ENVIRONMENT="Visual Studio 14 2015 Win64"
+SET BUILD_ENVIRONMENT="Visual Studio 15 2017 Win64"
 
 rd /s /q build
 md build

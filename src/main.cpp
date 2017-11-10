@@ -1,4 +1,3 @@
-
 #include <iostream>
 
 #include <glbinding/gl/gl.h>
@@ -47,15 +46,14 @@ int main(int /*argc*/, char * /*argv*/[])
 	// Initialize globjects (internally initializes glbinding, and registers the current context)
 	globjects::init();
 
-	std::cout
-		<< "OpenGL Version:  " << glbinding::ContextInfo::version() << std::endl
-		<< "OpenGL Vendor:   " << glbinding::ContextInfo::vendor() << std::endl
-		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl << std::endl;
-
+	// Enable debug logging
 	globjects::DebugMessage::enable();
 
-	glBegin(GL_FRACTIONAL_EVEN);
-	glEnd();
+	globjects::info()
+		<< "OpenGL Version:  " << glbinding::ContextInfo::version() << std::endl
+		<< "OpenGL Vendor:   " << glbinding::ContextInfo::vendor() << std::endl
+		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
+
 
 	// Main loop
 	while (!glfwWindowShouldClose(window))
