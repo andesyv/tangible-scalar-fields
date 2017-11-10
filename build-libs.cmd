@@ -6,8 +6,8 @@ SET BINARY_DIRECTORY=%cd%/bin
 SET BUILD_ENVIRONMENT="Visual Studio 14 2015 Win64"
 SET DEPENDENCIES=
 
-md 3rdparty
-cd 3rdparty
+md ext
+cd ext
 
 FOR %%A IN (glfw,glm,glbinding,globjects) DO CALL :Build %%A
 
