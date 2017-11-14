@@ -10,9 +10,15 @@
 #include <globjects/globjects.h>
 #include <globjects/logging.h>
 
-using namespace gl;
+#include "Scene.h"
+#include "Viewer.h"
+#include "Interactor.h"
+#include "Renderer.h"
 
-void error(int errnum, const char * errmsg)
+using namespace gl;
+using namespace molumes;
+
+void error_callback(int errnum, const char * errmsg)
 {
 	globjects::critical() << errnum << ": " << errmsg << std::endl;
 }
@@ -23,18 +29,20 @@ int main(int /*argc*/, char * /*argv*/[])
 	if (!glfwInit())
 		return 1;
 
-	glfwSetErrorCallback(error);
-	glfwWindowHint(GLFW_VISIBLE, true);
+	glfwSetErrorCallback(error_callback);
+
+	glfwDefaultWindowHints();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
 	// Create a context and, if valid, make it current
-	GLFWwindow * window = glfwCreateWindow(768, 768, "globjects Command Line Output", NULL, NULL);
+	GLFWwindow * window = glfwCreateWindow(768, 768, "molumes", NULL, NULL);
 
 	if (window == nullptr)
 	{
-		globjects::critical() << "Context creation failed. Terminate execution.";
+		globjects::critical() << "Context creation failed - terminating execution.";
 
 		glfwTerminate();
 		return 1;
@@ -48,18 +56,21 @@ int main(int /*argc*/, char * /*argv*/[])
 
 	// Enable debug logging
 	globjects::DebugMessage::enable();
-
-	globjects::info()
+	
+	globjects::debug()
 		<< "OpenGL Version:  " << glbinding::ContextInfo::version() << std::endl
 		<< "OpenGL Vendor:   " << glbinding::ContextInfo::vendor() << std::endl
 		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
 
+	auto scene = std::make_unique<Scene>();
+	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
-		glfwSwapBuffers(window);
 		glfwPollEvents();
+		viewer->display();
+		glfwSwapBuffers(window);
 	}
 
 	// Destroy window

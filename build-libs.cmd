@@ -37,5 +37,6 @@ IF "%DEPENDENCIES%" == "" (
 cd %~dp0
 
 :End
+rd /S /Q ext
   
   

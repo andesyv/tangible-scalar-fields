@@ -1,3 +1,8 @@
 /ext
 /bin
 /build
+/.vs/ProjectSettings.json
+/.vs/slnx.sqlite
+/.vs/VSWorkspaceState.json
+/.vs/molumes
+/.vs/config
