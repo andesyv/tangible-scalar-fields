@@ -12,6 +12,7 @@ using namespace glm;
 Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(scene)
 {
 	glfwSetWindowUserPointer(window, static_cast<void*>(this));
+	glfwSetFramebufferSizeCallback(window, &Viewer::framebufferSizeCallback);
 	glfwSetKeyCallback(window, &Viewer::keyCallback);
 	glfwSetMouseButtonCallback(window, &Viewer::mouseButtonCallback);
 	glfwSetCursorPosCallback(window, &Viewer::cursorPosCallback);
@@ -86,6 +87,19 @@ mat4 Viewer::modelViewTransform() const
 mat4 Viewer::modelViewProjectionTransform() const
 {
 	return projectionTransform()*modelViewTransform();
+}
+
+void Viewer::framebufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+	Viewer* viewer = static_cast<Viewer*>(glfwGetWindowUserPointer(window));
+
+	if (viewer)
+	{
+		for (auto& i : viewer->m_interactors)
+		{
+			i->framebufferSizeEvent(width, height);
+		}
+	}
 }
 
 void Viewer::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)

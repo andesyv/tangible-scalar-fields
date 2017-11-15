@@ -11,6 +11,10 @@ Viewer * Interactor::viewer()
 	return m_viewer;
 }
 
+void Interactor::framebufferSizeEvent(int width, int height)
+{
+}
+
 void Interactor::keyEvent(int key, int scancode, int action, int mods)
 {
 }

@@ -10,6 +10,7 @@ namespace molumes
 	{
 	public:
 		CameraInteractor(Viewer * viewer);
+		virtual void framebufferSizeEvent(int width, int height);
 		virtual void mouseButtonEvent(int button, int action, int mods);
 		virtual void cursorPosEvent(double xpos, double ypos);
 

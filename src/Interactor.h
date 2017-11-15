@@ -10,6 +10,7 @@ namespace molumes
 		Interactor(Viewer* viewer);
 		Viewer * viewer();
 
+		virtual void framebufferSizeEvent(int width, int height);
 		virtual void keyEvent(int key, int scancode, int action, int mods);
 		virtual void mouseButtonEvent(int button, int action, int mods);
 		virtual void cursorPosEvent(double xpos, double ypos);

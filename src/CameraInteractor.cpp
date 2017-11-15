@@ -17,12 +17,15 @@ using namespace glm;
 
 CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 {
-	vec2 viewportSize = viewer->viewportSize();
-	float aspect = float(viewportSize.x) / float(viewportSize.y);
-
-	viewer->setProjectionTransform(perspective(45.0f, aspect, 0.0125f, 16.0f));
 	viewer->setViewTransform(lookAt(vec3(0.0f, 0.0f, -2.0f*sqrt(3.0f)), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
+	vec2 viewportSize = viewer->viewportSize();
+	framebufferSizeEvent(viewportSize.x, viewportSize.y);
+}
 
+void CameraInteractor::framebufferSizeEvent(int width, int height)
+{
+	float aspect = float(width) / float(height);
+	viewer()->setProjectionTransform(perspective(45.0f, aspect, 0.0125f, 16.0f));
 }
 
 void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
