@@ -21,6 +21,16 @@ CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 {
 	resetProjectionTransform();
 	resetViewTransform();
+
+	std::cout << "Camera interactor usage:" << std::endl;
+	std::cout << "  Left mouse - rotate" << std::endl;
+	std::cout << "  Middle mouse - pan" << std::endl;
+	std::cout << "  Right mouse - zoom" << std::endl;
+	std::cout << "  Home - reset view" << std::endl;
+	std::cout << "  Cursor left - rotate negative around current y-axis" << std::endl;
+	std::cout << "  Cursor right - rotate positive around current y-axis" << std::endl;
+	std::cout << "  Cursor up - rotate negative around current x-axis" << std::endl;
+	std::cout << "  Cursor right - rotate positive around current x-axis" << std::endl << std::endl;
 }
 
 void CameraInteractor::framebufferSizeEvent(int width, int height)
