@@ -65,7 +65,7 @@ int main(int /*argc*/, char * /*argv*/[])
 		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
 
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load("./dat/4B23.pdb");
+	scene->protein()->load("./dat/5ldw.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Main loop
