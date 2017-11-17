@@ -16,5 +16,3 @@ target_link_libraries(molumes PUBLIC glbinding::glbinding)
 target_link_libraries(molumes PUBLIC globjects::globjects)
 
 set_target_properties(molumes PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-
-

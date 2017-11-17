@@ -11,11 +11,14 @@ namespace molumes
 	public:
 		Renderer(Viewer* viewer);
 		Viewer * viewer();
-		virtual void display() = 0;
+		void setEnabled(bool enabled);
+		bool isEnabled() const;
 		virtual std::list<globjects::File*> shaderFiles() const;
+		virtual void display() = 0;
 
 	private:
 		Viewer* m_viewer;
+		bool m_enabled = true;
 	};
 
 }

@@ -38,23 +38,6 @@ BoundingBoxRenderer::BoundingBoxRenderer(Viewer* viewer) : Renderer(viewer)
 		// right
 		{3,2,6,7}
 	}};
-	
-	/*
-	static std::array< std::array<GLushort, 4>, 24> indices{ {
-		// front
-		{3,0,1,2}, {0,1,2,3}, {1,2,3,0}, {2,3,0,1},
-		// top
-		{2,1,5,6}, {1,5,6,2}, {5,6,2,1}, {6,2,1,5}, 
-		// back
-		{4,7,6,5}, {7,6,5,4}, {6,5,4,7}, {5,4,7,6},
-		// bottom
-		{7,4,0,3}, {4,0,3,7}, {0,3,7,4}, {3,7,4,0},
-		// left
-		{0,4,5,1}, {4,5,1,0}, {5,1,0,4}, {1,0,4,5},
-		// right
-		{7,3,2,6}, {3,2,6,7}, {2,6,7,3}, {6,7,3,2}
-	} };
-	*/
 
 	m_indices->setData(indices, GL_STATIC_DRAW);
 	m_vertices->setData(vertices, GL_STATIC_DRAW);
@@ -123,4 +106,7 @@ void BoundingBoxRenderer::display()
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 	m_vao->drawElements(GL_PATCHES, m_size, GL_UNSIGNED_SHORT, nullptr);
 	m_vao->unbind();
+
+	glDisable(GL_BLEND);
+	glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 }

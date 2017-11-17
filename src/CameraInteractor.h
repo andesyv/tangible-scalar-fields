@@ -11,12 +11,21 @@ namespace molumes
 	public:
 		CameraInteractor(Viewer * viewer);
 		virtual void framebufferSizeEvent(int width, int height);
+		virtual void keyEvent(int key, int scancode, int action, int mods);
 		virtual void mouseButtonEvent(int button, int action, int mods);
 		virtual void cursorPosEvent(double xpos, double ypos);
+
+		void resetProjectionTransform();
+		void resetViewTransform();
 
 	private:
 
 		glm::vec3 arcballVector(double x, double y);
+
+		float m_fov = 45.0f;
+		float m_near = 0.0125f;
+		float m_far = 32.0f;
+		float m_distance = 2.0f*sqrt(3.0f);
 
 		bool m_rotating = false;
 		bool m_scaling = false;

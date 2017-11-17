@@ -10,6 +10,7 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/constants.hpp>
 
 #include "Viewer.h"
 
@@ -18,15 +19,58 @@ using namespace glm;
 
 CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 {
-	viewer->setViewTransform(lookAt(vec3(0.0f, 0.0f, -2.0f*sqrt(3.0f)), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
-	vec2 viewportSize = viewer->viewportSize();
-	framebufferSizeEvent(viewportSize.x, viewportSize.y);
+	resetProjectionTransform();
+	resetViewTransform();
 }
 
 void CameraInteractor::framebufferSizeEvent(int width, int height)
 {
 	float aspect = float(width) / float(height);
-	viewer()->setProjectionTransform(perspective(45.0f, aspect, 0.0125f, 16.0f));
+	viewer()->setProjectionTransform(perspective(m_fov, aspect, m_near, m_far));
+}
+
+void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_HOME && action == GLFW_RELEASE)
+	{
+		resetViewTransform();
+	}
+	else if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
+	{
+		mat4 viewTransform = viewer()->viewTransform();
+		mat4 inverseViewTransform = inverse(viewTransform);
+		vec4 transformedAxis = inverseViewTransform * vec4(0.0,1.0,0.0,0.0);
+
+		mat4 newViewTransform = rotate(viewTransform, -0.5f*quarter_pi<float>(), vec3(transformedAxis));
+		viewer()->setViewTransform(newViewTransform);
+	}
+	else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
+	{
+		mat4 viewTransform = viewer()->viewTransform();
+		mat4 inverseViewTransform = inverse(viewTransform);
+		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 1.0, 0.0, 0.0);
+
+		mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
+		viewer()->setViewTransform(newViewTransform);
+	}
+	else if (key == GLFW_KEY_UP && action == GLFW_RELEASE)
+	{
+		mat4 viewTransform = viewer()->viewTransform();
+		mat4 inverseViewTransform = inverse(viewTransform);
+		vec4 transformedAxis = inverseViewTransform * vec4(1.0, 0.0, 0.0, 0.0);
+
+		mat4 newViewTransform = rotate(viewTransform, -0.5f*quarter_pi<float>(), vec3(transformedAxis));
+		viewer()->setViewTransform(newViewTransform);
+	}
+	else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE)
+	{
+		mat4 viewTransform = viewer()->viewTransform();
+		mat4 inverseViewTransform = inverse(viewTransform);
+		vec4 transformedAxis = inverseViewTransform * vec4(1.0, 0.0, 0.0, 0.0);
+
+		mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
+		viewer()->setViewTransform(newViewTransform);
+	}
 }
 
 void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
@@ -130,6 +174,17 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			m_yPrevious = m_yCurrent;
 		}
 	}
+}
+
+void CameraInteractor::resetProjectionTransform()
+{
+	vec2 viewportSize = viewer()->viewportSize();
+	framebufferSizeEvent(viewportSize.x, viewportSize.y);
+}
+
+void CameraInteractor::resetViewTransform()
+{
+	viewer()->setViewTransform(lookAt(vec3(0.0f, 0.0f, -m_distance), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
 }
 
 vec3 CameraInteractor::arcballVector(double x, double y)

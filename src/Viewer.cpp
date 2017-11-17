@@ -19,6 +19,16 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
 	m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
+
+	int i = 1;
+
+	std::cout << "Available renderers (use the number keys to toggle):" << std::endl;
+
+	for (auto& r : m_renderers)
+	{
+		std::cout << "  " << i << " - " << typeid(*r.get()).name() << std::endl << std::endl;
+	}
+
 }
 
 void Viewer::display()
@@ -28,7 +38,8 @@ void Viewer::display()
 
 	for (auto& r : m_renderers)
 	{
-		r->display();
+		if (r->isEnabled())
+			r->display();
 	}
 }
 
@@ -112,13 +123,34 @@ void Viewer::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
 		{
 			for (auto& r : viewer->m_renderers)
 			{
+				std::cout << "Reloading shaders for instance of " << typeid(*r.get()).name() << " ... " << std::endl;
+
 				for (auto& s : r->shaderFiles())
 				{
-					globjects::debug() << "Reloading shader" << s->shortInfo();
+					std::cout << "  " << s->shortInfo() << std::endl;
 					s->reload();
 				}
+				std::cout << r->shaderFiles().size() << " shaders reloaded." << std::endl << std::endl;
+
 			}
 		}
+		else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && action == GLFW_RELEASE)		
+		{
+			int index = key - GLFW_KEY_1;
+
+			if (index < viewer->m_renderers.size())
+			{
+				bool enabled = viewer->m_renderers[index]->isEnabled();
+
+				if (enabled)
+					std::cout << "Renderer " << index + 1 << " of type " << typeid(*viewer->m_renderers[index].get()).name() << " is now disabled." << std::endl << std::endl;
+				else
+					std::cout << "Renderer " << index + 1 << " of type " << typeid(*viewer->m_renderers[index].get()).name() << " is now enabled." << std::endl << std::endl;
+
+				viewer->m_renderers[index]->setEnabled(!enabled);
+			}
+		}
+
 
 		for (auto& i : viewer->m_interactors)
 		{

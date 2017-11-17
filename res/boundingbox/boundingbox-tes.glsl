@@ -6,7 +6,6 @@ out vec3 tePosition;
 out vec4 tePatchDistance;
 uniform mat4 Projection;
 uniform mat4 Modelview;
-uniform mat4 B, BT;
 
 void main()
 {

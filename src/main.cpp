@@ -11,6 +11,7 @@
 #include <globjects/logging.h>
 
 #include "Scene.h"
+#include "Protein.h"
 #include "Viewer.h"
 #include "Interactor.h"
 #include "Renderer.h"
@@ -64,6 +65,7 @@ int main(int /*argc*/, char * /*argv*/[])
 		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
 
 	auto scene = std::make_unique<Scene>();
+	scene->protein()->load("./dat/4B23.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Main loop
