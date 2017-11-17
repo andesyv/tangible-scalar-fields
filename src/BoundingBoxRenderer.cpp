@@ -23,26 +23,43 @@ BoundingBoxRenderer::BoundingBoxRenderer(Viewer* viewer) : Renderer(viewer)
 		{ -1.0, 1.0, -1.0 }
 	}};
 
-	static std::array< std::array<GLushort, 2>, 24> indices{ {
+	
+	static std::array< std::array<GLushort, 4>, 6> indices{ {
 		// front
-		{0,1}, {1,2}, {2,3}, {3,0},
+		{0,1,2,3},
 		// top
-		{1,5}, {5,6}, {6,2}, {2,1}, 
+		{1,5,6,2},
 		// back
-		{7,6}, {6,5}, {5,4}, {4,7},
+		{7,6,5,4},
 		// bottom
-		{4,0}, {0,3}, {3,7}, {7,4},
+		{4,0,3,7},
 		// left
-		{4,5}, {5,1}, {1,0}, {0,4},
+		{4,5,1,0},
 		// right
-		{3,2}, {2,6}, {6,7}, {7,3}
+		{3,2,6,7}
+	}};
+	
+	/*
+	static std::array< std::array<GLushort, 4>, 24> indices{ {
+		// front
+		{3,0,1,2}, {0,1,2,3}, {1,2,3,0}, {2,3,0,1},
+		// top
+		{2,1,5,6}, {1,5,6,2}, {5,6,2,1}, {6,2,1,5}, 
+		// back
+		{4,7,6,5}, {7,6,5,4}, {6,5,4,7}, {5,4,7,6},
+		// bottom
+		{7,4,0,3}, {4,0,3,7}, {0,3,7,4}, {3,7,4,0},
+		// left
+		{0,4,5,1}, {4,5,1,0}, {5,1,0,4}, {1,0,4,5},
+		// right
+		{7,3,2,6}, {3,2,6,7}, {2,6,7,3}, {6,7,3,2}
 	} };
+	*/
 
 	m_indices->setData(indices, GL_STATIC_DRAW);
 	m_vertices->setData(vertices, GL_STATIC_DRAW);
 
-	m_size = static_cast<GLsizei>(indices.size() * 3);
-
+	m_size = static_cast<GLsizei>(indices.size()*indices.front().size());
 	m_vao->bindElementBuffer(m_indices.get());
 
 	auto vertexBinding = m_vao->binding(0);
@@ -53,23 +70,57 @@ BoundingBoxRenderer::BoundingBoxRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_vao->unbind();
 
-	m_vertexShaderSource = Shader::sourceFromFile("./res/boundingbox.vert");
-	m_fragmentShaderSource = Shader::sourceFromFile("./res/boundingbox.frag");
+	m_vertexShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-vs.glsl");
+	m_tesselationControlShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-tcs.glsl");
+	m_tesselationEvaluationShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-tes.glsl");
+	m_geometryShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-gs.glsl");
+	m_fragmentShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-fs.glsl");
 
-	m_vertexShader = Shader::create(GL_VERTEX_SHADER,m_vertexShaderSource.get());
-	m_fragmentShader = Shader::create(GL_FRAGMENT_SHADER,m_fragmentShaderSource.get());
+	m_vertexShader = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSource.get());
+	m_tesselationControlShader = Shader::create(GL_TESS_CONTROL_SHADER, m_tesselationControlShaderSource.get());
+	m_tesselationEvaluationShader = Shader::create(GL_TESS_EVALUATION_SHADER, m_tesselationEvaluationShaderSource.get());
+	m_geometryShader = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSource.get());
+	m_fragmentShader = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSource.get());
 
-	m_program->attach(m_vertexShader.get(), m_fragmentShader.get());
+	m_program->attach(m_vertexShader.get(), m_tesselationControlShader.get(), m_tesselationEvaluationShader.get(), m_geometryShader.get(), m_fragmentShader.get());
+}
+
+std::list<globjects::File*> BoundingBoxRenderer::shaderFiles() const
+{
+	return std::list<globjects::File*>({ 
+		m_vertexShaderSource.get(),
+		m_tesselationControlShaderSource.get(),
+		m_tesselationEvaluationShaderSource.get(),
+		m_geometryShaderSource.get(),
+		m_fragmentShaderSource.get()
+	});
 }
 
 void BoundingBoxRenderer::display()
 {
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+
+	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	m_program->setUniform("Projection", viewer()->projectionTransform());
+	m_program->setUniform("Modelview", viewer()->modelViewTransform());
+	m_program->setUniform("NormalMatrix", inverse(mat3(viewer()->modelViewTransform())) );
+
+	m_program->setUniform("TessLevelInner", 1.0f);
+	m_program->setUniform("TessLevelOuter", 1.0f);
+
+	m_program->setUniform("LightPosition", vec3(0.25f, 0.25f, 0.75f));
+	m_program->setUniform("AmbientMaterial", vec3(0.04f, 0.04f, 0.04f));
+	m_program->setUniform("DiffuseMaterial", vec3(0.0f, 0.75f, 0.75f));
+	m_program->setUniform("SpecularMaterial", vec3(0.5f, 0.5f, 0.5f));
+	m_program->setUniform("Shininess", 50.0f);
 	m_program->use();
-	m_program->setUniform("u_modelViewProjection", viewer()->modelViewProjectionTransform());
 
 	m_vao->bind();
-	m_vao->drawElements(GL_LINES, m_size, GL_UNSIGNED_SHORT, nullptr);
+	glPatchParameteri(GL_PATCH_VERTICES, 4);
+	m_vao->drawElements(GL_PATCHES, m_size, GL_UNSIGNED_SHORT, nullptr);
 	m_vao->unbind();
-
-	m_program->release();
 }

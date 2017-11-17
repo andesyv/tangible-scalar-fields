@@ -1,9 +1,9 @@
 #include "Viewer.h"
 
 #include <glbinding/gl/gl.h>
+#include <iostream>
 #include "CameraInteractor.h"
 #include "BoundingBoxRenderer.h"
-
 
 using namespace molumes;
 using namespace gl;
@@ -26,9 +26,9 @@ void Viewer::display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, viewportSize().x, viewportSize().y);
 
-	for (auto& i : m_renderers)
+	for (auto& r : m_renderers)
 	{
-		i->display();
+		r->display();
 	}
 }
 
@@ -108,6 +108,18 @@ void Viewer::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
 
 	if (viewer)
 	{
+		if (key == GLFW_KEY_F5 && action == GLFW_RELEASE)
+		{
+			for (auto& r : viewer->m_renderers)
+			{
+				for (auto& s : r->shaderFiles())
+				{
+					globjects::debug() << "Reloading shader" << s->shortInfo();
+					s->reload();
+				}
+			}
+		}
+
 		for (auto& i : viewer->m_interactors)
 		{
 			i->keyEvent(key, scancode, action, mods);

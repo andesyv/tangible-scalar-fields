@@ -36,6 +36,7 @@ int main(int /*argc*/, char * /*argv*/[])
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+	glfwWindowHint(GLFW_SAMPLES, 8);
 
 	// Create a context and, if valid, make it current
 	GLFWwindow * window = glfwCreateWindow(768, 768, "molumes", NULL, NULL);
@@ -68,9 +69,9 @@ int main(int /*argc*/, char * /*argv*/[])
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
-		glfwPollEvents();
 		viewer->display();
 		glfwSwapBuffers(window);
+		glfwWaitEvents();
 	}
 
 	// Destroy window

@@ -10,3 +10,8 @@ Viewer * Renderer::viewer()
 {
 	return m_viewer;
 }
+
+std::list<globjects::File*> Renderer::shaderFiles() const
+{
+	return std::list<globjects::File*>();
+}

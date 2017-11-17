@@ -18,7 +18,9 @@ namespace molumes
 
 		glm::vec3 arcballVector(double x, double y);
 
-		bool m_active = false;
+		bool m_rotating = false;
+		bool m_scaling = false;
+		bool m_panning = false;
 		double m_xPrevious = 0.0, m_yPrevious = 0.0;
 		double m_xCurrent = 0.0, m_yCurrent = 0.0;
 	};

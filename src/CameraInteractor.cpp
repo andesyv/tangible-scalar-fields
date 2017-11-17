@@ -1,6 +1,7 @@
 #include "CameraInteractor.h"
 
 #include <iostream>
+#include <algorithm>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -32,13 +33,27 @@ void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		m_active = true;
+		m_rotating = true;
+		m_xPrevious = m_xCurrent;
+		m_yPrevious = m_yCurrent;
+	}
+	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+	{
+		m_scaling = true;
+		m_xPrevious = m_xCurrent;
+		m_yPrevious = m_yCurrent;
+	}
+	else if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS)
+	{
+		m_panning = true;
 		m_xPrevious = m_xCurrent;
 		m_yPrevious = m_yCurrent;
 	}
 	else
 	{
-		m_active = false;
+		m_rotating = false;
+		m_scaling = false;
+		m_panning = false;
 	}
 }
 
@@ -47,7 +62,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 	m_xCurrent = xpos;
 	m_yCurrent = ypos;
 
-	if (m_active)
+	if (m_rotating)
 	{
 		if (m_xCurrent != m_xPrevious && m_yCurrent != m_yPrevious)
 		{
@@ -61,6 +76,54 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
 
 			mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
+			viewer()->setViewTransform(newViewTransform);
+
+			m_xPrevious = m_xCurrent;
+			m_yPrevious = m_yCurrent;
+		}
+	}
+
+	if (m_scaling)
+	{
+		if (m_xCurrent != m_xPrevious && m_yCurrent != m_yPrevious)
+		{
+			ivec2 viewportSize = viewer()->viewportSize();
+			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
+			vec2 vb = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
+			vec2 d = vb - va;
+
+			float l = std::abs(d.x) > std::abs(d.y) ? d.x : d.y;
+			float s = 1.0;
+
+			if (l > 0.0f)
+			{
+				s += std::min(0.5f, 2.0f*length(d));
+			}
+			else
+			{
+				s -= std::min(0.5f, 2.0f*length(d));
+			}
+
+			mat4 viewTransform = viewer()->viewTransform();
+			mat4 newViewTransform = scale(viewTransform, vec3(s, s, s));
+			viewer()->setViewTransform(newViewTransform);
+
+			m_xPrevious = m_xCurrent;
+			m_yPrevious = m_yCurrent;
+		}
+	}
+
+	if (m_panning)
+	{
+		if (m_xCurrent != m_xPrevious && m_yCurrent != m_yPrevious)
+		{
+			ivec2 viewportSize = viewer()->viewportSize();
+			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
+			vec2 vb = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
+			vec2 d = vb - va;
+
+			mat4 viewTransform = viewer()->viewTransform();
+			mat4 newViewTransform = translate(mat4(1.0),vec3(2.0f*d.x,2.0f*d.y,0.0f))*viewTransform;
 			viewer()->setViewTransform(newViewTransform);
 
 			m_xPrevious = m_xCurrent;
