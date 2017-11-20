@@ -1,9 +1,9 @@
 #version 400
 
-in vec3 Position;
+in vec3 position;
 out vec3 vPosition;
 
 void main()
 {
-    vPosition = Position.xyz;
+    vPosition = position.xyz;
 }

@@ -88,18 +88,9 @@ void BoundingBoxRenderer::display()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	m_program->setUniform("Projection", viewer()->projectionTransform());
-	m_program->setUniform("Modelview", viewer()->modelViewTransform());
-	m_program->setUniform("NormalMatrix", inverse(mat3(viewer()->modelViewTransform())) );
+	m_program->setUniform("projection", viewer()->projectionTransform());
+	m_program->setUniform("modelView", viewer()->viewTransform());
 
-	m_program->setUniform("TessLevelInner", 1.0f);
-	m_program->setUniform("TessLevelOuter", 1.0f);
-
-	m_program->setUniform("LightPosition", vec3(0.25f, 0.25f, 0.75f));
-	m_program->setUniform("AmbientMaterial", vec3(0.04f, 0.04f, 0.04f));
-	m_program->setUniform("DiffuseMaterial", vec3(0.0f, 0.75f, 0.75f));
-	m_program->setUniform("SpecularMaterial", vec3(0.5f, 0.5f, 0.5f));
-	m_program->setUniform("Shininess", 50.0f);
 	m_program->use();
 
 	m_vao->bind();
@@ -109,4 +100,6 @@ void BoundingBoxRenderer::display()
 
 	glDisable(GL_BLEND);
 	glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+	
+	m_program->release();
 }

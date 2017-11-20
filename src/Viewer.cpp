@@ -4,6 +4,7 @@
 #include <iostream>
 #include "CameraInteractor.h"
 #include "BoundingBoxRenderer.h"
+#include "SphereRenderer.h"
 
 using namespace molumes;
 using namespace gl;
@@ -19,6 +20,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
 	m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
+	m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
 
 	int i = 1;
 
@@ -26,8 +28,11 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 	for (auto& r : m_renderers)
 	{
-		std::cout << "  " << i << " - " << typeid(*r.get()).name() << std::endl << std::endl;
+		std::cout << "  " << i << " - " << typeid(*r.get()).name() << std::endl;
+		++i;
 	}
+
+	std::cout << std::endl;
 
 }
 

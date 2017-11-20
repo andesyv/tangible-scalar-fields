@@ -7,6 +7,10 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/transform.hpp>
+
 #include <globjects/globjects.h>
 #include <globjects/logging.h>
 
@@ -17,6 +21,8 @@
 #include "Renderer.h"
 
 using namespace gl;
+using namespace glm;
+using namespace globjects;
 using namespace molumes;
 
 void error_callback(int errnum, const char * errmsg)
@@ -67,6 +73,13 @@ int main(int /*argc*/, char * /*argv*/[])
 	auto scene = std::make_unique<Scene>();
 	scene->protein()->load("./dat/5ldw.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
+
+	// Scaling the model's bounding box to the canonical view volume
+	vec3 boundingBoxSize = scene->protein()->maximumBounds() - scene->protein()->minimumBounds();
+	float maximumSize = std::max({ boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z });
+	mat4 modelTransform =  scale(vec3(2.0f) / vec3(maximumSize)); 
+	modelTransform = modelTransform * translate(-0.5f*(scene->protein()->minimumBounds() + scene->protein()->maximumBounds()));
+	viewer->setModelTransform(modelTransform);
 
 	// Main loop
 	while (!glfwWindowShouldClose(window))
