@@ -5,15 +5,15 @@
     {
       "type": "default",
       "project": "CMakeLists.txt",
-      "projectTarget": "${buildRoot}\\..\\..\\bin\\Debug\\molumes.exe",
-      "name": "${buildRoot}\\..\\..\\bin\\Debug\\molumes.exe",
+      "projectTarget": "molumes.exe (D:\\Users\\bruckner\\Projects\\molumes\\bin\\Debug\\molumes.exe)",
+      "name": "molumes.exe (D:\\Users\\bruckner\\Projects\\molumes\\bin\\Debug\\molumes.exe)",
       "currentDir": "${projectDir}"
     },
     {
       "type": "default",
       "project": "CMakeLists.txt",
-      "projectTarget": "${buildRoot}\\..\\..\\bin\\Release\\molumes.exe",
-      "name": "${buildRoot}\\..\\..\\bin\\Release\\molumes.exe",
+      "projectTarget": "molumes.exe (D:\\Users\\bruckner\\Projects\\molumes\\bin\\Release\\molumes.exe)",
+      "name": "molumes.exe (D:\\Users\\bruckner\\Projects\\molumes\\bin\\Release\\molumes.exe)",
       "currentDir": "${projectDir}"
     }
   ]

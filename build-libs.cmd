@@ -9,7 +9,7 @@ SET DEPENDENCIES=
 md ext
 cd ext
 
-FOR %%A IN (glfw,glm,glbinding,globjects) DO CALL :Build %%A
+FOR %%A IN (nanogui) DO CALL :Build %%A
 
 goto End
 
@@ -37,6 +37,4 @@ IF "%DEPENDENCIES%" == "" (
 cd %~dp0
 
 :End
-rd /S /Q ext
-  
-  
+rem rd /S /Q ext

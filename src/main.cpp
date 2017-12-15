@@ -42,6 +42,7 @@ int main(int /*argc*/, char * /*argv*/[])
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);
+	glfwWindowHint(GLFW_DOUBLEBUFFER, true);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 	glfwWindowHint(GLFW_SAMPLES, 8);
 
@@ -71,7 +72,7 @@ int main(int /*argc*/, char * /*argv*/[])
 		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
 
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load("./dat/5ldw.pdb");
+	scene->protein()->load("./dat/5odv.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Scaling the model's bounding box to the canonical view volume
@@ -81,12 +82,16 @@ int main(int /*argc*/, char * /*argv*/[])
 	modelTransform = modelTransform * translate(-0.5f*(scene->protein()->minimumBounds() + scene->protein()->maximumBounds()));
 	viewer->setModelTransform(modelTransform);
 
+
+	glfwSwapInterval(0);
+
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
+		glfwPollEvents();
 		viewer->display();
+		//glFinish();
 		glfwSwapBuffers(window);
-		glfwWaitEvents();
 	}
 
 	// Destroy window

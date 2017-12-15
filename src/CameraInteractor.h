@@ -24,7 +24,7 @@ namespace molumes
 
 		float m_fov = 45.0f;
 		float m_near = 0.0125f;
-		float m_far = 32.0f;
+		float m_far = 128.0f;
 		float m_distance = 2.0f*sqrt(3.0f);
 
 		bool m_rotating = false;

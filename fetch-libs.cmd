@@ -14,3 +14,12 @@ git clone https://github.com/cginternals/glbinding.git
 
 rd /S /Q globjects
 git clone https://github.com/cginternals/globjects.git
+
+cd ..
+md lib
+cd lib
+
+rd /S /Q imgui
+git clone https://github.com/ocornut/imgui.git
+
+cd ..

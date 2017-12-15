@@ -14,10 +14,10 @@ void main()
 
 	if(gl_FrontFacing)
 	{
-		fragColor = vec4(1.0, 1.0, 1.0, (1.0-edgeFactor)*0.95);
+		fragColor = vec4(0.5, 0.5, 0.5, (1.0-edgeFactor)*0.95);
 	}
 	else
 	{
-		fragColor = vec4(1.0, 1.0, 1.0, (1.0-edgeFactor)*0.7);
+		fragColor = vec4(0.5, 0.5, 0.5, (1.0-edgeFactor)*0.7);
 	}
 }
