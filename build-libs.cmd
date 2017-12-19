@@ -9,7 +9,7 @@ SET DEPENDENCIES=
 md ext
 cd ext
 
-FOR %%A IN (nanogui) DO CALL :Build %%A
+FOR %%A IN (glfw,glm,glbinding,globjects) DO CALL :Build %%A
 
 goto End
 
