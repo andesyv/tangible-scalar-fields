@@ -616,7 +616,7 @@ void Viewer::mainMenu()
 			ImGui::EndMenu();
 		}
 
-		ImGui::End();
+		ImGui::EndMainMenuBar();
 	}
 }
 
