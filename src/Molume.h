@@ -35,6 +35,7 @@ namespace molumes
 		glm::vec3 m_minimumBounds = glm::vec3(0.0);
 		glm::vec3 m_maximumBounds = glm::vec3(0.0);
 		glm::ivec3 m_size = glm::ivec3(0);
+		const float m_resolutionScale = 2.0f;
 	};
 
 }

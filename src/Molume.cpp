@@ -1,5 +1,8 @@
 #include "Molume.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
+
 using namespace molumes;
 using namespace gl;
 using namespace glm;
@@ -12,7 +15,7 @@ Molume::Molume()
 void Molume::setBounds(const vec3& minimumBounds, const vec3& maximumBounds)
 {
 	static ivec3 pageSize = Molume::pageSize();
-	vec3 size = maximumBounds - minimumBounds;
+	vec3 size = (maximumBounds - minimumBounds)*m_resolutionScale;
 
 	m_minimumBounds = minimumBounds;
 	m_maximumBounds = maximumBounds;
@@ -53,7 +56,7 @@ void Molume::insert(const std::vector<vec3>& positions)
 void Molume::setValue(const vec3 & pos, float val)
 {
 	static ivec3 pageSize = Molume::pageSize();
-	vec3 position = pos - m_minimumBounds;
+	vec3 position = (pos - m_minimumBounds)*m_resolutionScale;
 
 	ivec3 pagePosition = ivec3(position) / pageSize;
 	vec3 pageOffset = position - vec3(pagePosition*pageSize);
@@ -68,9 +71,15 @@ void Molume::setValue(const vec3 & pos, float val)
 			m_pages.resize(pageIndex + 1);
 
 		if (m_pages[pageIndex] == nullptr)
+		{
 			m_pages[pageIndex] = std::make_unique<u8vec4[]>(pageSize.x*pageSize.y*pageSize.z);
+		}
 		
 		int cellIndex = cellPosition.x + cellPosition.y*pageSize.x + cellPosition.z*pageSize.x*pageSize.y;
+
+		if (m_pages[pageIndex][cellIndex].w > 0)
+			globjects::warning() << "Page " << pageIndex << ", cell " << cellIndex << " for positon " << to_string(pos) << " already set -- overwriting!";
+
 		m_pages[pageIndex][cellIndex] = u8vec4((uint8)255.0f*cellOffset.x, (uint8)255.0f*cellOffset.y, (uint8)255.0f*cellOffset.z, (uint8)255.0f*val);		
 	}
 }
