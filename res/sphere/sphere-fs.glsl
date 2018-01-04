@@ -36,8 +36,8 @@ Sphere calcSphereIntersection(float r, vec3 origin, vec3 center, vec3 line)
 	{
 		float da = -loc + sqrt(under_square_root);
 		float ds = -loc - sqrt(under_square_root);
-		vec3 near = min(da, ds) * l;
-		vec3 far = max(da, ds) * l;
+		vec3 near = origin + min(da, ds) * l;
+		vec3 far = origin + max(da, ds) * l;
 		vec3 normal = (near - center);
 
 		return Sphere(true, near, far, normal);

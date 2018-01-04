@@ -48,7 +48,7 @@ BoundingBoxRenderer::BoundingBoxRenderer(Viewer* viewer) : Renderer(viewer)
 	auto vertexBinding = m_vao->binding(0);
 	vertexBinding->setAttribute(0);
 	vertexBinding->setBuffer(m_vertices.get(), 0, sizeof(vec3));
-	vertexBinding->setFormat(3, GL_FLOAT, GL_TRUE);
+	vertexBinding->setFormat(3, GL_FLOAT);
 	m_vao->enable(0);
 
 	m_vao->unbind();
