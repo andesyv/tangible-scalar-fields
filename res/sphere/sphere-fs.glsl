@@ -1,19 +1,13 @@
 #version 450
 
-uniform mat4 projection;
+uniform mat4 modelViewProjection;
+uniform mat4 inverseModelViewProjection;
 
-uniform vec3 lightPosition;
-uniform vec3 diffuseMaterial;
-uniform vec3 ambientMaterial;
-uniform vec3 specularMaterial;
-uniform float shininess;
-uniform mat3 normalMatrix;
-
-in vec4 gSpherePosition;
 in vec4 gFragmentPosition;
+in vec4 gSpherePosition;
 in float gSphereRadius;
 
-out vec4 fragColor;
+out vec4 fragPosition;
 out vec4 fragNormal;
 
 precision highp float;
@@ -36,8 +30,8 @@ Sphere calcSphereIntersection(float r, vec3 origin, vec3 center, vec3 line)
 	{
 		float da = -loc + sqrt(under_square_root);
 		float ds = -loc - sqrt(under_square_root);
-		vec3 near = origin + min(da, ds) * l;
-		vec3 far = origin + max(da, ds) * l;
+		vec3 near = origin+min(da, ds) * l;
+		vec3 far = origin+max(da, ds) * l;
 		vec3 normal = (near - center);
 
 		return Sphere(true, near, far, normal);
@@ -52,7 +46,7 @@ float calcDepth(vec3 pos)
 {
 	float far = gl_DepthRange.far; 
 	float near = gl_DepthRange.near;
-	vec4 clip_space_pos = projection * vec4(pos, 1.0);
+	vec4 clip_space_pos = modelViewProjection * vec4(pos, 1.0);
 	float ndc_depth = clip_space_pos.z / clip_space_pos.w;
 	return (((far - near) * ndc_depth) + near + far) / 2.0;
 }
@@ -60,30 +54,23 @@ float calcDepth(vec3 pos)
 
 void main()
 {
-	vec3 V = normalize(gFragmentPosition.xyz);
+	vec4 fragCoord = gFragmentPosition;
+	fragCoord /= fragCoord.w;
 	
-	Sphere sphere = calcSphereIntersection(gSphereRadius, vec3(0.0), gSpherePosition.xyz, V);
+	vec4 near = inverseModelViewProjection*vec4(fragCoord.xy,-1.0,1.0);
+	near /= near.w;
+
+	vec4 far = inverseModelViewProjection*vec4(fragCoord.xy,1.0,1.0);
+	far /= far.w;
+
+	vec3 V = normalize(far.xyz-near.xyz);	
+	Sphere sphere = calcSphereIntersection(gSphereRadius, near.xyz, gSpherePosition.xyz, V);
 	
 	if (!sphere.hit)
 		discard;
 
-	// vectors
-	vec3 N = sphere.normal;
-	vec3 L = normalize(lightPosition - sphere.near);
-	vec3 R = normalize(reflect(L, N));
-	float NdotL = max(0, dot(N, L));
-	float RdotV = max(0, dot(R, V));
-
-    //vec3 color = ambientMaterial*16.0;// + NdotL * diffuseMaterial + pow(RdotV,shininess) * specularMaterial;
-	vec3 color = vec3(1.0,1.0,1.0);//+pow(RdotV,shininess) * specularMaterial;//ambientMaterial + NdotL * diffuseMaterial + pow(RdotV,shininess) * specularMaterial;
-	/*
-	float NdotV = dot(N,-V);
-
-	float d = fwidth(NdotV);
-    float s = smoothstep(0.0, mix(1.0,10.0*d,0.125), 2.0*NdotV);
-	float a = smoothstep(0.0, d*3.0, NdotV);
-	*/
-	fragColor = vec4(color,1.0);
-	fragNormal = vec4(-sphere.normal,1.0);//vec4(normalize(normalMatrix*(mix(vec3(0.0,0.0,-1.0),-N,1.0))),1.0);
-	gl_FragDepth = calcDepth(sphere.near.xyz);
+	float depth = calcDepth(sphere.near.xyz);
+	fragPosition = vec4(sphere.near.xyz,length(sphere.near.xyz-near.xyz));
+	fragNormal = vec4(sphere.normal,1.0);//vec4(normalize(normalMatrix*(mix(vec3(0.0,0.0,-1.0),-N,1.0))),1.0);
+	gl_FragDepth = depth;
 }
