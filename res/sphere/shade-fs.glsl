@@ -323,6 +323,7 @@ void main()
 
 //#define POSTSORT
 
+#ifdef GAUSSIAN
 #ifndef POSTSORT
 		if (currentIndex > 0)
 		{
@@ -399,6 +400,7 @@ void main()
 			}
 		}
 
+#endif
 #endif
 
 	}
@@ -478,8 +480,477 @@ void main()
 	}
 #endif
 
-	if (closestDistance >= 65535.0f)
-		discard;
+//	if (closestDistance >= 65535.0f)
+//		discard;
+
+	ivec3 sid = ivec3(0,0,0);
+	vec4 pos;
+
+	const float eps = 0.001;
+	for (uint i=0;i < entryCount-1;i++)
+	{
+//		if (depth.r < intersections[indices[i]].near.w)
+//			break;
+			
+		uint j = i+1;
+		uint count = 0;
+		bool hit = false;
+
+		while (j < entryCount && intersections[indices[i]].far.w >= intersections[indices[j]].near.w)
+		{
+//			if (depth.r < intersections[indices[i]].near.w)
+//				break;
+			//if (false)
+			{
+				uint ii = indices[i];
+				uint ij = indices[j];
+
+				// Torus
+				vec4 nearPosition = intersections[ii].near;
+				vec4 farPosition = intersections[ii].far;
+
+				sort2(intersections[ii].id,ii,intersections[ij].id,ij);
+				vec3 ai = intersections[ii].center;
+				vec3 aj = intersections[ij].center;
+				float ri = intersections[ii].radius; 
+				float rj = intersections[ij].radius;
+				float rp = probeRadius;
+				float dij = length(aj-ai);
+				vec3 uij = (aj-ai)/dij;
+				vec3 tij = 0.5*(ai+aj)+0.5*(aj-ai)*((ri+rp)*(ri+rp) - (rj+rp)*(rj+rp))/(dij*dij);
+				float rij_a = (ri+rj+2.0*rp)*(ri+rj+2.0*rp)-dij*dij;
+				float rij_b = dij*dij-(ri-rj)*(ri-rj);
+
+				if (rij_a > eps && rij_b > eps)
+				{
+					float rij = 0.5 * sqrt(rij_a) * sqrt(rij_b) / dij;
+					float rc = rij*ri / (ri+rp);
+
+					vec3 x;
+					if (intersectTorus( nearPosition.xyz, V.xyz, x, tij, uij, vec2(rij,rp) ))				
+					{
+						float dd = length(x-near.xyz);//calcDepth(x);
+
+						if (dd < closestDistance)
+						{
+							vec3 pp = x-tij;
+							vec3 xx = rij*normalize(pp-dot(uij,pp)*uij);
+							vec3 nn = pp-xx;
+						
+							normal.xyz = -normalize(nn);
+							closestDistance = dd;
+							patchColor = vec3(0.0,1.0,0.0);
+							pos = vec4(x,dd);
+							hit = true;
+						}
+					}
+				}
+			}
+
+
+			uint k = j+1;
+
+			uvec3 probeIndices[16];
+			vec3 probesNear[16];
+			vec3 probesFar[16];
+			vec3 torusRadii[16];
+			vec3 probeBase[16];
+			vec3 baseNormal[16];
+			uint probeCount = 0;
+
+			while (k < entryCount && intersections[indices[j]].far.w >= intersections[indices[k]].near.w && intersections[indices[j]].far.w >= intersections[indices[k]].near.w && intersections[indices[j]].far.w >= intersections[indices[k]].near.w)
+			{
+				uint ii = indices[i];
+				uint ij = indices[j];
+				uint ik = indices[k];					
+					
+				vec4 nearPosition = intersections[ii].near;
+				vec4 farPosition = intersections[ii].far;
+				//fragColor = vec4(1.0,0.0,0.0,1.0);
+				//return;
+
+				sort3(intersections[ii].id,ii,intersections[ij].id,ij,intersections[ik].id,ik);
+				//swap(ii,ik);
+
+				vec3 ai = intersections[ii].center;
+				vec3 aj = intersections[ij].center;
+				vec3 ak = intersections[ik].center;
+
+				float ri = intersections[ii].radius; 
+				float rj = intersections[ij].radius;
+				float rk = intersections[ik].radius;
+				float rp = probeRadius;
+
+				float dij = length(aj-ai);
+				float dik = length(ak-ai);
+				float djk = length(ak-aj);
+
+				vec3 uij = (aj-ai)/dij;
+				vec3 uik = (ak-ai)/dik;
+				vec3 ujk = (aj-ak)/djk;
+
+				vec3 tij = 0.5*(ai+aj)+0.5*(aj-ai)*((ri+rp)*(ri+rp) - (rj+rp)*(rj+rp))/(dij*dij);
+				vec3 tik = 0.5*(ai+ak)+0.5*(ak-ai)*((ri+rp)*(ri+rp) - (rk+rp)*(rk+rp))/(dik*dik);
+				vec3 tjk = 0.5*(aj+ak)+0.5*(ak-aj)*((rj+rp)*(rj+rp) - (rk+rp)*(rk+rp))/(djk*djk);
+
+
+				float rij = 0.0;
+				float rij_a = (ri+rj+2.0*rp)*(ri+rj+2.0*rp)-dij*dij;
+				float rij_b = dij*dij-(ri-rj)*(ri-rj);
+
+				if (rij_a > 0.0 && rij_b > 0.0)
+					rij = 0.5 * sqrt(rij_a) * sqrt(rij_b) / dij;
+
+				float rik = 0.0;
+				float rik_a = (ri+rk+2.0*rp)*(ri+rk+2.0*rp)-dik*dik;
+				float rik_b = dik*dik-(ri-rk)*(ri-rk);
+
+				if (rik_a > 0.0 && rik_b > 0.0)
+					rik = 0.5 * sqrt(rik_a) * sqrt(rik_b) / dik;
+
+				float rjk = 0.0;
+				float rjk_a = (rj+rk+2.0*rp)*(rj+rk+2.0*rp)-djk*djk;
+				float rjk_b = djk*djk-(rj-rk)*(rj-rk);
+
+				if (rjk_a > 0.0 && rjk_b > 0.0)
+					rjk = 0.5 * sqrt(rjk_a) * sqrt(rjk_b) / djk;
+
+				vec3 uijk = normalize(cross(uij,uik));
+				vec3 utb = cross(uijk,uij);
+				vec3 bijk = tij + utb*(dot(uik,tik-tij)) / dot(utb,uik);
+
+				float hijk_a = (ri+rp)*(ri+rp) - length(bijk-ai)*length(bijk-ai);
+
+				if (hijk_a > 0.0 && rij > 0.0 && rik > 0.0 && rjk > 0.0)
+				{
+					//fragColor = vec4(1.0,1.0,0.0,1.0);
+					//return;
+
+					float hijk = sqrt(hijk_a);
+
+					//if (hijk > rp)
+					{
+						vec3 pijk0 = bijk - hijk*uijk;						
+						vec3 pijk1 = bijk + hijk*uijk;
+
+				//		if (length(pijk0-ai) >= ri+probeRadius-eps && length(pijk0-aj) >= rj+probeRadius-eps && length(pijk0-ak) >= rk+probeRadius-eps &&
+				//			length(pijk1-ai) >= ri+probeRadius-eps && length(pijk1-aj) >= rj+probeRadius-eps && length(pijk1-ak) >= rk+probeRadius-eps)
+						{
+							probesNear[probeCount] = pijk0;
+							probesFar[probeCount] = pijk1;
+
+							probeIndices[probeCount] = uvec3(ii,ij,ik);
+							torusRadii[probeCount] = vec3(rij,rik,rjk);
+							probeBase[probeCount] = bijk;
+							baseNormal[probeCount] = uijk;
+
+							probeCount++;
+						}
+					}
+				}
+
+				k+=1;
+			}
+			vec3 farHit;
+			vec3 farNormal;
+			float maxFar = 0.0;
+			bool bHit = false;
+
+			for (k=0;k<probeCount;k++)
+			{
+				uint ii = probeIndices[k].x;
+				uint ij = probeIndices[k].y;
+				uint ik = probeIndices[k].z;					
+
+				vec3 ai = intersections[ii].center;
+				vec3 aj = intersections[ij].center;
+				vec3 ak = intersections[ik].center;
+
+				vec3 pijk0 = probesNear[k];
+				vec3 pijk1 = probesFar[k];
+
+				float rij = torusRadii[k].x;
+				float rik = torusRadii[k].y;
+				float rjk = torusRadii[k].z;
+
+				vec3 bijk = probeBase[k];
+				vec3 uijk = baseNormal[k];
+
+				Sphere s0 = calcSphereIntersection(probeRadius,near.xyz,pijk0,V);
+				Sphere s1 = calcSphereIntersection(probeRadius,near.xyz,pijk1,V);
+
+				float ddn0 = length(s0.near.xyz-near.xyz);
+				float ddf0 = length(s0.far.xyz-near.xyz);
+
+				float ddn1 = length(s1.near.xyz-near.xyz);
+				float ddf1 = length(s1.far.xyz-near.xyz);
+				/*
+				if (s0.hit && s1.hit)
+				{
+					if (ddf0 < ddf1)
+						s1.hit = false;
+					else
+						s0.hit = false;
+				}*/
+				/*
+				if (s0.hit && ddn0 > maxFar)
+				{
+					vec3 n1 = normalize(cross(ak-ai,pijk0-ai));
+					vec3 n2 = normalize(cross(ak-aj,pijk0-aj));
+					vec3 n3 = normalize(cross(aj-ai,pijk0-ai));
+						
+					bool bClipped = false;
+						
+					if (dot(s0.far.xyz-ai,n1) > 0.0)
+						bClipped = true;
+					else if (dot(s0.far.xyz-aj,n2) < 0.0)
+						bClipped = true;
+					else if (dot(s0.far.xyz-ai,n3) < 0.0)
+						bClipped = true;
+
+					if (!bClipped)
+					{
+						maxFar = ddf0;
+						farHit = s0.far.xyz;
+						farNormal = normalize(s0.far.xyz-pijk0);
+						bHit = true;
+					}
+				}*/
+
+				/*
+				if (rij < probeRadius)
+				{
+					patchColor = vec3(0.5,1.0,1.0);
+				}
+
+				if (rik < probeRadius)
+				{
+					patchColor = vec3(1.0,0.5,1.0);
+				}
+
+				if (rjk < probeRadius)
+				{
+					patchColor = vec3(1.0,1.0,0.0);
+				}*/
+				/*
+				if (s0.hit && s1.hit)
+				{
+					if (ddf0> ddn1)
+					{
+						float denom = dot(V,uijk);
+
+						if (abs(denom) > eps)
+						{
+							float t = dot(bijk-near.xyz,uijk) / denom;
+							s0.far.xyz = near.xyz + t*V.xyz;
+						}
+
+					}
+				}*/
+
+				if (s0.hit)
+				{
+					float dd = length(s0.far.xyz-near.xyz);//calcDepth(s.far.xyz);
+					bool bClipped = false;
+
+					/*
+					if (length(s0.far.xyz-pijk1) < probeRadius)
+					{
+						if (dot(s0.far.xyz-(aj+ak)*0.5,cross(V,normalize(ak-aj))) < 0.0)
+							bClipped = true;
+
+						if (dot(s0.far.xyz-(aj+ak)*0.5,V) < 0.0)
+							bClipped = true;
+					}
+					*/
+
+					vec3 n1 = normalize(cross(ak-ai,pijk0-ai));
+					vec3 n2 = normalize(cross(ak-aj,pijk0-aj));
+					vec3 n3 = normalize(cross(aj-ai,pijk0-ai));
+						
+						
+					if (dot(s0.far.xyz-ai,n1) > 0.0)
+						bClipped = true;
+					else if (dot(s0.far.xyz-aj,n2) < 0.0)
+						bClipped = true;
+					else if (dot(s0.far.xyz-ai,n3) < 0.0)
+						bClipped = true;
+
+//						bClipped = false;
+
+					//if (length(s0.far.xyz-pijk1) < probeRadius)
+						//bClipped = true;
+
+					if (s1.hit && ddf0 > ddn1 && ddf1 > ddn0)
+					{
+					//	s0.far = s1.far;
+						if (dot(s0.far.xyz-bijk,uijk) < 0.0)
+							bClipped = true;
+					}
+
+
+					//if (s1.hit && ddf0 > ddn1 && ddf1 > ddn0)
+					//if (rij < probeRadius || rik < probeRadius || rjk < probeRadius)
+					if (false)
+					{
+						for (uint l=0;l<probeCount;l++)
+						{
+							if (l != k)
+							{
+								if (length(s0.far.xyz-probesNear[l]) < probeRadius-eps)
+								{
+									bClipped = true;
+									break;
+								}
+								if (length(s0.far.xyz-probesFar[l]) < probeRadius-eps)
+								{
+									bClipped = true;
+									break;
+								}
+							}
+						}
+
+						//bClipped = clipThis;
+						//patchColor = vec3(1.0,1.0,1.0);
+					}
+					/*
+					if (s1.hit)
+					{
+						if (ddf0> ddn1)
+						{
+							bClipped = true;
+						}
+					}*/
+
+
+					if (!bClipped)
+					{
+						if (dd < closestDistance)
+						{
+							closestDistance = dd;
+							normal.xyz = normalize(s0.far.xyz-pijk0);// s.near.cenm-normalize(s.far.xyz-sp);
+							patchColor = vec3(1.0,1.0,0.0);
+							sid = ivec3(i,j,k);
+							pos = vec4(s0.far.xyz,dd);
+							hit = true;
+
+							//if (s1.hit && ddf0 > ddn1 && ddf1 > ddn0)
+							{
+							}
+						}
+					//	else
+					//		break;
+
+					//	break;
+					}
+				}
+						
+				if (s1.hit)
+				{
+					float dd = length(s1.far.xyz-near.xyz);//calcDepth(s.far.xyz);
+					bool bClipped = false;
+
+					if (length(s1.far.xyz-pijk0) < probeRadius)
+					{
+					/*
+						if (dot(s1.far.xyz-(ai+aj)*0.5,cross(V,normalize(aj-ai))) > 0.0)
+							bClipped = true;
+
+						if (dot(s1.far.xyz-(ai+aj)*0.5,V) < 0.0)
+							bClipped = true;
+					*/
+					}
+
+
+					vec3 n1 = normalize(cross(ak-ai,pijk1-ai));
+					vec3 n2 = normalize(cross(ak-aj,pijk1-aj));
+					vec3 n3 = normalize(cross(aj-ai,pijk1-ai));
+																	
+					if (dot(s1.far.xyz-ai,n1) < 0.0)
+						bClipped = true;
+					else if (dot(s1.far.xyz-aj,n2) > 0.0)
+						bClipped = true;
+					else if (dot(s1.far.xyz-ai,n3) > 0.0)
+						bClipped = true;
+
+					//if (dot(s1.far.xyz-bijk,uijk) < 0.0)
+						//bClipped = true;
+
+
+//						bClipped = false;
+		
+/*		
+					if (s0.hit && ddf0 > ddn1 && ddf1 > ddn0)
+					{
+						s1.far = s0.far;
+
+						//if (ivec3(i,j,k) != sid && sid != ivec3(0,0,0))
+						//	bClipped = true;
+					}
+*/
+/*
+					if (s0.hit)
+					{
+						if (ddf1> ddn0)
+						{
+					//		s1.far = s0.far;
+					//		bClipped = true;
+						}
+					}
+*/
+
+//						if (rij < probeRadius || rik < probeRadius || rjk < probeRadius)
+ 					if (false)
+					{
+						for (uint l=0;l<probeCount;l++)
+						{
+							//if (l != k)
+							{
+								if (length(s1.far.xyz-probesNear[l]) < probeRadius-eps)
+								{
+									bClipped = true;
+									break;
+								}
+								else if (length(s1.far.xyz-probesFar[l]) < probeRadius-eps)
+								{
+									bClipped = true;
+									break;
+								}
+							}
+						}
+					}
+
+					if (!bClipped)
+					{
+						if (dd < closestDistance)
+						{
+							closestDistance = dd;
+							normal.xyz = normalize(s1.far.xyz-pijk1);// s.near.cenm-normalize(s.far.xyz-sp);
+							patchColor = vec3(1.0,0.0,0.0);
+							sid = ivec3(i,j,k);
+							pos = vec4(s1.far.xyz,dd);
+							hit = true;
+
+							//if (s0.hit && ddf0 > ddn1 && ddf1 > ddn0)
+							{
+								if (rij < probeRadius || rik < probeRadius || rjk < probeRadius)
+									patchColor = vec3(1.0,0.0,1.0);
+							}
+						}
+				//		else
+							//break;
+					//	break;
+					}
+				}
+			}
+
+			j++;
+			count++;
+		}
+	}
+
+// OUTCOMMENT END
+
 
 		// vectors
 	vec3 N = normalize(-normal.xyz);//intersections[indices[0]].center.xyz - intersections[indices[0]].near.xyz);
@@ -492,7 +963,7 @@ void main()
 	//vec3 c = color;// color.rgb*vec3(63.0/255.0,136/255.0,189/255.0);// + 0.125*color.rgb*pow(RdotV,shininess) * specularMaterial;//0.5*color.rgb + 0.5*color.rgb*(0.75+0.25 * NdotL) * diffuseMaterial + color.rgb*pow(RdotV,shininess) * specularMaterial;
 
 	fragColor = vec4(min(vec3(1.0),c.xyz),1.0);//vec4(offset,1.0,0.0,1.0);
-	fragColor.rgb *= patchColor;
+//	fragColor.rgb *= patchColor;
 		
 /*		
 	if (entryCount == 0)
