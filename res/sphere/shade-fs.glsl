@@ -335,9 +335,9 @@ void main()
 				if (currentIndex >= entryCount)
 					endIndex = entryCount-1;
 
-				const uint maximumSteps = 64;
+				const uint maximumSteps = 128;
 				const float maximumDistance = 16.0;
-				const float s = 2.5;
+				const float s = 3.0;
 
 				uint ii = indices[startIndex];
 				vec4 nearPosition = intersections[ii].near;
@@ -370,17 +370,19 @@ void main()
 						float rj = intersections[ij].radius; 
 
 						float ad = length(currentPosition.xyz-aj)-rj;
-						float gi = exp(-s*ad);
+						float gi = exp(-s*ad*ad);
 						vec3 ni = -(currentPosition.xyz-aj)*gi;
 
 						sg += gi;
 						sn += ni;
 					}
 
-					sg = -log(sg) / s;
+
+					float gilog = -log(sg) /(s);
+					sg = sqrt(abs(gilog))*sign(gilog);
 					h = sg;
 
-					if ( h < 0.01)
+					if ( h < 0.0001)
 					{
 						if (currentPosition.w < closestDistance)
 						{
