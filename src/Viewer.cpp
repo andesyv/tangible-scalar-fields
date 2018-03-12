@@ -146,7 +146,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
 	m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
-	m_renderers.emplace_back(std::make_unique<MolumeRenderer>(this));
+	//m_renderers.emplace_back(std::make_unique<MolumeRenderer>(this));
 	m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
 
 	int i = 1;

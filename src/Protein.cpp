@@ -59,6 +59,66 @@ void Protein::load(const std::string& filename)
 		}
 	}
 
+	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
+	
+	/*
+	m_atoms.clear();
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));//2
+	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+	*/
+	
+/*
+	m_atoms.clear();
+	m_atoms.push_back(vec3(0.0, -2.0, -2.0));
+
+	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
+
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));
+	m_atoms.push_back(vec3(2.0, 3.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 4.0, 0.0));
+
+	m_atoms.push_back(vec3(0.0, 3.0, 3.0));
+
+	m_atoms.push_back(vec3(0.0, 5.0, 1.0));
+
+	m_atoms.push_back(vec3(0.0, 0.0, 4.0));
+	
+	
+	m_minimumBounds = vec3(-5.0, -5.0, -5.0);
+	m_maximumBounds = vec3(5.0, 5.0, 5.0);
+*/	
+	/*
+	// does not produce patch
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));//2
+	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+	*/
+
+	// Incorrect test case
+	/*
+	m_atoms.push_back(vec3(0.0, 1.3, 0.0));
+	m_atoms.push_back(vec3(-1.5, 0.0, 0.0));
+	m_atoms.push_back(vec3(1.5, 0.0, 0.0));
+	*/
+
+//	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
+//	m_atoms.push_back(vec3(2.0, 3.0, 0.0);
+//	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+
+
+	// correct patch
+/*	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+	
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));
+	m_atoms.push_back(vec3(2.0, 3.0, 0.0));
+*/	
+
 /*
 	float minDist = std::numeric_limits<float>::max();
 
@@ -77,6 +137,7 @@ void Protein::load(const std::string& filename)
 		}
 	}
 */
+/*
 	vec3 boundsSize = (m_maximumBounds - m_minimumBounds);
 	ivec3 gridSize(boundsSize*2.0f + vec3(1.0f));
 
@@ -105,6 +166,7 @@ void Protein::load(const std::string& filename)
 	}
 
 	std::cout << "Max occupancy: " << occupancy << std::endl;
+*/
 }
 
 const std::vector<glm::vec3> & Protein::atoms() const
