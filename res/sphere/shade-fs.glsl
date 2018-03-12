@@ -262,6 +262,15 @@ bool intersectTorus2( in vec3 ro, in vec3 rd, out vec3 i, in vec3 c, vec3 a, in 
 
 void main()
 {
+	uint offset = texelFetch(offsetTexture,ivec2(gl_FragCoord.xy),0).r;
+
+	if (offset == 0)
+		discard;
+
+	vec4 position = texelFetch(colorTexture,ivec2(gl_FragCoord.xy),0);
+	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
+	vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
+
 	vec4 fragCoord = gFragmentPosition;
 	fragCoord /= fragCoord.w;
 	
@@ -272,138 +281,128 @@ void main()
 	far /= far.w;
 
 	vec3 V = normalize(far.xyz-near.xyz);	
-
-	vec4 position = texelFetch(colorTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
-	uint offset = texelFetch(offsetTexture,ivec2(gl_FragCoord.xy),0).r;
-
 	vec3 patchColor = vec3(1.0,1.0,1.0);
 
 	const uint maxEntries = 128;
 	uint entryCount = 0;
 	uint indices[maxEntries];
 	
-	float closestDistance = position.w;
-
 	while (offset > 0)
 	{
 		indices[entryCount++] = offset;
 		offset = intersections[offset].previous;
 	}
 
-	if (entryCount > 0)
+	if (entryCount == 0)
+		discard;
+
+	float closestDistance = position.w;
+
+	uint startIndex = 0;
+	uint endIndex = 1;
+
+	// selection sort
+	for(uint currentIndex = 0; currentIndex <= entryCount/* - 1*/; currentIndex++)
 	{
-		uint startIndex = 0;
-		uint endIndex = 1;
+		uint minimumIndex = currentIndex;
 
-		// selection sort
-		for(uint currentIndex = 0; currentIndex <= entryCount/* - 1*/; currentIndex++)
+		for(uint i = currentIndex+1; i < entryCount; i++)
 		{
-			uint minimumIndex = currentIndex;
-
-			for(uint i = currentIndex+1; i < entryCount; i++)
+			if(intersections[indices[i]].near.w < intersections[indices[minimumIndex]].near.w)
 			{
-				if(intersections[indices[i]].near.w < intersections[indices[minimumIndex]].near.w)
-				{
-					minimumIndex = i;					
-				}
+				minimumIndex = i;					
 			}
+		}
 
-			if (minimumIndex != currentIndex)
-			{
-				uint temp = indices[minimumIndex];
-				indices[minimumIndex] = indices[currentIndex];
-				indices[currentIndex] = temp;
-			}
+		if (minimumIndex != currentIndex)
+		{
+			uint temp = indices[minimumIndex];
+			indices[minimumIndex] = indices[currentIndex];
+			indices[currentIndex] = temp;
+		}
 
 //#define POSTSORT
 
 #ifndef POSTSORT
-			if (currentIndex > 0)
+		if (currentIndex > 0)
+		{
+			if (currentIndex < entryCount && intersections[indices[startIndex]].far.w >= intersections[indices[currentIndex]].near.w)
 			{
-				if (currentIndex < entryCount && intersections[indices[startIndex]].far.w >= intersections[indices[currentIndex]].near.w)
-				{
-					endIndex = currentIndex;
-				}
-				else
-				{
-					if (currentIndex >= entryCount)
-						endIndex = entryCount-1;
+				endIndex = currentIndex;
+			}
+			else
+			{
+				if (currentIndex >= entryCount)
+					endIndex = entryCount-1;
 
-					//for (uint i=startIndex; i <= endIndex; i++)
-					uint i = startIndex;
-					{
-						float maxd = 16.0;
-						float s = 3.0;
+				const uint maximumSteps = 64;
+				const float maximumDistance = 16.0;
+				const float s = 2.5;
 
-						uint ii = indices[i];
-						vec4 nearPosition = intersections[ii].near;
-						vec4 farPosition = intersections[indices[endIndex]].far;
+				uint ii = indices[startIndex];
+				vec4 nearPosition = intersections[ii].near;
+				vec4 farPosition = intersections[indices[endIndex]].far;
 
-						vec4 rayOrigin = nearPosition;
-						vec4 rayDirection = vec4(V,1.0);
-						vec4 currentPosition;
-						float t = 0.0;
-						float h = 1.0;
-
-						uint steps = 0;
-						uint maxSteps = 64;
-
-						float maxl = farPosition.w-nearPosition.w;
-
-						while (++steps < maxSteps)
-						{    
-							currentPosition = rayOrigin + rayDirection*t;
-
-							if (currentPosition.w >= closestDistance)
-								break;
-
-							float sg = 0.0;
-							float sr = 0.0;
-							vec3 sn = vec3(0.0);
+				vec4 rayOrigin = nearPosition;
+				vec4 rayDirection = vec4(V,1.0);
+				vec4 currentPosition;
 					
-							for (uint j = i; j <= endIndex; j++)
-							{
-								uint ij = indices[j];
-								vec3 aj = intersections[ij].center;
-								float rj = intersections[ij].radius; 
+				float t = 0.0;
+				float h = 1.0;
 
-								float ad = length(currentPosition.xyz-aj)-rj;
-								float gi = exp(-s*ad);
-								vec3 ni = -(currentPosition.xyz-aj)*gi;
+				uint currentStep = 0;
 
-								sg += gi;
-								sn += ni;
-							}
+				while (++currentStep <= maximumSteps && t < maximumDistance)
+				{    
+					currentPosition = rayOrigin + rayDirection*t;
 
-							sg = -log(sg) / s;
-							h = sg;
+					if (currentPosition.w >= closestDistance)
+						break;
 
-							if ( h < 0.01)
-							{
-								if (currentPosition.w < closestDistance)
-								{
-									normal.xyz = -normalize(sn);
-									closestDistance = currentPosition.w;
-									///patchColor = vec3(1.0,0.0,1.0);
-								}
-								break;
-							}
+					float sg = 0.0;
+					float sr = 0.0;
+					vec3 sn = vec3(0.0);
+					
+					for (uint j = startIndex; j <= endIndex; j++)
+					{
+						uint ij = indices[j];
+						vec3 aj = intersections[ij].center;
+						float rj = intersections[ij].radius; 
 
+						float ad = length(currentPosition.xyz-aj)-rj;
+						float gi = exp(-s*ad);
+						vec3 ni = -(currentPosition.xyz-aj)*gi;
 
-							t += h;
-						}
+						sg += gi;
+						sn += ni;
 					}
 
-					startIndex++;
+					sg = -log(sg) / s;
+					h = sg;
+
+					if ( h < 0.05)
+					{
+						if (currentPosition.w < closestDistance)
+						{
+							normal.xyz = -normalize(sn);
+							closestDistance = currentPosition.w;
+							///patchColor = vec3(1.0,0.0,1.0);
+						}
+						break;
+					}
+
+
+					t += h;
 				}
+
+				startIndex++;
 			}
+		}
 
 #endif
 
-		}
 	}
+
 #ifdef POSTSORT
 	if (entryCount > 0)
 	{
@@ -471,8 +470,6 @@ void main()
 				if (dd < depth.r)
 				{
 					normal.xyz = -normalize(nn);
-					depth.r = dd;
-					pos = vec4(x,dd);
 					//patchColor = vec3(1.0,0.0,1.0);
 					break;
 				}
@@ -481,46 +478,44 @@ void main()
 	}
 #endif
 
-	if (entryCount > 0)
-	{
+	if (closestDistance >= 65535.0f)
+		discard;
+
 		// vectors
-		vec3 N = normalize(-normal.xyz);//intersections[indices[0]].center.xyz - intersections[indices[0]].near.xyz);
-		vec3 L = lightPosition;
-		vec3 R = normalize(reflect(L, N));
-		float NdotL = abs(dot(N, L));
-		float RdotV = abs(dot(R, -V));
+	vec3 N = normalize(-normal.xyz);//intersections[indices[0]].center.xyz - intersections[indices[0]].near.xyz);
+	vec3 L = lightPosition;
+	vec3 R = normalize(reflect(L, N));
+	float NdotL = abs(dot(N, L));
+	float RdotV = abs(dot(R, -V));
 
-		vec3 c = ambientMaterial + NdotL * diffuseMaterial + pow(RdotV,shininess) * specularMaterial;
-		//vec3 c = color;// color.rgb*vec3(63.0/255.0,136/255.0,189/255.0);// + 0.125*color.rgb*pow(RdotV,shininess) * specularMaterial;//0.5*color.rgb + 0.5*color.rgb*(0.75+0.25 * NdotL) * diffuseMaterial + color.rgb*pow(RdotV,shininess) * specularMaterial;
+	vec3 c = ambientMaterial + NdotL * diffuseMaterial + pow(RdotV,shininess) * specularMaterial;
+	//vec3 c = color;// color.rgb*vec3(63.0/255.0,136/255.0,189/255.0);// + 0.125*color.rgb*pow(RdotV,shininess) * specularMaterial;//0.5*color.rgb + 0.5*color.rgb*(0.75+0.25 * NdotL) * diffuseMaterial + color.rgb*pow(RdotV,shininess) * specularMaterial;
 
-		fragColor = vec4(min(vec3(1.0),c.xyz),1.0);//vec4(offset,1.0,0.0,1.0);
-		fragColor.rgb *= patchColor;
+	fragColor = vec4(min(vec3(1.0),c.xyz),1.0);//vec4(offset,1.0,0.0,1.0);
+	fragColor.rgb *= patchColor;
 		
 /*		
-		if (entryCount == 0)
-			fragColor = vec4(0.25,0.25,0.25,1.0);
-		else if (entryCount == 1)
-			fragColor = mix(fragColor,vec4(0.0,0.0,1.0,1.0),0.5);
-		else if (entryCount == 2)
-			fragColor = mix(fragColor,vec4(0.0,1.0,0.0,1.0),0.5);
-		else
-			fragColor = mix(fragColor,vec4(1.0-float(entryCount)/4.0,0.0,0.0,1.0),0.5);
+	if (entryCount == 0)
+		fragColor = vec4(0.25,0.25,0.25,1.0);
+	else if (entryCount == 1)
+		fragColor = mix(fragColor,vec4(0.0,0.0,1.0,1.0),0.5);
+	else if (entryCount == 2)
+		fragColor = mix(fragColor,vec4(0.0,1.0,0.0,1.0),0.5);
+	else
+		fragColor = mix(fragColor,vec4(1.0-float(entryCount)/4.0,0.0,0.0,1.0),0.5);
 */		
 /*		
-		if (entryCount > 0)
-		{
-		float dis = length(pos.xyz-intersections[indices[0]].near.xyz);
-		fragColor = mix(fragColor,vec4(float(entryCount)/10.0,0.0,0.0,1.0),0.5);
-		}
+	if (entryCount > 0)
+	{
+	float dis = length(pos.xyz-intersections[indices[0]].near.xyz);
+	fragColor = mix(fragColor,vec4(float(entryCount)/10.0,0.0,0.0,1.0),0.5);
+	}
 */
-		fragColor.a = 1.0;
+	fragColor.a = 1.0;
 		
-		//fragColor = vec4(0.5+float(entryCount)/10.0,0.0,0.0,1.0);
+	//fragColor = vec4(0.5+float(entryCount)/10.0,0.0,0.0,1.0);
 
-		//fragColor.xyz = intersections[indices[0]].center.xyz;
-		gl_FragDepth = depth.z;
-	}	
-
-
+	//fragColor.xyz = intersections[indices[0]].center.xyz;
+	gl_FragDepth = depth.z;
 
 }
