@@ -144,6 +144,12 @@ float cylinderDistance( vec3 p, vec3 c )
   return length(p.xz)-c.z;
 }
 
+float cappedCylinderDistance( vec3 p, vec2 h )
+{
+  vec2 d = abs(vec2(length(p.xz),p.y)) - h;
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
 float sphereDistance( vec3 p, float s )
 {
   return length(p)-s;
@@ -335,13 +341,19 @@ void main()
 				if (currentIndex >= entryCount)
 					endIndex = entryCount-1;
 
-				const uint maximumSteps = 128;
+				const uint maximumSteps = 64;
 				const float maximumDistance = 16.0;
-				const float s = 3.0;
+				const float s = 1.0;
+				const float eps = 0.001;
 
 				uint ii = indices[startIndex];
+				vec3 ai = intersections[ii].center;
+				float ri = intersections[ii].radius; 
+
 				vec4 nearPosition = intersections[ii].near;
 				vec4 farPosition = intersections[indices[endIndex]].far;
+
+				float rp = probeRadius;
 
 				vec4 rayOrigin = nearPosition;
 				vec4 rayDirection = vec4(V,1.0);
@@ -350,7 +362,7 @@ void main()
 				float t = 0.0;
 				float h = 1.0;
 
-				uint currentStep = 0;
+				uint currentStep = 0;			
 
 				while (++currentStep <= maximumSteps && t < maximumDistance)
 				{    
@@ -362,27 +374,54 @@ void main()
 					float sg = 0.0;
 					float sr = 0.0;
 					vec3 sn = vec3(0.0);
+					float st = 1000.0;
+					vec3 stn = vec3(0.0);
 					
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
 						uint ij = indices[j];
+						//sort2(intersections[ii].id,ii,intersections[ij].id,ij);
+
 						vec3 aj = intersections[ij].center;
 						float rj = intersections[ij].radius; 
 
-						float ad = length(currentPosition.xyz-aj)-rj;
-						float gi = exp(-s*ad*ad);
+						float ad = length(currentPosition.xyz-aj);
+						float gi = exp(-s*ad*ad);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
+						//float gi = exp(-s*td);// * exp(-ad*s);
 						vec3 ni = -(currentPosition.xyz-aj)*gi;
 
 						sg += gi;
 						sn += ni;
+						/*
+						float dij = length(aj-ai);
+						vec3 uij = (aj-ai)/dij;
+						vec3 tij = 0.5*(ai+aj)+0.5*(aj-ai)*((ri+rp)*(ri+rp) - (rj+rp)*(rj+rp))/(dij*dij);
+						float rij_a = (ri+rj+2.0*rp)*(ri+rj+2.0*rp)-dij*dij;
+						float rij_b = dij*dij-(ri-rj)*(ri-rj);
+
+						if (rij_a > eps && rij_b > eps)
+						{
+							float rij = 0.5 * sqrt(rij_a) * sqrt(rij_b) / dij;
+							mat3 mij = rotationAlign(vec3(0.0,1.0,0.0),uij);
+
+							float td = blendDistance( (currentPosition.xyz-tij)*mij, vec2(rij,rp));
+							vec3 pp = currentPosition.xyz-tij;
+							vec3 nt = pp-rij*normalize(pp-dot(uij,pp)*uij);
+
+							if (td < st)
+							{
+								st = td;
+								stn = nt;
+							}
+						}
+						*/
 					}
 
+					float lsg = sqrt(-log(sg) /(s))-1.0;
+					h = lsg;
 
-					float gilog = -log(sg) /(s);
-					sg = sqrt(abs(gilog))*sign(gilog);
-					h = sg;
 
-					if ( h < 0.0001)
+					if ( (h) < 0.001)
 					{
 						if (currentPosition.w < closestDistance)
 						{
