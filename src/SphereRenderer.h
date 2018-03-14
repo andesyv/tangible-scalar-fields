@@ -19,12 +19,11 @@
 #include <globjects/base/File.h>
 #include <globjects/TextureHandle.h>
 
-//#include "SSAO.h"
+#include "SSAO.h"
 
 namespace molumes
 {
 	class Viewer;
-	class SSAO;
 
 	class SphereRenderer : public Renderer
 	{
@@ -74,7 +73,7 @@ namespace molumes
 		std::array< std::unique_ptr<globjects::Texture>, 2 > m_positionTextures;
 		std::array< std::unique_ptr<globjects::Texture>, 2 > m_normalTextures;
 		std::array< std::unique_ptr<globjects::Texture>, 2 > m_depthTextures;
-		//std::unique_ptr<SSAO> m_ssao = nullptr;
+		std::unique_ptr<SSAO> m_ssao = nullptr;
 
 		gl::GLsizei m_size;
 		glm::ivec2 m_framebufferSize;

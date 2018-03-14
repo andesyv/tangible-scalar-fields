@@ -9,7 +9,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
-//#include "SSAO.h"
+#include "SSAO.h"
 
 using namespace molumes;
 using namespace gl;
@@ -84,7 +84,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 		m_depthTextures[i]->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		m_depthTextures[i]->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		m_depthTextures[i]->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		m_depthTextures[i]->image2D(0, GL_DEPTH_COMPONENT32F, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+		m_depthTextures[i]->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
 
 		m_frameBuffers[i] = Framebuffer::create();
 		m_frameBuffers[i]->attachTexture(GL_COLOR_ATTACHMENT0, m_positionTextures[i].get());
@@ -102,7 +102,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_offsetTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
-	//m_ssao = std::make_unique<SSAO>();
+	m_ssao = std::make_unique<SSAO>();
 }
 
 std::list<globjects::File*> SphereRenderer::shaderFiles() const
@@ -216,13 +216,17 @@ void SphereRenderer::display()
 	static vec3 diffuseMaterial(0.75, 0.75f, 0.75f);
 	static vec3 specularMaterial(0.5f, 0.5f, 0.5f);
 	static float shininess = 16.0f;
+	static float softness = 1.0;
 
 	ImGui::Begin("Sphere Renderer");
 	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
 	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
+	ImGui::SliderFloat("Softness", &softness, 0.0f, 16.0f);
 	ImGui::End();
+
+
 
 //	uint sphereCount = 0;
 //	m_verticesSpawn->getSubData(0, sizeof(uint), &sphereCount);
@@ -232,7 +236,8 @@ void SphereRenderer::display()
 
 	//std::cout << to_string(inverse(viewer()->projectionTransform())*vec4(0.5, 0.5, 0.0, 1.0)) << std::endl;
 
-	Framebuffer::defaultFBO()->bind();
+	m_frameBuffers[1]->bind();
+	//Framebuffer::defaultFBO()->bind();
 
 	m_positionTextures[0]->bindActive(0);
 	m_normalTextures[0]->bindActive(1);
@@ -257,6 +262,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("normalTexture", 1);
 	m_programShade->setUniform("depthTexture", 2);
 	m_programShade->setUniform("offsetTexture", 3);
+	m_programShade->setUniform("softness", softness);
 	m_programShade->use();
 
 	m_vaoQuad->bind();
@@ -271,5 +277,8 @@ void SphereRenderer::display()
 	m_normalTextures[1]->unbindActive(1);
 	m_positionTextures[1]->unbindActive(0);
 
-	//m_frameBuffers[0]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK_LEFT, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
+
+	m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK_LEFT, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	m_frameBuffers[1]->unbind();
 }

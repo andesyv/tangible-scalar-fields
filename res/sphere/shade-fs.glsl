@@ -8,6 +8,7 @@ uniform mat4 inverseProjection;
 uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
 uniform float probeRadius;
+uniform float softness;
 
 uniform vec3 lightPosition;
 uniform vec3 diffuseMaterial;
@@ -23,6 +24,7 @@ uniform usampler2D offsetTexture;
 
 in vec4 gFragmentPosition;
 out vec4 fragColor;
+out vec4 fragNormal;
 
 struct BufferEntry
 {
@@ -288,6 +290,7 @@ void main()
 
 	vec3 V = normalize(far.xyz-near.xyz);	
 	vec3 patchColor = vec3(1.0,1.0,1.0);
+	float curvature = 1.0;
 
 	const uint maxEntries = 128;
 	uint entryCount = 0;
@@ -302,7 +305,7 @@ void main()
 	if (entryCount == 0)
 		discard;
 
-	float closestDistance = position.w;
+	vec4 closestPosition = position;
 
 	uint startIndex = 0;
 	uint endIndex = 1;
@@ -341,9 +344,9 @@ void main()
 				if (currentIndex >= entryCount)
 					endIndex = entryCount-1;
 
-				const uint maximumSteps = 64;
+				const uint maximumSteps = 128;
 				const float maximumDistance = 16.0;
-				const float s = 1.0;
+				const float s = softness;
 				const float eps = 0.001;
 
 				uint ii = indices[startIndex];
@@ -368,7 +371,7 @@ void main()
 				{    
 					currentPosition = rayOrigin + rayDirection*t;
 
-					if (currentPosition.w >= closestDistance)
+					if (currentPosition.w >= closestPosition.w)
 						break;
 
 					float sg = 0.0;
@@ -376,6 +379,7 @@ void main()
 					vec3 sn = vec3(0.0);
 					float st = 1000.0;
 					vec3 stn = vec3(0.0);
+					float curv = 0.0;
 					
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
@@ -389,9 +393,11 @@ void main()
 						float gi = exp(-s*ad*ad);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						//float gi = exp(-s*td);// * exp(-ad*s);
 						vec3 ni = -(currentPosition.xyz-aj)*gi;
+						float cv = abs(dot(currentPosition.xyz-aj,V))*gi;
 
 						sg += gi;
 						sn += ni;
+						curv += cv;
 						/*
 						float dij = length(aj-ai);
 						vec3 uij = (aj-ai)/dij;
@@ -423,10 +429,11 @@ void main()
 
 					if ( (h) < 0.001)
 					{
-						if (currentPosition.w < closestDistance)
+						if (currentPosition.w < closestPosition.w)
 						{
 							normal.xyz = -normalize(sn);
-							closestDistance = currentPosition.w;
+							closestPosition = currentPosition;
+							curvature = curv;
 							///patchColor = vec3(1.0,0.0,1.0);
 						}
 						break;
@@ -519,7 +526,7 @@ void main()
 	}
 #endif
 
-	if (closestDistance >= 65535.0f)
+	if (closestPosition.w >= 65535.0f)
 		discard;
 
 		// vectors
@@ -553,10 +560,21 @@ void main()
 	}
 */
 	fragColor.a = 1.0;
+
+	float d = fwidth(NdotL);
+    float s = d*2.0;//smoothstep(0.0, d*10.5, NdotL);
+	float edgeFactor = s;//min(min(s.x, s.y), min(s.z,s.w));
+//	curvature = edgeFactor;//1.0-smoothstep(0.0,0.5,curvature);
+	curvature = 0.25*(pow(1.0-curvature,1.0));
+	//fragColor = fragColor+vec4(curvature,curvature,curvature,1.0);
+	//fragColor.rgb *= (0.5+0.5*(1.0-(closestDistance/200.0)));
+	//fragColor.r = curvature*4;
 		
 	//fragColor = vec4(0.5+float(entryCount)/10.0,0.0,0.0,1.0);
 
+	fragNormal = vec4(N,0.0);
+
 	//fragColor.xyz = intersections[indices[0]].center.xyz;
-	gl_FragDepth = depth.z;
+	gl_FragDepth = calcDepth(closestPosition.xyz);
 
 }
