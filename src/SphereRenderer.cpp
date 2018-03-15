@@ -142,7 +142,7 @@ void SphereRenderer::display()
 
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 100000.0f);
+	glClearColor(0.0, 0.0, 0.0, 65535.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_DEPTH_TEST);
@@ -167,7 +167,7 @@ void SphereRenderer::display()
 	m_frameBuffers[1]->bind();
 
 	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 100000.0f);
+	glClearColor(0.0, 0.0, 0.0, 65535.0f);
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDepthFunc(GL_ALWAYS);
