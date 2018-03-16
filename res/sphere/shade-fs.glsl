@@ -404,7 +404,7 @@ void main()
 						vec3 cj = atoms[intersections[ij].id].color;
 
 						float ad = length(currentPosition.xyz-aj);
-						float gi = exp(-s*ad*ad/rj);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
+						float gi = exp(-s*ad*ad/(rj*rj)+s/(rj*rj));//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						//float gi = exp(-s*td);// * exp(-ad*s);
 						vec3 ni = -(currentPosition.xyz-aj)*gi;
 						float cv = abs(dot(currentPosition.xyz-aj,V))*gi;
@@ -438,7 +438,8 @@ void main()
 						*/
 					}
 
-					float lsg = sqrt(-log(sg) /(s))-1.0;
+					colorSum /= sg;
+					float lsg = sqrt(-log(sg) / (s))-1.0;
 					h = lsg;
 
 
