@@ -160,17 +160,9 @@ void SphereRenderer::display()
 	m_vao->unbind();
 
 	m_programSphere->release();
-	m_frameBuffers[0]->unbind();
 
 	//m_ssao->display(mat4(1.0f)/*viewer()->modelViewTransform()*/,viewer()->projectionTransform(), m_frameBuffer->id(), m_depthTexture->id(), m_normalTexture->id());
 
-	m_frameBuffers[1]->bind();
-
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 65535.0f);
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDepthFunc(GL_ALWAYS);
 
 	m_positionTextures[0]->bindActive(0);
 	m_normalTextures[0]->bindActive(1);
@@ -183,6 +175,9 @@ void SphereRenderer::display()
 	m_offsetTexture->clearImage(0, GL_RED_INTEGER, GL_UNSIGNED_INT, &offsetClearValue);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	glDepthFunc(GL_ALWAYS);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	glDepthMask(GL_FALSE);
 
 	m_positionTextures[0]->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
@@ -203,7 +198,7 @@ void SphereRenderer::display()
 	m_vao->unbind();
 
 	m_programSpawn->release();
-	m_frameBuffers[1]->unbind();
+	m_frameBuffers[0]->unbind();
 
 	m_positionTextures[0]->unbindActive(0);
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -237,6 +232,15 @@ void SphereRenderer::display()
 	//std::cout << to_string(inverse(viewer()->projectionTransform())*vec4(0.5, 0.5, 0.0, 1.0)) << std::endl;
 
 	m_frameBuffers[1]->bind();
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glDepthMask(GL_TRUE);
+
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 65535.0f);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
 	//Framebuffer::defaultFBO()->bind();
 
 	m_positionTextures[0]->bindActive(0);

@@ -32,7 +32,7 @@ struct BufferEntry
 	vec4 far;
 	vec3 center;
 	float radius;
-	uint id;
+//	uint id;
 	uint previous;
 };
 

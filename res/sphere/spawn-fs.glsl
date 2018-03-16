@@ -9,8 +9,8 @@ in vec4 gSpherePosition;
 in float gSphereRadius;
 flat in int gVertexId;
 
-out vec4 fragPosition;
-out vec4 fragNormal;
+//out vec4 fragPosition;
+//out vec4 fragNormal;
 
 precision highp float;
 
@@ -23,7 +23,7 @@ struct BufferEntry
 	vec4 far;
 	vec3 center;
 	float radius;
-	uint id;
+//	uint id;
 	uint previous;
 };
 
@@ -102,7 +102,7 @@ void main()
 	uint prev = imageAtomicExchange(offsetImage,ivec2(gl_FragCoord.xy),index);
 
 
-	entry.id = gVertexId;
+//	entry.id = gVertexId;
 	entry.far.xyz = sphere.far;
 	entry.far.w = length(sphere.far.xyz-near.xyz);//calcDepth(sphere.far.xyz);
 	/*
