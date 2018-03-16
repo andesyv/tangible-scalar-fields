@@ -25,7 +25,7 @@ namespace molumes
 		const glm::vec3& maximumBounds() const;
 		const glm::mat4& transform() const;
 
-		void insert(const std::vector<glm::vec3>& positions);
+		void insert(const std::vector<glm::vec4>& positions);
 		void setValue(const glm::vec3& pos, float val);
 		glm::vec4 value(const glm::vec3& pos) const;
 

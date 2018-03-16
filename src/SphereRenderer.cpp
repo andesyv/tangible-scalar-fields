@@ -19,12 +19,14 @@ using namespace globjects;
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
+	m_atomData->setData(std::array<float, 8>({ 1.0f,0.0f,0.0f,1.0f,  1.0f,1.0f,1.0f,0.5f }), GL_STATIC_DRAW);
+		
 	m_size = static_cast<GLsizei>(viewer->scene()->protein()->atoms().size());
 
 	auto vertexBinding = m_vao->binding(0);
 	vertexBinding->setAttribute(0);
-	vertexBinding->setBuffer(m_vertices.get(), 0, sizeof(vec3));
-	vertexBinding->setFormat(3, GL_FLOAT);
+	vertexBinding->setBuffer(m_vertices.get(), 0, sizeof(vec4));
+	vertexBinding->setFormat(4, GL_FLOAT);
 	m_vao->enable(0);
 	m_vao->unbind();
 
@@ -152,7 +154,7 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelView", viewer()->modelViewTransform());
 	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
 	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programSphere->setUniform("sphereRadius", sphereRadius);
+	m_programSpawn->setUniform("radiusOffset", 0.0f);
 
 	m_programSphere->use();
 
@@ -182,14 +184,13 @@ void SphereRenderer::display()
 
 	m_positionTextures[0]->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
-	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+	m_atomData->bindBase(GL_UNIFORM_BUFFER, 0);
 	
 	m_programSpawn->setUniform("projection", viewer()->projectionTransform());
 	m_programSpawn->setUniform("modelView", viewer()->modelViewTransform());
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programSpawn->setUniform("sphereRadius", extendedSphereRadius);
-	m_programSpawn->setUniform("probeRadius", probeRadius);
+	m_programSpawn->setUniform("radiusOffset", 1.4f);
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -279,6 +280,7 @@ void SphereRenderer::display()
 	m_depthTextures[1]->unbindActive(2);
 	m_normalTextures[1]->unbindActive(1);
 	m_positionTextures[1]->unbindActive(0);
+	m_atomData->unbind(GL_UNIFORM_BUFFER);
 
 	m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
 

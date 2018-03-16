@@ -36,6 +36,7 @@ namespace molumes
 		
 		std::unique_ptr<globjects::VertexArray> m_vao = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_vertices = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_atomData = std::make_unique<globjects::Buffer>();
 
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
@@ -67,7 +68,6 @@ namespace molumes
 
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
-
 
 		std::array< std::unique_ptr<globjects::Framebuffer>, 2 > m_frameBuffers;
 		std::array< std::unique_ptr<globjects::Texture>, 2 > m_positionTextures;

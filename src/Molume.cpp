@@ -45,7 +45,7 @@ const mat4& Molume::transform() const
 	return m_transform;
 }
 
-void Molume::insert(const std::vector<vec3>& positions)
+void Molume::insert(const std::vector<vec4>& positions)
 {
 	static ivec3 pageSize = Molume::pageSize();
 
@@ -54,8 +54,8 @@ void Molume::insert(const std::vector<vec3>& positions)
 	
 	for (auto& p : positions)
 	{
-		minimumBounds = min(minimumBounds, p);
-		maximumBounds = max(maximumBounds, p);
+		minimumBounds = min(minimumBounds, vec3(p));
+		maximumBounds = max(maximumBounds, vec3(p));
 	}
 
 	setBounds(minimumBounds, maximumBounds);

@@ -2,12 +2,12 @@
 
 uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
-uniform float probeRadius;
 
 in vec4 gFragmentPosition;
 in vec4 gSpherePosition;
 in float gSphereRadius;
 flat in int gVertexId;
+flat in uint gSphereId;
 
 //out vec4 fragPosition;
 //out vec4 fragNormal;
@@ -22,8 +22,7 @@ struct BufferEntry
 	float near;
 	float far;
 	vec3 center;
-	float radius;
-//	uint id;
+	uint id;
 	uint previous;
 };
 
@@ -84,7 +83,7 @@ void main()
 	far /= far.w;
 
 	vec3 V = normalize(far.xyz-near.xyz);	
-	Sphere sphere = calcSphereIntersection(gSphereRadius*1.0, near.xyz, gSpherePosition.xyz, V);
+	Sphere sphere = calcSphereIntersection(gSphereRadius, near.xyz, gSpherePosition.xyz, V);
 	
 	if (!sphere.hit)
 		discard;
@@ -92,7 +91,7 @@ void main()
 	vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
 	BufferEntry entry;
 	
-	entry.near = length(sphere.near.xyz-near.xyz);//calcDepth(sphere.near.xyz);
+	entry.near = length(sphere.near.xyz-near.xyz);
 	
 	if (entry.near > position.w)
 		discard;	
@@ -100,27 +99,12 @@ void main()
 	uint index = atomicAdd(count,1);
 	uint prev = imageAtomicExchange(offsetImage,ivec2(gl_FragCoord.xy),index);
 
-
-//	entry.id = gVertexId;
-	entry.far = length(sphere.far.xyz-near.xyz);//calcDepth(sphere.far.xyz);
-	/*
-	if (entry.far.w < entry.near.w)
-	{
-		vec4 temp = entry.far;
-		entry.far = entry.near;
-		entry.near = temp;
-	}*/
+	entry.far = length(sphere.far.xyz-near.xyz);
 
 	entry.center = gSpherePosition.xyz;
-	entry.radius = gSphereRadius-probeRadius;
+	entry.id = gSphereId;
 	entry.previous = prev;
 
 	intersections[index] = entry;
-	
 
-	//fragPosition = vec4(0.0,0.0,1.0,1.0);//vec4(sphere.far.xyz,1.0);
-//	fragPosition = vec4(sphere.near.xyz,1.0);
-//	fragNormal = vec4(sphere.normal,1.0);//vec4(normalize(normalMatrix*(mix(vec3(0.0,0.0,-1.0),-N,1.0))),1.0);
-
-//	gl_FragDepth = calcDepth(sphere.near.xyz);
 }

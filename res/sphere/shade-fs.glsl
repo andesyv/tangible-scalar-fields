@@ -26,13 +26,23 @@ in vec4 gFragmentPosition;
 out vec4 fragColor;
 out vec4 fragNormal;
 
+struct AtomData
+{
+	vec3 color;
+	float radius;
+};
+
+layout(std140, binding = 0) uniform atomBlock
+{
+	AtomData atoms[2];
+};
+
 struct BufferEntry
 {
 	float near;
 	float far;
 	vec3 center;
-	float radius;
-//	uint id;
+	uint id;
 	uint previous;
 };
 
@@ -295,6 +305,8 @@ void main()
 	const uint maxEntries = 128;
 	uint entryCount = 0;
 	uint indices[maxEntries];
+
+	vec3 diffuseColor = vec3(1.0,1.0,1.0);
 	
 	while (offset > 0)
 	{
@@ -351,7 +363,7 @@ void main()
 
 				uint ii = indices[startIndex];
 				vec3 ai = intersections[ii].center;
-				float ri = intersections[ii].radius; 
+				float ri = atoms[intersections[ii].id].radius;
 
 				float nearDistance = intersections[ii].near;
 				float farDistance = intersections[indices[endIndex]].far;
@@ -380,6 +392,7 @@ void main()
 					float st = 1000.0;
 					vec3 stn = vec3(0.0);
 					float curv = 0.0;
+					vec3 colorSum = vec3(0.0);
 					
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
@@ -387,10 +400,11 @@ void main()
 						//sort2(intersections[ii].id,ii,intersections[ij].id,ij);
 
 						vec3 aj = intersections[ij].center;
-						float rj = intersections[ij].radius; 
+						float rj = atoms[intersections[ij].id].radius;
+						vec3 cj = atoms[intersections[ij].id].color;
 
 						float ad = length(currentPosition.xyz-aj);
-						float gi = exp(-s*ad*ad);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
+						float gi = exp(-s*ad*ad/rj);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						//float gi = exp(-s*td);// * exp(-ad*s);
 						vec3 ni = -(currentPosition.xyz-aj)*gi;
 						float cv = abs(dot(currentPosition.xyz-aj,V))*gi;
@@ -398,6 +412,7 @@ void main()
 						sg += gi;
 						sn += ni;
 						curv += cv;
+						colorSum += gi*cj;
 						/*
 						float dij = length(aj-ai);
 						vec3 uij = (aj-ai)/dij;
@@ -433,8 +448,9 @@ void main()
 						{
 							normal.xyz = -normalize(sn);
 							closestPosition = currentPosition;
+							diffuseColor = colorSum;
 							curvature = curv;
-							///patchColor = vec3(1.0,0.0,1.0);
+							//patchColor = vec3(1.0,0.0,1.0);
 						}
 						break;
 					}
@@ -536,7 +552,7 @@ void main()
 	float NdotL = abs(dot(N, L));
 	float RdotV = abs(dot(R, -V));
 
-	vec3 c = ambientMaterial + NdotL * diffuseMaterial + pow(RdotV,shininess) * specularMaterial;
+	vec3 c = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial;
 	//vec3 c = color;// color.rgb*vec3(63.0/255.0,136/255.0,189/255.0);// + 0.125*color.rgb*pow(RdotV,shininess) * specularMaterial;//0.5*color.rgb + 0.5*color.rgb*(0.75+0.25 * NdotL) * diffuseMaterial + color.rgb*pow(RdotV,shininess) * specularMaterial;
 
 	fragColor = vec4(min(vec3(1.0),c.xyz),1.0);//vec4(offset,1.0,0.0,1.0);
