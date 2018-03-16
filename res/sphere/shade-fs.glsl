@@ -28,8 +28,8 @@ out vec4 fragNormal;
 
 struct BufferEntry
 {
-	vec4 near;
-	vec4 far;
+	float near;
+	float far;
 	vec3 center;
 	float radius;
 //	uint id;
@@ -317,7 +317,7 @@ void main()
 
 		for(uint i = currentIndex+1; i < entryCount; i++)
 		{
-			if(intersections[indices[i]].near.w < intersections[indices[minimumIndex]].near.w)
+			if(intersections[indices[i]].near < intersections[indices[minimumIndex]].near)
 			{
 				minimumIndex = i;					
 			}
@@ -335,7 +335,7 @@ void main()
 #ifndef POSTSORT
 		if (currentIndex > 0)
 		{
-			if (currentIndex < entryCount && intersections[indices[startIndex]].far.w >= intersections[indices[currentIndex]].near.w)
+			if (currentIndex < entryCount && intersections[indices[startIndex]].far >= intersections[indices[currentIndex]].near)
 			{
 				endIndex = currentIndex;
 			}
@@ -353,12 +353,12 @@ void main()
 				vec3 ai = intersections[ii].center;
 				float ri = intersections[ii].radius; 
 
-				vec4 nearPosition = intersections[ii].near;
-				vec4 farPosition = intersections[indices[endIndex]].far;
+				float nearDistance = intersections[ii].near;
+				float farDistance = intersections[indices[endIndex]].far;
 
 				float rp = probeRadius;
 
-				vec4 rayOrigin = nearPosition;
+				vec4 rayOrigin = vec4(near.xyz+V*nearDistance,nearDistance);
 				vec4 rayDirection = vec4(V,1.0);
 				vec4 currentPosition;
 					

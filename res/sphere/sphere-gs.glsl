@@ -23,8 +23,8 @@ void main()
 	gSphereRadius = sphereRadius;
 	gVertexId = vertexId[0];
 
-	vec3 up = vec3(0.0, 1.0, 0.0) * radius*sqrt(3.0)*0.5;
-	vec3 right = vec3(1.0, 0.0, 0.0) * radius*sqrt(3.0)*0.5;
+	vec3 up = vec3(0.0, 1.0, 0.0) * radius;//*sqrt(3.0)*0.5;
+	vec3 right = vec3(1.0, 0.0, 0.0) * radius;//*sqrt(3.0)*0.5;
 
 	gFragmentPosition = projection*vec4(p0.xyz - right - up, 1.0);
 	gl_Position = gFragmentPosition;

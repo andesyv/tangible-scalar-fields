@@ -28,7 +28,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vao->enable(0);
 	m_vao->unbind();
 
-	m_intersectionBuffer->setData(sizeof(vec3) * 1024*1024*64 + sizeof(uint), nullptr, GL_DYNAMIC_DRAW);
+	m_intersectionBuffer->setData(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, GL_DYNAMIC_DRAW);
 
 	m_verticesQuad->setData(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), GL_STATIC_DRAW);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -129,7 +129,7 @@ void SphereRenderer::display()
 		{
 			m_positionTextures[i]->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_normalTextures[i]->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-			m_depthTextures[i]->image2D(0, GL_DEPTH_COMPONENT32F, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+			m_depthTextures[i]->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
 		}
 		
 	}
@@ -153,6 +153,7 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
 	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSphere->setUniform("sphereRadius", sphereRadius);
+
 	m_programSphere->use();
 
 	m_vao->bind();
@@ -182,15 +183,13 @@ void SphereRenderer::display()
 	m_positionTextures[0]->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-
+	
 	m_programSpawn->setUniform("projection", viewer()->projectionTransform());
 	m_programSpawn->setUniform("modelView", viewer()->modelViewTransform());
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSpawn->setUniform("sphereRadius", extendedSphereRadius);
 	m_programSpawn->setUniform("probeRadius", probeRadius);
-
-	m_programSpawn->setUniform("normalMatrix", mat3(1.0f));//mat3(transpose(viewer()->modelViewTransform())));
 	m_programSpawn->use();
 
 	m_vao->bind();

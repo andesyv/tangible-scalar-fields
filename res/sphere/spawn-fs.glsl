@@ -19,8 +19,8 @@ layout(r32ui, binding = 0) uniform uimage2D offsetImage;
 
 struct BufferEntry
 {
-	vec4 near;
-	vec4 far;
+	float near;
+	float far;
 	vec3 center;
 	float radius;
 //	uint id;
@@ -92,10 +92,9 @@ void main()
 	vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
 	BufferEntry entry;
 	
-	entry.near.xyz = sphere.near;
-	entry.near.w = length(sphere.near.xyz-near.xyz);//calcDepth(sphere.near.xyz);
+	entry.near = length(sphere.near.xyz-near.xyz);//calcDepth(sphere.near.xyz);
 	
-	if (entry.near.w > position.w)
+	if (entry.near > position.w)
 		discard;	
 
 	uint index = atomicAdd(count,1);
@@ -103,8 +102,7 @@ void main()
 
 
 //	entry.id = gVertexId;
-	entry.far.xyz = sphere.far;
-	entry.far.w = length(sphere.far.xyz-near.xyz);//calcDepth(sphere.far.xyz);
+	entry.far = length(sphere.far.xyz-near.xyz);//calcDepth(sphere.far.xyz);
 	/*
 	if (entry.far.w < entry.near.w)
 	{
