@@ -19,7 +19,7 @@ using namespace globjects;
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
-	m_atomData->setData(std::array<float, 8>({ 1.0f,0.0f,0.0f,1.0f,  1.0f,1.0f,1.0f,0.5f }), GL_STATIC_DRAW);
+	m_atomData->setData(std::array<float, 8>({ 1.0f,0.0f,0.0f,1.0f,  1.0f,1.0f,1.0f,2.0f }), GL_STATIC_DRAW);
 		
 	m_size = static_cast<GLsizei>(viewer->scene()->protein()->atoms().size());
 
@@ -139,7 +139,7 @@ void SphereRenderer::display()
 	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
 	mat4 inverseModelViewProjection = inverse(modelViewProjection);
 	float sphereRadius = 1.0;
-	float probeRadius = 1.4;
+	float probeRadius = 1.5;
 	float extendedSphereRadius = sphereRadius + probeRadius;
 
 	m_frameBuffers[0]->bind();
@@ -218,9 +218,8 @@ void SphereRenderer::display()
 	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-	ImGui::SliderFloat("Softness", &softness, 0.0f, 16.0f);
+	ImGui::SliderFloat("Softness", &softness, 1.0f, 16.0f);
 	ImGui::End();
-
 
 
 //	uint sphereCount = 0;
