@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <unordered_map>
+#include <array>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -27,124 +28,125 @@ Protein::Protein(const std::string& filename)
 
 void Protein::load(const std::string& filename)
 {
-	std::unordered_map<std::string, uint> elementTypes;
-	elementTypes["H"] = 1;
-	elementTypes["He"] = 2;
-	elementTypes["Li"] = 3;
-	elementTypes["Be"] = 4;
-	elementTypes["B"] = 5;
-	elementTypes["C"] = 6;
-	elementTypes["N"] = 7;
-	elementTypes["O"] = 8;
-	elementTypes["F"] = 9;
-	elementTypes["Ne"] = 10;
-	elementTypes["Na"] = 11;
-	elementTypes["Mg"] = 12;
-	elementTypes["Al"] = 13;
-	elementTypes["Si"] = 14;
-	elementTypes["P"] = 15;
-	elementTypes["S"] = 16;
-	elementTypes["Cl"] = 17;
-	elementTypes["Ar"] = 18;
-	elementTypes["K"] = 19;
-	elementTypes["Ca"] = 20;
-	elementTypes["Sc"] = 21;
-	elementTypes["Ti"] = 22;
-	elementTypes["V"] = 23;
-	elementTypes["Cr"] = 24;
-	elementTypes["Mn"] = 25;
-	elementTypes["Fe"] = 26;
-	elementTypes["Co"] = 27;
-	elementTypes["Ni"] = 28;
-	elementTypes["Cu"] = 29;
-	elementTypes["Zn"] = 30;
-	elementTypes["Ga"] = 31;
-	elementTypes["Ge"] = 32;
-	elementTypes["As"] = 33;
-	elementTypes["Se"] = 34;
-	elementTypes["Br"] = 35;
-	elementTypes["Kr"] = 36;
-	elementTypes["Rb"] = 37;
-	elementTypes["Sr"] = 38;
-	elementTypes["Y"] = 39;
-	elementTypes["Zr"] = 40;
-	elementTypes["Nb"] = 41;
-	elementTypes["Mo"] = 42;
-	elementTypes["Tc"] = 43;
-	elementTypes["Ru"] = 44;
-	elementTypes["Rh"] = 45;
-	elementTypes["Pd"] = 46;
-	elementTypes["Ag"] = 47;
-	elementTypes["Cd"] = 48;
-	elementTypes["In"] = 49;
-	elementTypes["Sn"] = 50;
-	elementTypes["Sb"] = 51;
-	elementTypes["Te"] = 52;
-	elementTypes["I"] = 53;
-	elementTypes["Xe"] = 54;
-	elementTypes["Cs"] = 55;
-	elementTypes["Ba"] = 56;
-	elementTypes["La"] = 57;
-	elementTypes["Ce"] = 58;
-	elementTypes["Pr"] = 59;
-	elementTypes["Nd"] = 60;
-	elementTypes["Pm"] = 61;
-	elementTypes["Sm"] = 62;
-	elementTypes["Eu"] = 63;
-	elementTypes["Gd"] = 64;
-	elementTypes["Tb"] = 65;
-	elementTypes["Dy"] = 66;
-	elementTypes["Ho"] = 67;
-	elementTypes["Er"] = 68;
-	elementTypes["Tm"] = 69;
-	elementTypes["Yb"] = 70;
-	elementTypes["Lu"] = 71;
-	elementTypes["Hf"] = 72;
-	elementTypes["Ta"] = 73;
-	elementTypes["W"] = 74;
-	elementTypes["Re"] = 75;
-	elementTypes["Os"] = 76;
-	elementTypes["Ir"] = 77;
-	elementTypes["Pt"] = 78;
-	elementTypes["Au"] = 79;
-	elementTypes["Hg"] = 80;
-	elementTypes["Tl"] = 81;
-	elementTypes["Pb"] = 82;
-	elementTypes["Bi"] = 83;
-	elementTypes["Po"] = 84;
-	elementTypes["At"] = 85;
-	elementTypes["Rn"] = 86;
-	elementTypes["Fr"] = 87;
-	elementTypes["Ra"] = 88;
-	elementTypes["Ac"] = 89;
-	elementTypes["Th"] = 90;
-	elementTypes["Pa"] = 91;
-	elementTypes["U"] = 92;
-	elementTypes["Np"] = 93;
-	elementTypes["Pu"] = 94;
-	elementTypes["Am"] = 95;
-	elementTypes["Cm"] = 96;
-	elementTypes["Bk"] = 97;
-	elementTypes["Cf"] = 98;
-	elementTypes["Es"] = 99;
-	elementTypes["Fm"] = 100;
-	elementTypes["Md"] = 101;
-	elementTypes["No"] = 102;
-	elementTypes["Lr"] = 103;
-	elementTypes["Rf"] = 104;
-	elementTypes["Db"] = 105;
-	elementTypes["Sg"] = 106;
-	elementTypes["Bh"] = 107;
-	elementTypes["Hs"] = 108;
-	elementTypes["Mt"] = 109;
-	elementTypes["Ds"] = 110;
-	elementTypes["Rg"] = 111;
-	elementTypes["Cn"] = 112;
-	elementTypes["H (WAT)"] = 113;
-	elementTypes["O (WAT)"] = 114;
-	elementTypes["D"] = 115;
+	static const std::unordered_map<std::string, uint> elementNames = {
+		{"H", 1},
+		{"He", 2},
+		{"Li", 3},
+		{"Be", 4},
+		{"B", 5},
+		{"C", 6},
+		{"N", 7},
+		{"O", 8},
+		{"F", 9},
+		{"Ne", 10},
+		{"Na", 11},
+		{"Mg", 12},
+		{"Al", 13},
+		{"Si", 14},
+		{"P", 15},
+		{"S", 16},
+		{"Cl", 17},
+		{"Ar", 18},
+		{"K", 19},
+		{"Ca", 20},
+		{ "Sc", 21 },
+		{ "Ti", 22 },
+		{ "V", 23 },
+		{ "Cr", 24 },
+		{ "Mn", 25 },
+		{ "Fe", 26 },
+		{ "Co", 27 },
+		{ "Ni", 28 },
+		{ "Cu", 29 },
+		{ "Zn", 30 },
+		{ "Ga", 31 },
+		{ "Ge", 32 },
+		{ "As", 33 },
+		{ "Se", 34 },
+		{ "Br", 35 },
+		{ "Kr", 36 },
+		{ "Rb", 37 },
+		{ "Sr", 38 },
+		{ "Y", 39 },
+		{ "Zr", 40 },
+		{ "Nb", 41 },
+		{ "Mo", 42 },
+		{ "Tc", 43 },
+		{ "Ru", 44 },
+		{ "Rh", 45 },
+		{ "Pd", 46 },
+		{ "Ag", 47 },
+		{ "Cd", 48 },
+		{ "In", 49 },
+		{ "Sn", 50 },
+		{ "Sb", 51 },
+		{ "Te", 52 },
+		{ "I", 53 },
+		{ "Xe", 54 },
+		{ "Cs", 55 },
+		{ "Ba", 56 },
+		{ "La", 57 },
+		{ "Ce", 58 },
+		{ "Pr", 59 },
+		{ "Nd", 60 },
+		{ "Pm", 61 },
+		{ "Sm", 62 },
+		{ "Eu", 63 },
+		{ "Gd", 64 },
+		{ "Tb", 65 },
+		{ "Dy", 66 },
+		{ "Ho", 67 },
+		{ "Er", 68 },
+		{ "Tm", 69 },
+		{ "Yb", 70 },
+		{ "Lu", 71 },
+		{ "Hf", 72 },
+		{ "Ta", 73 },
+		{ "W", 74 },
+		{ "Re", 75 },
+		{ "Os", 76 },
+		{ "Ir", 77 },
+		{ "Pt", 78 },
+		{ "Au", 79 },
+		{ "Hg", 80 },
+		{ "Tl", 81 },
+		{ "Pb", 82 },
+		{ "Bi", 83 },
+		{ "Po", 84 },
+		{ "At", 85 },
+		{ "Rn", 86 },
+		{ "Fr", 87 },
+		{ "Ra", 88 },
+		{ "Ac", 89 },
+		{ "Th", 90 },
+		{ "Pa", 91 },
+		{ "U", 92 },
+		{ "Np", 93 },
+		{ "Pu", 94 },
+		{ "Am", 95 },
+		{ "Cm", 96 },
+		{ "Bk", 97 },
+		{ "Cf", 98 },
+		{ "Es", 99 },
+		{ "Fm", 100 },
+		{ "Md", 101 },
+		{ "No", 102 },
+		{ "Lr", 103 },
+		{ "Rf", 104 },
+		{ "Db", 105 },
+		{ "Sg", 106 },
+		{ "Bh", 107 },
+		{ "Hs", 108 },
+		{ "Mt", 109 },
+		{ "Ds", 110 },
+		{ "Rg", 111 },
+		{ "Cn", 112 },
+		{ "H (WAT)", 113 },
+		{ "O (WAT)", 114 },
+		{ "D", 115 }
+	};
 
-	static const float radii[] = {
+	static const std::array<float,116> elementRadii = {
 		1.0f, // 0 - default
 		/*<vdw id = "1" radius = "*/1.200f,
 		/*<vdw id = "2" radius = "*/1.400f,
@@ -263,6 +265,120 @@ void Protein::load(const std::string& filename)
 		/*<vdw id = "115" radius = "*/1.200f
 	};
 
+	// source: http://jmol.sourceforge.net/jscolors/
+	static const std::array<vec3,110> elementColors = {
+		vec3(1.0f,1.0f,1.0f),
+		vec3(255, 255, 255) / 255.0f,
+		vec3(217, 255, 255) / 255.0f,
+		vec3(204, 128, 255) / 255.0f,
+		vec3(194, 255, 0) / 255.0f,
+		vec3(255, 181, 181) / 255.0f,
+		vec3(144, 144, 144) / 255.0f,
+		vec3(48, 80, 248) / 255.0f,
+		vec3(255, 13, 13) / 255.0f,
+		vec3(144, 224, 80) / 255.0f,
+		vec3(179, 227, 245) / 255.0f,
+		vec3(171, 92, 242) / 255.0f,
+		vec3(138, 255, 0) / 255.0f,
+		vec3(191, 166, 166) / 255.0f,
+		vec3(240, 200, 160) / 255.0f,
+		vec3(255, 128, 0) / 255.0f,
+		vec3(255, 255, 48) / 255.0f,
+		vec3(31, 240, 31) / 255.0f,
+		vec3(128, 209, 227) / 255.0f,
+		vec3(143, 64, 212) / 255.0f,
+		vec3(61, 255, 0) / 255.0f,
+		vec3(230, 230, 230) / 255.0f,
+		vec3(191, 194, 199) / 255.0f,
+		vec3(166, 166, 171) / 255.0f,
+		vec3(138, 153, 199) / 255.0f,
+		vec3(156, 122, 199) / 255.0f,
+		vec3(224, 102, 51) / 255.0f,
+		vec3(240, 144, 160) / 255.0f,
+		vec3(80, 208, 80) / 255.0f,
+		vec3(200, 128, 51) / 255.0f,
+		vec3(125, 128, 176) / 255.0f,
+		vec3(194, 143, 143) / 255.0f,
+		vec3(102, 143, 143) / 255.0f,
+		vec3(189, 128, 227) / 255.0f,
+		vec3(255, 161, 0) / 255.0f,
+		vec3(166, 41, 41) / 255.0f,
+		vec3(92, 184, 209) / 255.0f,
+		vec3(112, 46, 176) / 255.0f,
+		vec3(0, 255, 0) / 255.0f,
+		vec3(148, 255, 255) / 255.0f,
+		vec3(148, 224, 224) / 255.0f,
+		vec3(115, 194, 201) / 255.0f,
+		vec3(84, 181, 181) / 255.0f,
+		vec3(59, 158, 158) / 255.0f,
+		vec3(36, 143, 143) / 255.0f,
+		vec3(10, 125, 140) / 255.0f,
+		vec3(0, 105, 133) / 255.0f,
+		vec3(192, 192, 192) / 255.0f,
+		vec3(255, 217, 143) / 255.0f,
+		vec3(166, 117, 115) / 255.0f,
+		vec3(102, 128, 128) / 255.0f,
+		vec3(158, 99, 181) / 255.0f,
+		vec3(212, 122, 0) / 255.0f,
+		vec3(148, 0, 148) / 255.0f,
+		vec3(66, 158, 176) / 255.0f,
+		vec3(87, 23, 143) / 255.0f,
+		vec3(0, 201, 0) / 255.0f,
+		vec3(112, 212, 255) / 255.0f,
+		vec3(255, 255, 199) / 255.0f,
+		vec3(217, 255, 199) / 255.0f,
+		vec3(199, 255, 199) / 255.0f,
+		vec3(163, 255, 199) / 255.0f,
+		vec3(143, 255, 199) / 255.0f,
+		vec3(97, 255, 199) / 255.0f,
+		vec3(69, 255, 199) / 255.0f,
+		vec3(48, 255, 199) / 255.0f,
+		vec3(31, 255, 199) / 255.0f,
+		vec3(0, 255, 156) / 255.0f,
+		vec3(0, 230, 117) / 255.0f,
+		vec3(0, 212, 82) / 255.0f,
+		vec3(0, 191, 56) / 255.0f,
+		vec3(0, 171, 36) / 255.0f,
+		vec3(77, 194, 255) / 255.0f,
+		vec3(77, 166, 255) / 255.0f,
+		vec3(33, 148, 214) / 255.0f,
+		vec3(38, 125, 171) / 255.0f,
+		vec3(38, 102, 150) / 255.0f,
+		vec3(23, 84, 135) / 255.0f,
+		vec3(208, 208, 224) / 255.0f,
+		vec3(255, 209, 35) / 255.0f,
+		vec3(184, 184, 208) / 255.0f,
+		vec3(166, 84, 77) / 255.0f,
+		vec3(87, 89, 97) / 255.0f,
+		vec3(158, 79, 181) / 255.0f,
+		vec3(171, 92, 0) / 255.0f,
+		vec3(117, 79, 69) / 255.0f,
+		vec3(66, 130, 150) / 255.0f,
+		vec3(66, 0, 102) / 255.0f,
+		vec3(0, 125, 0) / 255.0f,
+		vec3(112, 171, 250) / 255.0f,
+		vec3(0, 186, 255) / 255.0f,
+		vec3(0, 161, 255) / 255.0f,
+		vec3(0, 143, 255) / 255.0f,
+		vec3(0, 128, 255) / 255.0f,
+		vec3(0, 107, 255) / 255.0f,
+		vec3(84, 92, 242) / 255.0f,
+		vec3(120, 92, 227) / 255.0f,
+		vec3(138, 79, 227) / 255.0f,
+		vec3(161, 54, 212) / 255.0f,
+		vec3(179, 31, 212) / 255.0f,
+		vec3(179, 31, 186) / 255.0f,
+		vec3(179, 13, 166) / 255.0f,
+		vec3(189, 13, 135) / 255.0f,
+		vec3(199, 0, 102) / 255.0f,
+		vec3(204, 0, 89) / 255.0f,
+		vec3(209, 0, 79) / 255.0f,
+		vec3(217, 0, 69) / 255.0f,
+		vec3(224, 0, 56) / 255.0f,
+		vec3(230, 0, 46) / 255.0f,
+		vec3(235, 0, 38) / 255.0f
+	};
+
 	std::cout << "Loading file " << filename << " ..." << std::endl;
 	std::ifstream file(filename);
 
@@ -275,8 +391,12 @@ void Protein::load(const std::string& filename)
 	m_minimumBounds = vec3(std::numeric_limits<float>::max());
 	m_maximumBounds = vec3(-std::numeric_limits<float>::max());
 
-	uint j = 0;
+	std::array<uint, 116> elementIds;
+	elementIds.fill(0);
+
 	std::string str;
+	uint elementCount = 1;
+
 	while (std::getline(file, str))
 	{
 		std::vector<std::string> tokens;
@@ -290,17 +410,55 @@ void Protein::load(const std::string& filename)
 			float y = float(std::atof(tokens[7].c_str()));
 			float z = float(std::atof(tokens[8].c_str()));
 
-			vec4 pos(x, y, z, j > 20000 ? 1.0f : 0.0f);
-			m_atoms.push_back(pos);
+			std::string elementName = tokens.back();
+			uint elementNumber = 0;
+			uint elementId = 0;
+			float radius = 0.0f;
+			auto it = elementNames.find(elementName);
 
-			j++;
+			if (it != elementNames.end())
+				elementNumber = it->second;
 
-			m_minimumBounds = min(m_minimumBounds, vec3(pos));
-			m_maximumBounds = max(m_maximumBounds, vec3(pos));
+			elementId = elementIds[elementNumber];
+
+			if (elementId == 0)
+			{
+				elementId = elementCount++;
+				elementIds[elementNumber] = elementId;
+				std::cout << elementId << std::endl;
+			}
+
+			vec4 atom(x, y, z, float(elementId));
+			m_atoms.push_back(atom);
+
+			m_minimumBounds = min(m_minimumBounds, vec3(atom));
+			m_maximumBounds = max(m_maximumBounds, vec3(atom));
+		}
+	}
+
+	m_elements.clear();
+	m_elements.resize(elementCount);
+
+	for (uint elementNumber = 0; elementNumber < elementIds.size(); elementNumber++)
+	{
+		uint elementId = elementIds[elementNumber];
+
+		if (elementId > 0)
+		{
+			Element e;
+			
+			if (elementNumber < elementColors.size())
+				e.color = elementColors[elementNumber];
+
+			if (elementNumber < elementRadii.size())
+				e.radius = elementRadii[elementNumber];
+
+			m_elements[elementId] = e;
 		}
 	}
 
 	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
+
 	
 	/*
 	m_atoms.clear();
@@ -413,6 +571,11 @@ void Protein::load(const std::string& filename)
 const std::vector<glm::vec4> & Protein::atoms() const
 {
 	return m_atoms;
+}
+
+const std::vector<Protein::Element>& molumes::Protein::elements() const
+{
+	return m_elements;
 }
 
 vec3 Protein::minimumBounds() const

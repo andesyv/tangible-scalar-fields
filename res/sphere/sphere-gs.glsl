@@ -22,7 +22,7 @@ struct AtomData
 
 layout(std140, binding = 0) uniform atomBlock
 {
-	AtomData atoms[2];
+	AtomData atoms[32];
 };
 
 void main()

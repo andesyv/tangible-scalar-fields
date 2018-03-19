@@ -19,7 +19,7 @@ using namespace globjects;
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
-	m_atomData->setData(std::array<float, 8>({ 1.0f,0.0f,0.0f,1.0f,  1.0f,1.0f,1.0f,2.0f }), GL_STATIC_DRAW);
+	m_atomData->setData(viewer->scene()->protein()->elements(), GL_STATIC_DRAW);
 		
 	m_size = static_cast<GLsizei>(viewer->scene()->protein()->atoms().size());
 
