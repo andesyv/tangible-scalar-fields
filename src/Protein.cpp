@@ -425,7 +425,6 @@ void Protein::load(const std::string& filename)
 			{
 				elementId = elementCount++;
 				elementIds[elementNumber] = elementId;
-				std::cout << elementId << std::endl;
 			}
 
 			vec4 atom(x, y, z, float(elementId));

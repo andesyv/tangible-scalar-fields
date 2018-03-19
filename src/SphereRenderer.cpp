@@ -136,11 +136,27 @@ void SphereRenderer::display()
 		
 	}
 	
+	static vec3 ambientMaterial(0.04f, 0.04f, 0.04f);
+	static vec3 diffuseMaterial(0.75, 0.75f, 0.75f);
+	static vec3 specularMaterial(0.5f, 0.5f, 0.5f);
+	static float shininess = 16.0f;
+	static float softness = 1.0;
+	static bool elementColoring = false;
+	static bool ambientOcclusion = false;
+
+	ImGui::Begin("Sphere Renderer");
+	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
+	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
+	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
+	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
+	ImGui::SliderFloat("Softness", &softness, 0.5f, 4.0f);
+	ImGui::Checkbox("Element Coloring", &elementColoring);
+	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
+	ImGui::End();
+
 	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
 	mat4 inverseModelViewProjection = inverse(modelViewProjection);
-	float sphereRadius = 1.0;
-	float probeRadius = 1.5;
-	float extendedSphereRadius = sphereRadius + probeRadius;
+	float radiusOffset = 1.75 / sqrt(softness);
 
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
@@ -190,7 +206,7 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("modelView", viewer()->modelViewTransform());
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programSpawn->setUniform("radiusOffset", 1.4f);
+	m_programSpawn->setUniform("radiusOffset", radiusOffset);
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -205,21 +221,6 @@ void SphereRenderer::display()
 	m_offsetTexture->unbindImageTexture(0);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-
-	static vec3 ambientMaterial(0.04f, 0.04f, 0.04f);
-	static vec3 diffuseMaterial(0.75, 0.75f, 0.75f);
-	static vec3 specularMaterial(0.5f, 0.5f, 0.5f);
-	static float shininess = 16.0f;
-	static float softness = 1.0;
-
-	ImGui::Begin("Sphere Renderer");
-	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
-	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
-	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
-	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-	ImGui::SliderFloat("Softness", &softness, 1.0f, 16.0f);
-	ImGui::End();
 
 
 //	uint sphereCount = 0;
@@ -247,8 +248,19 @@ void SphereRenderer::display()
 	m_depthTextures[0]->bindActive(2);
 	m_offsetTexture->bindActive(3);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+/*	
+	double xpos, ypos;
+	glfwGetCursorPos(viewer()->window(), &xpos, &ypos);
+	xpos = 2.0 * xpos / double(viewer()->viewportSize().x) - 1.0;
+	ypos = -(2.0 * ypos / double(viewer()->viewportSize().y) - 1.0);
 
-	vec3 lightPosition = normalize(vec3(inverse(viewer()->modelViewTransform())*vec4(0.0f, 0.0f, -1.0f,0.0)));
+	vec4 centerPosition = modelViewProjection * vec4(0.0, 0.0, 0.0, 1.0);
+	centerPosition /= centerPosition.w;
+*/
+	vec4 lightPosition = inverseModelViewProjection * vec4(0.0, 0.0, -1.0, 1.0);
+	lightPosition /= lightPosition.w;
+	//std::cout << "CENTER:" << to_string(centerPosition) << std::endl << std::endl;
+	//std::cout << xpos << "," << ypos << ":" << to_string(lightPosition) << std::endl << std::endl;
 
 	m_programShade->setUniform("modelView", viewer()->modelViewTransform());
 	m_programShade->setUniform("projection", viewer()->projectionTransform());
@@ -256,7 +268,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
 	m_programShade->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programShade->setUniform("probeRadius", 1.0f);
-	m_programShade->setUniform("lightPosition", lightPosition);
+	m_programShade->setUniform("lightPosition", vec3(lightPosition));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
 	m_programShade->setUniform("specularMaterial", specularMaterial);
@@ -266,6 +278,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("depthTexture", 2);
 	m_programShade->setUniform("offsetTexture", 3);
 	m_programShade->setUniform("softness", softness);
+	m_programShade->setUniform("coloring", elementColoring);
 	m_programShade->use();
 
 	m_vaoQuad->bind();
@@ -281,8 +294,11 @@ void SphereRenderer::display()
 	m_positionTextures[1]->unbindActive(0);
 	m_atomData->unbind(GL_UNIFORM_BUFFER);
 
-	m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
+	if (ambientOcclusion)
+		m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
 
-	m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK_LEFT, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	m_frameBuffers[1]->unbind();
+
+	Framebuffer::defaultFBO()->bind();
 }

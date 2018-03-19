@@ -22,7 +22,7 @@ namespace molumes
 
 		glm::vec3 arcballVector(double x, double y);
 
-		float m_fov = 45.0f;
+		float m_fov = glm::radians(70.0f);
 		float m_near = 0.0125f;
 		float m_far = 128.0f;
 		float m_distance = 2.0f*sqrt(3.0f);

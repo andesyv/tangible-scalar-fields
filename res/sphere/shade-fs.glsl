@@ -9,13 +9,13 @@ uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
 uniform float probeRadius;
 uniform float softness;
+uniform bool coloring;
 
 uniform vec3 lightPosition;
 uniform vec3 diffuseMaterial;
 uniform vec3 ambientMaterial;
 uniform vec3 specularMaterial;
 uniform float shininess;
-uniform mat3 normalMatrix;
 
 uniform sampler2D colorTexture;
 uniform sampler2D normalTexture;
@@ -286,8 +286,8 @@ void main()
 		discard;
 
 	vec4 position = texelFetch(colorTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
+	vec3 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0).xyz;
+	//vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
 
 	vec4 fragCoord = gFragmentPosition;
 	fragCoord /= fragCoord.w;
@@ -299,7 +299,6 @@ void main()
 	far /= far.w;
 
 	vec3 V = normalize(far.xyz-near.xyz);	
-	vec3 patchColor = vec3(1.0,1.0,1.0);
 	float curvature = 1.0;
 
 	const uint maxEntries = 128;
@@ -318,6 +317,7 @@ void main()
 		discard;
 
 	vec4 closestPosition = position;
+	vec3 closestNormal = normal;
 
 	uint startIndex = 0;
 	uint endIndex = 1;
@@ -342,9 +342,6 @@ void main()
 			indices[currentIndex] = temp;
 		}
 
-//#define POSTSORT
-
-#ifndef POSTSORT
 		if (currentIndex > 0)
 		{
 			if (currentIndex < entryCount && intersections[indices[startIndex]].far >= intersections[indices[currentIndex]].near)
@@ -357,241 +354,114 @@ void main()
 					endIndex = entryCount-1;
 
 				const uint maximumSteps = 128;
-				const float maximumDistance = 16.0;
 				const float s = softness;
 				const float eps = 0.001;
 
 				uint ii = indices[startIndex];
 				vec3 ai = intersections[ii].center;
 				float ri = atoms[intersections[ii].id].radius;
-
 				float nearDistance = intersections[ii].near;
 				float farDistance = intersections[indices[endIndex]].far;
 
-				float rp = probeRadius;
+				const float maximumDistance = 16.0;//farDistance-nearDistance;
+
+				float surfaceDistance = 1.0;
 
 				vec4 rayOrigin = vec4(near.xyz+V*nearDistance,nearDistance);
 				vec4 rayDirection = vec4(V,1.0);
 				vec4 currentPosition;
-					
-				float t = 0.0;
-				float h = 1.0;
+				
 
 				uint currentStep = 0;			
+				float t = 0.0;
 
 				while (++currentStep <= maximumSteps && t < maximumDistance)
 				{    
 					currentPosition = rayOrigin + rayDirection*t;
 
-					if (currentPosition.w >= closestPosition.w)
+					if (currentPosition.w > closestPosition.w)
 						break;
 
-					float sg = 0.0;
-					float sr = 0.0;
-					vec3 sn = vec3(0.0);
-					float st = 1000.0;
-					vec3 stn = vec3(0.0);
-					float curv = 0.0;
-					vec3 colorSum = vec3(0.0);
+					float sumValue = 0.0;
+					vec3 sumNormal = vec3(0.0);
+					vec3 sumColor = vec3(0.0);
 					
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
 						uint ij = indices[j];
-						//sort2(intersections[ii].id,ii,intersections[ij].id,ij);
 
 						vec3 aj = intersections[ij].center;
 						float rj = atoms[intersections[ij].id].radius;
 						vec3 cj = atoms[intersections[ij].id].color;
 
-						float ad = length(currentPosition.xyz-aj);
-						float gi = exp(-s*ad*ad/(rj*rj)+s/(rj*rj));//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
-						//float gi = exp(-s*td);// * exp(-ad*s);
-						vec3 ni = -(currentPosition.xyz-aj)*gi;
-						float cv = abs(dot(currentPosition.xyz-aj,V))*gi;
+						vec3 atomOffset = currentPosition.xyz-aj;						
+						float atomDistance = length(atomOffset);
 
-						sg += gi;
-						sn += ni;
-						curv += cv;
-						colorSum += gi*cj;
-						/*
-						float dij = length(aj-ai);
-						vec3 uij = (aj-ai)/dij;
-						vec3 tij = 0.5*(ai+aj)+0.5*(aj-ai)*((ri+rp)*(ri+rp) - (rj+rp)*(rj+rp))/(dij*dij);
-						float rij_a = (ri+rj+2.0*rp)*(ri+rj+2.0*rp)-dij*dij;
-						float rij_b = dij*dij-(ri-rj)*(ri-rj);
+						float atomValue = exp(-s*atomDistance*atomDistance/(rj*rj)+s/(rj*rj));//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
+						vec3 atomNormal = normalize(atomOffset)*atomValue;
+						vec3 atomColor = cj*atomValue;
 
-						if (rij_a > eps && rij_b > eps)
-						{
-							float rij = 0.5 * sqrt(rij_a) * sqrt(rij_b) / dij;
-							mat3 mij = rotationAlign(vec3(0.0,1.0,0.0),uij);
+						sumValue += atomValue;
+						sumNormal += atomNormal;
 
-							float td = blendDistance( (currentPosition.xyz-tij)*mij, vec2(rij,rp));
-							vec3 pp = currentPosition.xyz-tij;
-							vec3 nt = pp-rij*normalize(pp-dot(uij,pp)*uij);
-
-							if (td < st)
-							{
-								st = td;
-								stn = nt;
-							}
-						}
-						*/
+						if (coloring)
+							sumColor += atomColor;
 					}
+					
+					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;
 
-					colorSum /= sg;
-					float lsg = sqrt(-log(sg) / (s))-1.0;
-					h = lsg;
-
-
-					if ( (h) < 0.001)
+					if (surfaceDistance < eps)
 					{
-						if (currentPosition.w < closestPosition.w)
+						if (currentPosition.w <= closestPosition.w)
 						{
-							normal.xyz = -normalize(sn);
 							closestPosition = currentPosition;
-							diffuseColor = colorSum;
-							curvature = curv;
-							//patchColor = vec3(1.0,0.0,1.0);
+							closestNormal = normalize(sumNormal);
+
+							if (coloring)
+								diffuseColor = sumColor / sumValue;
 						}
 						break;
 					}
 
 
-					t += h;
+					t += surfaceDistance;
 				}
 
 				startIndex++;
 			}
 		}
-
-#endif
-
 	}
 
-#ifdef POSTSORT
-	if (entryCount > 0)
-	{
-		for (uint i=0;i < entryCount;i++)
-		{		
-			vec3 nn = vec3(1000.0,1000.0,1000.0);
-			const float s = 3.75;
-			float th = 1.0;
-			float d;
-			vec3 norm = vec3(0.0,0.0,0.0);
-
-			vec3 x;
-			float maxd = 64.0;
-			float h = 1.0;
-			float t = 0.0;
-
-			vec4 nearPosition = intersections[indices[i]].near;
-			vec4 farPosition = intersections[indices[i]].far;
-			vec3 ro = nearPosition.xyz;
-			vec3 rd = V;
-			uint j;
-
-			for( int steps=0; steps<256; steps++ )
-			{
-				if( h<0.001 || t>maxd )
-					break;
-	    
-				x = ro+rd*t;
-				
-				j = i;
-
-				float sg = 0.0;
-				float sr = 0.0;
-				vec3 sn = vec3(0.0);
-
-				while (j < entryCount && intersections[indices[i]].far.w >= intersections[indices[j]].near.w)
-				{
-					uint ij = indices[j];
-					vec3 aj = intersections[ij].center;
-					float rj = intersections[ij].radius; 
-
-					float ad = length(x-aj)-rj;
-					float gi = exp(-s*ad);
-					vec3 ni = -(x-aj)*gi;
-
-					sg += gi;
-					sn += ni;
-
-					j++;
-
-				}
-
-				sg = -log(sg) / s;
-				nn = sn;
-
-				h = sg;
-				t += h;
-
-			}
-
-			if( h<0.001 && t<maxd )
-			{
-				float dd = length(x-near.xyz);
-
-				if (dd < depth.r)
-				{
-					normal.xyz = -normalize(nn);
-					//patchColor = vec3(1.0,0.0,1.0);
-					break;
-				}
-			}
-		}
-	}
-#endif
 
 	if (closestPosition.w >= 65535.0f)
 		discard;
 
 		// vectors
-	vec3 N = normalize(-normal.xyz);//intersections[indices[0]].center.xyz - intersections[indices[0]].near.xyz);
-	vec3 L = lightPosition;
+	vec3 N = normalize(closestNormal);
+	vec3 L = normalize(lightPosition.xyz-closestPosition.xyz);
 	vec3 R = normalize(reflect(L, N));
-	float NdotL = abs(dot(N, L));
-	float RdotV = abs(dot(R, -V));
+	float NdotL = max(0.0,dot(N, L));
+	float RdotV = max(0.0,dot(R, V));
+	vec3 color = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial;
+	/*
+	vec3 N1 = normalize(normal);
+	vec3 L1 = normalize(lightPosition.xyz-position.xyz);
+	vec3 R1 = normalize(reflect(L1, N1));
+	float NdotL1 = max(0.0,dot(N1, L1));
+	float RdotV1 = max(0.0,dot(R1, V));
+	vec3 color1 = ambientMaterial + NdotL1 * diffuseMaterial * diffuseColor + pow(RdotV1,shininess) * specularMaterial;
+	color = 0.5*color+0.5*color1;
+	*/
 
-	vec3 c = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial;
-	//vec3 c = color;// color.rgb*vec3(63.0/255.0,136/255.0,189/255.0);// + 0.125*color.rgb*pow(RdotV,shininess) * specularMaterial;//0.5*color.rgb + 0.5*color.rgb*(0.75+0.25 * NdotL) * diffuseMaterial + color.rgb*pow(RdotV,shininess) * specularMaterial;
+	
+	float contour = 1.0;
+	float c = abs(dot(N,V));
+	float t = fwidth(c);
 
-	fragColor = vec4(min(vec3(1.0),c.xyz),1.0);//vec4(offset,1.0,0.0,1.0);
-//	fragColor.rgb *= patchColor;
+	//color /= (1.0-pow(1.0-c,4.0));
 		
-/*		
-	if (entryCount == 0)
-		fragColor = vec4(0.25,0.25,0.25,1.0);
-	else if (entryCount == 1)
-		fragColor = mix(fragColor,vec4(0.0,0.0,1.0,1.0),0.5);
-	else if (entryCount == 2)
-		fragColor = mix(fragColor,vec4(0.0,1.0,0.0,1.0),0.5);
-	else
-		fragColor = mix(fragColor,vec4(1.0-float(entryCount)/4.0,0.0,0.0,1.0),0.5);
-*/		
-/*		
-	if (entryCount > 0)
-	{
-	float dis = length(pos.xyz-intersections[indices[0]].near.xyz);
-	fragColor = mix(fragColor,vec4(float(entryCount)/10.0,0.0,0.0,1.0),0.5);
-	}
-*/
-	fragColor.a = 1.0;
 
-	float d = fwidth(NdotL);
-    float s = d*2.0;//smoothstep(0.0, d*10.5, NdotL);
-	float edgeFactor = s;//min(min(s.x, s.y), min(s.z,s.w));
-//	curvature = edgeFactor;//1.0-smoothstep(0.0,0.5,curvature);
-	curvature = 0.25*(pow(1.0-curvature,1.0));
-	//fragColor = fragColor+vec4(curvature,curvature,curvature,1.0);
-	//fragColor.rgb *= (0.5+0.5*(1.0-(closestDistance/200.0)));
-	//fragColor.r = curvature*4;
-		
-	//fragColor = vec4(0.5+float(entryCount)/10.0,0.0,0.0,1.0);
-
+	fragColor = vec4(min(vec3(1.0),color.xyz),1.0);
 	fragNormal = vec4(N,0.0);
-
-	//fragColor.xyz = intersections[indices[0]].center.xyz;
 	gl_FragDepth = calcDepth(closestPosition.xyz);
-
 }

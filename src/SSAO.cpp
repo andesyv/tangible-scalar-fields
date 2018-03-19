@@ -101,15 +101,18 @@ void SSAO::display(const glm::mat4 & viewTransform, const glm::mat4 & projection
 	GFSDK_SSAO_Parameters params;
 	params.SmallScaleAO = 1.0f;
 	params.LargeScaleAO = 1.0f;
-	params.Radius = 1.0;
+	params.Radius = 3.0;
 	params.PowerExponent = 2.0;
 	params.Bias = 0.0f;
 	params.Blur.Enable = true;
 	params.Blur.Radius = GFSDK_SSAO_BLUR_RADIUS_4;
 	params.Blur.Sharpness = 8.0f;
-//	params.ForegroundAO.Enable = true;
-//	params.BackgroundAO.Enable = true;
-
+	/*
+	params.ForegroundAO.Enable = true;
+	params.ForegroundAO.ForegroundViewDepth = 0.0f;
+	params.BackgroundAO.Enable = true;
+	params.BackgroundAO.BackgroundViewDepth = 8.0f;
+	*/
 	GFSDK_SSAO_InputData_GL input;
 	input.DepthData.DepthTextureType = GFSDK_SSAO_HARDWARE_DEPTHS;
 	input.DepthData.FullResDepthTexture = GFSDK_SSAO_Texture_GL((GLenum)gl::GL_TEXTURE_2D, depthTexture);
@@ -121,7 +124,9 @@ void SSAO::display(const glm::mat4 & viewTransform, const glm::mat4 & projection
 	input.NormalData.Enable = true;
 	input.NormalData.FullResNormalTexture = GFSDK_SSAO_Texture_GL((GLenum)gl::GL_TEXTURE_2D, normalTexture);
 	input.NormalData.WorldToViewMatrix.Data = (const GFSDK_SSAO_FLOAT*)&viewTransform;
-	//input.NormalData.WorldToViewMatrix.Layout = GFSDK_SSAO_COLUMN_MAJOR_ORDER;
+	input.NormalData.WorldToViewMatrix.Layout = GFSDK_SSAO_ROW_MAJOR_ORDER;
+	input.NormalData.DecodeBias = 0.0f;
+	input.NormalData.DecodeScale = -1.0f;
 	
 	GFSDK_SSAO_Output_GL output;
 	output.Blend.Mode = GFSDK_SSAO_MULTIPLY_RGB;
