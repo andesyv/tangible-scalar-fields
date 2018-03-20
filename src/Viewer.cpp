@@ -168,6 +168,7 @@ void Viewer::display()
 	if (m_showUi)
 		beginFrame();
 
+	glClearColor(m_backgroundColor.r, m_backgroundColor.g, m_backgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, viewportSize().x, viewportSize().y);
 
@@ -179,7 +180,11 @@ void Viewer::display()
 			r->display();
 		}
 	}
-
+	
+	for (auto& i : m_interactors)
+	{
+		i->display();
+	}
 
 	if (m_showUi)
 	{
@@ -205,6 +210,11 @@ ivec2 Viewer::viewportSize() const
 	return ivec2(width,height);
 }
 
+glm::vec3 Viewer::backgroundColor() const
+{
+	return m_backgroundColor;
+}
+
 mat4 Viewer::modelTransform() const
 {
 	return m_modelTransform;
@@ -218,6 +228,11 @@ mat4 Viewer::viewTransform() const
 void Viewer::setModelTransform(const glm::mat4& m)
 {
 	m_modelTransform = m;
+}
+
+void molumes::Viewer::setBackgroundColor(const glm::vec3 & c)
+{
+	m_backgroundColor = c;
 }
 
 void Viewer::setViewTransform(const glm::mat4& m)
@@ -611,10 +626,7 @@ void Viewer::mainMenu()
 
 		if (ImGui::BeginMenu("Settings"))
 		{
-			static vec3 color(0.0f, 0.0f, 0.0f);
-			if (ImGui::ColorEdit3("Background", (float*)&color))
-				glClearColor(color.r, color.g, color.b, 1.0f);
-
+			ImGui::ColorEdit3("Background", (float*)&m_backgroundColor);
 			ImGui::EndMenu();
 		}
 

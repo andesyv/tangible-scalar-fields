@@ -36,7 +36,11 @@ CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 void CameraInteractor::framebufferSizeEvent(int width, int height)
 {
 	float aspect = float(width) / float(height);
-	viewer()->setProjectionTransform(perspective(m_fov, aspect, m_near, m_far));
+
+	if (m_perspective)
+		viewer()->setProjectionTransform(perspective(m_fov, aspect, m_near, m_far));
+	else
+		viewer()->setProjectionTransform(ortho(-1.0f, 1.0f, -1.0f, 1.0f, m_near, m_far));
 }
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
@@ -184,6 +188,14 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			m_yPrevious = m_yCurrent;
 		}
 	}
+}
+
+void CameraInteractor::display()
+{
+	ImGui::Begin("Camera");
+	ImGui::Checkbox("Perspective", &m_perspective);
+	ImGui::End();
+	resetProjectionTransform();
 }
 
 void CameraInteractor::resetProjectionTransform()

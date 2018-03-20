@@ -32,10 +32,12 @@ namespace molumes
 
 		glm::ivec2 viewportSize() const;
 
+		glm::vec3 backgroundColor() const;
 		glm::mat4 modelTransform() const;
 		glm::mat4 viewTransform() const;
 		glm::mat4 projectionTransform() const;
 
+		void setBackgroundColor(const glm::vec3& c);
 		void setViewTransform(const glm::mat4& m);
 		void setModelTransform(const glm::mat4& m);
 		void setProjectionTransform(const glm::mat4& m);
@@ -82,9 +84,10 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_indicesUi = nullptr;
 		std::unique_ptr<globjects::VertexArray> m_vaoUi = nullptr;
 
-		glm::mat4 m_modelTransform = glm::mat4(1.0);
-		glm::mat4 m_viewTransform = glm::mat4(1.0);
-		glm::mat4 m_projectionTransform = glm::mat4(1.0);
+		glm::vec3 m_backgroundColor = glm::vec3(0.0f, 0.0f, 0.0f);
+		glm::mat4 m_modelTransform = glm::mat4(1.0f);
+		glm::mat4 m_viewTransform = glm::mat4(1.0f);
+		glm::mat4 m_projectionTransform = glm::mat4(1.0f);
 
 		bool m_showUi = true;
 	};

@@ -323,7 +323,7 @@ void main()
 	uint endIndex = 1;
 
 	// selection sort
-	for(uint currentIndex = 0; currentIndex <= entryCount/* - 1*/; currentIndex++)
+	for(uint currentIndex = 0; currentIndex < entryCount/* - 1*/; currentIndex++)
 	{
 		uint minimumIndex = currentIndex;
 
@@ -342,17 +342,12 @@ void main()
 			indices[currentIndex] = temp;
 		}
 
-		if (currentIndex > 0)
+		if (startIndex < currentIndex)
 		{
-			if (currentIndex < entryCount && intersections[indices[startIndex]].far >= intersections[indices[currentIndex]].near)
-			{
-				endIndex = currentIndex;
-			}
-			else
-			{
-				if (currentIndex >= entryCount)
-					endIndex = entryCount-1;
+			endIndex = currentIndex;
 
+			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
+			{
 				const uint maximumSteps = 128;
 				const float s = softness;
 				const float eps = 0.001;
@@ -395,9 +390,9 @@ void main()
 						vec3 cj = atoms[intersections[ij].id].color;
 
 						vec3 atomOffset = currentPosition.xyz-aj;						
-						float atomDistance = length(atomOffset);
+						float atomDistance = length(atomOffset)/rj;
 
-						float atomValue = exp(-s*atomDistance*atomDistance/(rj*rj)+s/(rj*rj));//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
+						float atomValue = exp(-s*atomDistance*atomDistance);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						vec3 atomNormal = normalize(atomOffset)*atomValue;
 						vec3 atomColor = cj*atomValue;
 
@@ -422,7 +417,6 @@ void main()
 						}
 						break;
 					}
-
 
 					t += surfaceDistance;
 				}

@@ -14,6 +14,7 @@ namespace molumes
 		virtual void keyEvent(int key, int scancode, int action, int mods);
 		virtual void mouseButtonEvent(int button, int action, int mods);
 		virtual void cursorPosEvent(double xpos, double ypos);
+		virtual void display();
 
 		void resetProjectionTransform();
 		void resetViewTransform();
@@ -22,10 +23,11 @@ namespace molumes
 
 		glm::vec3 arcballVector(double x, double y);
 
-		float m_fov = glm::radians(70.0f);
+		float m_fov = glm::radians(60.0f);
 		float m_near = 0.0125f;
 		float m_far = 128.0f;
 		float m_distance = 2.0f*sqrt(3.0f);
+		bool m_perspective = true;
 
 		bool m_rotating = false;
 		bool m_scaling = false;

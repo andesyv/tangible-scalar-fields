@@ -142,14 +142,14 @@ void SphereRenderer::display()
 	static float shininess = 16.0f;
 	static float softness = 1.0;
 	static bool elementColoring = false;
-	static bool ambientOcclusion = false;
+	static bool ambientOcclusion = false;	
 
 	ImGui::Begin("Sphere Renderer");
 	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
 	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-	ImGui::SliderFloat("Softness", &softness, 0.5f, 4.0f);
+	ImGui::SliderFloat("Softness", &softness, 0.5f, 8.0f);
 	ImGui::Checkbox("Element Coloring", &elementColoring);
 	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
 	ImGui::End();
@@ -236,10 +236,8 @@ void SphereRenderer::display()
 	glDepthMask(GL_TRUE);
 
 	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 65535.0f);
-
+	glClearColor(0.0, 0.0, 0.0, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 
 	//Framebuffer::defaultFBO()->bind();
 
@@ -298,7 +296,5 @@ void SphereRenderer::display()
 		m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
 
 	m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-	m_frameBuffers[1]->unbind();
-
 	Framebuffer::defaultFBO()->bind();
 }
