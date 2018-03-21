@@ -348,9 +348,9 @@ void main()
 
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
-				const uint maximumSteps = 128;
+				const uint maximumSteps = 24;
 				const float s = softness;
-				const float eps = 0.001;
+				const float eps = 0.0125;
 
 				uint ii = indices[startIndex];
 				vec3 ai = intersections[ii].center;
@@ -358,19 +358,24 @@ void main()
 				float nearDistance = intersections[ii].near;
 				float farDistance = intersections[indices[endIndex]].far;
 
-				const float maximumDistance = 16.0;//farDistance-nearDistance;
-
+				const float maximumDistance = (farDistance-nearDistance)+1.0;
 				float surfaceDistance = 1.0;
 
 				vec4 rayOrigin = vec4(near.xyz+V*nearDistance,nearDistance);
 				vec4 rayDirection = vec4(V,1.0);
 				vec4 currentPosition;
 				
+				vec4 candidatePosition = rayOrigin;
+				vec3 candidateNormal = vec3(0.0);
+				vec3 candidateColor = vec3(0.0);
+				float candidateValue = 0.0;
+
+				float minimumDistance = maximumDistance;
 
 				uint currentStep = 0;			
 				float t = 0.0;
 
-				while (++currentStep <= maximumSteps && t < maximumDistance)
+				while (++currentStep <= maximumSteps && t <= maximumDistance)
 				{    
 					currentPosition = rayOrigin + rayDirection*t;
 
@@ -403,7 +408,7 @@ void main()
 							sumColor += atomColor;
 					}
 					
-					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;
+					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;				
 
 					if (surfaceDistance < eps)
 					{
@@ -418,11 +423,34 @@ void main()
 						break;
 					}
 
-					t += surfaceDistance;
+					if (surfaceDistance < minimumDistance)
+					{
+						minimumDistance = surfaceDistance;
+						candidatePosition = currentPosition;
+						candidateNormal = sumNormal;
+						candidateColor = sumColor;
+						candidateValue = sumValue;
+					}
+
+					t += surfaceDistance*1.2;
+				}
+
+				if (currentStep > maximumSteps)
+				{
+					if (candidatePosition.w <= closestPosition.w)
+					{
+						closestPosition = candidatePosition;
+						closestNormal = normalize(candidateNormal);
+
+						if (coloring)
+							diffuseColor = candidateColor / candidateValue;
+					}
 				}
 
 				startIndex++;
 			}
+
+
 		}
 	}
 
