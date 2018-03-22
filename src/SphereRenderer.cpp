@@ -54,14 +54,17 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-gs.glsl");
 	m_fragmentShaderSourceSpawn = Shader::sourceFromFile("./res/sphere/spawn-fs.glsl");
 	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/sphere/shade-fs.glsl");
+	m_fragmentShaderSourceBlend = Shader::sourceFromFile("./res/sphere/blend-fs.glsl");
 
 	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSourceImage.get());
 	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSourceImage.get());
 	m_fragmentShaderSpawn = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceSpawn.get());
 	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceShade.get());
+	m_fragmentShaderBlend = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceBlend.get());
 
 	m_programSpawn->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSpawn.get());
 	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
+	m_programBlend->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderBlend.get());
 
 	m_framebufferSize = viewer->viewportSize();
 
@@ -116,8 +119,9 @@ std::list<globjects::File*> SphereRenderer::shaderFiles() const
 		m_vertexShaderSourceImage.get(),
 		m_geometryShaderSourceImage.get(),
 		m_fragmentShaderSourceSpawn.get(),
-		m_fragmentShaderSourceShade.get()
-	});
+		m_fragmentShaderSourceShade.get(),
+		m_fragmentShaderSourceBlend.get()
+		});
 }
 
 void SphereRenderer::display()
@@ -136,11 +140,17 @@ void SphereRenderer::display()
 		
 	}
 	
-	static vec3 ambientMaterial(0.04f, 0.04f, 0.04f);
+/*	static vec3 ambientMaterial(0.04f, 0.04f, 0.04f);
 	static vec3 diffuseMaterial(0.75, 0.75f, 0.75f);
 	static vec3 specularMaterial(0.5f, 0.5f, 0.5f);
-	static float shininess = 16.0f;
-	static float softness = 1.0;
+*/
+	// nice color scheme
+	static vec3 ambientMaterial(0.249f, 0.113f, 0.336f);
+	static vec3 diffuseMaterial(0.042f, 0.683f, 0.572f);
+	static vec3 specularMaterial(0.629f, 0.629f, 0.629f);
+	static float shininess = 20.0f;
+
+	static float softness = 1.25f;
 	static bool elementColoring = false;
 	static bool ambientOcclusion = false;	
 
@@ -255,7 +265,8 @@ void SphereRenderer::display()
 	vec4 centerPosition = modelViewProjection * vec4(0.0, 0.0, 0.0, 1.0);
 	centerPosition /= centerPosition.w;
 */
-	vec4 lightPosition = inverseModelViewProjection * vec4(0.0, 0.0, -1.0, 1.0);
+
+	vec4 lightPosition = inverseModelViewProjection * vec4(-8.0, 8.0, 0.0, 1.0);
 	lightPosition /= lightPosition.w;
 	//std::cout << "CENTER:" << to_string(centerPosition) << std::endl << std::endl;
 	//std::cout << xpos << "," << ypos << ":" << to_string(lightPosition) << std::endl << std::endl;
@@ -286,15 +297,43 @@ void SphereRenderer::display()
 	m_programShade->release();
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
 	m_offsetTexture->unbindActive(3);
-	m_depthTextures[1]->unbindActive(2);
-	m_normalTextures[1]->unbindActive(1);
-	m_positionTextures[1]->unbindActive(0);
+	m_depthTextures[0]->unbindActive(2);
+	m_normalTextures[0]->unbindActive(1);
+	m_positionTextures[0]->unbindActive(0);
+
 	m_atomData->unbind(GL_UNIFORM_BUFFER);
+
+	m_frameBuffers[1]->unbind();
 
 	if (ambientOcclusion)
 		m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
 
-	m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	//m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	Framebuffer::defaultFBO()->bind();
+	glDepthFunc(GL_LESS);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	m_positionTextures[1]->bindActive(0);
+	m_normalTextures[1]->bindActive(1);
+	m_depthTextures[1]->bindActive(2);
+
+	m_programBlend->setUniform("colorTexture", 0);
+	m_programBlend->setUniform("normalTexture", 1);
+	m_programBlend->setUniform("depthTexture", 2);
+	m_programBlend->use();
+
+	m_vaoQuad->bind();
+	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	m_vaoQuad->unbind();
+
+	m_depthTextures[1]->unbindActive(2);
+	m_normalTextures[1]->unbindActive(1);
+	m_positionTextures[1]->unbindActive(0);
+
+	glDisable(GL_BLEND);
+	m_programBlend->release();
 }

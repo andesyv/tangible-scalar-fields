@@ -47,6 +47,7 @@ namespace molumes
 		std::unique_ptr<globjects::Program> m_programSphere = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSpawn = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programBlend = std::make_unique<globjects::Program>();
 
 		std::unique_ptr<globjects::File> m_vertexShaderSourceSphere = nullptr;
 		std::unique_ptr<globjects::Shader> m_vertexShaderSphere = nullptr;
@@ -68,6 +69,9 @@ namespace molumes
 
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
+
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceBlend = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderBlend = nullptr;
 
 		std::array< std::unique_ptr<globjects::Framebuffer>, 2 > m_frameBuffers;
 		std::array< std::unique_ptr<globjects::Texture>, 2 > m_positionTextures;
