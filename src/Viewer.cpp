@@ -260,6 +260,21 @@ mat4 Viewer::modelViewProjectionTransform() const
 	return projectionTransform()*modelViewTransform();
 }
 
+void Viewer::setViewLightPosition(const glm::vec4& p)
+{
+	m_viewLightPosition = p;
+}
+
+vec4 Viewer::viewLightPosition() const
+{
+	return m_viewLightPosition;
+}
+
+vec4 Viewer::worldLightPosition() const
+{
+	return inverse(modelViewTransform())*m_viewLightPosition;
+}
+
 void Viewer::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	Viewer* viewer = static_cast<Viewer*>(glfwGetWindowUserPointer(window));

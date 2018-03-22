@@ -45,7 +45,18 @@ void CameraInteractor::framebufferSizeEvent(int width, int height)
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 {
-	if (key == GLFW_KEY_HOME && action == GLFW_RELEASE)
+	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS)
+	{
+		m_light = true;
+		m_xPrevious = m_xCurrent;
+		m_yPrevious = m_yCurrent;
+		cursorPosEvent(m_xCurrent, m_yCurrent);
+	}
+	else if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_RELEASE)
+	{
+		m_light = false;
+	}
+	else if (key == GLFW_KEY_HOME && action == GLFW_RELEASE)
 	{
 		resetViewTransform();
 	}
@@ -119,6 +130,24 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 {
 	m_xCurrent = xpos;
 	m_yCurrent = ypos;
+
+	if (m_light)
+	{
+		ivec2 viewportSize = viewer()->viewportSize();
+		vec2 v = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
+
+		mat4 viewTransform = viewer()->viewTransform();
+		vec4 center = viewTransform * vec4(0.0f, 0.0f, 0.0f, 1.0);
+		vec4 corner = viewTransform * vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		float radius = distance(corner, center);
+		vec3 viewLightDirection = normalize(vec3(v.x, v.y, 1.0f));
+		vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
+		viewer()->setViewLightPosition(viewLightPosition);
+		std::cout << (viewLightPosition.z) << std::endl;
+
+		m_xPrevious = m_xCurrent;
+		m_yPrevious = m_yCurrent;
+	}
 
 	if (m_rotating)
 	{

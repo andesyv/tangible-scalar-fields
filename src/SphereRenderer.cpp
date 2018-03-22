@@ -164,8 +164,13 @@ void SphereRenderer::display()
 	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
 	ImGui::End();
 
+	mat4 view = viewer()->viewTransform();
+	mat4 inverseView = inverse(view);
+	mat4 modelView = viewer()->modelViewTransform();
+	mat4 inverseModelView = inverse(modelView);
 	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
 	mat4 inverseModelViewProjection = inverse(modelViewProjection);
+
 	float radiusOffset = 1.75 / sqrt(softness);
 
 	m_frameBuffers[0]->bind();
@@ -256,19 +261,26 @@ void SphereRenderer::display()
 	m_depthTextures[0]->bindActive(2);
 	m_offsetTexture->bindActive(3);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-/*	
-	double xpos, ypos;
+
+/*	double xpos, ypos;
 	glfwGetCursorPos(viewer()->window(), &xpos, &ypos);
 	xpos = 2.0 * xpos / double(viewer()->viewportSize().x) - 1.0;
 	ypos = -(2.0 * ypos / double(viewer()->viewportSize().y) - 1.0);
 
-	vec4 centerPosition = modelViewProjection * vec4(0.0, 0.0, 0.0, 1.0);
-	centerPosition /= centerPosition.w;
-*/
+	vec4 center = view * vec4(0.0f, 0.0f, 0.0f, 1.0);
+	vec4 corner = view * vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	float radius = distance(corner, center);
+	vec3 viewLightDirection = normalize(vec3(xpos, ypos, 1.0f));
+	vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
+	vec4 worldLightPosition = inverseModelView * viewLightPosition;
 
-	vec4 lightPosition = inverseModelViewProjection * vec4(-8.0, 8.0, 0.0, 1.0);
-	lightPosition /= lightPosition.w;
-	//std::cout << "CENTER:" << to_string(centerPosition) << std::endl << std::endl;
+	std::cout << "CENTER:" << to_string(center) << std::endl;
+	std::cout << "CORNER:" << to_string(corner) << std::endl;
+	std::cout << "RADIUS:" << radius << std::endl;
+	std::cout << "viewLightDirection:" << to_string(viewLightDirection) << std::endl;
+	std::cout << "viewLightPosition:" << to_string(viewLightPosition) << std::endl;
+	std::cout << "worldLightPosition:" << to_string(worldLightPosition) << std::endl << std::endl;
+*/	
 	//std::cout << xpos << "," << ypos << ":" << to_string(lightPosition) << std::endl << std::endl;
 
 	m_programShade->setUniform("modelView", viewer()->modelViewTransform());
@@ -276,8 +288,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
 	m_programShade->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
 	m_programShade->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programShade->setUniform("probeRadius", 1.0f);
-	m_programShade->setUniform("lightPosition", vec3(lightPosition));
+	m_programShade->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
 	m_programShade->setUniform("specularMaterial", specularMaterial);
