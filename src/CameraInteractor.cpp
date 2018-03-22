@@ -143,7 +143,6 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		vec3 viewLightDirection = normalize(vec3(v.x, v.y, 1.0f));
 		vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
 		viewer()->setViewLightPosition(viewLightPosition);
-		std::cout << (viewLightPosition.z) << std::endl;
 
 		m_xPrevious = m_xCurrent;
 		m_yPrevious = m_yCurrent;

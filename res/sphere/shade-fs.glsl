@@ -458,6 +458,11 @@ void main()
 	if (closestPosition.w >= 65535.0f)
 		discard;
 
+	if (coloring)
+	{
+		if (position.w <= closestPosition.w)
+			diffuseColor = atoms[intersections[indices[0]].id].color;
+	}
 		// vectors
 	vec3 N = normalize(closestNormal);
 	vec3 L = normalize(lightPosition.xyz-closestPosition.xyz);
