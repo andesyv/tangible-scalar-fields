@@ -352,11 +352,9 @@ void main()
 				const float s = softness;
 				const float eps = 0.0125;
 
-				uint ii = indices[startIndex];
-				vec3 ai = intersections[ii].center;
-				float ri = atoms[intersections[ii].id].radius;
+				uint ii = indices[startIndex+1];
 				float nearDistance = intersections[ii].near;
-				float farDistance = intersections[indices[endIndex]].far;
+				float farDistance = intersections[indices[endIndex-1]].far;
 
 				const float maximumDistance = (farDistance-nearDistance)+1.0;
 				float surfaceDistance = 1.0;
@@ -415,7 +413,7 @@ void main()
 						if (currentPosition.w <= closestPosition.w)
 						{
 							closestPosition = currentPosition;
-							closestNormal = normalize(sumNormal);
+							closestNormal = sumNormal;
 
 							if (coloring)
 								diffuseColor = sumColor / sumValue;
@@ -440,7 +438,7 @@ void main()
 					if (candidatePosition.w <= closestPosition.w)
 					{
 						closestPosition = candidatePosition;
-						closestNormal = normalize(candidateNormal);
+						closestNormal = candidateNormal;
 
 						if (coloring)
 							diffuseColor = candidateColor / candidateValue;
