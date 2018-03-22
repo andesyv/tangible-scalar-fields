@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <glm/glm.hpp>
+#include <unordered_map>
 
 namespace molumes
 {
@@ -22,6 +23,9 @@ namespace molumes
 		const std::vector<Element> & elements() const;
 		glm::vec3 minimumBounds() const;
 		glm::vec3 maximumBounds() const;
+
+		static const std::unordered_map<std::string, glm::vec3> & residueColors();
+		static const std::unordered_map<std::string, glm::vec3> & chainColors();
 
 	private:
 		std::vector<glm::vec4> m_atoms;
