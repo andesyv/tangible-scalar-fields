@@ -40,7 +40,7 @@ void CameraInteractor::framebufferSizeEvent(int width, int height)
 	if (m_perspective)
 		viewer()->setProjectionTransform(perspective(m_fov, aspect, m_near, m_far));
 	else
-		viewer()->setProjectionTransform(ortho(-1.0f*aspect, 1.0f*aspect, -1.0f, 1.0f, m_near, m_far));
+		viewer()->setProjectionTransform(ortho(-1.0f*aspect, 1.0f*aspect, -1.0f, 1.0f, -m_far, m_far));
 }
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)

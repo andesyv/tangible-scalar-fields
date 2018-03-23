@@ -53,7 +53,7 @@ layout(std140, binding = 1) uniform residueBlock
 
 layout(std140, binding = 2) uniform chainBlock
 {
-	Chain chains[32];
+	Chain chains[64];
 };
 
 struct BufferEntry
