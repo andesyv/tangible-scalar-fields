@@ -153,8 +153,8 @@ void SphereRenderer::display()
 	static float shininess = 20.0f;
 
 	static float softness = 1.25f;
-	static bool elementColoring = false;
-	static bool ambientOcclusion = false;	
+	static bool ambientOcclusion = false;
+	static int coloring = 0;
 
 	ImGui::Begin("Sphere Renderer");
 	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
@@ -162,7 +162,7 @@ void SphereRenderer::display()
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
 	ImGui::SliderFloat("Softness", &softness, 0.5f, 8.0f);
-	ImGui::Checkbox("Element Coloring", &elementColoring);
+	ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
 	ImGui::End();
 
@@ -173,7 +173,7 @@ void SphereRenderer::display()
 	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
 	mat4 inverseModelViewProjection = inverse(modelViewProjection);
 
-	float radiusOffset = 1.75 / sqrt(softness);
+	float radiusOffset = 1.75/sqrt(softness);
 
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
@@ -302,9 +302,9 @@ void SphereRenderer::display()
 	m_programShade->setUniform("depthTexture", 2);
 	m_programShade->setUniform("offsetTexture", 3);
 	m_programShade->setUniform("softness", softness);
-	m_programShade->setUniform("coloring", elementColoring);
+	m_programShade->setUniform("coloring", uint(coloring));
 	m_programShade->use();
-
+	//ImGui::ShowTestWindow();
 	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();

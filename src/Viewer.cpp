@@ -14,6 +14,7 @@
 #include "BoundingBoxRenderer.h"
 #include "SphereRenderer.h"
 #include "MolumeRenderer.h"
+#include <list>
 
 using namespace molumes;
 using namespace gl;
@@ -165,8 +166,8 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 void Viewer::display()
 {
-	if (m_showUi)
-		beginFrame();
+	beginFrame();
+	mainMenu();
 
 	glClearColor(m_backgroundColor.r, m_backgroundColor.g, m_backgroundColor.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -186,11 +187,7 @@ void Viewer::display()
 		i->display();
 	}
 
-	if (m_showUi)
-	{
-		mainMenu();
-		endFrame();
-	}
+	endFrame();
 }
 
 GLFWwindow * Viewer::window()
@@ -499,11 +496,35 @@ void Viewer::beginFrame()
 
 	// Start the frame. This call will update the io.WantCaptureMouse, io.WantCaptureKeyboard flag that you can use to dispatch inputs (or not) to your application.
 	ImGui::NewFrame();
+	ImGui::BeginMainMenuBar();
 }
 
 void Viewer::endFrame()
 {
-	renderUi();
+	static std::list<float> frameratesList;
+	frameratesList.push_back(ImGui::GetIO().Framerate);
+
+	while (frameratesList.size() > 64)
+		frameratesList.pop_front();
+
+	static float framerates[64];
+	int i = 0;
+	for (auto v : frameratesList)
+		framerates[i++] = v;
+
+	std::stringstream stream;
+	stream << std::fixed << std::setprecision(2) << ImGui::GetIO().Framerate << " fps";
+	std::string s = stream.str();
+
+	//		ImGui::Begin("Information");
+	ImGui::SameLine(ImGui::GetWindowWidth() - 220.0f);
+	ImGui::PlotLines(s.c_str(), framerates, frameratesList.size(), 0, 0, 0.0f, 200.0f,ImVec2(128.0f,0.0f));
+	//		ImGui::End();
+
+	ImGui::EndMainMenuBar();
+
+	if (m_showUi)
+		renderUi();
 }
 
 void Viewer::renderUi()
@@ -629,27 +650,18 @@ void Viewer::renderUi()
 
 void Viewer::mainMenu()
 {
-	if (ImGui::BeginMainMenuBar())
+	if (ImGui::BeginMenu("File"))
 	{
-		if (ImGui::BeginMenu("File"))
-		{
-			if (ImGui::MenuItem("Exit", "Alt+F4"))
-				glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+		if (ImGui::MenuItem("Exit", "Alt+F4"))
+			glfwSetWindowShouldClose(m_window, GLFW_TRUE);
 
-			ImGui::EndMenu();
-		}
+		ImGui::EndMenu();
+	}
 
-		if (ImGui::BeginMenu("Settings"))
-		{
-			ImGui::ColorEdit3("Background", (float*)&m_backgroundColor);
-			ImGui::EndMenu();
-		}
-
-		ImGui::EndMainMenuBar();
-
-		ImGui::Begin("Information");
-		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-		ImGui::End();
+	if (ImGui::BeginMenu("Settings"))
+	{
+		ImGui::ColorEdit3("Background", (float*)&m_backgroundColor);
+		ImGui::EndMenu();
 	}
 }
 

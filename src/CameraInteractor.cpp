@@ -40,7 +40,7 @@ void CameraInteractor::framebufferSizeEvent(int width, int height)
 	if (m_perspective)
 		viewer()->setProjectionTransform(perspective(m_fov, aspect, m_near, m_far));
 	else
-		viewer()->setProjectionTransform(ortho(-1.0f, 1.0f, -1.0f, 1.0f, m_near, m_far));
+		viewer()->setProjectionTransform(ortho(-1.0f*aspect, 1.0f*aspect, -1.0f, 1.0f, m_near, m_far));
 }
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
@@ -220,10 +220,19 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 void CameraInteractor::display()
 {
-	ImGui::Begin("Camera");
-	ImGui::Checkbox("Perspective", &m_perspective);
-	ImGui::End();
-	resetProjectionTransform();
+	if (ImGui::BeginMenu("Camera"))
+	{
+		static int projection = 0;
+		ImGui::RadioButton("Perspective", &projection,0);
+		ImGui::RadioButton("Orthographic", &projection,1);
+
+		if ((projection == 0) != m_perspective)
+		{
+			m_perspective = (projection == 0);
+			resetProjectionTransform();
+		}
+		ImGui::EndMenu();
+	}
 }
 
 void CameraInteractor::resetProjectionTransform()

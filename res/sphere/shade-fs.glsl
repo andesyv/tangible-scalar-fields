@@ -8,7 +8,7 @@ uniform mat4 inverseProjection;
 uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
 uniform float softness;
-uniform bool coloring;
+uniform uint coloring;
 
 uniform vec3 lightPosition;
 uniform vec3 diffuseMaterial;
@@ -414,19 +414,26 @@ void main()
 
 						vec3 aj = intersections[ij].center;
 						float rj = elements[elementId].radius;
-						vec3 cj = elements[elementId].color;
+						vec3 cj = vec3(1.0,1.0,1.0);
+
+						if (coloring == 1)
+							cj = elements[elementId].color.rgb;
+						else if (coloring == 2)
+							cj = residues[residueId].color.rgb;
+						else if (coloring == 3)
+							cj = chains[chainId].color.rgb;
 
 						vec3 atomOffset = currentPosition.xyz-aj;						
 						float atomDistance = length(atomOffset)/rj;
 
 						float atomValue = exp(-s*atomDistance*atomDistance);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
-						vec3 atomNormal = normalize(atomOffset)*atomValue;
+						vec3 atomNormal = 2.0*s*atomOffset*atomValue / (rj*rj);
 						vec3 atomColor = cj*atomValue;
 
 						sumValue += atomValue;
 						sumNormal += atomNormal;
 
-						if (coloring)
+						if (coloring > 0)
 							sumColor += atomColor;
 					}
 					
@@ -439,7 +446,7 @@ void main()
 							closestPosition = currentPosition;
 							closestNormal = sumNormal;
 
-							if (coloring)
+							if (coloring > 0)
 								diffuseColor = sumColor / sumValue;
 						}
 						break;
@@ -464,7 +471,7 @@ void main()
 						closestPosition = candidatePosition;
 						closestNormal = candidateNormal;
 
-						if (coloring)
+						if (coloring > 0)
 							diffuseColor = candidateColor / candidateValue;
 					}
 				}
@@ -480,7 +487,7 @@ void main()
 	if (closestPosition.w >= 65535.0f)
 		discard;
 
-	if (coloring)
+	if (coloring > 0)
 	{
 		if (position.w <= closestPosition.w)
 		{
@@ -488,7 +495,13 @@ void main()
 			uint elementId = bitfieldExtract(id,0,8);
 			uint residueId = bitfieldExtract(id,8,8);
 			uint chainId = bitfieldExtract(id,16,8);
-			diffuseColor = elements[elementId].color;
+
+			if (coloring == 1)
+				diffuseColor = elements[elementId].color.rgb;
+			else if (coloring == 2)
+				diffuseColor = residues[residueId].color.rgb;
+			else if (coloring == 3)
+				diffuseColor = chains[chainId].color.rgb;
 		}
 	}
 		// vectors
