@@ -4,13 +4,12 @@ uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
 
 in vec4 gFragmentPosition;
-in vec4 gSpherePosition;
-in float gSphereRadius;
+flat in vec4 gSpherePosition;
+flat in float gSphereRadius;
+flat in uint gSphereId;
 
 out vec4 fragPosition;
 out vec4 fragNormal;
-
-precision highp float;
 
 struct Sphere
 {			

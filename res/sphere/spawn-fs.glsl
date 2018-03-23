@@ -4,15 +4,12 @@ uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
 
 in vec4 gFragmentPosition;
-in vec4 gSpherePosition;
-in float gSphereRadius;
-flat in int gVertexId;
+flat in vec4 gSpherePosition;
+flat in float gSphereRadius;
 flat in uint gSphereId;
 
 //out vec4 fragPosition;
 //out vec4 fragNormal;
-
-precision highp float;
 
 layout(binding = 0) uniform sampler2D positionTexture;
 layout(r32ui, binding = 0) uniform uimage2D offsetImage;
@@ -37,7 +34,6 @@ struct Sphere
 	bool hit;
 	vec3 near;
 	vec3 far;
-	vec3 normal;
 };
 																					
 Sphere calcSphereIntersection(float r, vec3 origin, vec3 center, vec3 line)
@@ -52,13 +48,12 @@ Sphere calcSphereIntersection(float r, vec3 origin, vec3 center, vec3 line)
 		float ds = -loc - sqrt(under_square_root);
 		vec3 near = origin+min(da, ds) * l;
 		vec3 far = origin+max(da, ds) * l;
-		vec3 normal = (near - center);
 
-		return Sphere(true, near, far, normal);
+		return Sphere(true, near, far);
 	}
 	else
 	{
-		return Sphere(false, vec3(0), vec3(0), vec3(0));
+		return Sphere(false, vec3(0), vec3(0));
 	}
 }
 float calcDepth(vec3 pos)

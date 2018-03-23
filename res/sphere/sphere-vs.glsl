@@ -1,8 +1,7 @@
-#version 400
+#version 450
 
 in vec4 position;
 uniform float time;
-out int vertexId;
 
 highp float rand(vec2 co)
 {
@@ -18,6 +17,4 @@ void main()
 {
 	//float rand = rand(position.xy);
 	gl_Position = vec4(position);//vec4(position.xyz+vec3(sin(3.0*(time+rand)),cos(time*rand*0.5),sin(3.0*(time-rand))),1.0);
-
-	vertexId = gl_VertexID;
 }

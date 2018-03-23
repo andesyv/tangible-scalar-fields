@@ -339,7 +339,6 @@ void main()
 	vec3 closestNormal = normal;
 
 	uint startIndex = 0;
-	uint endIndex = 1;
 
 	// selection sort
 	for(uint currentIndex = 0; currentIndex < entryCount/* - 1*/; currentIndex++)
@@ -363,7 +362,7 @@ void main()
 
 		if (startIndex < currentIndex)
 		{
-			endIndex = currentIndex;
+			uint endIndex = currentIndex;
 
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
@@ -504,30 +503,13 @@ void main()
 				diffuseColor = chains[chainId].color.rgb;
 		}
 	}
-		// vectors
+
 	vec3 N = normalize(closestNormal);
 	vec3 L = normalize(lightPosition.xyz-closestPosition.xyz);
 	vec3 R = normalize(reflect(L, N));
 	float NdotL = max(0.0,dot(N, L));
 	float RdotV = max(0.0,dot(R, V));
 	vec3 color = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial;
-	/*
-	vec3 N1 = normalize(normal);
-	vec3 L1 = normalize(lightPosition.xyz-position.xyz);
-	vec3 R1 = normalize(reflect(L1, N1));
-	float NdotL1 = max(0.0,dot(N1, L1));
-	float RdotV1 = max(0.0,dot(R1, V));
-	vec3 color1 = ambientMaterial + NdotL1 * diffuseMaterial * diffuseColor + pow(RdotV1,shininess) * specularMaterial;
-	color = 0.5*color+0.5*color1;
-	*/
-
-	
-	float contour = 1.0;
-	float c = abs(dot(N,V));
-	float t = fwidth(c);
-
-	//color /= (1.0-pow(1.0-c,4.0));
-		
 
 	fragColor = vec4(min(vec3(1.0),color.xyz),1.0);
 	fragNormal = vec4(N,0.0);
