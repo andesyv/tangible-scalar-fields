@@ -19,7 +19,9 @@ using namespace globjects;
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
-	m_atomData->setData(viewer->scene()->protein()->elements(), GL_STATIC_DRAW);
+	m_elementColorsRadii->setData(viewer->scene()->protein()->activeElementColorsRadiiPacked(), GL_STATIC_DRAW);
+	m_residueColors->setData(viewer->scene()->protein()->activeResidueColorsPacked(), GL_STATIC_DRAW);
+	m_chainColors->setData(viewer->scene()->protein()->activeChainColorsPacked(), GL_STATIC_DRAW);
 		
 	m_size = static_cast<GLsizei>(viewer->scene()->protein()->atoms().size());
 
@@ -215,7 +217,9 @@ void SphereRenderer::display()
 
 	m_positionTextures[0]->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
-	m_atomData->bindBase(GL_UNIFORM_BUFFER, 0);
+	m_elementColorsRadii->bindBase(GL_UNIFORM_BUFFER, 0);
+	m_residueColors->bindBase(GL_UNIFORM_BUFFER, 1);
+	m_chainColors->bindBase(GL_UNIFORM_BUFFER, 2);
 	
 	m_programSpawn->setUniform("projection", viewer()->projectionTransform());
 	m_programSpawn->setUniform("modelView", viewer()->modelViewTransform());
@@ -314,7 +318,9 @@ void SphereRenderer::display()
 	m_normalTextures[0]->unbindActive(1);
 	m_positionTextures[0]->unbindActive(0);
 
-	m_atomData->unbind(GL_UNIFORM_BUFFER);
+	m_chainColors->unbind(GL_UNIFORM_BUFFER);
+	m_residueColors->unbind(GL_UNIFORM_BUFFER);
+	m_elementColorsRadii->unbind(GL_UNIFORM_BUFFER);
 
 	m_frameBuffers[1]->unbind();
 

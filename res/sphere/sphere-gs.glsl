@@ -14,21 +14,22 @@ out float gSphereRadius;
 flat out uint gSphereId;
 flat out int gVertexId;
 
-struct AtomData
+struct Element
 {
 	vec3 color;
 	float radius;
 };
 
-layout(std140, binding = 0) uniform atomBlock
+layout(std140, binding = 0) uniform elementBlock
 {
-	AtomData atoms[32];
+	Element elements[32];
 };
 
 void main()
 {
-	uint sphereId = uint(gl_in[0].gl_Position.w);
-	float sphereRadius = atoms[sphereId].radius+radiusOffset;
+	uint sphereId = floatBitsToUint(gl_in[0].gl_Position.w);
+	uint elementId = bitfieldExtract(sphereId,0,8);
+	float sphereRadius = elements[elementId].radius+radiusOffset;
 	
 	gSphereId = sphereId;
 	gSpherePosition = gl_in[0].gl_Position;

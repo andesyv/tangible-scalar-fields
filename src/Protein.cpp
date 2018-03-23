@@ -28,124 +28,439 @@ Protein::Protein(const std::string& filename)
 
 void Protein::load(const std::string& filename)
 {
-	static const std::unordered_map<std::string, uint> elementNames = {
-		{"H", 1},
-		{"He", 2},
-		{"Li", 3},
-		{"Be", 4},
-		{"B", 5},
-		{"C", 6},
-		{"N", 7},
-		{"O", 8},
-		{"F", 9},
-		{"Ne", 10},
-		{"Na", 11},
-		{"Mg", 12},
-		{"Al", 13},
-		{"Si", 14},
-		{"P", 15},
-		{"S", 16},
-		{"Cl", 17},
-		{"Ar", 18},
-		{"K", 19},
-		{"Ca", 20},
-		{ "Sc", 21 },
-		{ "Ti", 22 },
-		{ "V", 23 },
-		{ "Cr", 24 },
-		{ "Mn", 25 },
-		{ "Fe", 26 },
-		{ "Co", 27 },
-		{ "Ni", 28 },
-		{ "Cu", 29 },
-		{ "Zn", 30 },
-		{ "Ga", 31 },
-		{ "Ge", 32 },
-		{ "As", 33 },
-		{ "Se", 34 },
-		{ "Br", 35 },
-		{ "Kr", 36 },
-		{ "Rb", 37 },
-		{ "Sr", 38 },
-		{ "Y", 39 },
-		{ "Zr", 40 },
-		{ "Nb", 41 },
-		{ "Mo", 42 },
-		{ "Tc", 43 },
-		{ "Ru", 44 },
-		{ "Rh", 45 },
-		{ "Pd", 46 },
-		{ "Ag", 47 },
-		{ "Cd", 48 },
-		{ "In", 49 },
-		{ "Sn", 50 },
-		{ "Sb", 51 },
-		{ "Te", 52 },
-		{ "I", 53 },
-		{ "Xe", 54 },
-		{ "Cs", 55 },
-		{ "Ba", 56 },
-		{ "La", 57 },
-		{ "Ce", 58 },
-		{ "Pr", 59 },
-		{ "Nd", 60 },
-		{ "Pm", 61 },
-		{ "Sm", 62 },
-		{ "Eu", 63 },
-		{ "Gd", 64 },
-		{ "Tb", 65 },
-		{ "Dy", 66 },
-		{ "Ho", 67 },
-		{ "Er", 68 },
-		{ "Tm", 69 },
-		{ "Yb", 70 },
-		{ "Lu", 71 },
-		{ "Hf", 72 },
-		{ "Ta", 73 },
-		{ "W", 74 },
-		{ "Re", 75 },
-		{ "Os", 76 },
-		{ "Ir", 77 },
-		{ "Pt", 78 },
-		{ "Au", 79 },
-		{ "Hg", 80 },
-		{ "Tl", 81 },
-		{ "Pb", 82 },
-		{ "Bi", 83 },
-		{ "Po", 84 },
-		{ "At", 85 },
-		{ "Rn", 86 },
-		{ "Fr", 87 },
-		{ "Ra", 88 },
-		{ "Ac", 89 },
-		{ "Th", 90 },
-		{ "Pa", 91 },
-		{ "U", 92 },
-		{ "Np", 93 },
-		{ "Pu", 94 },
-		{ "Am", 95 },
-		{ "Cm", 96 },
-		{ "Bk", 97 },
-		{ "Cf", 98 },
-		{ "Es", 99 },
-		{ "Fm", 100 },
-		{ "Md", 101 },
-		{ "No", 102 },
-		{ "Lr", 103 },
-		{ "Rf", 104 },
-		{ "Db", 105 },
-		{ "Sg", 106 },
-		{ "Bh", 107 },
-		{ "Hs", 108 },
-		{ "Mt", 109 },
-		{ "Ds", 110 },
-		{ "Rg", 111 },
-		{ "Cn", 112 },
-		{ "H (WAT)", 113 },
-		{ "O (WAT)", 114 },
-		{ "D", 115 }
+
+	std::cout << "Loading file " << filename << " ..." << std::endl;
+	std::ifstream file(filename);
+
+	if (!file.is_open())
+	{
+		std::cerr << "Could not open file " << filename << "!" << std::endl << std::endl;
+	}
+
+	m_atoms.clear();
+	m_minimumBounds = vec3(std::numeric_limits<float>::max());
+	m_maximumBounds = vec3(-std::numeric_limits<float>::max());
+
+	m_elementIdMap.fill(0);
+	m_residueIdMap.fill(0);
+	m_chainIdMap.fill(0);
+
+	m_activeElementIds.clear();
+	m_activeElementIds.push_back(0);
+
+	m_activeResidueIds.clear();
+	m_activeResidueIds.push_back(0);
+
+	m_activeChainIds.clear();
+	m_activeChainIds.push_back(0);
+
+	std::string str;
+	uint elementCount = 1;
+
+	while (std::getline(file, str))
+	{
+		std::vector<std::string> tokens;
+		std::istringstream buffer(str);
+
+		std::copy(std::istream_iterator<std::string>(buffer), std::istream_iterator<std::string>(), std::back_inserter(tokens));
+
+		if (tokens[0] == "ATOM" || tokens[0] == "HETATM")
+		{
+			float x = float(std::atof(tokens[6].c_str()));
+			float y = float(std::atof(tokens[7].c_str()));
+			float z = float(std::atof(tokens[8].c_str()));
+
+			std::string residueName = tokens[3];
+			std::string chainName = tokens[4];
+			std::string elementName = tokens.back();// [11];
+
+		//	std::cout << "Residue:" << residueName << std::endl;
+		//	std::cout << "Chain:" << chainName << std::endl;
+		//	std::cout << "Element:" << elementName << std::endl;
+
+			uint elementId = 0;
+			uint elementIndex = 0;
+			
+			auto ei = elementIds().find(elementName);
+
+			if (ei != elementIds().end())
+				elementId = ei->second;
+
+			elementIndex = m_elementIdMap[elementId];
+
+			if (elementIndex == 0)
+			{
+				elementIndex = uint(m_activeElementIds.size());
+				m_activeElementIds.push_back(elementId);				
+				m_elementIdMap[elementId] = elementIndex;
+			}
+
+			uint residueId = 0;
+			uint residueIndex = 0;
+
+			auto ri = residueIds().find(residueName);
+
+			if (ri != residueIds().end())
+				residueId = ri->second;
+
+			residueIndex = m_residueIdMap[residueId];
+
+			if (residueIndex == 0)
+			{
+				residueIndex = uint(m_activeResidueIds.size());
+				m_activeResidueIds.push_back(residueId);
+				m_residueIdMap[residueId] = residueIndex;
+			}
+
+			uint chainId = 0;
+			uint chainIndex = 0;
+
+			auto ci = chainIds().find(chainName);
+
+			if (ci != chainIds().end())
+				chainId = ci->second;
+
+			chainIndex = m_chainIdMap[chainId];
+
+			if (chainIndex == 0)
+			{
+				chainIndex = uint(m_activeChainIds.size());
+				m_activeChainIds.push_back(chainId);
+				m_chainIdMap[chainId] = chainIndex;
+			}
+
+			uint atomAttributes = elementIndex | (residueIndex << 8) | (chainIndex << 16);
+			vec4 atom(x, y, z, uintBitsToFloat(atomAttributes));
+			m_atoms.push_back(atom);
+
+			m_minimumBounds = min(m_minimumBounds, vec3(atom));
+			m_maximumBounds = max(m_maximumBounds, vec3(atom));
+		}
+	}
+
+	for (auto id : m_activeElementIds)
+	{
+		std::cout << "Element " << id << ": " << to_string(elementColors()[id]) << std::endl;
+		m_activeElementColors.push_back(elementColors()[id]);
+		m_activeElementRadii.push_back(elementRadii()[id]);
+		m_activeElementColorsRadiiPacked.push_back(vec4(elementColors()[id],elementRadii()[id]));
+	}
+
+	for (auto id : m_activeResidueIds)
+	{
+		std::cout << "Residue " << id << ": " << to_string(residueColors()[id]) << std::endl;
+		m_activeResidueColors.push_back(residueColors()[id]);
+		m_activeResidueColorsPacked.push_back(vec4(residueColors()[id],1.0f));
+	}
+
+	for (auto id : m_activeChainIds)
+	{
+		std::cout << "Chain " << id << ": " << to_string(chainColors()[id]) << std::endl;
+		m_activeChainColors.push_back(chainColors()[id]);
+		m_activeChainColorsPacked.push_back(vec4(chainColors()[id], 1.0f));
+	}
+
+	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
+
+	
+	/*
+	m_atoms.clear();
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));//2
+	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+	*/
+	
+/*	
+	m_atoms.clear();
+	m_atoms.push_back(vec3(0.0, -2.0, -2.0));
+
+	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
+
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));
+	m_atoms.push_back(vec3(2.0, 3.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 4.0, 0.0));
+
+	m_atoms.push_back(vec3(0.0, 3.0, 3.0));
+
+	m_atoms.push_back(vec3(0.0, 5.0, 1.0));
+
+	m_atoms.push_back(vec3(0.0, 0.0, 4.0));
+	
+	
+	m_minimumBounds = vec3(-5.0, -5.0, -5.0);
+	m_maximumBounds = vec3(5.0, 5.0, 5.0);
+*/	
+	/*
+	// does not produce patch
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));//2
+	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+	*/
+
+	// Incorrect test case
+	/*
+	m_atoms.push_back(vec3(0.0, 1.3, 0.0));
+	m_atoms.push_back(vec3(-1.5, 0.0, 0.0));
+	m_atoms.push_back(vec3(1.5, 0.0, 0.0));
+	*/
+
+//	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
+//	m_atoms.push_back(vec3(2.0, 3.0, 0.0);
+//	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+
+
+	// correct patch
+/*	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
+	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
+	
+	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));
+	m_atoms.push_back(vec3(2.0, 3.0, 0.0));
+*/	
+
+/*
+	float minDist = std::numeric_limits<float>::max();
+
+	for (std::size_t i = 0; i < m_atoms.size(); i++)
+	{
+		const vec3 & posi = m_atoms[i];
+
+		for (std::size_t j = i+1; j < m_atoms.size(); j++)
+		{
+			const vec3 & posj = m_atoms[j];
+
+			vec3 d = posi - posj;
+			float l = length(d);
+
+			minDist = min(minDist, l);
+		}
+	}
+*/
+/*
+	vec3 boundsSize = (m_maximumBounds - m_minimumBounds);
+	ivec3 gridSize(boundsSize*2.0f + vec3(1.0f));
+
+	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
+	std::cout << "Minimum bounds: " << to_string(m_minimumBounds) << std::endl;
+	std::cout << "Maximum bounds: " << to_string(m_maximumBounds) << std::endl;
+	//std::cout << "Minimum atom distance: " << minDist << std::endl;
+	std::cout << "Grid size: " << to_string(gridSize) << std::endl;
+	std::cout << std::endl;
+
+
+	std::vector<int> molume(gridSize.x*gridSize.y*gridSize.z,0);
+	int occupancy = 0;
+
+	for (const auto& a : m_atoms)
+	{
+		vec3 ap = vec3(a - m_minimumBounds)/ boundsSize;
+		vec3 bp = ap*(vec3(gridSize)-vec3(1.0));
+		ivec3 gridPos = ivec3(bp);
+
+		std::size_t index = gridPos.x + gridPos.y*gridSize.x + gridPos.z*gridSize.x*gridSize.y;
+		molume[index]++;
+
+		if (molume[index] > occupancy)
+			occupancy = molume[index];
+	}
+
+	std::cout << "Max occupancy: " << occupancy << std::endl;
+*/
+}
+
+const std::vector<glm::vec4> & Protein::atoms() const
+{
+	return m_atoms;
+}
+
+vec3 Protein::minimumBounds() const
+{
+	return m_minimumBounds;
+}
+
+vec3 Protein::maximumBounds() const
+{
+	return m_maximumBounds;
+}
+
+const std::vector<glm::vec4>& Protein::activeElementColorsRadiiPacked() const
+{
+	return m_activeElementColorsRadiiPacked;
+}
+
+const std::vector<glm::vec4>& molumes::Protein::activeResidueColorsPacked() const
+{
+	return m_activeResidueColorsPacked;
+}
+
+const std::vector<glm::vec4>& Protein::activeChainColorsPacked() const
+{
+	return m_activeChainColorsPacked;
+}
+
+const std::vector<uint>& Protein::activeElementIds() const
+{
+	return m_activeElementIds;
+}
+
+const std::vector<uint>& molumes::Protein::activeResidueIds() const
+{
+	return m_activeResidueIds;
+}
+
+const std::vector<uint>& molumes::Protein::activeChainIds() const
+{
+	return m_activeChainIds;
+}
+
+const std::vector<float>& molumes::Protein::activeElementRadii() const
+{
+	return m_activeElementRadii;
+}
+
+const std::vector<glm::vec3>& molumes::Protein::activeElementColors() const
+{
+	return m_activeElementColors;
+}
+
+const std::vector<glm::vec3>& molumes::Protein::activeResidueColors() const
+{
+	return m_activeResidueColors;
+}
+
+const std::vector<glm::vec3>& molumes::Protein::activeChainColors() const
+{
+	return m_activeChainColors;
+}
+
+const std::unordered_map<std::string, uint>& molumes::Protein::elementIds()
+{
+	static const std::unordered_map<std::string, uint> elementIds = {
+		{"H",1},
+		{"He",2},
+		{"Li",3},
+		{"Be",4},
+		{"B",5},
+		{"C",6},
+		{"N",7},
+		{"O",8},
+		{"F",9},
+		{"Ne",10},
+		{"Na",11},
+		{"Mg",12},
+		{"Al",13},
+		{"Si",14},
+		{"P",15},
+		{"S",16},
+		{"Cl",17},
+		{"Ar",18},
+		{"K",19},
+		{"Ca",20},
+		{"Sc",21},
+		{"Ti",22},
+		{"V",23},
+		{"Cr",24},
+		{"Mn",25},
+		{"Fe",26},
+		{"Co",27},
+		{"Ni",28},
+		{"Cu",29},
+		{"Zn",30},
+		{"Ga",31},
+		{"Ge",32},
+		{"As",33},
+		{"Se",34},
+		{"Br",35},
+		{"Kr",36},
+		{"Rb",37},
+		{"Sr",38},
+		{"Y",39},
+		{"Zr",40},
+		{"Nb",41},
+		{"Mo",42},
+		{"Tc",43},
+		{"Ru",44},
+		{"Rh",45},
+		{"Pd",46},
+		{"Ag",47},
+		{"Cd",48},
+		{"In",49},
+		{"Sn",50},
+		{"Sb",51},
+		{"Te",52},
+		{"I",53},
+		{"Xe",54},
+		{"Cs",55},
+		{"Ba",56},
+		{"La",57},
+		{"Ce",58},
+		{"Pr",59},
+		{"Nd",60},
+		{"Pm",61},
+		{"Sm",62},
+		{"Eu",63},
+		{"Gd",64},
+		{"Tb",65},
+		{"Dy",66},
+		{"Ho",67},
+		{"Er",68},
+		{"Tm",69},
+		{"Yb",70},
+		{"Lu",71},
+		{"Hf",72},
+		{"Ta",73},
+		{"W",74},
+		{"Re",75},
+		{"Os",76},
+		{"Ir",77},
+		{"Pt",78},
+		{"Au",79},
+		{"Hg",80},
+		{"Tl",81},
+		{"Pb",82},
+		{"Bi",83},
+		{"Po",84},
+		{"At",85},
+		{"Rn",86},
+		{"Fr",87},
+		{"Ra",88},
+		{"Ac",89},
+		{"Th",90},
+		{"Pa",91},
+		{"U",92},
+		{"Np",93},
+		{"Pu",94},
+		{"Am",95},
+		{"Cm",96},
+		{"Bk",97},
+		{"Cf",98},
+		{"Es",99},
+		{"Fm",100},
+		{"Md",101},
+		{"No",102},
+		{"Lr",103},
+		{"Rf",104},
+		{"Db",105},
+		{"Sg",106},
+		{"Bh",107},
+		{"Hs",108},
+		{"Mt",109},
+		{"Ds",110},
+		{"Rg",111},
+		{"Cn",112},
+		{"H (WAT)",113},
+		{"O (WAT)",114},
+		{"D",115 }
 	};
 
+	return elementIds;
+}
+
+const std::array<float, 116>& Protein::elementRadii()
+{
 	static const std::array<float,116> elementRadii = {
 		1.0f, // 0 - default
 		/*<vdw id = "1" radius = "*/1.200f,
@@ -265,8 +580,13 @@ void Protein::load(const std::string& filename)
 		/*<vdw id = "115" radius = "*/1.200f
 	};
 
+	return elementRadii;
+}
+
+const std::array<vec3, 116>& Protein::elementColors()
+{
 	// source: http://jmol.sourceforge.net/jscolors/
-	static const std::array<vec3,110> elementColors = {
+	static const std::array<vec3,116> elementColors = {
 		vec3(1.0f,1.0f,1.0f),
 		vec3(255, 255, 255) / 255.0f,
 		vec3(217, 255, 255) / 255.0f,
@@ -376,314 +696,218 @@ void Protein::load(const std::string& filename)
 		vec3(217, 0, 69) / 255.0f,
 		vec3(224, 0, 56) / 255.0f,
 		vec3(230, 0, 46) / 255.0f,
-		vec3(235, 0, 38) / 255.0f
+		vec3(235, 0, 38) / 255.0f,
+		vec3(1.0f, 1.0f, 1.0f),
+		vec3(1.0f, 1.0f, 1.0f),
+		vec3(1.0f, 1.0f, 1.0f),
+		vec3(1.0f, 1.0f, 1.0f),
+		vec3(1.0f, 1.0f, 1.0f),
 	};
 
-	std::cout << "Loading file " << filename << " ..." << std::endl;
-	std::ifstream file(filename);
-
-	if (!file.is_open())
-	{
-		std::cerr << "Could not open file " << filename << "!" << std::endl << std::endl;
-	}
-
-	m_atoms.clear();
-	m_minimumBounds = vec3(std::numeric_limits<float>::max());
-	m_maximumBounds = vec3(-std::numeric_limits<float>::max());
-
-	std::array<uint, 116> elementIds;
-	elementIds.fill(0);
-
-	std::string str;
-	uint elementCount = 1;
-
-	while (std::getline(file, str))
-	{
-		std::vector<std::string> tokens;
-		std::istringstream buffer(str);
-
-		std::copy(std::istream_iterator<std::string>(buffer), std::istream_iterator<std::string>(), std::back_inserter(tokens));
-
-		if (tokens[0] == "ATOM" || tokens[0] == "HETATM")
-		{
-			float x = float(std::atof(tokens[6].c_str()));
-			float y = float(std::atof(tokens[7].c_str()));
-			float z = float(std::atof(tokens[8].c_str()));
-
-			std::string elementName = tokens.back();
-			uint elementNumber = 0;
-			uint elementId = 0;
-			float radius = 0.0f;
-			auto it = elementNames.find(elementName);
-
-			if (it != elementNames.end())
-				elementNumber = it->second;
-
-			elementId = elementIds[elementNumber];
-
-			if (elementId == 0)
-			{
-				elementId = elementCount++;
-				elementIds[elementNumber] = elementId;
-			}
-
-			vec4 atom(x, y, z, float(elementId));
-			m_atoms.push_back(atom);
-
-			m_minimumBounds = min(m_minimumBounds, vec3(atom));
-			m_maximumBounds = max(m_maximumBounds, vec3(atom));
-		}
-	}
-
-	m_elements.clear();
-	m_elements.resize(elementCount);
-
-	for (uint elementNumber = 0; elementNumber < elementIds.size(); elementNumber++)
-	{
-		uint elementId = elementIds[elementNumber];
-
-		if (elementId > 0)
-		{
-			Element e;
-			
-			if (elementNumber < elementColors.size())
-				e.color = elementColors[elementNumber];
-
-			if (elementNumber < elementRadii.size())
-				e.radius = elementRadii[elementNumber];
-
-			m_elements[elementId] = e;
-		}
-	}
-
-	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
-
-	
-	/*
-	m_atoms.clear();
-	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));//2
-	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
-	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
-	*/
-	
-/*	
-	m_atoms.clear();
-	m_atoms.push_back(vec3(0.0, -2.0, -2.0));
-
-	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
-	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
-
-	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
-
-	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));
-	m_atoms.push_back(vec3(2.0, 3.0, 0.0));
-	m_atoms.push_back(vec3(0.0, 4.0, 0.0));
-
-	m_atoms.push_back(vec3(0.0, 3.0, 3.0));
-
-	m_atoms.push_back(vec3(0.0, 5.0, 1.0));
-
-	m_atoms.push_back(vec3(0.0, 0.0, 4.0));
-	
-	
-	m_minimumBounds = vec3(-5.0, -5.0, -5.0);
-	m_maximumBounds = vec3(5.0, 5.0, 5.0);
-*/	
-	/*
-	// does not produce patch
-	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));//2
-	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
-	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
-	*/
-
-	// Incorrect test case
-	/*
-	m_atoms.push_back(vec3(0.0, 1.3, 0.0));
-	m_atoms.push_back(vec3(-1.5, 0.0, 0.0));
-	m_atoms.push_back(vec3(1.5, 0.0, 0.0));
-	*/
-
-//	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
-//	m_atoms.push_back(vec3(2.0, 3.0, 0.0);
-//	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
-
-
-	// correct patch
-/*	m_atoms.push_back(vec3(-1.3, 0.0, 0.0));
-	m_atoms.push_back(vec3(1.3, 0.0, 0.0));
-	m_atoms.push_back(vec3(0.0, 2.0, 0.0));
-	
-	m_atoms.push_back(vec3(-2.0, 3.0, 0.0));
-	m_atoms.push_back(vec3(2.0, 3.0, 0.0));
-*/	
-
-/*
-	float minDist = std::numeric_limits<float>::max();
-
-	for (std::size_t i = 0; i < m_atoms.size(); i++)
-	{
-		const vec3 & posi = m_atoms[i];
-
-		for (std::size_t j = i+1; j < m_atoms.size(); j++)
-		{
-			const vec3 & posj = m_atoms[j];
-
-			vec3 d = posi - posj;
-			float l = length(d);
-
-			minDist = min(minDist, l);
-		}
-	}
-*/
-/*
-	vec3 boundsSize = (m_maximumBounds - m_minimumBounds);
-	ivec3 gridSize(boundsSize*2.0f + vec3(1.0f));
-
-	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
-	std::cout << "Minimum bounds: " << to_string(m_minimumBounds) << std::endl;
-	std::cout << "Maximum bounds: " << to_string(m_maximumBounds) << std::endl;
-	//std::cout << "Minimum atom distance: " << minDist << std::endl;
-	std::cout << "Grid size: " << to_string(gridSize) << std::endl;
-	std::cout << std::endl;
-
-
-	std::vector<int> molume(gridSize.x*gridSize.y*gridSize.z,0);
-	int occupancy = 0;
-
-	for (const auto& a : m_atoms)
-	{
-		vec3 ap = vec3(a - m_minimumBounds)/ boundsSize;
-		vec3 bp = ap*(vec3(gridSize)-vec3(1.0));
-		ivec3 gridPos = ivec3(bp);
-
-		std::size_t index = gridPos.x + gridPos.y*gridSize.x + gridPos.z*gridSize.x*gridSize.y;
-		molume[index]++;
-
-		if (molume[index] > occupancy)
-			occupancy = molume[index];
-	}
-
-	std::cout << "Max occupancy: " << occupancy << std::endl;
-*/
+	return elementColors;
 }
 
-const std::vector<glm::vec4> & Protein::atoms() const
+const std::unordered_map<std::string, uint>& Protein::residueIds()
 {
-	return m_atoms;
-}
-
-const std::vector<Protein::Element>& molumes::Protein::elements() const
-{
-	return m_elements;
-}
-
-vec3 Protein::minimumBounds() const
-{
-	return m_minimumBounds;
-}
-
-vec3 Protein::maximumBounds() const
-{
-	return m_maximumBounds;
-}
-
-const std::unordered_map<std::string, glm::vec3>& molumes::Protein::residueColors()
-{
-	static const std::unordered_map<std::string, vec3> residueColors = {
-		{"Ala",vec3(200, 200, 200) / 255.0f },
-		{"Arg",vec3(20, 90, 255) / 255.0f },
-		{"Asn",vec3(0, 220, 220) / 255.0f },
-		{"Asp",vec3(230, 10, 10) / 255.0f },
-		{"Cys",vec3(230, 230, 0) / 255.0f },
-		{"Gln",vec3(0, 220, 220) / 255.0f },
-		{"Glu",vec3(230, 10, 10) / 255.0f },
-		{"Gly",vec3(235, 235, 235) / 255.0f },
-		{"His",vec3(130, 130, 210) / 255.0f },
-		{"Ile",vec3(15, 130, 15) / 255.0f },
-		{"Leu",vec3(15, 130, 15) / 255.0f },
-		{"Lys",vec3(20, 90, 255) / 255.0f },
-		{"Met",vec3(230, 230, 0) / 255.0f },
-		{"Phe",vec3(50, 50, 170) / 255.0f },
-		{"Pro",vec3(220, 150, 130) / 255.0f },
-		{"Ser",vec3(250, 150, 0) / 255.0f },
-		{"Thr",vec3(250, 150, 0) / 255.0f },
-		{"Trp",vec3(180, 90, 180) / 255.0f },
-		{"Tyr",vec3(50, 50, 170) / 255.0f },
-		{"Val",vec3(15, 130, 15) / 255.0f },
-		{"Asx",vec3(255, 105, 180) / 255.0f },
-		{"Glx",vec3(255, 105, 180) / 255.0f },
-		{"other",vec3(190, 160, 110) / 255.0f }
+	static const std::unordered_map<std::string, uint> residueColors = {
+		{"ALA",1},
+		{"ARG",2},
+		{"ASN",3},
+		{"ASP",4},
+		{"CYS",5},
+		{"GLN",6},
+		{"GLU",7},
+		{"GLY",8},
+		{"HIS",9},
+		{"ILE",10},
+		{"LEU",11},
+		{"LYS",12},
+		{"MET",13},
+		{"PHE",14},
+		{"PRO",15},
+		{"SER",16},
+		{"THR",17},
+		{"TRP",18},
+		{"TYR",19},
+		{"VAL",20},
+		{"ASX",21},
+		{"GLX",22},
+		{"other",23 }
 	};
 	
 	return residueColors;
 }
 
-const std::unordered_map<std::string, glm::vec3>& molumes::Protein::chainColors()
+const std::array<vec3, 24>& Protein::residueColors()
 {
-	static const std::unordered_map<std::string, vec3> chainColors = {
-		{"A",vec3(192,208,255) / 255.0f },
-		{"a",vec3(192,208,255) / 255.0f },
-		{"B",vec3(176,255,176) / 255.0f },
-		{"b",vec3(176,255,176) / 255.0f },
-		{"C",vec3(255,192,200) / 255.0f },
-		{"c",vec3(255,192,200) / 255.0f },
-		{"D",vec3(255,255,128) / 255.0f },
-		{"d",vec3(255,255,128) / 255.0f },
-		{"E",vec3(255,192,255) / 255.0f },
-		{"e",vec3(255,192,255) / 255.0f },
-		{"F",vec3(176,240,240) / 255.0f },
-		{"f",vec3(176,240,240) / 255.0f },
-		{"G",vec3(255,208,112) / 255.0f },
-		{"g",vec3(255,208,112) / 255.0f },
-		{"H",vec3(240,128,128) / 255.0f },
-		{"h",vec3(240,128,128) / 255.0f },
-		{"I",vec3(245,222,179) / 255.0f },
-		{"i",vec3(245,222,179) / 255.0f },
-		{"J",vec3(0,191,255) / 255.0f },
-		{"j",vec3(0,191,255) / 255.0f },
-		{"K",vec3(205,92,92) / 255.0f },
-		{"k",vec3(205,92,92) / 255.0f },
-		{"L",vec3(102,205,170) / 255.0f },
-		{"l",vec3(102,205,170) / 255.0f },
-		{"M",vec3(154,205,50) / 255.0f },
-		{"m",vec3(154,205,50) / 255.0f },
-		{"N",vec3(238,130,238) / 255.0f },
-		{"n",vec3(238,130,238) / 255.0f },
-		{"O",vec3(0,206,209) / 255.0f },
-		{"o",vec3(0,206,209) / 255.0f },
-		{"P",vec3(0,255,127) / 255.0f },
-		{"p",vec3(0,255,127) / 255.0f },
-		{"0",vec3(0,255,127) / 255.0f },
-		{"Q",vec3(60,179,113) / 255.0f },
-		{"q",vec3(60,179,113) / 255.0f },
-		{"1",vec3(60,179,113) / 255.0f },
-		{"R",vec3(0,0,139) / 255.0f },
-		{"r",vec3(0,0,139) / 255.0f },
-		{"2",vec3(0,0,139) / 255.0f },
-		{"S",vec3(189,183,107) / 255.0f },
-		{"s",vec3(189,183,107) / 255.0f },
-		{"3",vec3(189,183,107) / 255.0f },
-		{"T",vec3(0,100,0) / 255.0f },
-		{"t",vec3(0,100,0) / 255.0f },
-		{"4",vec3(0,100,0) / 255.0f },
-		{"U",vec3(128,0,0) / 255.0f },
-		{"u",vec3(128,0,0) / 255.0f },
-		{"5",vec3(128,0,0) / 255.0f },
-		{"V",vec3(128,128,0) / 255.0f },
-		{"v",vec3(128,128,0) / 255.0f },
-		{"6",vec3(128,128,0) / 255.0f },
-		{"W",vec3(128,0,128) / 255.0f },
-		{"w",vec3(128,0,128) / 255.0f },
-		{"7",vec3(128,0,128) / 255.0f },
-		{"X",vec3(0,128,128) / 255.0f },
-		{"x",vec3(0,128,128) / 255.0f },
-		{"8",vec3(0,128,128) / 255.0f },
-		{"Y",vec3(184,134,11) / 255.0f },
-		{"y",vec3(184,134,11) / 255.0f },
-		{"9",vec3(184,134,11) / 255.0f },
-		{"Z",vec3(178,34,34) / 255.0f },
-		{"z",vec3(178,34,34) / 255.0f },
-		{"none",vec3(255,255,255) / 255.0f }
+	static const std::array<vec3, 24> residueColors = {
+		/* default */ vec3(1.0f,1.0f,1.0f),
+		/* Ala */ vec3(200, 200, 200) / 255.0f,
+		/* Arg */ vec3(20, 90, 255) / 255.0f,
+		/* Asn */ vec3(0, 220, 220) / 255.0f,
+		/* Asp */ vec3(230, 10, 10) / 255.0f,
+		/* Cys */ vec3(230, 230, 0) / 255.0f,
+		/* Gln */ vec3(0, 220, 220) / 255.0f,
+		/* Glu */ vec3(230, 10, 10) / 255.0f,
+		/* Gly */ vec3(235, 235, 235) / 255.0f,
+		/* His */ vec3(130, 130, 210) / 255.0f,
+		/* Ile */ vec3(15, 130, 15) / 255.0f,
+		/* Leu */ vec3(15, 130, 15) / 255.0f,
+		/* Lys */ vec3(20, 90, 255) / 255.0f,
+		/* Met */ vec3(230, 230, 0) / 255.0f,
+		/* Phe */ vec3(50, 50, 170) / 255.0f,
+		/* Pro */ vec3(220, 150, 130) / 255.0f,
+		/* Ser */ vec3(250, 150, 0) / 255.0f,
+		/* Thr */ vec3(250, 150, 0) / 255.0f,
+		/* Trp */ vec3(180, 90, 180) / 255.0f,
+		/* Tyr */ vec3(50, 50, 170) / 255.0f,
+		/* Val */ vec3(15, 130, 15) / 255.0f,
+		/* Asx */ vec3(255, 105, 180) / 255.0f,
+		/* Glx */ vec3(255, 105, 180) / 255.0f,
+		/* other */ vec3(190, 160, 110) / 255.0f
+	};
+
+	return residueColors;
+}
+
+const std::unordered_map<std::string, uint>& Protein::chainIds()
+{
+	static const std::unordered_map<std::string, uint> chainIds = {
+		{"A",1},
+		{"a",2},
+		{"B",3},
+		{"b",4},
+		{"C",5},
+		{"c",6},
+		{"D",7},
+		{"d",8},
+		{"E",9},
+		{"e",10},
+		{"F",11},
+		{"f",12},
+		{"G",13},
+		{"g",14},
+		{"H",15},
+		{"h",16},
+		{"I",17},
+		{"i",18},
+		{"J",19},
+		{"j",20},
+		{"K",21},
+		{"k",22},
+		{"L",23},
+		{"l",24},
+		{"M",25},
+		{"m",26},
+		{"N",27},
+		{"n",28},
+		{"O",29},
+		{"o",30},
+		{"P",31},
+		{"p",32},
+		{"0",33},
+		{"Q",34},
+		{"q",35},
+		{"1",36},
+		{"R",37},
+		{"r",38},
+		{"2",39},
+		{"S",40},
+		{"s",41},
+		{"3",42},
+		{"T",43},
+		{"t",44},
+		{"4",45},
+		{"U",46},
+		{"u",47},
+		{"5",48},
+		{"V",49},
+		{"v",50},
+		{"6",51},
+		{"W",52},
+		{"w",53},
+		{"7",54},
+		{"X",55},
+		{"x",56},
+		{"8",57},
+		{"Y",58},
+		{"y",59},
+		{"9",60},
+		{"Z",61},
+		{"z",62},
+		{"none",63}
+	};
+
+	return chainIds;
+}
+
+const std::array<vec3, 64>& Protein::chainColors()
+{
+	static const std::array<vec3, 64> chainColors = {
+		/* default */ vec3(1.0f,1.0f,1.0f),
+		/* A */ vec3(192,208,255) / 255.0f,
+		/* a */ vec3(192,208,255) / 255.0f,
+		/* B */ vec3(176,255,176) / 255.0f,
+		/* b */ vec3(176,255,176) / 255.0f,
+		/* C */ vec3(255,192,200) / 255.0f,
+		/* c */ vec3(255,192,200) / 255.0f,
+		/* D */ vec3(255,255,128) / 255.0f,
+		/* d */ vec3(255,255,128) / 255.0f,
+		/* E */ vec3(255,192,255) / 255.0f,
+		/* e */ vec3(255,192,255) / 255.0f,
+		/* F */ vec3(176,240,240) / 255.0f,
+		/* f */ vec3(176,240,240) / 255.0f,
+		/* G */ vec3(255,208,112) / 255.0f,
+		/* g */ vec3(255,208,112) / 255.0f,
+		/* H */ vec3(240,128,128) / 255.0f,
+		/* h */ vec3(240,128,128) / 255.0f,
+		/* I */ vec3(245,222,179) / 255.0f,
+		/* i */ vec3(245,222,179) / 255.0f,
+		/* J */ vec3(0,191,255) / 255.0f,
+		/* j */ vec3(0,191,255) / 255.0f,
+		/* K */ vec3(205,92,92) / 255.0f,
+		/* k */ vec3(205,92,92) / 255.0f,
+		/* L */ vec3(102,205,170) / 255.0f,
+		/* l */ vec3(102,205,170) / 255.0f,
+		/* M */ vec3(154,205,50) / 255.0f,
+		/* m */ vec3(154,205,50) / 255.0f,
+		/* N */ vec3(238,130,238) / 255.0f,
+		/* n */ vec3(238,130,238) / 255.0f,
+		/* O */ vec3(0,206,209) / 255.0f,
+		/* o */ vec3(0,206,209) / 255.0f,
+		/* P */ vec3(0,255,127) / 255.0f,
+		/* p */ vec3(0,255,127) / 255.0f,
+		/* 0 */ vec3(0,255,127) / 255.0f,
+		/* Q */ vec3(60,179,113) / 255.0f,
+		/* q */ vec3(60,179,113) / 255.0f,
+		/* 1 */ vec3(60,179,113) / 255.0f,
+		/* R */ vec3(0,0,139) / 255.0f,
+		/* r */ vec3(0,0,139) / 255.0f,
+		/* 2 */ vec3(0,0,139) / 255.0f,
+		/* S */ vec3(189,183,107) / 255.0f,
+		/* s */ vec3(189,183,107) / 255.0f,
+		/* 3 */ vec3(189,183,107) / 255.0f,
+		/* T */ vec3(0,100,0) / 255.0f,
+		/* t */ vec3(0,100,0) / 255.0f,
+		/* 4 */ vec3(0,100,0) / 255.0f,
+		/* U */ vec3(128,0,0) / 255.0f,
+		/* u */ vec3(128,0,0) / 255.0f,
+		/* 5 */ vec3(128,0,0) / 255.0f,
+		/* V */ vec3(128,128,0) / 255.0f,
+		/* v */ vec3(128,128,0) / 255.0f,
+		/* 6 */ vec3(128,128,0) / 255.0f,
+		/* W */ vec3(128,0,128) / 255.0f,
+		/* w */ vec3(128,0,128) / 255.0f,
+		/* 7 */ vec3(128,0,128) / 255.0f,
+		/* X */ vec3(0,128,128) / 255.0f,
+		/* x */ vec3(0,128,128) / 255.0f,
+		/* 8 */ vec3(0,128,128) / 255.0f,
+		/* Y */ vec3(184,134,11) / 255.0f,
+		/* y */ vec3(184,134,11) / 255.0f,
+		/* 9 */ vec3(184,134,11) / 255.0f,
+		/* Z */ vec3(178,34,34) / 255.0f,
+		/* z */ vec3(178,34,34) / 255.0f,
+		/* none */ vec3(255,255,255) / 255.0f
 	};
 
 	return chainColors;

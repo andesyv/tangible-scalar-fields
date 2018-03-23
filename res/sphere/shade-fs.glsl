@@ -7,7 +7,6 @@ uniform mat4 projection;
 uniform mat4 inverseProjection;
 uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
-uniform float probeRadius;
 uniform float softness;
 uniform bool coloring;
 
@@ -26,15 +25,35 @@ in vec4 gFragmentPosition;
 out vec4 fragColor;
 out vec4 fragNormal;
 
-struct AtomData
+struct Element
 {
 	vec3 color;
 	float radius;
 };
 
-layout(std140, binding = 0) uniform atomBlock
+struct Residue
 {
-	AtomData atoms[32];
+	vec4 color;
+};
+
+struct Chain
+{
+	vec4 color;
+};
+
+layout(std140, binding = 0) uniform elementBlock
+{
+	Element elements[32];
+};
+
+layout(std140, binding = 1) uniform residueBlock
+{
+	Residue residues[32];
+};
+
+layout(std140, binding = 2) uniform chainBlock
+{
+	Chain chains[32];
 };
 
 struct BufferEntry
@@ -387,10 +406,15 @@ void main()
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
 						uint ij = indices[j];
+						uint id = intersections[ij].id;
+
+						uint elementId = bitfieldExtract(id,0,8);
+						uint residueId = bitfieldExtract(id,8,8);
+						uint chainId = bitfieldExtract(id,16,8);
 
 						vec3 aj = intersections[ij].center;
-						float rj = atoms[intersections[ij].id].radius;
-						vec3 cj = atoms[intersections[ij].id].color;
+						float rj = elements[elementId].radius;
+						vec3 cj = elements[elementId].color;
 
 						vec3 atomOffset = currentPosition.xyz-aj;						
 						float atomDistance = length(atomOffset)/rj;
@@ -459,7 +483,13 @@ void main()
 	if (coloring)
 	{
 		if (position.w <= closestPosition.w)
-			diffuseColor = atoms[intersections[indices[0]].id].color;
+		{
+			uint id = intersections[indices[0]].id;
+			uint elementId = bitfieldExtract(id,0,8);
+			uint residueId = bitfieldExtract(id,8,8);
+			uint chainId = bitfieldExtract(id,16,8);
+			diffuseColor = elements[elementId].color;
+		}
 	}
 		// vectors
 	vec3 N = normalize(closestNormal);

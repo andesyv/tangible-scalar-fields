@@ -36,7 +36,9 @@ namespace molumes
 		
 		std::unique_ptr<globjects::VertexArray> m_vao = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_vertices = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Buffer> m_atomData = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_elementColorsRadii = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_residueColors = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_chainColors = std::make_unique<globjects::Buffer>();
 
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
