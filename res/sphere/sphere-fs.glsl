@@ -70,6 +70,6 @@ void main()
 
 	float depth = calcDepth(sphere.near.xyz);
 	fragPosition = vec4(sphere.near.xyz,length(sphere.near.xyz-near.xyz));
-	fragNormal = vec4(sphere.normal,1.0);//vec4(normalize(normalMatrix*(mix(vec3(0.0,0.0,-1.0),-N,1.0))),1.0);
+	fragNormal = vec4(sphere.normal,uintBitsToFloat(gSphereId));//vec4(normalize(normalMatrix*(mix(vec3(0.0,0.0,-1.0),-N,1.0))),1.0);
 	gl_FragDepth = depth;
 }

@@ -316,7 +316,7 @@ void main()
 		discard;
 
 	vec4 position = texelFetch(colorTexture,ivec2(gl_FragCoord.xy),0);
-	vec3 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0).xyz;
+	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
 	//vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
 
 	vec4 fragCoord = gFragmentPosition;
@@ -335,8 +335,6 @@ void main()
 	uint entryCount = 0;
 	uint indices[maxEntries];
 
-	vec3 diffuseColor = vec3(1.0,1.0,1.0);
-	
 	while (offset > 0)
 	{
 		indices[entryCount++] = offset;
@@ -347,7 +345,24 @@ void main()
 		discard;
 
 	vec4 closestPosition = position;
-	vec3 closestNormal = normal;
+	vec3 closestNormal = normal.xyz;
+
+	vec3 diffuseColor = vec3(1.0,1.0,1.0);
+
+	if (coloring > 0)
+	{
+		uint id = floatBitsToUint(normal.w);
+		uint elementId = bitfieldExtract(id,0,8);
+		uint residueId = bitfieldExtract(id,8,8);
+		uint chainId = bitfieldExtract(id,16,8);
+
+		if (coloring == 1)
+			diffuseColor = elements[elementId].color.rgb;
+		else if (coloring == 2)
+			diffuseColor = residues[residueId].color.rgb;
+		else if (coloring == 3)
+			diffuseColor = chains[chainId].color.rgb;
+	}
 
 	uint startIndex = 0;
 
@@ -496,24 +511,6 @@ void main()
 
 	if (closestPosition.w >= 65535.0f)
 		discard;
-
-	if (coloring > 0)
-	{
-		if (position.w <= closestPosition.w)
-		{
-			uint id = intersections[indices[0]].id;
-			uint elementId = bitfieldExtract(id,0,8);
-			uint residueId = bitfieldExtract(id,8,8);
-			uint chainId = bitfieldExtract(id,16,8);
-
-			if (coloring == 1)
-				diffuseColor = elements[elementId].color.rgb;
-			else if (coloring == 2)
-				diffuseColor = residues[residueId].color.rgb;
-			else if (coloring == 3)
-				diffuseColor = chains[chainId].color.rgb;
-		}
-	}
 
 	vec3 N = normalize(closestNormal);
 	vec3 L = normalize(lightPosition.xyz-closestPosition.xyz);
