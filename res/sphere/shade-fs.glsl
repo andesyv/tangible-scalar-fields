@@ -9,6 +9,7 @@ uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
 uniform float softness;
 uniform uint coloring;
+uniform bool environment;
 
 uniform vec3 lightPosition;
 uniform vec3 diffuseMaterial;
@@ -19,6 +20,7 @@ uniform float shininess;
 uniform sampler2D colorTexture;
 uniform sampler2D normalTexture;
 uniform sampler2D depthTexture;
+uniform sampler2D environmentTexture;
 uniform usampler2D offsetTexture;
 
 in vec4 gFragmentPosition;
@@ -296,6 +298,15 @@ bool intersectTorus2( in vec3 ro, in vec3 rd, out vec3 i, in vec3 c, vec3 a, in 
 	return false;
 }
 
+// From http://http.developer.nvidia.com/GPUGems/gpugems_ch17.html
+vec2 latlong(vec3 v)
+{
+	v = normalize(v);
+	float theta = acos(v.z) / 2; // +z is up
+	float phi = atan(v.y, v.x) + 3.1415926535897932384626433832795;
+	return vec2(phi, theta) * vec2(0.1591549, 0.6366198);
+}
+
 
 void main()
 {
@@ -509,7 +520,15 @@ void main()
 	vec3 R = normalize(reflect(L, N));
 	float NdotL = max(0.0,dot(N, L));
 	float RdotV = max(0.0,dot(R, V));
-	vec3 color = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial;
+	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);	
+	
+	if (environment)
+	{
+		vec2 uv = latlong(R);
+		environmentColor = texture(environmentTexture,uv);
+	}
+
+	vec3 color = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial * environmentColor.rgb;
 
 	fragColor = vec4(min(vec3(1.0),color.xyz),1.0);
 	fragNormal = vec4(N,0.0);

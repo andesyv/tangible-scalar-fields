@@ -42,7 +42,8 @@ namespace molumes
 
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
-		
+		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
+
 		std::unique_ptr<globjects::VertexArray> m_vaoQuad = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
 		

@@ -28,7 +28,6 @@ Protein::Protein(const std::string& filename)
 
 void Protein::load(const std::string& filename)
 {
-
 	std::cout << "Loading file " << filename << " ..." << std::endl;
 	std::ifstream file(filename);
 
@@ -36,6 +35,8 @@ void Protein::load(const std::string& filename)
 	{
 		std::cerr << "Could not open file " << filename << "!" << std::endl << std::endl;
 	}
+
+	m_filename = filename;
 
 	m_atoms.clear();
 	m_minimumBounds = vec3(std::numeric_limits<float>::max());
@@ -269,6 +270,11 @@ void Protein::load(const std::string& filename)
 
 	std::cout << "Max occupancy: " << occupancy << std::endl;
 */
+}
+
+const std::string & molumes::Protein::filename() const
+{
+	return m_filename;
 }
 
 const std::vector<glm::vec4> & Protein::atoms() const

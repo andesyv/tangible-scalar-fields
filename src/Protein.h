@@ -21,6 +21,8 @@ namespace molumes
 		Protein();
 		Protein(const std::string& filename);
 		void load(const std::string& filename);
+		const std::string & filename() const;
+
 		const std::vector<glm::vec4> & atoms() const;
 		const std::vector<Element> & elements() const;
 		glm::vec3 minimumBounds() const;
@@ -50,6 +52,8 @@ namespace molumes
 		static const std::array<glm::vec3, 64> & chainColors();
 
 	private:
+
+		std::string m_filename;
 		std::vector<glm::vec4> m_atoms;
 
 		std::array<glm::uint, 116> m_elementIdMap;

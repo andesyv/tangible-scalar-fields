@@ -49,6 +49,8 @@ namespace molumes
 		glm::vec4 viewLightPosition() const;
 		glm::vec4 worldLightPosition() const;
 
+		void saveImage(const std::string & filename);
+
 	private:
 
 		void beginFrame();
@@ -95,6 +97,7 @@ namespace molumes
 		glm::vec4 m_viewLightPosition = glm::vec4(0.0f, 0.0f,2.0f*sqrt(3.0f),1.0f);
 
 		bool m_showUi = true;
+		bool m_saveScreenshot = false;
 	};
 
 

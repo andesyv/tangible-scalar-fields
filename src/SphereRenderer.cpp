@@ -5,11 +5,11 @@
 #include "Viewer.h"
 #include "Scene.h"
 #include "Protein.h"
+#include "SSAO.h"
+#include <lodepng.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
-
-#include "SSAO.h"
 
 using namespace molumes;
 using namespace gl;
@@ -109,6 +109,26 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_offsetTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
+	m_environmentTexture = Texture::create(GL_TEXTURE_2D);
+	m_environmentTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_environmentTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
+	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	std::string environmentFilename = "./dat/Env_Lat-Lon.png";
+	uint environmentWidth, environmentHeight;
+	std::vector<unsigned char> environmentImage;
+	uint error = lodepng::decode(environmentImage, environmentWidth, environmentHeight, environmentFilename);
+
+	if (error)
+		globjects::debug() << "Could not load " << environmentFilename << "!";
+	else
+	{
+		m_environmentTexture->image2D(0, GL_RGBA, environmentWidth, environmentHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&environmentImage.front());
+		//glGenerateMipmap(GL_TEXTURE_2D);
+	}
+
+
 	m_ssao = std::make_unique<SSAO>();
 }
 
@@ -154,6 +174,7 @@ void SphereRenderer::display()
 
 	static float softness = 1.25f;
 	static bool ambientOcclusion = false;
+	static bool environmentMapping = false;
 	static int coloring = 0;
 
 	ImGui::Begin("Sphere Renderer");
@@ -164,6 +185,7 @@ void SphereRenderer::display()
 	ImGui::SliderFloat("Softness", &softness, 0.5f, 8.0f);
 	ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
+	ImGui::Checkbox("Environment Mapping", &environmentMapping);
 	ImGui::End();
 
 	mat4 view = viewer()->viewTransform();
@@ -241,7 +263,6 @@ void SphereRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-
 //	uint sphereCount = 0;
 //	m_verticesSpawn->getSubData(0, sizeof(uint), &sphereCount);
 	//std::array<vec3,1> sphereValues = m_verticesSpawn->getSubData<vec3,1>(16);
@@ -263,7 +284,8 @@ void SphereRenderer::display()
 	m_positionTextures[0]->bindActive(0);
 	m_normalTextures[0]->bindActive(1);
 	m_depthTextures[0]->bindActive(2);
-	m_offsetTexture->bindActive(3);
+	m_environmentTexture->bindActive(3);
+	m_offsetTexture->bindActive(4);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 
 /*	double xpos, ypos;
@@ -300,11 +322,14 @@ void SphereRenderer::display()
 	m_programShade->setUniform("colorTexture", 0);
 	m_programShade->setUniform("normalTexture", 1);
 	m_programShade->setUniform("depthTexture", 2);
-	m_programShade->setUniform("offsetTexture", 3);
+	m_programShade->setUniform("environmentTexture", 3);
+	m_programShade->setUniform("offsetTexture", 4);
 	m_programShade->setUniform("softness", softness);
 	m_programShade->setUniform("coloring", uint(coloring));
+	m_programShade->setUniform("environment", environmentMapping);
+
 	m_programShade->use();
-	//ImGui::ShowTestWindow();
+	
 	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();
@@ -313,7 +338,8 @@ void SphereRenderer::display()
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
-	m_offsetTexture->unbindActive(3);
+	m_offsetTexture->unbindActive(4);
+	m_environmentTexture->unbindActive(3);
 	m_depthTextures[0]->unbindActive(2);
 	m_normalTextures[0]->unbindActive(1);
 	m_positionTextures[0]->unbindActive(0);
@@ -329,7 +355,7 @@ void SphereRenderer::display()
 
 	//m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	Framebuffer::defaultFBO()->bind();
-	glDepthFunc(GL_LESS);
+	glDepthFunc(GL_LEQUAL);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -337,20 +363,33 @@ void SphereRenderer::display()
 	m_positionTextures[1]->bindActive(0);
 	m_normalTextures[1]->bindActive(1);
 	m_depthTextures[1]->bindActive(2);
+	m_environmentTexture->bindActive(3);
 
+	m_programBlend->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programBlend->setUniform("colorTexture", 0);
 	m_programBlend->setUniform("normalTexture", 1);
 	m_programBlend->setUniform("depthTexture", 2);
+	m_programBlend->setUniform("environmentTexture", 3);
+	m_programBlend->setUniform("environment", environmentMapping);
 	m_programBlend->use();
 
 	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();
 
+	m_environmentTexture->unbindActive(3);
 	m_depthTextures[1]->unbindActive(2);
 	m_normalTextures[1]->unbindActive(1);
 	m_positionTextures[1]->unbindActive(0);
 
 	glDisable(GL_BLEND);
 	m_programBlend->release();
+	/*
+	ImGui::Begin("Statistics");
+	uint poolSize = m_intersectionBuffer->getSubData<uint>(1,0)[0];
+	ImGui::Text("Pool Size: %u", poolSize);
+	ImGui::End();
+	*/
+	
+
 }

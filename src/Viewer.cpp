@@ -14,7 +14,11 @@
 #include "BoundingBoxRenderer.h"
 #include "SphereRenderer.h"
 #include "MolumeRenderer.h"
+#include "Scene.h"
+#include "Protein.h"
+#include <fstream>
 #include <list>
+#include <lodepng.h>
 
 using namespace molumes;
 using namespace gl;
@@ -272,6 +276,28 @@ vec4 Viewer::worldLightPosition() const
 	return inverse(modelViewTransform())*m_viewLightPosition;
 }
 
+void Viewer::saveImage(const std::string & filename)
+{
+	ivec2 size = viewportSize();
+	std::vector<unsigned char> image(size.x*size.y * 4);
+	std::vector<unsigned char> flipped(size.x*size.y * 4);
+
+	glReadPixels(0, 0, size.x, size.y, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&image.front());
+
+	for (uint y = 0; y < size.y; y++)
+	{
+		for (uint x = 0; x < size.x; x++)
+		{
+			flipped[4* x + 0 + 4 * y*size.x] = image[4 * x + 0 + 4 * (size.y - 1 - y)*size.x];
+			flipped[4* x + 1 + 4 * y*size.x] = image[4 * x + 1 + 4 * (size.y - 1 - y)*size.x];
+			flipped[4* x + 2 + 4 * y*size.x] = image[4 * x + 2 + 4 * (size.y - 1 - y)*size.x];
+			flipped[4* x + 3 + 4 * y*size.x] = image[4 * x + 3 + 4 * (size.y - 1 - y)*size.x];
+		}
+	}
+
+	lodepng::encode(filename, flipped, size.x, size.y);
+}
+
 void Viewer::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	Viewer* viewer = static_cast<Viewer*>(glfwGetWindowUserPointer(window));
@@ -335,6 +361,10 @@ void Viewer::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
 				std::cout << "2 shaders reloaded." << std::endl << std::endl;
 
 			}
+		}
+		else if (key == GLFW_KEY_F2 && action == GLFW_RELEASE)
+		{
+			viewer->m_saveScreenshot = true;
 		}
 		else if (key >= GLFW_KEY_1 && key <= GLFW_KEY_9 && action == GLFW_RELEASE)		
 		{
@@ -523,6 +553,38 @@ void Viewer::endFrame()
 
 	ImGui::EndMainMenuBar();
 
+	if (m_saveScreenshot)
+	{
+		std::string basename = scene()->protein()->filename();
+		size_t pos = basename.rfind('.', basename.length());
+
+		if (pos != std::string::npos)
+			basename = basename.substr(0,pos);
+
+		uint i = 0;
+		std::string filename;
+
+		for (uint i = 0; i <= 9999; i++)
+		{
+			std::stringstream ss;
+			ss << basename << "-";
+			ss << std::setw(4) << std::setfill('0') << i;
+			ss << ".png";
+
+			filename = ss.str();
+
+			std::ifstream f(filename.c_str());
+			
+			if (!f.good())
+				break;
+		}
+
+		std::cout << "Saving screenshot to " << filename << " ..." << std::endl;
+
+		saveImage(filename);
+		m_saveScreenshot = false;
+	}
+
 	if (m_showUi)
 		renderUi();
 }
@@ -652,6 +714,9 @@ void Viewer::mainMenu()
 {
 	if (ImGui::BeginMenu("File"))
 	{
+		if (ImGui::MenuItem("Screenshot", "F2"))
+			m_saveScreenshot = true;
+
 		if (ImGui::MenuItem("Exit", "Alt+F4"))
 			glfwSetWindowShouldClose(m_window, GLFW_TRUE);
 

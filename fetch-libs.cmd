@@ -22,4 +22,7 @@ cd lib
 rd /S /Q imgui
 git clone https://github.com/ocornut/imgui.git
 
+rd /S /Q imgui
+git clone https://github.com/lvandeve/lodepng.git
+
 cd ..
