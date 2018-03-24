@@ -172,7 +172,7 @@ void SphereRenderer::display()
 	static vec3 specularMaterial(0.629f, 0.629f, 0.629f);
 	static float shininess = 20.0f;
 
-	static float softness = 1.25f;
+	static float sharpness = 1.5f;
 	static bool ambientOcclusion = false;
 	static bool environmentMapping = false;
 	static int coloring = 0;
@@ -182,7 +182,7 @@ void SphereRenderer::display()
 	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-	ImGui::SliderFloat("Softness", &softness, 0.5f, 8.0f);
+	ImGui::SliderFloat("Sharpness", &sharpness, 0.75f, 16.0f);
 	ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
 	ImGui::Checkbox("Environment Mapping", &environmentMapping);
@@ -195,7 +195,8 @@ void SphereRenderer::display()
 	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
 	mat4 inverseModelViewProjection = inverse(modelViewProjection);
 
-	float radiusOffset = 1.75/sqrt(softness);
+	const float contributingAtoms = 32.0f;
+	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
 
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
@@ -209,7 +210,7 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelView", viewer()->modelViewTransform());
 	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
 	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programSpawn->setUniform("radiusOffset", 0.0f);
+	m_programSphere->setUniform("radiusScale", 1.0f);
 
 	m_programSphere->use();
 
@@ -247,7 +248,7 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("modelView", viewer()->modelViewTransform());
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programSpawn->setUniform("radiusOffset", radiusOffset);
+	m_programSpawn->setUniform("radiusScale", radiusScale);
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -324,7 +325,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("depthTexture", 2);
 	m_programShade->setUniform("environmentTexture", 3);
 	m_programShade->setUniform("offsetTexture", 4);
-	m_programShade->setUniform("softness", softness);
+	m_programShade->setUniform("sharpness", sharpness);
 	m_programShade->setUniform("coloring", uint(coloring));
 	m_programShade->setUniform("environment", environmentMapping);
 

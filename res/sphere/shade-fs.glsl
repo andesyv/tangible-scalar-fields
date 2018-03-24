@@ -7,7 +7,7 @@ uniform mat4 projection;
 uniform mat4 inverseProjection;
 uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
-uniform float softness;
+uniform float sharpness;
 uniform uint coloring;
 uniform bool environment;
 
@@ -378,7 +378,7 @@ void main()
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
 				const uint maximumSteps = 24;
-				const float s = softness;
+				const float s = sharpness;
 				const float eps = 0.0125;
 
 				uint ii = indices[startIndex+1];
