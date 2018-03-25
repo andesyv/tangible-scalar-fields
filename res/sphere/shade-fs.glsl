@@ -73,6 +73,14 @@ layout(std430, binding = 1) buffer intersectionBuffer
 	BufferEntry intersections[];
 };
 
+layout(std430, binding = 2) buffer statisticsBuffer
+{
+	uint intersectionCount;
+	uint totalPixelCount;
+	uint totalEntryCount;
+	uint maximumEntryCount;
+};
+
 struct Sphere
 {			
 	bool hit;
@@ -508,7 +516,6 @@ void main()
 		}
 	}
 
-
 	if (closestPosition.w >= 65535.0f)
 		discard;
 
@@ -530,4 +537,11 @@ void main()
 	fragColor = vec4(min(vec3(1.0),color.xyz),1.0);
 	fragNormal = vec4(N,0.0);
 	gl_FragDepth = calcDepth(closestPosition.xyz);
+
+#ifdef STATISTICS
+	intersectionCount = count;
+	atomicAdd(totalPixelCount,1);
+	atomicAdd(totalEntryCount,entryCount);
+	atomicMax(maximumEntryCount,entryCount);
+#endif
 }

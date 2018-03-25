@@ -9,12 +9,59 @@
 #include <limits>
 #include <unordered_map>
 #include <array>
+#include <algorithm> 
+#include <cctype>
+#include <locale>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
 using namespace molumes;
 using namespace glm;
+
+// trim from start (in place)
+static inline void ltrim(std::string &s)
+{
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
+		return !std::isspace(ch);
+	}));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s)
+{
+	s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
+		return !std::isspace(ch);
+	}).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s)
+{
+	ltrim(s);
+	rtrim(s);
+}
+
+// trim from start (copying)
+static inline std::string ltrim_copy(std::string s)
+{
+	ltrim(s);
+	return s;
+}
+
+// trim from end (copying)
+static inline std::string rtrim_copy(std::string s)
+{
+	rtrim(s);
+	return s;
+}
+
+// trim from both ends (copying)
+static inline std::string trim_copy(std::string s)
+{
+	trim(s);
+	return s;
+}
 
 Protein::Protein()
 {
@@ -60,20 +107,22 @@ void Protein::load(const std::string& filename)
 
 	while (std::getline(file, str))
 	{
-		std::vector<std::string> tokens;
-		std::istringstream buffer(str);
+		//std::vector<std::string> tokens;
+		//std::istringstream buffer(str);
+		//std::copy(std::istream_iterator<std::string>(buffer), std::istream_iterator<std::string>(), std::back_inserter(tokens));
 
-		std::copy(std::istream_iterator<std::string>(buffer), std::istream_iterator<std::string>(), std::back_inserter(tokens));
+		std::string recordName = trim_copy(str.substr(0, 6));
 
-		if (tokens[0] == "ATOM" || tokens[0] == "HETATM")
+		if (recordName == "ATOM" || recordName == "HETATM")
 		{
-			float x = float(std::atof(tokens[6].c_str()));
-			float y = float(std::atof(tokens[7].c_str()));
-			float z = float(std::atof(tokens[8].c_str()));
+			float x = float(std::atof(trim_copy(str.substr(30, 8)).c_str()));
+			float y = float(std::atof(trim_copy(str.substr(38, 8)).c_str()));
+			float z = float(std::atof(trim_copy(str.substr(46, 8)).c_str()));
 
-			std::string residueName = tokens[3];
-			std::string chainName = tokens[4];
-			std::string elementName = tokens.back();// [11];
+
+			std::string residueName = trim_copy(str.substr(17, 3));
+			std::string chainName = trim_copy(str.substr(21, 1));
+			std::string elementName = trim_copy(str.substr(76, 2));
 
 		//	std::cout << "Residue:" << residueName << std::endl;
 		//	std::cout << "Chain:" << chainName << std::endl;

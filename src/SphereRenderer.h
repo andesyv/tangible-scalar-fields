@@ -41,6 +41,7 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_chainColors = std::make_unique<globjects::Buffer>();
 
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
 

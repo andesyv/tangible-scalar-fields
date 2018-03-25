@@ -16,13 +16,24 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
+struct Statistics
+{
+	uint intersectionCount = 0;
+	uint totalPixelCount = 0;
+	uint totalEntryCount = 0;
+	uint maximumEntryCount = 0;
+};
+
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
-	m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
-	m_elementColorsRadii->setData(viewer->scene()->protein()->activeElementColorsRadiiPacked(), GL_STATIC_DRAW);
-	m_residueColors->setData(viewer->scene()->protein()->activeResidueColorsPacked(), GL_STATIC_DRAW);
-	m_chainColors->setData(viewer->scene()->protein()->activeChainColorsPacked(), GL_STATIC_DRAW);
-		
+	Statistics s;
+
+	//m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
+	m_vertices->setStorage(viewer->scene()->protein()->atoms(),gl::GL_NONE_BIT);
+	m_elementColorsRadii->setStorage(viewer->scene()->protein()->activeElementColorsRadiiPacked(), gl::GL_NONE_BIT);
+	m_residueColors->setStorage(viewer->scene()->protein()->activeResidueColorsPacked(), gl::GL_NONE_BIT);
+	m_chainColors->setStorage(viewer->scene()->protein()->activeChainColorsPacked(), gl::GL_NONE_BIT);
+	
 	m_size = static_cast<GLsizei>(viewer->scene()->protein()->atoms().size());
 
 	auto vertexBinding = m_vao->binding(0);
@@ -32,15 +43,15 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vao->enable(0);
 	m_vao->unbind();
 
-	m_intersectionBuffer->setData(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, GL_DYNAMIC_DRAW);
+	m_intersectionBuffer->setStorage(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, gl::GL_NONE_BIT);
+	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
-	m_verticesQuad->setData(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), GL_STATIC_DRAW);
+	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
 	vertexBindingQuad->setBuffer(m_verticesQuad.get(), 0, sizeof(vec3));
 	vertexBindingQuad->setFormat(3, GL_FLOAT);
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
-
 
 	m_vertexShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-vs.glsl");
 	m_geometryShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-gs.glsl");
@@ -288,6 +299,7 @@ void SphereRenderer::display()
 	m_environmentTexture->bindActive(3);
 	m_offsetTexture->bindActive(4);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
 /*	double xpos, ypos;
 	glfwGetCursorPos(viewer()->window(), &xpos, &ypos);
@@ -385,12 +397,29 @@ void SphereRenderer::display()
 
 	glDisable(GL_BLEND);
 	m_programBlend->release();
-	/*
-	ImGui::Begin("Statistics");
-	uint poolSize = m_intersectionBuffer->getSubData<uint>(1,0)[0];
-	ImGui::Text("Pool Size: %u", poolSize);
-	ImGui::End();
-	*/
 	
+#ifdef STATISTICS
+	Statistics *s = (Statistics*) m_statisticsBuffer->map();	
+	std::string intersectionCount = std::to_string(s->intersectionCount);
+	std::stringstream ss;
+	ss << std::fixed << std::setprecision(2) << (float(s->intersectionCount) * 28.0f) / (1024.0f * 1024.0f);
+	std::string intersectionMemory = ss.str();
+	std::string totalPixelCount = std::to_string(s->totalPixelCount);
+	std::string totalEntryCount = std::to_string(s->totalEntryCount);
+	std::string maximumEntryCount = std::to_string(s->maximumEntryCount);
+
+	*s = Statistics();
+
+	m_statisticsBuffer->unmap();
+
+	ImGui::Begin("Statistics");
+
+	ImGui::InputText("Intersection Count", (char*)intersectionCount.c_str(),intersectionCount.size(), ImGuiInputTextFlags_ReadOnly);
+	ImGui::InputText("Intersection Memory (MB)", (char*)intersectionMemory.c_str(), intersectionMemory.size(), ImGuiInputTextFlags_ReadOnly);
+	ImGui::InputText("Total Pixel Count", (char*)totalPixelCount.c_str(), totalPixelCount.size(), ImGuiInputTextFlags_ReadOnly);
+	ImGui::InputText("Total Enrty Count", (char*)totalEntryCount.c_str(), totalEntryCount.size(), ImGuiInputTextFlags_ReadOnly);
+	ImGui::InputText("Maximum Entry Count", (char*)maximumEntryCount.c_str(), maximumEntryCount.size(), ImGuiInputTextFlags_ReadOnly);
+	ImGui::End();
+#endif	
 
 }
