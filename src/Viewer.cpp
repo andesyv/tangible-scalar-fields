@@ -726,6 +726,24 @@ void Viewer::mainMenu()
 	if (ImGui::BeginMenu("Settings"))
 	{
 		ImGui::ColorEdit3("Background", (float*)&m_backgroundColor);
+
+		if (ImGui::BeginMenu("Viewport"))
+		{
+			if (ImGui::MenuItem("512 x 512"))
+				glfwSetWindowSize(m_window, 512, 512);
+
+			if (ImGui::MenuItem("768 x 768"))
+				glfwSetWindowSize(m_window, 768, 768);
+
+			if (ImGui::MenuItem("1024 x 1024"))
+				glfwSetWindowSize(m_window, 1024, 1024);
+
+			if (ImGui::MenuItem("1280 x 1280"))
+				glfwSetWindowSize(m_window, 1280, 1280);
+
+			ImGui::EndMenu();
+		}
+
 		ImGui::EndMenu();
 	}
 }

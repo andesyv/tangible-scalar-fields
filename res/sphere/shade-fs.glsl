@@ -315,6 +315,25 @@ vec2 latlong(vec3 v)
 	return vec2(phi, theta) * vec2(0.1591549, 0.6366198);
 }
 
+vec4 shade(vec3 diffuseColor, vec3 position, vec3 normal, vec3 light, vec3 view)
+{
+	vec3 N = normalize(normal);
+	vec3 L = normalize(light.xyz-position.xyz);
+	vec3 R = normalize(reflect(L, N));
+	float NdotL = max(0.0,dot(N, L));
+	float RdotV = max(0.0,dot(R, view));
+	
+	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);	
+
+	if (environment)
+	{
+		vec2 uv = latlong(R);
+		environmentColor = mix(texture(environmentTexture,uv),vec4(1.0),0.5);
+	}
+
+	vec3 color = ambientMaterial + NdotL * diffuseMaterial * mix(vec3(1.0),diffuseColor,1.0) + pow(RdotV,shininess) * specularMaterial * environmentColor.rgb;
+	return vec4(color,1.0);
+}
 
 void main()
 {
@@ -357,6 +376,8 @@ void main()
 
 	vec3 diffuseColor = vec3(1.0,1.0,1.0);
 
+#define COLORING
+#ifdef COLORING
 	if (coloring > 0)
 	{
 		uint id = floatBitsToUint(normal.w);
@@ -371,7 +392,7 @@ void main()
 		else if (coloring == 3)
 			diffuseColor = chains[chainId].color.rgb;
 	}
-
+#endif
 	uint startIndex = 0;
 
 	// selection sort
@@ -400,7 +421,7 @@ void main()
 
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
-				const uint maximumSteps = 24;
+				const uint maximumSteps = 124;
 				const float s = sharpness;
 				const float eps = 0.0125;
 
@@ -448,26 +469,28 @@ void main()
 						vec3 aj = intersections[ij].center;
 						float rj = elements[elementId].radius;
 						vec3 cj = vec3(1.0,1.0,1.0);
-
+#ifdef COLORING
 						if (coloring == 1)
 							cj = elements[elementId].color.rgb;
 						else if (coloring == 2)
 							cj = residues[residueId].color.rgb;
 						else if (coloring == 3)
 							cj = chains[chainId].color.rgb;
-
+#endif
 						vec3 atomOffset = currentPosition.xyz-aj;						
 						float atomDistance = length(atomOffset)/rj;
 
 						float atomValue = exp(-s*atomDistance*atomDistance);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						vec3 atomNormal = 2.0*s*atomOffset*atomValue / (rj*rj);
+#ifdef COLORING
 						vec3 atomColor = cj*atomValue;
-
+#endif
 						sumValue += atomValue;
 						sumNormal += atomNormal;
-
+#ifdef COLORING
 						if (coloring > 0)
 							sumColor += atomColor;
+#endif
 					}
 					
 					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;				
@@ -478,9 +501,10 @@ void main()
 						{
 							closestPosition = currentPosition;
 							closestNormal = sumNormal;
-
+#ifdef COLORING
 							if (coloring > 0)
 								diffuseColor = sumColor / sumValue;
+#endif
 						}
 						break;
 					}
@@ -519,23 +543,14 @@ void main()
 	if (closestPosition.w >= 65535.0f)
 		discard;
 
-	vec3 N = normalize(closestNormal);
-	vec3 L = normalize(lightPosition.xyz-closestPosition.xyz);
-	vec3 R = normalize(reflect(L, N));
-	float NdotL = max(0.0,dot(N, L));
-	float RdotV = max(0.0,dot(R, V));
-	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);	
-	
-	if (environment)
-	{
-		vec2 uv = latlong(R);
-		environmentColor = texture(environmentTexture,uv);
-	}
+	vec4 colorSurface = shade(diffuseColor,closestPosition.xyz,closestNormal.xyz,lightPosition.xyz,V.xyz);
+	//vec4 colorSphere = shade(diffuseColor,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
+	//	colorSurface.a = min(1.0,0.5*length(closestPosition.xyz-position.xyz));
 
-	vec3 color = ambientMaterial + NdotL * diffuseMaterial * diffuseColor + pow(RdotV,shininess) * specularMaterial * environmentColor.rgb;
+	vec4 color = colorSurface;
 
-	fragColor = vec4(min(vec3(1.0),color.xyz),1.0);
-	fragNormal = vec4(N,0.0);
+	fragColor = vec4(min(vec4(1.0),color));
+	fragNormal = vec4(closestNormal.xyz,0.0);
 	gl_FragDepth = calcDepth(closestPosition.xyz);
 
 #ifdef STATISTICS

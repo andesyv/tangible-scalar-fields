@@ -26,7 +26,7 @@ namespace molumes
 		float m_fov = glm::radians(60.0f);
 		float m_near = 0.125f;
 		float m_far = 32.0f;
-		float m_distance = 2.0f*sqrt(3.0f);
+		float m_distance = 2.0*sqrt(3.0f);// 2.0;// 2.0f*sqrt(3.0f);
 		bool m_perspective = true;
 
 		bool m_light = false;

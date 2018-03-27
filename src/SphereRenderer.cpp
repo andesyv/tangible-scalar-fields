@@ -126,7 +126,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
 	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-	std::string environmentFilename = "./dat/Env_Lat-Lon.png";
+	std::string environmentFilename = "./dat/environment.png";
 	uint environmentWidth, environmentHeight;
 	std::vector<unsigned char> environmentImage;
 	uint error = lodepng::decode(environmentImage, environmentWidth, environmentHeight, environmentFilename);
@@ -173,10 +173,22 @@ void SphereRenderer::display()
 		
 	}
 	
-/*	static vec3 ambientMaterial(0.04f, 0.04f, 0.04f);
+/*	
+	// cyan
+	static vec3 ambientMaterial(0.04f, 0.04f, 0.04f);
 	static vec3 diffuseMaterial(0.75, 0.75f, 0.75f);
 	static vec3 specularMaterial(0.5f, 0.5f, 0.5f);
 */
+
+/*
+	// orange
+	static vec3 ambientMaterial(0.336f, 0.113f, 0.149f);
+	static vec3 diffuseMaterial(1.0f, 0.679f, 0.023f);
+	static vec3 specularMaterial(0.707f, 1.0f, 0.997f);
+*/
+
+
+
 	// nice color scheme
 	static vec3 ambientMaterial(0.249f, 0.113f, 0.336f);
 	static vec3 diffuseMaterial(0.042f, 0.683f, 0.572f);
@@ -193,7 +205,20 @@ void SphereRenderer::display()
 	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-	ImGui::SliderFloat("Sharpness", &sharpness, 0.75f, 16.0f);
+	ImGui::SliderFloat("Sharpness", &sharpness, 0.5f, 16.0f);
+
+	if (ImGui::Button("1.0"))
+		sharpness = 1.0f;
+	ImGui::SameLine();
+	if (ImGui::Button("2.0"))
+		sharpness = 2.0f;
+	ImGui::SameLine();
+	if (ImGui::Button("3.0"))
+		sharpness = 3.0f;
+	ImGui::SameLine();
+	if (ImGui::Button("4.0"))
+		sharpness = 4.0f;
+
 	ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
 	ImGui::Checkbox("Environment Mapping", &environmentMapping);
@@ -209,6 +234,8 @@ void SphereRenderer::display()
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
 
+	float currentTime = float(glfwGetTime());
+
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 65535.0f);
@@ -222,7 +249,7 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
 	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSphere->setUniform("radiusScale", 1.0f);
-
+	m_programSphere->setUniform("time", currentTime);
 	m_programSphere->use();
 
 	m_vao->bind();
@@ -260,6 +287,7 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSpawn->setUniform("radiusScale", radiusScale);
+	m_programSpawn->setUniform("time", currentTime);
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -397,7 +425,7 @@ void SphereRenderer::display()
 
 	glDisable(GL_BLEND);
 	m_programBlend->release();
-	
+
 #ifdef STATISTICS
 	Statistics *s = (Statistics*) m_statisticsBuffer->map();	
 	std::string intersectionCount = std::to_string(s->intersectionCount);
