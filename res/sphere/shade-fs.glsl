@@ -344,6 +344,7 @@ void main()
 
 	vec4 position = texelFetch(colorTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
+
 	//vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
 
 	vec4 fragCoord = gFragmentPosition;
@@ -548,6 +549,7 @@ void main()
 	//	colorSurface.a = min(1.0,0.5*length(closestPosition.xyz-position.xyz));
 
 	vec4 color = colorSurface;
+	//color.rgb = vec3(float(entryCount)/16.0);
 
 	fragColor = vec4(min(vec4(1.0),color));
 	fragNormal = vec4(closestNormal.xyz,0.0);

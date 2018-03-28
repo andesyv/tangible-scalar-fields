@@ -1,8 +1,9 @@
 #version 450
-#define NUM_OCTAVES 5
 
 in vec4 position;
-uniform float time;
+uniform float animationTime;
+uniform float animationAmplitude;
+uniform float animationFrequency;
 
 //	Simplex 4D Noise 
 //	by Ian McEwan, Ashima Arts
@@ -100,7 +101,10 @@ float snoise(vec4 v){
 
 void main()
 {
-	vec4 pos = position;
-	pos.xyz += 1.0*snoise(vec4(position.xyz,time*2.0));
-	gl_Position = pos;//vec4(position.xyz+vec3(sin(3.0*(time+rand)),cos(time*rand*0.5),sin(3.0*(time-rand))),1.0);
+	vec4 vertexPosition = position;
+#ifdef ANIMATION
+	if (animationTime >= 0.0)
+		vertexPosition.xyz += animationAmplitude*snoise(vec4(vertexPosition.xyz,animationFrequency*animationTime));
+#endif
+	gl_Position = vertexPosition;
 }

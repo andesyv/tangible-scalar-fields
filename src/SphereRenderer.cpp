@@ -200,7 +200,7 @@ void SphereRenderer::display()
 	static bool environmentMapping = false;
 	static int coloring = 0;
 
-	ImGui::Begin("Sphere Renderer");
+	ImGui::Begin("Surface Renderer");
 	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
 	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
@@ -224,6 +224,18 @@ void SphereRenderer::display()
 	ImGui::Checkbox("Environment Mapping", &environmentMapping);
 	ImGui::End();
 
+	static bool animate = false;
+	static float animationAmplitude = 1.0f;
+	static float animationFrequency = 1.0f;
+
+	ImGui::Begin("Animation");
+	ImGui::Checkbox("Animate", &animate);
+	ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
+	ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 32.0f);
+	ImGui::End();
+
+	float animationTime = animate ? float(glfwGetTime()) : -1.0f;
+
 	mat4 view = viewer()->viewTransform();
 	mat4 inverseView = inverse(view);
 	mat4 modelView = viewer()->modelViewTransform();
@@ -233,8 +245,6 @@ void SphereRenderer::display()
 
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
-
-	float currentTime = float(glfwGetTime());
 
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
@@ -249,7 +259,9 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
 	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSphere->setUniform("radiusScale", 1.0f);
-	m_programSphere->setUniform("time", currentTime);
+	m_programSphere->setUniform("animationTime", animationTime);
+	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
+	m_programSphere->setUniform("animationFrequency", animationFrequency);
 	m_programSphere->use();
 
 	m_vao->bind();
@@ -287,7 +299,9 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSpawn->setUniform("radiusScale", radiusScale);
-	m_programSpawn->setUniform("time", currentTime);
+	m_programSpawn->setUniform("animationTime", animationTime);
+	m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
+	m_programSpawn->setUniform("animationFrequency", animationFrequency);
 	m_programSpawn->use();
 
 	m_vao->bind();
