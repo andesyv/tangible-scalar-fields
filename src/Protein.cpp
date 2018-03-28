@@ -105,6 +105,8 @@ void Protein::load(const std::string& filename)
 	std::string str;
 	uint elementCount = 1;
 
+	std::vector<vec4> atoms;
+
 	while (std::getline(file, str))
 	{
 		//std::vector<std::string> tokens;
@@ -113,7 +115,12 @@ void Protein::load(const std::string& filename)
 
 		std::string recordName = trim_copy(str.substr(0, 6));
 
-		if (recordName == "ATOM" || recordName == "HETATM")
+		if (recordName == "END")
+		{
+			m_atoms.push_back(atoms);
+			atoms.clear();
+		}
+		else if (recordName == "ATOM" || recordName == "HETATM")
 		{
 			float x = float(std::atof(trim_copy(str.substr(30, 8)).c_str()));
 			float y = float(std::atof(trim_copy(str.substr(38, 8)).c_str()));
@@ -181,7 +188,7 @@ void Protein::load(const std::string& filename)
 
 			uint atomAttributes = elementIndex | (residueIndex << 8) | (chainIndex << 16);
 			vec4 atom(x, y, z, uintBitsToFloat(atomAttributes));
-			m_atoms.push_back(atom);
+			atoms.push_back(atom);
 
 			m_minimumBounds = min(m_minimumBounds, vec3(atom));
 			m_maximumBounds = max(m_maximumBounds, vec3(atom));
@@ -210,8 +217,12 @@ void Protein::load(const std::string& filename)
 		m_activeChainColorsPacked.push_back(vec4(chainColors()[id], 1.0f));
 	}
 
-	std::cout << m_atoms.size() << " atoms loaded from file " << filename << "." << std::endl;
+	std::cout << m_atoms.size() << " timesteps loaded from file " << filename << "." << std::endl;
 
+	for (uint i = 0; i < m_atoms.size(); i++)
+	{
+		std::cout << "Timestep " << i << ": " << m_atoms[i].size() << std::endl;
+	}
 	
 	/*
 	m_atoms.clear();
@@ -326,7 +337,7 @@ const std::string & molumes::Protein::filename() const
 	return m_filename;
 }
 
-const std::vector<glm::vec4> & Protein::atoms() const
+const std::vector< std::vector<glm::vec4> > & Protein::atoms() const
 {
 	return m_atoms;
 }

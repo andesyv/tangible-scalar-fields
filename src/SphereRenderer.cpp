@@ -29,20 +29,16 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	Statistics s;
 
 	//m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
-	m_vertices->setStorage(viewer->scene()->protein()->atoms(),gl::GL_NONE_BIT);
+	for (auto i : viewer->scene()->protein()->atoms())
+	{
+		m_vertices.push_back(Buffer::create());
+		m_vertices.back()->setStorage(i, gl::GL_NONE_BIT);
+	}
+	
 	m_elementColorsRadii->setStorage(viewer->scene()->protein()->activeElementColorsRadiiPacked(), gl::GL_NONE_BIT);
 	m_residueColors->setStorage(viewer->scene()->protein()->activeResidueColorsPacked(), gl::GL_NONE_BIT);
 	m_chainColors->setStorage(viewer->scene()->protein()->activeChainColorsPacked(), gl::GL_NONE_BIT);
 	
-	m_size = static_cast<GLsizei>(viewer->scene()->protein()->atoms().size());
-
-	auto vertexBinding = m_vao->binding(0);
-	vertexBinding->setAttribute(0);
-	vertexBinding->setBuffer(m_vertices.get(), 0, sizeof(vec4));
-	vertexBinding->setFormat(4, GL_FLOAT);
-	m_vao->enable(0);
-	m_vao->unbind();
-
 	m_intersectionBuffer->setStorage(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, gl::GL_NONE_BIT);
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
@@ -53,28 +49,37 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
+	m_shaderSourceGlobals = StaticStringSource::create("");
+	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
+
 	m_vertexShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-vs.glsl");
 	m_geometryShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-gs.glsl");
 	m_fragmentShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-fs.glsl");
-
-	m_vertexShaderSphere = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSourceSphere.get());
-	m_geometryShaderSphere = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSourceSphere.get());
-	m_fragmentShaderSphere = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceSphere.get());
-
-	m_programSphere->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSphere.get());
-
+	m_fragmentShaderSourceSpawn = Shader::sourceFromFile("./res/sphere/spawn-fs.glsl");
 	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-vs.glsl");
 	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-gs.glsl");
-	m_fragmentShaderSourceSpawn = Shader::sourceFromFile("./res/sphere/spawn-fs.glsl");
 	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/sphere/shade-fs.glsl");
 	m_fragmentShaderSourceBlend = Shader::sourceFromFile("./res/sphere/blend-fs.glsl");
+	
+	m_vertexShaderTemplateSphere = Shader::applyGlobalReplacements(m_vertexShaderSourceSphere.get());
+	m_geometryShaderTemplateSphere = Shader::applyGlobalReplacements(m_geometryShaderSourceSphere.get());
+	m_fragmentShaderTemplateSphere = Shader::applyGlobalReplacements(m_fragmentShaderSourceSphere.get());
+	m_fragmentShaderTemplateSpawn = Shader::applyGlobalReplacements(m_fragmentShaderSourceSpawn.get());
+	m_vertexShaderTemplateImage = Shader::applyGlobalReplacements(m_vertexShaderSourceImage.get());
+	m_geometryShaderTemplateImage = Shader::applyGlobalReplacements(m_geometryShaderSourceImage.get());
+	m_fragmentShaderTemplateShade = Shader::applyGlobalReplacements(m_fragmentShaderSourceShade.get());
+	m_fragmentShaderTemplateBlend = Shader::applyGlobalReplacements(m_fragmentShaderSourceBlend.get());
 
-	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSourceImage.get());
-	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSourceImage.get());
-	m_fragmentShaderSpawn = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceSpawn.get());
-	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceShade.get());
-	m_fragmentShaderBlend = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSourceBlend.get());
+	m_vertexShaderSphere = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateSphere.get());
+	m_geometryShaderSphere = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateSphere.get());
+	m_fragmentShaderSphere = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateSphere.get());
+	m_fragmentShaderSpawn = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateSpawn.get());
+	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateImage.get());
+	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateImage.get());
+	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateShade.get());
+	m_fragmentShaderBlend = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateBlend.get());
 
+	m_programSphere->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSphere.get());
 	m_programSpawn->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSpawn.get());
 	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
 	m_programBlend->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderBlend.get());
@@ -224,16 +229,18 @@ void SphereRenderer::display()
 	ImGui::Checkbox("Environment Mapping", &environmentMapping);
 	ImGui::End();
 
+
 	static bool animate = false;
 	static float animationAmplitude = 1.0f;
 	static float animationFrequency = 1.0f;
 
 	ImGui::Begin("Animation");
 	ImGui::Checkbox("Animate", &animate);
-	ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
 	ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 32.0f);
+	ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
 	ImGui::End();
 
+	uint timestepCount = viewer()->scene()->protein()->atoms().size();
 	float animationTime = animate ? float(glfwGetTime()) : -1.0f;
 
 	mat4 view = viewer()->viewTransform();
@@ -245,6 +252,38 @@ void SphereRenderer::display()
 
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
+
+	float currentTime = glfwGetTime();
+	uint currentTimestep = uint(currentTime) % timestepCount;
+	uint nextTimestep = (currentTimestep + 1) % timestepCount;
+	float animationDelta = currentTime - floor(currentTime);
+	int vertexCount = int(viewer()->scene()->protein()->atoms()[currentTimestep].size());
+
+	std::string globals;
+
+	if (animate)
+		globals += "#define ANIMATION\n";
+
+	if (globals != m_shaderGlobals->string())
+	{
+		m_shaderSourceGlobals->setString(globals);
+		m_vertexShaderSphere->updateSource();
+	}
+
+	auto vertexBinding = m_vao->binding(0);
+	vertexBinding->setAttribute(0);
+	vertexBinding->setBuffer(m_vertices[currentTimestep].get(), 0, sizeof(vec4));
+	vertexBinding->setFormat(4, GL_FLOAT);
+	m_vao->enable(0);
+	
+	if (timestepCount > 0)
+	{
+		auto nextVertexBinding = m_vao->binding(1);
+		nextVertexBinding->setAttribute(1);
+		nextVertexBinding->setBuffer(m_vertices[nextTimestep].get(), 0, sizeof(vec4));
+		nextVertexBinding->setFormat(4, GL_FLOAT);
+		m_vao->enable(1);
+	}
 
 	m_frameBuffers[0]->bind();
 	glClearDepth(1.0f);
@@ -259,19 +298,19 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
 	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSphere->setUniform("radiusScale", 1.0f);
+	m_programSphere->setUniform("animationDelta", animationDelta);
 	m_programSphere->setUniform("animationTime", animationTime);
 	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
 	m_programSphere->setUniform("animationFrequency", animationFrequency);
 	m_programSphere->use();
 
 	m_vao->bind();
-	m_vao->drawArrays(GL_POINTS, 0, m_size);
+	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 	m_vao->unbind();
 
 	m_programSphere->release();
 
 	//m_ssao->display(mat4(1.0f)/*viewer()->modelViewTransform()*/,viewer()->projectionTransform(), m_frameBuffer->id(), m_depthTexture->id(), m_normalTexture->id());
-
 
 	m_positionTextures[0]->bindActive(0);
 	m_normalTextures[0]->bindActive(1);
@@ -299,13 +338,14 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
 	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 	m_programSpawn->setUniform("radiusScale", radiusScale);
+	m_programSpawn->setUniform("animationDelta", animationDelta);
 	m_programSpawn->setUniform("animationTime", animationTime);
 	m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
 	m_programSpawn->setUniform("animationFrequency", animationFrequency);
 	m_programSpawn->use();
 
 	m_vao->bind();
-	m_vao->drawArrays(GL_POINTS, 0, m_size);
+	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 	m_vao->unbind();
 
 	m_programSpawn->release();
