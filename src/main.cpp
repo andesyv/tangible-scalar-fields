@@ -47,7 +47,7 @@ int main(int /*argc*/, char * /*argv*/[])
 	glfwWindowHint(GLFW_SAMPLES, 8);
 
 	// Create a context and, if valid, make it current
-	GLFWwindow * window = glfwCreateWindow(768, 768, "molumes", NULL, NULL);
+	GLFWwindow * window = glfwCreateWindow(1280, 720, "molumes", NULL, NULL);
 
 	if (window == nullptr)
 	{
@@ -72,7 +72,7 @@ int main(int /*argc*/, char * /*argv*/[])
 		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
 
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load("./dat/5odv.pdb");
+	scene->protein()->load("./dat/test.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Scaling the model's bounding box to the canonical view volume

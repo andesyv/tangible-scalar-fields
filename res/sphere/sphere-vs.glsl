@@ -1,4 +1,5 @@
-#extension GL_ARB_shading_language_include : require
+#version 450
+//#extension GL_ARB_shading_language_include : require
 
 in vec4 position;
 in vec4 nextPosition;
@@ -101,14 +102,12 @@ float snoise(vec4 v){
 
 }
 
-#include "/globals.glsl";
-
-#define ANIMATION
-
+//#include "/globals.glsl";
+//#define ANIMATION
 void main()
 {
 	vec4 vertexPosition = position;
-
+#define INTERPOLATION
 #ifdef INTERPOLATION
 	vertexPosition.xyz = mix(position.xyz,nextPosition.xyz,animationDelta);
 #endif

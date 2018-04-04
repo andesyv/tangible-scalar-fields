@@ -131,7 +131,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
 	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-	std::string environmentFilename = "./dat/environment.png";
+	std::string environmentFilename = "./dat/Env_Lat-Lon.png";
 	uint environmentWidth, environmentHeight;
 	std::vector<unsigned char> environmentImage;
 	uint error = lodepng::decode(environmentImage, environmentWidth, environmentHeight, environmentFilename);
@@ -185,33 +185,60 @@ void SphereRenderer::display()
 	static vec3 specularMaterial(0.5f, 0.5f, 0.5f);
 */
 
-/*
+
 	// orange
 	static vec3 ambientMaterial(0.336f, 0.113f, 0.149f);
 	static vec3 diffuseMaterial(1.0f, 0.679f, 0.023f);
 	static vec3 specularMaterial(0.707f, 1.0f, 0.997f);
-*/
+
 
 
 
 	// nice color scheme
+/*
 	static vec3 ambientMaterial(0.249f, 0.113f, 0.336f);
 	static vec3 diffuseMaterial(0.042f, 0.683f, 0.572f);
 	static vec3 specularMaterial(0.629f, 0.629f, 0.629f);
+*/
 	static float shininess = 20.0f;
 
 	static float sharpness = 1.5f;
 	static bool ambientOcclusion = false;
 	static bool environmentMapping = false;
 	static int coloring = 0;
+	static bool animate = false;
+	static float animationAmplitude = 1.0f;
+	static float animationFrequency = 1.0f;
+	static bool lens = false;
 
 	ImGui::Begin("Surface Renderer");
-	ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
-	ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
-	ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
-	ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-	ImGui::SliderFloat("Sharpness", &sharpness, 0.5f, 16.0f);
 
+	if (ImGui::CollapsingHeader("Lighting"))
+	{
+		ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
+		ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
+		ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
+		ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
+		ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
+		ImGui::Checkbox("Environment Mapping", &environmentMapping);
+	}
+
+	if (ImGui::CollapsingHeader("Surface"))
+	{
+		ImGui::SliderFloat("Sharpness", &sharpness, 0.5f, 16.0f);
+		ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
+		ImGui::Checkbox("Magic Lens", &lens);
+	}
+
+	if (ImGui::CollapsingHeader("Animation"))
+	{
+		ImGui::Checkbox("Prodecural Animation", &animate);
+		ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 32.0f);
+		ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
+	}
+	
+	ImGui::End();
+	/*
 	if (ImGui::Button("1.0"))
 		sharpness = 1.0f;
 	ImGui::SameLine();
@@ -223,22 +250,12 @@ void SphereRenderer::display()
 	ImGui::SameLine();
 	if (ImGui::Button("4.0"))
 		sharpness = 4.0f;
+*/
 
-	ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
-	ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
-	ImGui::Checkbox("Environment Mapping", &environmentMapping);
-	ImGui::End();
-
-
-	static bool animate = false;
-	static float animationAmplitude = 1.0f;
-	static float animationFrequency = 1.0f;
-
-	ImGui::Begin("Animation");
-	ImGui::Checkbox("Animate", &animate);
-	ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 32.0f);
-	ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
-	ImGui::End();
+	ivec2 viewportSize = viewer()->viewportSize();
+	double mouseX, mouseY;
+	glfwGetCursorPos(viewer()->window(),&mouseX, &mouseY);
+	vec2 focusPosition = vec2(2.0f*float(mouseX) / float(viewportSize.x) - 1.0f, -2.0f*float(mouseY) / float(viewportSize.y) + 1.0f);
 
 	uint timestepCount = viewer()->scene()->protein()->atoms().size();
 	float animationTime = animate ? float(glfwGetTime()) : -1.0f;
@@ -253,21 +270,26 @@ void SphereRenderer::display()
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
 
-	float currentTime = glfwGetTime();
+	float currentTime = glfwGetTime()*animationFrequency;
 	uint currentTimestep = uint(currentTime) % timestepCount;
 	uint nextTimestep = (currentTimestep + 1) % timestepCount;
 	float animationDelta = currentTime - floor(currentTime);
 	int vertexCount = int(viewer()->scene()->protein()->atoms()[currentTimestep].size());
 
-	std::string globals;
+	std::string globals = "";
 
 	if (animate)
 		globals += "#define ANIMATION\n";
 
-	if (globals != m_shaderGlobals->string())
+	if (lens)
+		globals += "#define LENSING\n";
+
+	if (coloring > 0)
+		globals += "#define COLORING\n";
+
+	if (globals != m_shaderSourceGlobals->string())
 	{
-		m_shaderSourceGlobals->setString(globals);
-		m_vertexShaderSphere->updateSource();
+		//std::cout << m_fragmentShaderShade->source()->string() << std::endl;
 	}
 
 	auto vertexBinding = m_vao->binding(0);
@@ -414,6 +436,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
 	m_programShade->setUniform("specularMaterial", specularMaterial);
 	m_programShade->setUniform("shininess", shininess);
+	m_programShade->setUniform("focusPosition", focusPosition);
 	m_programShade->setUniform("colorTexture", 0);
 	m_programShade->setUniform("normalTexture", 1);
 	m_programShade->setUniform("depthTexture", 2);
@@ -422,6 +445,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("sharpness", sharpness);
 	m_programShade->setUniform("coloring", uint(coloring));
 	m_programShade->setUniform("environment", environmentMapping);
+	m_programShade->setUniform("lens", lens);
 
 	m_programShade->use();
 	

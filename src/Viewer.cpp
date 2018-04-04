@@ -741,6 +741,9 @@ void Viewer::mainMenu()
 			if (ImGui::MenuItem("1280 x 1280"))
 				glfwSetWindowSize(m_window, 1280, 1280);
 
+			if (ImGui::MenuItem("1280 x 720"))
+				glfwSetWindowSize(m_window, 1280, 720);
+
 			ImGui::EndMenu();
 		}
 

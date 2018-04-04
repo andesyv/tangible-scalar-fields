@@ -1,4 +1,6 @@
 #version 450
+//#extension GL_ARB_shading_language_include : require
+//#include "/globals.glsl"
 
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
@@ -10,12 +12,14 @@ uniform mat4 inverseModelViewProjection;
 uniform float sharpness;
 uniform uint coloring;
 uniform bool environment;
+uniform bool lens;
 
 uniform vec3 lightPosition;
 uniform vec3 diffuseMaterial;
 uniform vec3 ambientMaterial;
 uniform vec3 specularMaterial;
 uniform float shininess;
+uniform vec2 focusPosition;
 
 uniform sampler2D colorTexture;
 uniform sampler2D normalTexture;
@@ -315,7 +319,7 @@ vec2 latlong(vec3 v)
 	return vec2(phi, theta) * vec2(0.1591549, 0.6366198);
 }
 
-vec4 shade(vec3 diffuseColor, vec3 position, vec3 normal, vec3 light, vec3 view)
+vec4 shade(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, float shininess, vec3 position, vec3 normal, vec3 light, vec3 view)
 {
 	vec3 N = normalize(normal);
 	vec3 L = normalize(light.xyz-position.xyz);
@@ -331,7 +335,7 @@ vec4 shade(vec3 diffuseColor, vec3 position, vec3 normal, vec3 light, vec3 view)
 		environmentColor = mix(texture(environmentTexture,uv),vec4(1.0),0.5);
 	}
 
-	vec3 color = ambientMaterial + NdotL * diffuseMaterial * mix(vec3(1.0),diffuseColor,1.0) + pow(RdotV,shininess) * specularMaterial * environmentColor.rgb;
+	vec3 color = ambientColor + NdotL * diffuseColor + pow(RdotV,shininess) * specularColor * environmentColor.rgb;
 	return vec4(color,1.0);
 }
 
@@ -357,7 +361,6 @@ void main()
 	far /= far.w;
 
 	vec3 V = normalize(far.xyz-near.xyz);	
-	float curvature = 1.0;
 
 	const uint maxEntries = 128;
 	uint entryCount = 0;
@@ -375,9 +378,14 @@ void main()
 	vec4 closestPosition = position;
 	vec3 closestNormal = normal.xyz;
 
+	float sharpnessFactor = 1.0;
+	vec3 ambientColor = ambientMaterial;
 	vec3 diffuseColor = vec3(1.0,1.0,1.0);
+	vec3 specularColor = specularMaterial;
 
+//#define LENSING
 #define COLORING
+
 #ifdef COLORING
 	if (coloring > 0)
 	{
@@ -394,6 +402,19 @@ void main()
 			diffuseColor = chains[chainId].color.rgb;
 	}
 #endif
+
+
+#ifdef LENSING
+	float focusFactor = 0.0;
+	if (lens)
+	{
+		focusFactor = min(16.0,1.0/(16.0*pow(length((fragCoord.xy-focusPosition)/vec2(0.5625,1.0)),2.0)));
+		sharpnessFactor += focusFactor;
+		focusFactor = min(1.0,focusFactor);
+		//ambientColor = mix(vec3(0.0),ambientColor,focusFactor);
+	}
+#endif
+
 	uint startIndex = 0;
 
 	// selection sort
@@ -422,9 +443,8 @@ void main()
 
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
-				const uint maximumSteps = 124;
-				const float s = sharpness;
-				const float eps = 0.0125;
+				const uint maximumSteps = 24;
+				const float s = sharpness*sharpnessFactor;
 
 				uint ii = indices[startIndex+1];
 				float nearDistance = intersections[ii].near;
@@ -433,6 +453,7 @@ void main()
 				const float maximumDistance = (farDistance-nearDistance)+1.0;
 				float surfaceDistance = 1.0;
 
+				const float eps = 0.0125/10.0;
 				vec4 rayOrigin = vec4(near.xyz+V*nearDistance,nearDistance);
 				vec4 rayDirection = vec4(V,1.0);
 				vec4 currentPosition;
@@ -477,6 +498,10 @@ void main()
 							cj = residues[residueId].color.rgb;
 						else if (coloring == 3)
 							cj = chains[chainId].color.rgb;
+#ifdef LENSING
+						cj = mix(vec3(diffuseMaterial),cj,focusFactor);
+#endif
+
 #endif
 						vec3 atomOffset = currentPosition.xyz-aj;						
 						float atomDistance = length(atomOffset)/rj;
@@ -496,7 +521,7 @@ void main()
 					
 					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;				
 
-					if (surfaceDistance < eps)
+					if (surfaceDistance < eps*currentPosition.w)
 					{
 						if (currentPosition.w <= closestPosition.w)
 						{
@@ -543,13 +568,16 @@ void main()
 
 	if (closestPosition.w >= 65535.0f)
 		discard;
+	//diffuseColor =+ vec3(0.25)*focusFactor;
 
-	vec4 colorSurface = shade(diffuseColor,closestPosition.xyz,closestNormal.xyz,lightPosition.xyz,V.xyz);
+	diffuseColor *= diffuseMaterial;
+
+	vec4 colorSurface = shade(ambientColor,diffuseColor,specularColor,shininess,closestPosition.xyz,closestNormal.xyz,lightPosition.xyz,V.xyz);
 	//vec4 colorSphere = shade(diffuseColor,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
 	//	colorSurface.a = min(1.0,0.5*length(closestPosition.xyz-position.xyz));
 
 	vec4 color = colorSurface;
-	//color.rgb = vec3(float(entryCount)/16.0);
+	//color.rgb = vec3(float(entryCount)/32.0);
 
 	fragColor = vec4(min(vec4(1.0),color));
 	fragNormal = vec4(closestNormal.xyz,0.0);
