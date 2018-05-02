@@ -53,6 +53,7 @@ namespace molumes
 		std::unique_ptr<globjects::Program> m_programSphere = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSpawn = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programBlur = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programBlend = std::make_unique<globjects::Program>();
 
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceGlobals = nullptr;
@@ -85,6 +86,10 @@ namespace molumes
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceShade = nullptr;
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
+
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceBlur = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateBlur = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderBlur = nullptr;
 
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceBlend = nullptr;
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateBlend = nullptr;

@@ -59,8 +59,9 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-vs.glsl");
 	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-gs.glsl");
 	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/sphere/shade-fs.glsl");
+	m_fragmentShaderSourceBlur = Shader::sourceFromFile("./res/sphere/blur-fs.glsl");
 	m_fragmentShaderSourceBlend = Shader::sourceFromFile("./res/sphere/blend-fs.glsl");
-	
+
 	m_vertexShaderTemplateSphere = Shader::applyGlobalReplacements(m_vertexShaderSourceSphere.get());
 	m_geometryShaderTemplateSphere = Shader::applyGlobalReplacements(m_geometryShaderSourceSphere.get());
 	m_fragmentShaderTemplateSphere = Shader::applyGlobalReplacements(m_fragmentShaderSourceSphere.get());
@@ -68,6 +69,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vertexShaderTemplateImage = Shader::applyGlobalReplacements(m_vertexShaderSourceImage.get());
 	m_geometryShaderTemplateImage = Shader::applyGlobalReplacements(m_geometryShaderSourceImage.get());
 	m_fragmentShaderTemplateShade = Shader::applyGlobalReplacements(m_fragmentShaderSourceShade.get());
+	m_fragmentShaderTemplateBlur = Shader::applyGlobalReplacements(m_fragmentShaderSourceBlur.get());
 	m_fragmentShaderTemplateBlend = Shader::applyGlobalReplacements(m_fragmentShaderSourceBlend.get());
 
 	m_vertexShaderSphere = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateSphere.get());
@@ -77,11 +79,13 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateImage.get());
 	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateImage.get());
 	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateShade.get());
+	m_fragmentShaderBlur = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateBlur.get());
 	m_fragmentShaderBlend = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateBlend.get());
 
 	m_programSphere->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSphere.get());
 	m_programSpawn->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSpawn.get());
 	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
+	m_programBlur->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderBlur.get());
 	m_programBlend->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderBlend.get());
 
 	m_framebufferSize = viewer->viewportSize();
@@ -210,9 +214,9 @@ void SphereRenderer::display()
 	static float animationAmplitude = 1.0f;
 	static float animationFrequency = 1.0f;
 	static bool lens = false;
-
-	static float focalDistance = 50.0f;
-	static float fieldOfView = 10.0f;
+	
+	static float fieldOfView = 35.0f;
+	static float focalDistance = 10.0f;
 	static float mMaxCoCRadiusPixels = 10.0f;
 	static float mFarRadiusRescale = 1.0f;
 
@@ -426,7 +430,7 @@ void SphereRenderer::display()
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
-/*	double xpos, ypos;
+	/*	double xpos, ypos;
 	glfwGetCursorPos(viewer()->window(), &xpos, &ypos);
 	xpos = 2.0 * xpos / double(viewer()->viewportSize().x) - 1.0;
 	ypos = -(2.0 * ypos / double(viewer()->viewportSize().y) - 1.0);
@@ -444,7 +448,7 @@ void SphereRenderer::display()
 	std::cout << "viewLightDirection:" << to_string(viewLightDirection) << std::endl;
 	std::cout << "viewLightPosition:" << to_string(viewLightPosition) << std::endl;
 	std::cout << "worldLightPosition:" << to_string(worldLightPosition) << std::endl << std::endl;
-*/	
+	*/
 	//std::cout << xpos << "," << ypos << ":" << to_string(lightPosition) << std::endl << std::endl;
 
 	m_programShade->setUniform("modelView", viewer()->modelViewTransform());
@@ -469,7 +473,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("lens", lens);
 
 	m_programShade->use();
-	
+
 	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();
@@ -489,6 +493,79 @@ void SphereRenderer::display()
 	m_elementColorsRadii->unbind(GL_UNIFORM_BUFFER);
 
 	m_frameBuffers[1]->unbind();
+
+
+	// TEST
+
+	m_frameBuffers[1]->bind();
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glDepthMask(GL_TRUE);
+
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	m_positionTextures[0]->bindActive(0);
+	m_normalTextures[0]->bindActive(1);
+	m_depthTextures[0]->bindActive(2);
+	m_environmentTexture->bindActive(3);
+	m_offsetTexture->bindActive(4);
+	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+
+	m_programBlur->setUniform("modelView", viewer()->modelViewTransform());
+	m_programBlur->setUniform("projection", viewer()->projectionTransform());
+	m_programBlur->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
+	m_programBlur->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
+	m_programBlur->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	m_programBlur->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
+	m_programBlur->setUniform("ambientMaterial", ambientMaterial);
+	m_programBlur->setUniform("diffuseMaterial", diffuseMaterial);
+	m_programBlur->setUniform("specularMaterial", specularMaterial);
+	m_programBlur->setUniform("shininess", shininess);
+	m_programBlur->setUniform("focusPosition", focusPosition);
+	m_programBlur->setUniform("colorTexture", 0);
+	m_programBlur->setUniform("normalTexture", 1);
+	m_programBlur->setUniform("depthTexture", 2);
+	m_programBlur->setUniform("environmentTexture", 3);
+	m_programBlur->setUniform("offsetTexture", 4);
+	m_programBlur->setUniform("sharpness", sharpness);
+	m_programBlur->setUniform("coloring", uint(coloring));
+	m_programBlur->setUniform("environment", environmentMapping);
+	m_programBlur->setUniform("lens", lens);
+
+	m_programShade->use();
+
+	//NEW
+	m_programBlur->setUniform("uMaxCoCRadiusPixels", mMaxCoCRadiusPixels);
+	m_programBlur->setUniform("uNearBlurRadiusPixels", mMaxCoCRadiusPixels);
+	m_programBlur->setUniform("uInvNearBlurRadiusPixels", 1.0f / mMaxCoCRadiusPixels);
+	// NEW
+
+	m_programBlur->use();
+
+	m_vaoQuad->bind();
+	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	m_vaoQuad->unbind();
+
+	//m_programShade->release();
+	m_programBlur->release();
+
+	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+	m_offsetTexture->unbindActive(4);
+	m_environmentTexture->unbindActive(3);
+	m_depthTextures[0]->unbindActive(2);
+	m_normalTextures[0]->unbindActive(1);
+	m_positionTextures[0]->unbindActive(0);
+
+	m_chainColors->unbind(GL_UNIFORM_BUFFER);
+	m_residueColors->unbind(GL_UNIFORM_BUFFER);
+	m_elementColorsRadii->unbind(GL_UNIFORM_BUFFER);
+
+	m_frameBuffers[1]->unbind();
+
+	//TEST
 
 	if (ambientOcclusion)
 		m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
