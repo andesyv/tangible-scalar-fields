@@ -72,7 +72,7 @@ int main(int /*argc*/, char * /*argv*/[])
 		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
 
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load("./dat/test.pdb");
+	scene->protein()->load("./dat/1sva.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Scaling the model's bounding box to the canonical view volume

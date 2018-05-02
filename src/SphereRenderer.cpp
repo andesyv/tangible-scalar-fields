@@ -211,6 +211,15 @@ void SphereRenderer::display()
 	static float animationFrequency = 1.0f;
 	static bool lens = false;
 
+	static float focalDistance = 50.0f;
+	static float fieldOfView = 10.0f;
+	static float mMaxCoCRadiusPixels = 10.0f;
+	static float mFarRadiusRescale = 1.0f;
+
+	const char* fStops[] = { "0.7", "0.8", "1.0", "1.2", "1.4", "1.7", "2.0", "2.4", "2.8", "3.3", "4.0", "4.8", "5.6", "6.7", "8.0", "9.5", "11.0", "16.0", "22.0" };
+	static int fStop_current = 5;
+
+
 	ImGui::Begin("Surface Renderer");
 
 	if (ImGui::CollapsingHeader("Lighting"))
@@ -236,6 +245,18 @@ void SphereRenderer::display()
 		ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 32.0f);
 		ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
 	}
+
+	if (ImGui::CollapsingHeader("Depth of View"))
+	{
+		ImGui::SliderFloat("Focal Distance", &focalDistance, 0.1f, 100.0f);
+		ImGui::SliderFloat("Field of View", &fieldOfView, 5.0f, 90.0f);
+		ImGui::Combo("F-stop", &fStop_current, fStops, IM_ARRAYSIZE(fStops));
+
+		ImGui::SliderFloat("Max. CoC Radius", &mMaxCoCRadiusPixels, 1.0f, 20.0f);
+		ImGui::SliderFloat("Far Radius Rescale", &mFarRadiusRescale, 0.1f, 20.0f);
+
+	}
+
 	
 	ImGui::End();
 	/*
