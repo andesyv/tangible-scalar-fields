@@ -495,100 +495,35 @@ void SphereRenderer::display()
 	m_frameBuffers[1]->unbind();
 
 
-	// TEST
 
-	m_frameBuffers[1]->bind();
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glDepthMask(GL_TRUE);
+	//BLUR
 
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	m_positionTextures[0]->bindActive(0);
-	m_normalTextures[0]->bindActive(1);
-	m_depthTextures[0]->bindActive(2);
-	m_environmentTexture->bindActive(3);
-	m_offsetTexture->bindActive(4);
-	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
-
-	m_programBlur->setUniform("modelView", viewer()->modelViewTransform());
-	m_programBlur->setUniform("projection", viewer()->projectionTransform());
-	m_programBlur->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
-	m_programBlur->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
-	m_programBlur->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programBlur->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
-	m_programBlur->setUniform("ambientMaterial", ambientMaterial);
-	m_programBlur->setUniform("diffuseMaterial", diffuseMaterial);
-	m_programBlur->setUniform("specularMaterial", specularMaterial);
-	m_programBlur->setUniform("shininess", shininess);
-	m_programBlur->setUniform("focusPosition", focusPosition);
-	m_programBlur->setUniform("colorTexture", 0);
-	m_programBlur->setUniform("normalTexture", 1);
-	m_programBlur->setUniform("depthTexture", 2);
-	m_programBlur->setUniform("environmentTexture", 3);
-	m_programBlur->setUniform("offsetTexture", 4);
-	m_programBlur->setUniform("sharpness", sharpness);
-	m_programBlur->setUniform("coloring", uint(coloring));
-	m_programBlur->setUniform("environment", environmentMapping);
-	m_programBlur->setUniform("lens", lens);
-
-	m_programShade->use();
-
-	//NEW
-	m_programBlur->setUniform("uMaxCoCRadiusPixels", mMaxCoCRadiusPixels);
-	m_programBlur->setUniform("uNearBlurRadiusPixels", mMaxCoCRadiusPixels);
-	m_programBlur->setUniform("uInvNearBlurRadiusPixels", 1.0f / mMaxCoCRadiusPixels);
-	// NEW
-
-	m_programBlur->use();
-
-	m_vaoQuad->bind();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_vaoQuad->unbind();
-
-	//m_programShade->release();
-	m_programBlur->release();
-
-	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-	m_offsetTexture->unbindActive(4);
-	m_environmentTexture->unbindActive(3);
-	m_depthTextures[0]->unbindActive(2);
-	m_normalTextures[0]->unbindActive(1);
-	m_positionTextures[0]->unbindActive(0);
-
-	m_chainColors->unbind(GL_UNIFORM_BUFFER);
-	m_residueColors->unbind(GL_UNIFORM_BUFFER);
-	m_elementColorsRadii->unbind(GL_UNIFORM_BUFFER);
-
-	m_frameBuffers[1]->unbind();
-
-	//TEST
-
-	if (ambientOcclusion)
-		m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
-
+ 
 	//m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	Framebuffer::defaultFBO()->bind();
 	glDepthFunc(GL_LEQUAL);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	m_positionTextures[1]->bindActive(0);
 	m_normalTextures[1]->bindActive(1);
 	m_depthTextures[1]->bindActive(2);
 	m_environmentTexture->bindActive(3);
 
-	m_programBlend->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programBlend->setUniform("colorTexture", 0);
-	m_programBlend->setUniform("normalTexture", 1);
-	m_programBlend->setUniform("depthTexture", 2);
-	m_programBlend->setUniform("environmentTexture", 3);
-	m_programBlend->setUniform("environment", environmentMapping);
-	m_programBlend->use();
+	m_programBlur->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	m_programBlur->setUniform("colorTexture", 0);
+	m_programBlur->setUniform("normalTexture", 1);
+	m_programBlur->setUniform("depthTexture", 2);
+	m_programBlur->setUniform("environmentTexture", 3);
+	m_programBlur->setUniform("environment", environmentMapping);
+	m_programBlur->use();
+
+	//NEW
+	int maxCocRadiusPixels = round(mMaxCoCRadiusPixels);
+	m_programBlur->setUniform("uMaxCoCRadiusPixels", maxCocRadiusPixels);
+	m_programBlur->setUniform("uNearBlurRadiusPixels", maxCocRadiusPixels);
+	m_programBlur->setUniform("uInvNearBlurRadiusPixels", 1.0f / maxCocRadiusPixels);
+	m_programBlur->setUniform("horizontal", true);
+	// NEW
+
 
 	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
@@ -599,8 +534,44 @@ void SphereRenderer::display()
 	m_normalTextures[1]->unbindActive(1);
 	m_positionTextures[1]->unbindActive(0);
 
-	glDisable(GL_BLEND);
-	m_programBlend->release();
+	m_programBlur->release();
+	// BLUR
+
+
+	//if (ambientOcclusion)
+	//	m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
+
+	////m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	//Framebuffer::defaultFBO()->bind();
+	//glDepthFunc(GL_LEQUAL);
+
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	//m_positionTextures[1]->bindActive(0);
+	//m_normalTextures[1]->bindActive(1);
+	//m_depthTextures[1]->bindActive(2);
+	//m_environmentTexture->bindActive(3);
+
+	//m_programBlend->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	//m_programBlend->setUniform("colorTexture", 0);
+	//m_programBlend->setUniform("normalTexture", 1);
+	//m_programBlend->setUniform("depthTexture", 2);
+	//m_programBlend->setUniform("environmentTexture", 3);
+	//m_programBlend->setUniform("environment", environmentMapping);
+	//m_programBlend->use();
+
+	//m_vaoQuad->bind();
+	//m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	//m_vaoQuad->unbind();
+
+	//m_environmentTexture->unbindActive(3);
+	//m_depthTextures[1]->unbindActive(2);
+	//m_normalTextures[1]->unbindActive(1);
+	//m_positionTextures[1]->unbindActive(0);
+
+	//glDisable(GL_BLEND);
+	//m_programBlend->release();
 
 #ifdef STATISTICS
 	Statistics *s = (Statistics*) m_statisticsBuffer->map();	
