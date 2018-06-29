@@ -19,7 +19,8 @@ include_directories(${CMAKE_SOURCE_DIR}/lib/imgui/)
 include_directories(${CMAKE_SOURCE_DIR}/lib/lodepng/)
 
 target_link_libraries(molumes PUBLIC glfw)
-target_link_libraries(molumes PUBLIC glbinding::glbinding)
+target_link_libraries(molumes PUBLIC glbinding::glbinding )
+target_link_libraries(molumes PUBLIC glbinding::glbinding-aux )
 target_link_libraries(molumes PUBLIC globjects::globjects)
 target_link_libraries(molumes PUBLIC ${CMAKE_SOURCE_DIR}/lib/HBAOPlus/lib/GFSDK_SSAO_GL.win64.lib)
 

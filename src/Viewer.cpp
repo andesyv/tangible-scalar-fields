@@ -27,7 +27,10 @@ using namespace globjects;
 
 Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(scene)
 {
+	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+	//io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;         // We can honor GetMouseCursor() values (optional)
+	//io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;          // We can honor io.WantSetMousePos requests (optional, rarely used)
 
 	io.KeyMap[ImGuiKey_Tab] = GLFW_KEY_TAB;
 	io.KeyMap[ImGuiKey_LeftArrow] = GLFW_KEY_LEFT;
@@ -38,8 +41,10 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	io.KeyMap[ImGuiKey_PageDown] = GLFW_KEY_PAGE_DOWN;
 	io.KeyMap[ImGuiKey_Home] = GLFW_KEY_HOME;
 	io.KeyMap[ImGuiKey_End] = GLFW_KEY_END;
+	io.KeyMap[ImGuiKey_Insert] = GLFW_KEY_INSERT;
 	io.KeyMap[ImGuiKey_Delete] = GLFW_KEY_DELETE;
 	io.KeyMap[ImGuiKey_Backspace] = GLFW_KEY_BACKSPACE;
+	io.KeyMap[ImGuiKey_Space] = GLFW_KEY_SPACE;
 	io.KeyMap[ImGuiKey_Enter] = GLFW_KEY_ENTER;
 	io.KeyMap[ImGuiKey_Escape] = GLFW_KEY_ESCAPE;
 	io.KeyMap[ImGuiKey_A] = GLFW_KEY_A;
@@ -69,7 +74,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	io.Fonts->TexID = (ImTextureID) m_fontTexture->id();
 	
 	ImGuiStyle& style = ImGui::GetStyle();
-
+	/*
 	ImVec4 color_for_text = ImVec4(236.f / 255.f, 240.f / 255.f, 241.f / 255.f, 1.0f);
 	ImVec4 color_for_head = ImVec4(41.f / 255.f, 128.f / 255.f, 185.f / 255.f, 1.0f);
 	ImVec4 color_for_area = ImVec4(57.f / 255.f, 79.f / 255.f, 105.f / 255.f, 1.0f);
@@ -111,9 +116,6 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	style.Colors[ImGuiCol_ResizeGrip] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.15f);
 	style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
 	style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-	style.Colors[ImGuiCol_CloseButton] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.16f);
-	style.Colors[ImGuiCol_CloseButtonHovered] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.39f);
-	style.Colors[ImGuiCol_CloseButtonActive] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 1.00f);
 	style.Colors[ImGuiCol_PlotLines] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.63f);
 	style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
 	style.Colors[ImGuiCol_PlotHistogram] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.63f);
@@ -121,7 +123,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.43f);
 	style.Colors[ImGuiCol_PopupBg] = ImVec4(color_for_pops.x, color_for_pops.y, color_for_pops.z, 0.92f);
 	style.Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.73f);
-
+	*/
 	m_verticesUi = Buffer::create();
 	m_indicesUi = Buffer::create();
 	m_vaoUi = VertexArray::create();
@@ -495,7 +497,7 @@ void Viewer::beginFrame()
 	// (we already got mouse wheel, keyboard keys & characters from glfw callbacks polled in glfwPollEvents())
 	if (glfwGetWindowAttrib(m_window, GLFW_FOCUSED))
 	{
-		if (io.WantMoveMouse)
+		if (io.WantSetMousePos)
 		{
 			glfwSetCursorPos(m_window, (double)io.MousePos.x, (double)io.MousePos.y);   // Set mouse position if requested by io.WantMoveMouse flag (used when io.NavMovesTrue is enabled by user and using directional navigation)
 		}

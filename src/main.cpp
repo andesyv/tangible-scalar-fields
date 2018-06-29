@@ -1,8 +1,14 @@
 #include <iostream>
 
-#include <glbinding/gl/gl.h>
-#include <glbinding/ContextInfo.h>
 #include <glbinding/Version.h>
+#include <glbinding/Binding.h>
+#include <glbinding/FunctionCall.h>
+#include <glbinding/CallbackMask.h>
+
+#include <glbinding-aux/ContextInfo.h>
+#include <glbinding-aux/Meta.h>
+#include <glbinding-aux/types_to_string.h>
+#include <glbinding-aux/ValidVersions.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -61,18 +67,20 @@ int main(int /*argc*/, char * /*argv*/[])
 	glfwMakeContextCurrent(window);
 
 	// Initialize globjects (internally initializes glbinding, and registers the current context)
-	globjects::init();
+	globjects::init([](const char * name) {
+		return glfwGetProcAddress(name);
+	});
 
 	// Enable debug logging
 	globjects::DebugMessage::enable();
 	
 	globjects::debug()
-		<< "OpenGL Version:  " << glbinding::ContextInfo::version() << std::endl
-		<< "OpenGL Vendor:   " << glbinding::ContextInfo::vendor() << std::endl
-		<< "OpenGL Renderer: " << glbinding::ContextInfo::renderer() << std::endl;
+		<< "OpenGL Version:  " << glbinding::aux::ContextInfo::version() << std::endl
+		<< "OpenGL Vendor:   " << glbinding::aux::ContextInfo::vendor() << std::endl
+		<< "OpenGL Renderer: " << glbinding::aux::ContextInfo::renderer() << std::endl;
 
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load("./dat/test.pdb");
+	scene->protein()->load("./dat/5odv.pdb");
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Scaling the model's bounding box to the canonical view volume
