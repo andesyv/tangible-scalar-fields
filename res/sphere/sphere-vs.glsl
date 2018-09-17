@@ -1,5 +1,6 @@
 #version 450
-//#extension GL_ARB_shading_language_include : require
+#extension GL_ARB_shading_language_include : require
+#include "/defines.glsl"
 
 in vec4 position;
 in vec4 nextPosition;

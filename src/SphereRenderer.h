@@ -42,20 +42,20 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_residueColors = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_chainColors = std::make_unique<globjects::Buffer>();
 		
-		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
-
 		std::unique_ptr<globjects::VertexArray> m_vaoQuad = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
 		
 		std::unique_ptr<globjects::Program> m_programSphere = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSpawn = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programAOSample = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programAOBlur = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programBlend = std::make_unique<globjects::Program>();
 
-		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceGlobals = nullptr;
+		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
+		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
+
+		std::unique_ptr<globjects::File> m_shaderSourceGlobals = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderGlobals = nullptr;
 
 		std::unique_ptr<globjects::File> m_vertexShaderSourceSphere = nullptr;
@@ -86,14 +86,41 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
 
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceAOSample = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateAOSample = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderAOSample = nullptr;
+
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceAOBlur = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateAOBlur = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderAOBlur = nullptr;
+
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceBlend = nullptr;
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateBlend = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderBlend = nullptr;
 
-		std::array< std::unique_ptr<globjects::Framebuffer>, 2 > m_frameBuffers;
-		std::array< std::unique_ptr<globjects::Texture>, 2 > m_positionTextures;
-		std::array< std::unique_ptr<globjects::Texture>, 2 > m_normalTextures;
-		std::array< std::unique_ptr<globjects::Texture>, 2 > m_depthTextures;
+		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
+
+		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_spherePositionTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_sphereNormalTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_surfacePositionTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_surfaceNormalTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_sphereDiffuseTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_surfaceDiffuseTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_ambientTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_blendTexture = nullptr;
+
+		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_ambientFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_blurFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_blendFramebuffer = nullptr;
+
+		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
 		std::unique_ptr<SSAO> m_ssao = nullptr;
 
 		glm::ivec2 m_framebufferSize;

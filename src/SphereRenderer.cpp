@@ -1,6 +1,7 @@
 #include "SphereRenderer.h"
 #include <globjects/base/File.h>
 #include <iostream>
+#include <filesystem>
 #include <imgui.h>
 #include "Viewer.h"
 #include "Scene.h"
@@ -26,6 +27,8 @@ struct Statistics
 
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
+	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
+
 	Statistics s;
 
 	//m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
@@ -49,7 +52,10 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
-	m_shaderSourceGlobals = StaticStringSource::create("");
+	m_shaderSourceDefines = StaticStringSource::create("");
+	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
+
+	m_shaderSourceGlobals = File::create("./res/sphere/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
 
 	m_vertexShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-vs.glsl");
@@ -59,6 +65,8 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-vs.glsl");
 	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-gs.glsl");
 	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/sphere/shade-fs.glsl");
+	m_fragmentShaderSourceAOSample = Shader::sourceFromFile("./res/sphere/aosample-fs.glsl");
+	m_fragmentShaderSourceAOBlur = Shader::sourceFromFile("./res/sphere/aoblur-fs.glsl");
 	m_fragmentShaderSourceBlend = Shader::sourceFromFile("./res/sphere/blend-fs.glsl");
 	
 	m_vertexShaderTemplateSphere = Shader::applyGlobalReplacements(m_vertexShaderSourceSphere.get());
@@ -68,6 +76,8 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vertexShaderTemplateImage = Shader::applyGlobalReplacements(m_vertexShaderSourceImage.get());
 	m_geometryShaderTemplateImage = Shader::applyGlobalReplacements(m_geometryShaderSourceImage.get());
 	m_fragmentShaderTemplateShade = Shader::applyGlobalReplacements(m_fragmentShaderSourceShade.get());
+	m_fragmentShaderTemplateAOSample = Shader::applyGlobalReplacements(m_fragmentShaderSourceAOSample.get());
+	m_fragmentShaderTemplateAOBlur = Shader::applyGlobalReplacements(m_fragmentShaderSourceAOBlur.get());
 	m_fragmentShaderTemplateBlend = Shader::applyGlobalReplacements(m_fragmentShaderSourceBlend.get());
 
 	m_vertexShaderSphere = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateSphere.get());
@@ -77,46 +87,89 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateImage.get());
 	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateImage.get());
 	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateShade.get());
+	m_fragmentShaderAOSample = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateAOSample.get());
+	m_fragmentShaderAOBlur = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateAOBlur.get());
 	m_fragmentShaderBlend = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateBlend.get());
 
 	m_programSphere->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSphere.get());
 	m_programSpawn->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSpawn.get());
 	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
+	m_programAOSample->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderAOSample.get());
+	m_programAOBlur->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderAOBlur.get());
 	m_programBlend->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderBlend.get());
+
 
 	m_framebufferSize = viewer->viewportSize();
 
-	for (size_t i = 0; i < m_frameBuffers.size(); ++i)
-	{
-		m_positionTextures[i] = Texture::create(GL_TEXTURE_2D);
-		m_positionTextures[i]->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		m_positionTextures[i]->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		m_positionTextures[i]->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		m_positionTextures[i]->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		m_positionTextures[i]->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_depthTexture = Texture::create(GL_TEXTURE_2D);
+	m_depthTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_depthTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_depthTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_depthTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_depthTexture->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
 
-		m_normalTextures[i] = Texture::create(GL_TEXTURE_2D);
-		m_normalTextures[i]->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		m_normalTextures[i]->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		m_normalTextures[i]->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		m_normalTextures[i]->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		m_normalTextures[i]->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_spherePositionTexture = Texture::create(GL_TEXTURE_2D);
+	m_spherePositionTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_spherePositionTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_spherePositionTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_spherePositionTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_spherePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-		m_depthTextures[i] = Texture::create(GL_TEXTURE_2D);
-		m_depthTextures[i]->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		m_depthTextures[i]->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		m_depthTextures[i]->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		m_depthTextures[i]->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		m_depthTextures[i]->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+	m_sphereNormalTexture = Texture::create(GL_TEXTURE_2D);
+	m_sphereNormalTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_sphereNormalTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_sphereNormalTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_sphereNormalTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_sphereNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-		m_frameBuffers[i] = Framebuffer::create();
-		m_frameBuffers[i]->attachTexture(GL_COLOR_ATTACHMENT0, m_positionTextures[i].get());
-		m_frameBuffers[i]->attachTexture(GL_COLOR_ATTACHMENT1, m_normalTextures[i].get());
-		m_frameBuffers[i]->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTextures[i].get());
-		m_frameBuffers[i]->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
+	m_surfacePositionTexture = Texture::create(GL_TEXTURE_2D);
+	m_surfacePositionTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_surfacePositionTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_surfacePositionTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_surfacePositionTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_surfacePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-		m_frameBuffers[i]->printStatus();
-	}
+	m_surfaceNormalTexture = Texture::create(GL_TEXTURE_2D);
+	m_surfaceNormalTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_surfaceNormalTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_surfaceNormalTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_surfaceNormalTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_surfaceNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_sphereDiffuseTexture = Texture::create(GL_TEXTURE_2D);
+	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_sphereDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_surfaceDiffuseTexture = Texture::create(GL_TEXTURE_2D);
+	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_surfaceDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_ambientTexture = Texture::create(GL_TEXTURE_2D);
+	m_ambientTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_ambientTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_ambientTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_ambientTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_ambientTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_blurTexture = Texture::create(GL_TEXTURE_2D);
+	m_blurTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_blurTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_blurTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_blurTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_blendTexture = Texture::create(GL_TEXTURE_2D);
+	m_blendTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_blendTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_blendTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_blendTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_blendTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_offsetTexture = Texture::create(GL_TEXTURE_2D);
 	m_offsetTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -146,11 +199,77 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 
 	m_ssao = std::make_unique<SSAO>();
+
+	for (auto& d : std::filesystem::directory_iterator("./dat/materials"))
+	{
+		std::filesystem::path materialPath(d);
+
+		if (materialPath.extension().string() == ".png")
+		{
+			std::vector<unsigned char> materialImage;
+			uint materialWidth, materialHeight;
+
+			globjects::debug() << "Loading " << materialPath.string() << " ...";
+			uint error = lodepng::decode(materialImage, materialWidth, materialHeight, materialPath.string());
+
+			if (error)
+			{
+				globjects::debug() << "Could not load " << materialPath.string() << "!";
+			}
+			else
+			{
+				auto materialTexture = Texture::create(GL_TEXTURE_2D);
+				materialTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				materialTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				materialTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				materialTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				materialTexture->image2D(0, GL_RGBA, materialWidth, materialHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&materialImage.front());
+				//materialTexture->generateMipmap();
+
+				m_materialTextures.push_back(std::move(materialTexture));
+			}
+		}
+	}
+
+
+	m_sphereFramebuffer = Framebuffer::create();
+	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
+	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
+	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
+	m_sphereFramebuffer->printStatus();
+
+	m_surfaceFramebuffer = Framebuffer::create();
+	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_surfacePositionTexture.get());
+	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_surfaceNormalTexture.get());
+	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_surfaceDiffuseTexture.get());
+	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_sphereDiffuseTexture.get());
+	m_surfaceFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_surfaceFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 });
+	m_surfaceFramebuffer->printStatus();
+
+	m_ambientFramebuffer = Framebuffer::create();
+	m_ambientFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_ambientTexture.get());
+	m_ambientFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_ambientFramebuffer->printStatus();
+
+	m_blurFramebuffer = Framebuffer::create();
+	m_blurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_blurTexture.get());
+	m_blurFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_blurFramebuffer->printStatus();
+/*
+	m_blendFramebuffer = Framebuffer::create();
+	m_blendFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_blurTexture.get());
+	m_blendFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_blendFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_blendFramebuffer->printStatus();
+*/
 }
 
 std::list<globjects::File*> SphereRenderer::shaderFiles() const
 {
 	return std::list<globjects::File*>({ 
+		m_shaderSourceGlobals.get(),
 		m_vertexShaderSourceSphere.get(),
 		m_geometryShaderSourceSphere.get(),
 		m_fragmentShaderSourceSphere.get(),
@@ -158,6 +277,8 @@ std::list<globjects::File*> SphereRenderer::shaderFiles() const
 		m_geometryShaderSourceImage.get(),
 		m_fragmentShaderSourceSpawn.get(),
 		m_fragmentShaderSourceShade.get(),
+		m_fragmentShaderSourceAOSample.get(),
+		m_fragmentShaderSourceAOBlur.get(),
 		m_fragmentShaderSourceBlend.get()
 		});
 }
@@ -168,14 +289,16 @@ void SphereRenderer::display()
 	{
 		m_framebufferSize = viewer()->viewportSize();
 		m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
-
-		for (size_t i = 0; i < m_frameBuffers.size(); ++i)
-		{
-			m_positionTextures[i]->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-			m_normalTextures[i]->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-			m_depthTextures[i]->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
-		}
-		
+		m_depthTexture->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+		m_spherePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_sphereNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_surfacePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_surfaceNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_surfaceDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_sphereDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_ambientTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_blendTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 	
 /*	
@@ -230,6 +353,34 @@ void SphereRenderer::display()
 		ImGui::Checkbox("Magic Lens", &lens);
 	}
 
+	static uint materialTextureIndex = 0;
+
+	if (ImGui::CollapsingHeader("Materials"))
+	{
+		if (ImGui::ListBoxHeader("Material"))
+		{
+			for (uint i = 0; i< m_materialTextures.size();i++)
+			{
+				auto& texture = m_materialTextures[i];
+				bool selected = (i == materialTextureIndex);
+				ImGui::BeginGroup();
+				ImGui::PushID(i);
+				
+				if (ImGui::Selectable("", &selected, 0, ImVec2(0.0f, 32.0f)))
+					materialTextureIndex = i;
+
+				ImGui::SameLine();
+				ImGui::Image((ImTextureID)texture->id(), ImVec2(32.0f, 32.0f));
+				ImGui::PopID();
+				ImGui::EndGroup();
+			}
+
+			ImGui::ListBoxFooter();
+		}
+
+		//ImGui::EndCombo();
+	}
+
 	if (ImGui::CollapsingHeader("Animation"))
 	{
 		ImGui::Checkbox("Prodecural Animation", &animate);
@@ -266,6 +417,17 @@ void SphereRenderer::display()
 	mat4 inverseModelView = inverse(modelView);
 	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
 	mat4 inverseModelViewProjection = inverse(modelViewProjection);
+	mat4 projection = viewer()->projectionTransform();
+	
+	vec4 projectionInfo(float(-2.0 / (viewportSize.x * projection[0][0])),
+		float(-2.0 / (viewportSize.y * projection[1][1])),
+		float((1.0 - (double)projection[0][2]) / projection[0][0]),
+		float((1.0 + (double)projection[1][2]) / projection[1][1]));
+
+	float projectionScale = float(viewportSize.y) / fabs(2.0f / projection[1][1]);
+	//std::cout << "projectionScale " << projectionScale << std::endl;
+
+
 
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
@@ -276,19 +438,22 @@ void SphereRenderer::display()
 	float animationDelta = currentTime - floor(currentTime);
 	int vertexCount = int(viewer()->scene()->protein()->atoms()[currentTimestep].size());
 
-	std::string globals = "";
+	std::string defines = "";
 
 	if (animate)
-		globals += "#define ANIMATION\n";
+		defines += "#define ANIMATION\n";
 
 	if (lens)
-		globals += "#define LENSING\n";
+		defines += "#define LENSING\n";
 
 	if (coloring > 0)
-		globals += "#define COLORING\n";
+		defines += "#define COLORING\n";
 
-	if (globals != m_shaderSourceGlobals->string())
+	if (defines != m_shaderSourceDefines->string())
 	{
+		m_shaderSourceDefines->setString(defines);
+		m_vertexShaderSourceSphere->reload();
+		m_fragmentShaderSourceShade->reload();
 		//std::cout << m_fragmentShaderShade->source()->string() << std::endl;
 	}
 
@@ -307,7 +472,7 @@ void SphereRenderer::display()
 		m_vao->enable(1);
 	}
 
-	m_frameBuffers[0]->bind();
+	m_sphereFramebuffer->bind();
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 65535.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -334,10 +499,6 @@ void SphereRenderer::display()
 
 	//m_ssao->display(mat4(1.0f)/*viewer()->modelViewTransform()*/,viewer()->projectionTransform(), m_frameBuffer->id(), m_depthTexture->id(), m_normalTexture->id());
 
-	m_positionTextures[0]->bindActive(0);
-	m_normalTextures[0]->bindActive(1);
-	m_depthTextures[0]->bindActive(2);
-	
 	const uint intersectionClearValue = 1;
 	m_intersectionBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &intersectionClearValue);
 
@@ -349,7 +510,7 @@ void SphereRenderer::display()
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	glDepthMask(GL_FALSE);
 
-	m_positionTextures[0]->bindActive(0);
+	m_spherePositionTexture->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
 	m_elementColorsRadii->bindBase(GL_UNIFORM_BUFFER, 0);
 	m_residueColors->bindBase(GL_UNIFORM_BUFFER, 1);
@@ -371,12 +532,12 @@ void SphereRenderer::display()
 	m_vao->unbind();
 
 	m_programSpawn->release();
-	m_frameBuffers[0]->unbind();
 
-	m_positionTextures[0]->unbindActive(0);
+	m_spherePositionTexture->unbindActive(0);
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 	m_offsetTexture->unbindImageTexture(0);
 
+	m_sphereFramebuffer->unbind();
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 //	uint sphereCount = 0;
@@ -387,7 +548,7 @@ void SphereRenderer::display()
 
 	//std::cout << to_string(inverse(viewer()->projectionTransform())*vec4(0.5, 0.5, 0.0, 1.0)) << std::endl;
 
-	m_frameBuffers[1]->bind();
+	m_surfaceFramebuffer->bind();
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glDepthMask(GL_TRUE);
 
@@ -397,11 +558,11 @@ void SphereRenderer::display()
 
 	//Framebuffer::defaultFBO()->bind();
 
-	m_positionTextures[0]->bindActive(0);
-	m_normalTextures[0]->bindActive(1);
-	m_depthTextures[0]->bindActive(2);
-	m_environmentTexture->bindActive(3);
-	m_offsetTexture->bindActive(4);
+	m_spherePositionTexture->bindActive(0);
+	m_sphereNormalTexture->bindActive(1);
+	m_offsetTexture->bindActive(3);
+	m_environmentTexture->bindActive(4);
+	m_materialTextures[materialTextureIndex]->bindActive(5);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
@@ -431,17 +592,18 @@ void SphereRenderer::display()
 	m_programShade->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
 	m_programShade->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
 	m_programShade->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	m_programShade->setUniform("normalMatrix", mat3(transpose(inverse(viewer()->modelViewTransform()))));
 	m_programShade->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
 	m_programShade->setUniform("specularMaterial", specularMaterial);
 	m_programShade->setUniform("shininess", shininess);
 	m_programShade->setUniform("focusPosition", focusPosition);
-	m_programShade->setUniform("colorTexture", 0);
+	m_programShade->setUniform("positionTexture", 0);
 	m_programShade->setUniform("normalTexture", 1);
-	m_programShade->setUniform("depthTexture", 2);
-	m_programShade->setUniform("environmentTexture", 3);
-	m_programShade->setUniform("offsetTexture", 4);
+	m_programShade->setUniform("offsetTexture", 3);
+	m_programShade->setUniform("environmentTexture", 4);
+	m_programShade->setUniform("materialTexture", 5);
 	m_programShade->setUniform("sharpness", sharpness);
 	m_programShade->setUniform("coloring", uint(coloring));
 	m_programShade->setUniform("environment", environmentMapping);
@@ -457,38 +619,108 @@ void SphereRenderer::display()
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
-	m_offsetTexture->unbindActive(4);
-	m_environmentTexture->unbindActive(3);
-	m_depthTextures[0]->unbindActive(2);
-	m_normalTextures[0]->unbindActive(1);
-	m_positionTextures[0]->unbindActive(0);
+	m_materialTextures[materialTextureIndex]->bindActive(5);
+	m_environmentTexture->unbindActive(4);
+	m_offsetTexture->unbindActive(3);
+	m_sphereNormalTexture->unbindActive(1);
+	m_spherePositionTexture->unbindActive(0);
 
 	m_chainColors->unbind(GL_UNIFORM_BUFFER);
 	m_residueColors->unbind(GL_UNIFORM_BUFFER);
 	m_elementColorsRadii->unbind(GL_UNIFORM_BUFFER);
 
-	m_frameBuffers[1]->unbind();
+	m_surfaceFramebuffer->unbind();
 
 	if (ambientOcclusion)
-		m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
+	{
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		m_ambientFramebuffer->bind();
+
+		m_programAOSample->setUniform("modelView", viewer()->modelViewTransform());
+		m_programAOSample->setUniform("projection", viewer()->projectionTransform());
+		m_programAOSample->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
+		m_programAOSample->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
+		m_programAOSample->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+		m_programAOSample->setUniform("projectionInfo", projectionInfo);
+		m_programAOSample->setUniform("projectionScale", projectionScale);
+		m_programAOSample->setUniform("surfaceNormalTexture", 0);
+
+		m_surfaceNormalTexture->bindActive(0);
+		m_programAOSample->use();
+
+		m_vaoQuad->bind();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+		m_vaoQuad->unbind();
+
+		m_programAOSample->release();
+		m_surfaceNormalTexture->unbindActive(0);
+
+		m_ambientFramebuffer->unbind();
+		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+		m_blurFramebuffer->bind();
+		m_programAOBlur->setUniform("ambientTexture", 0);
+		m_programAOBlur->setUniform("offset", vec2(1.0f/float(viewportSize.x),0.0f));
+		m_ambientTexture->bindActive(0);
+		m_programAOBlur->use();
+
+		m_vaoQuad->bind();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+		m_vaoQuad->unbind();
+
+		m_programAOBlur->release();
+		m_ambientTexture->unbindActive(0);
+		m_blurFramebuffer->unbind();
+		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+		m_ambientFramebuffer->bind();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		m_programAOBlur->setUniform("ambientTexture", 0);
+		m_programAOBlur->setUniform("offset", vec2(0.0f,1.0f / float(viewportSize.y)));
+		m_blurTexture->bindActive(0);
+		m_programAOBlur->use();
+
+		m_vaoQuad->bind();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+		m_vaoQuad->unbind();
+
+		m_programAOBlur->release();
+		m_blurTexture->unbindActive(0);
+		m_ambientFramebuffer->unbind();
+		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
+		//m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
 
 	//m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-	Framebuffer::defaultFBO()->bind();
+	//Framebuffer::defaultFBO()->bind();
 	glDepthFunc(GL_LEQUAL);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	m_positionTextures[1]->bindActive(0);
-	m_normalTextures[1]->bindActive(1);
-	m_depthTextures[1]->bindActive(2);
-	m_environmentTexture->bindActive(3);
+	m_spherePositionTexture->bindActive(0);
+	m_sphereNormalTexture->bindActive(1);
+	m_sphereDiffuseTexture->bindActive(2);
+	m_surfacePositionTexture->bindActive(3);
+	m_surfaceNormalTexture->bindActive(4);
+	m_surfaceDiffuseTexture->bindActive(5);
+	m_ambientTexture->bindActive(6);
+	m_environmentTexture->bindActive(7);
+	m_depthTexture->bindActive(8);
 
 	m_programBlend->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programBlend->setUniform("colorTexture", 0);
-	m_programBlend->setUniform("normalTexture", 1);
-	m_programBlend->setUniform("depthTexture", 2);
-	m_programBlend->setUniform("environmentTexture", 3);
+	m_programBlend->setUniform("spherePositionTexture", 0);
+	m_programBlend->setUniform("sphereNormalTexture", 1);
+	m_programBlend->setUniform("sphereDiffuseTexture", 2);
+
+	m_programBlend->setUniform("surfacePositionTexture", 3);
+	m_programBlend->setUniform("surfaceNormalTexture", 4);
+	m_programBlend->setUniform("surfaceDiffuseTexture", 5);
+
+	m_programBlend->setUniform("ambientTexture", 6);
+	m_programBlend->setUniform("environmentTexture", 7);
+	m_programBlend->setUniform("depthTexture", 8);
+
 	m_programBlend->setUniform("environment", environmentMapping);
 	m_programBlend->use();
 
@@ -496,10 +728,15 @@ void SphereRenderer::display()
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();
 
-	m_environmentTexture->unbindActive(3);
-	m_depthTextures[1]->unbindActive(2);
-	m_normalTextures[1]->unbindActive(1);
-	m_positionTextures[1]->unbindActive(0);
+	m_depthTexture->unbindActive(8);
+	m_environmentTexture->unbindActive(7);
+	m_ambientTexture->unbindActive(6);
+	m_surfaceDiffuseTexture->unbindActive(5);
+	m_surfaceNormalTexture->unbindActive(4);
+	m_surfacePositionTexture->unbindActive(3);
+	m_sphereDiffuseTexture->unbindActive(2);
+	m_sphereNormalTexture->unbindActive(1);
+	m_spherePositionTexture->unbindActive(0);
 
 	glDisable(GL_BLEND);
 	m_programBlend->release();

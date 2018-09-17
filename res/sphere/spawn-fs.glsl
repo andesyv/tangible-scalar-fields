@@ -102,4 +102,5 @@ void main()
 
 	intersections[index] = entry;
 
+	discard;
 }

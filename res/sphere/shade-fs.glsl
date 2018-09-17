@@ -1,6 +1,7 @@
 #version 450
-//#extension GL_ARB_shading_language_include : require
-//#include "/globals.glsl"
+#extension GL_ARB_shading_language_include : require
+#include "/defines.glsl"
+#include "/globals.glsl"
 
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
@@ -9,6 +10,7 @@ uniform mat4 projection;
 uniform mat4 inverseProjection;
 uniform mat4 modelViewProjection;
 uniform mat4 inverseModelViewProjection;
+uniform mat3 normalMatrix;
 uniform float sharpness;
 uniform uint coloring;
 uniform bool environment;
@@ -21,15 +23,19 @@ uniform vec3 specularMaterial;
 uniform float shininess;
 uniform vec2 focusPosition;
 
-uniform sampler2D colorTexture;
+uniform sampler2D positionTexture;
 uniform sampler2D normalTexture;
-uniform sampler2D depthTexture;
 uniform sampler2D environmentTexture;
+uniform sampler2D materialTexture;
 uniform usampler2D offsetTexture;
 
 in vec4 gFragmentPosition;
-out vec4 fragColor;
-out vec4 fragNormal;
+out vec4 surfacePosition;
+out vec4 surfaceNormal;
+out vec4 surfaceDiffuse;
+out vec4 sphereDiffuse;
+
+const float PI = 3.14159265359;
 
 struct Element
 {
@@ -164,6 +170,16 @@ mat3 rotationAlign( vec3 d, vec3 z )
     return mat3( v.x*v.x*k + c,     v.y*v.x*k - v.z,    v.z*v.x*k + v.y,
                    v.x*v.y*k + v.z,   v.y*v.y*k + c,      v.z*v.y*k - v.x,
                    v.x*v.z*k - v.y,   v.y*v.z*k + v.x,    v.z*v.z*k + c    );
+}
+
+float random(vec3 scale,float seed)
+{
+	return fract(sin(dot(gl_FragCoord.xyz+seed,scale))*43758.5453+seed);
+}
+
+float r2(vec3 pos, float scale)
+{
+	return fract(sin(dot(gl_FragCoord.xyz,vec3(scale,scale,scale)))*43758.5453);
 }
 
 /*
@@ -339,6 +355,44 @@ vec4 shade(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, float shini
 	return vec4(color,1.0);
 }
 
+#define MAGIC_ANGLE 0.868734829276 // radians
+
+const float warp_theta = MAGIC_ANGLE;
+float tan_warp_theta = tan(warp_theta);
+
+/* Return a permutation matrix whose first two columns are u and v basis 
+   vectors for a cube face, and whose third column indicates which axis 
+   (x,y,z) is maximal. */
+mat3 getPT(in vec3 p) {
+
+    vec3 a = abs(p);
+    float c = max(max(a.x, a.y), a.z);    
+    vec3 s = c == a.x ? vec3(1.,0,0) : c == a.y ? vec3(0,1.,0) : vec3(0,0,1.);
+    s *= sign(dot(p, s));
+    vec3 q = s.yzx;
+    return mat3(cross(q,s), q, s);
+
+}
+
+/* For any point in 3D, obtain the permutation matrix, as well as grid coordinates
+   on a cube face. */
+void posToGrid(in float N, in vec3 pos, out mat3 PT, out vec2 g) {
+    
+    // Get permutation matrix and cube face id
+    PT = getPT(pos);
+    
+    // Project to cube face
+    vec3 c = pos * PT;     
+    vec2 p = c.xy / c.z;      
+    
+    // Unwarp through arctan function
+    vec2 q = atan(p*tan_warp_theta)/warp_theta; 
+    
+    // Map [-1,1] interval to [0,N] interval
+    g = (q*0.5 + 0.5)*N;
+    
+}
+
 void main()
 {
 	uint offset = texelFetch(offsetTexture,ivec2(gl_FragCoord.xy),0).r;
@@ -346,7 +400,7 @@ void main()
 	if (offset == 0)
 		discard;
 
-	vec4 position = texelFetch(colorTexture,ivec2(gl_FragCoord.xy),0);
+	vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
 
 	//vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
@@ -360,7 +414,10 @@ void main()
 	vec4 far = inverseModelViewProjection*vec4(fragCoord.xy,1.0,1.0);
 	far /= far.w;
 
-	vec3 V = normalize(far.xyz-near.xyz);	
+	vec3 V = normalize(far.xyz-near.xyz);
+
+	//float noise = ( .5 - random( vec3( 1. ), length( gl_FragCoord ) ) );
+	//near.xyz += V*noise;
 
 	const uint maxEntries = 128;
 	uint entryCount = 0;
@@ -371,20 +428,27 @@ void main()
 		indices[entryCount++] = offset;
 		offset = intersections[offset].previous;
 	}
+	/*
+	if (entryCount <= 3)
+	{
+		fragColor = vec4(0.0,0.0,1.0,1.0);
+		return;
+	}*/
 
 	if (entryCount == 0)
 		discard;
 
-	vec4 closestPosition = position;
+	vec4 closestPosition = position;//vec4(far.xyz,65535.0);// position;
 	vec3 closestNormal = normal.xyz;
 
 	float sharpnessFactor = 1.0;
 	vec3 ambientColor = ambientMaterial;
 	vec3 diffuseColor = vec3(1.0,1.0,1.0);
 	vec3 specularColor = specularMaterial;
+	vec3 diffuseSphereColor = vec3(1.0,1.0,1.0);
 
 //#define LENSING
-#define COLORING
+//#define COLORING
 
 #ifdef COLORING
 	if (coloring > 0)
@@ -400,6 +464,8 @@ void main()
 			diffuseColor = residues[residueId].color.rgb;
 		else if (coloring == 3)
 			diffuseColor = chains[chainId].color.rgb;
+
+		diffuseSphereColor = diffuseColor;
 	}
 #endif
 
@@ -437,7 +503,7 @@ void main()
 			indices[currentIndex] = temp;
 		}
 
-		if (startIndex < currentIndex)
+		if (startIndex <= currentIndex)
 		{
 			uint endIndex = currentIndex;
 
@@ -450,7 +516,15 @@ void main()
 				float nearDistance = intersections[ii].near;
 				float farDistance = intersections[indices[endIndex-1]].far;
 
-				const float maximumDistance = (farDistance-nearDistance)+1.0;
+				if (entryCount == 1)
+				{
+					nearDistance = intersections[indices[0]].near;
+					farDistance = intersections[indices[0]].far;
+					//fragColor = vec4(0.0,1.0,1.0,1.0);
+					//return;
+				}
+
+				float maximumDistance = (farDistance-nearDistance)+1.0;
 				float surfaceDistance = 1.0;
 
 				const float eps = 0.0125/10.0;
@@ -472,12 +546,14 @@ void main()
 				{    
 					currentPosition = rayOrigin + rayDirection*t;
 
-					if (currentPosition.w > closestPosition.w)
-						break;
+//					if (currentPosition.w > closestPosition.w)
+//						break;
 
 					float sumValue = 0.0;
 					vec3 sumNormal = vec3(0.0);
 					vec3 sumColor = vec3(0.0);
+					vec3 sumPattern = vec3(0.0);
+					float sumDisplacement = 0.0;
 					
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
@@ -503,14 +579,71 @@ void main()
 #endif
 
 #endif
-						vec3 atomOffset = currentPosition.xyz-aj;						
+						vec3 atomOffset = currentPosition.xyz-aj;
+						vec3 n0 = normalize(atomOffset);
+
+
+						float delta = 0.0625;//625;//125;
+						mat3 PT;
+						vec2 uv;
+						posToGrid(PI,n0,PT,uv);
+						float frequency = 4.0;
+						float amplitude = 0.0625;
+						float exponent = 1.0;
+						uv *= frequency;
+						float displacement = amplitude*(1.0+pow(cos(uv.x)*cos(uv.y),exponent));
+
+						vec2 uvx,uvy,uvz;
+						posToGrid(PI,normalize(n0+vec3(1.0,0.0,0.0)*delta),PT,uvx);
+						uvx *= frequency;
+						posToGrid(PI,normalize(n0+vec3(0.0,1.0,0.0)*delta),PT,uvy);
+						uvy *= frequency;
+						posToGrid(PI,normalize(n0+vec3(0.0,0.0,1.0)*delta),PT,uvz);
+						uvz *= frequency;
+
+						float dpx = amplitude*(1.0+pow(cos(uvx.x)*cos(uvx.y),exponent));
+						float dpy = amplitude*(1.0+pow(cos(uvy.x)*cos(uvy.y),exponent));
+						float dpz = amplitude*(1.0+pow(cos(uvz.x)*cos(uvz.y),exponent));
+
+
+
+
+						float fl = length(atomOffset);
+						//atomOffset = atomOffset - n0*displacement;
 						float atomDistance = length(atomOffset)/rj;
+						
+						vec3 g = 8.0*(vec3(dpx,dpy,dpz)-vec3(displacement));
+						//vec3 g = vec3( -amplitude*sin(uv.x)*cos(uv.y), -amplitude*cos(uv.x)*sin(uv.y), displacement);
+						vec3 gp = dot(g,n0)*n0;
+						vec3 gt = g - gp;
+						//n0 = n0 - gt;
+						
+						//sumDisplacement += (atomNormal-gt);
+						//atomNormal = atomNormal+gt;
+
+						//sumDisplacement += displacement;
 
 						float atomValue = exp(-s*atomDistance*atomDistance);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
-						vec3 atomNormal = 2.0*s*atomOffset*atomValue / (rj*rj);
+						//vec3 atomNormal = 2.0*s*atomOffset*atomValue / (rj*rj);
+						//vec3 atomNormal = atomValue*normalize(atomOffset);
+						vec3 atomNormal = atomValue*normalize(n0);
 #ifdef COLORING
-						vec3 atomColor = cj*atomValue;
+						vec3 atomColor = cj*atomValue;//*mix(vec3(1.0),vec3(0.0,0.0,1.0),2.0*displacement);
 #endif
+						
+						//float u = theta;
+						//float v = phi;
+						//float u = (6.0/PI)*atan(theta/sqrt(theta*theta+2.0));
+						//float v = (phi*sqrt(theta*theta+2.0)) / (theta*theta+phi*phi+1.0);
+
+						//void posToGrid(in float N, in vec3 pos, out mat3 PT, out vec2 g) {
+						
+						//atomNormal *= atomValue;
+						//float dX = s
+
+						//atomValue -= cos(4.0*uv.x)*cos(4.0*uv.y)*0.001;
+
+
 						sumValue += atomValue;
 						sumNormal += atomNormal;
 #ifdef COLORING
@@ -519,7 +652,7 @@ void main()
 #endif
 					}
 					
-					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;				
+					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;//-sumDisplacement;
 
 					if (surfaceDistance < eps*currentPosition.w)
 					{
@@ -527,9 +660,14 @@ void main()
 						{
 							closestPosition = currentPosition;
 							closestNormal = sumNormal;
+							//closestNormal += sumDisplacement;
 #ifdef COLORING
 							if (coloring > 0)
+							{
 								diffuseColor = sumColor / sumValue;
+							}
+
+
 #endif
 						}
 						break;
@@ -565,6 +703,31 @@ void main()
 
 		}
 	}
+	/*
+	if (closestPosition == position)
+	{
+		if (entryCount == 0)
+		{
+			fragColor = vec4(1.0,1.0,1.0,1.0);
+			return;
+		}
+		else if (entryCount == 1)
+		{
+			fragColor = vec4(0.0,0.0,1.0,1.0);
+		}
+		else if (entryCount == 2)
+		{
+			fragColor = vec4(0.0,1.0,0.0,1.0);
+		}
+		else if (entryCount == 3)
+		{
+			fragColor = vec4(1.0,0.0,0.0,1.0);
+		}
+		else
+		{
+			fragColor = vec4(1.0/float(entryCount),1.0/float(entryCount),0.0,1.0);
+		}
+	}*/
 
 	if (closestPosition.w >= 65535.0f)
 		discard;
@@ -573,14 +736,61 @@ void main()
 	diffuseColor *= diffuseMaterial;
 
 	vec4 colorSurface = shade(ambientColor,diffuseColor,specularColor,shininess,closestPosition.xyz,closestNormal.xyz,lightPosition.xyz,V.xyz);
+	vec4 colorSphere = shade(ambientColor,diffuseSphereColor,specularColor,shininess,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
 	//vec4 colorSphere = shade(diffuseColor,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
 	//	colorSurface.a = min(1.0,0.5*length(closestPosition.xyz-position.xyz));
+
+	/*
+	vec3 cameraNormal = modelView * vec4(closestNormal.xyz,0.0);
+	vec2 materialUV = 0.5*(closestNormal.xy+1.0);
+	colorSurface = texture(materialTexture,materialUV);
+	*/
+
+	vec3 vU = normalize( vec3( modelView * vec4( closestPosition.xyz, 1.0 ) ) );
+
+	vec3 n = normalize( normalMatrix * closestNormal.xyz );
+	//vec3 n = normalize( vec3( modelView * vec4(closestNormal.xyz,0.0) ) );
+
+	vec3 r = reflect( vU, n );
+	float m = 2.0 * sqrt( r.x * r.x + r.y * r.y + ( r.z + 1.0 ) * ( r.z+1.0 ) );
+	vec2 vN = vec2( r.x / m + 0.5,  r.y / m + 0.5 );
+	
+	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);
+	/*
+	if (environment)
+	{
+		vec3 N = normalize(closestNormal.xyz);
+		vec3 L = normalize(lightPosition.xyz.xyz-closestPosition.xyz);
+		vec3 R = normalize(reflect(L, N));
+
+		vec2 uv = latlong(R);
+		environmentColor = texture(environmentTexture,uv);
+	}*/
+	/*colorSurface.rgb = texture(materialTexture,vN).rgb*0.75*environmentColor.rgb;
+	colorSurface.rgb += diffuseColor;
+	colorSurface.a = 1.0;
+	*/
+
 
 	vec4 color = colorSurface;
 	//color.rgb = vec3(float(entryCount)/32.0);
 
-	fragColor = vec4(min(vec4(1.0),color));
-	fragNormal = vec4(closestNormal.xyz,0.0);
+	//color.r -= (float(entryCount)/16.0);
+	//color.a = 1.0;
+
+
+	vec4 cp = modelView*vec4(closestPosition.xyz, 1.0);
+	cp = cp / cp.w;
+//	float dist = length(cp);
+
+	surfacePosition = closestPosition;
+
+	closestNormal.xyz = normalMatrix*closestNormal.xyz;
+	closestNormal.xyz = normalize(closestNormal.xyz);
+	surfaceNormal = vec4(closestNormal.xyz,cp.z);
+
+	surfaceDiffuse = vec4(min(vec4(1.0),color)); 
+	sphereDiffuse = colorSphere;
 	gl_FragDepth = calcDepth(closestPosition.xyz);
 
 #ifdef STATISTICS
