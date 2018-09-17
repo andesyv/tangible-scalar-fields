@@ -411,22 +411,23 @@ void SphereRenderer::display()
 	uint timestepCount = viewer()->scene()->protein()->atoms().size();
 	float animationTime = animate ? float(glfwGetTime()) : -1.0f;
 
-	mat4 view = viewer()->viewTransform();
-	mat4 inverseView = inverse(view);
-	mat4 modelView = viewer()->modelViewTransform();
-	mat4 inverseModelView = inverse(modelView);
-	mat4 modelViewProjection = viewer()->modelViewProjectionTransform();
-	mat4 inverseModelViewProjection = inverse(modelViewProjection);
-	mat4 projection = viewer()->projectionTransform();
+	mat4 viewMatrix = viewer()->viewTransform();
+	mat4 inverseViewMatrix = inverse(viewMatrix);
+	mat4 modelViewMatrix = viewer()->modelViewTransform();
+	mat4 inverseModelViewMatrix = inverse(modelViewMatrix);
+	mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
+	mat4 inverseModelViewProjectionMatrix = inverse(modelViewProjectionMatrix);
+	mat4 projectionMatrix = viewer()->projectionTransform();
+	mat4 inverseProjectionMatrix = inverse(projectionMatrix);
+	mat3 normalMatrix = mat3(transpose(inverseModelViewMatrix));
+	mat3 inverseNormalMatrix = inverse(normalMatrix);
 	
-	vec4 projectionInfo(float(-2.0 / (viewportSize.x * projection[0][0])),
-		float(-2.0 / (viewportSize.y * projection[1][1])),
-		float((1.0 - (double)projection[0][2]) / projection[0][0]),
-		float((1.0 + (double)projection[1][2]) / projection[1][1]));
+	vec4 projectionInfo(float(-2.0 / (viewportSize.x * projectionMatrix[0][0])),
+		float(-2.0 / (viewportSize.y * projectionMatrix[1][1])),
+		float((1.0 - (double)projectionMatrix[0][2]) / projectionMatrix[0][0]),
+		float((1.0 + (double)projectionMatrix[1][2]) / projectionMatrix[1][1]));
 
-	float projectionScale = float(viewportSize.y) / fabs(2.0f / projection[1][1]);
-	//std::cout << "projectionScale " << projectionScale << std::endl;
-
+	float projectionScale = float(viewportSize.y) / fabs(2.0f / projectionMatrix[1][1]);
 
 
 	const float contributingAtoms = 32.0f;
@@ -449,12 +450,18 @@ void SphereRenderer::display()
 	if (coloring > 0)
 		defines += "#define COLORING\n";
 
+	if (ambientOcclusion)
+		defines += "#define AMBIENT\n";
+
+	if (environmentMapping)
+		defines += "#define ENVIRONMENT\n";
+
 	if (defines != m_shaderSourceDefines->string())
 	{
 		m_shaderSourceDefines->setString(defines);
-		m_vertexShaderSourceSphere->reload();
-		m_fragmentShaderSourceShade->reload();
-		//std::cout << m_fragmentShaderShade->source()->string() << std::endl;
+
+		for (auto& s : shaderFiles())
+			s->reload();
 	}
 
 	auto vertexBinding = m_vao->binding(0);
@@ -480,10 +487,10 @@ void SphereRenderer::display()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
-	m_programSphere->setUniform("projection", viewer()->projectionTransform());
-	m_programSphere->setUniform("modelView", viewer()->modelViewTransform());
-	m_programSphere->setUniform("modelViewProjection", modelViewProjection);
-	m_programSphere->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	m_programSphere->setUniform("modelViewMatrix", modelViewMatrix);
+	m_programSphere->setUniform("projectionMatrix", projectionMatrix);
+	m_programSphere->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	m_programSphere->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 	m_programSphere->setUniform("radiusScale", 1.0f);
 	m_programSphere->setUniform("animationDelta", animationDelta);
 	m_programSphere->setUniform("animationTime", animationTime);
@@ -516,10 +523,10 @@ void SphereRenderer::display()
 	m_residueColors->bindBase(GL_UNIFORM_BUFFER, 1);
 	m_chainColors->bindBase(GL_UNIFORM_BUFFER, 2);
 	
-	m_programSpawn->setUniform("projection", viewer()->projectionTransform());
-	m_programSpawn->setUniform("modelView", viewer()->modelViewTransform());
-	m_programSpawn->setUniform("modelViewProjection", modelViewProjection);
-	m_programSpawn->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	m_programSpawn->setUniform("modelViewMatrix", modelViewMatrix);
+	m_programSpawn->setUniform("projectionMatrix", projectionMatrix);
+	m_programSpawn->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	m_programSpawn->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 	m_programSpawn->setUniform("radiusScale", radiusScale);
 	m_programSpawn->setUniform("animationDelta", animationDelta);
 	m_programSpawn->setUniform("animationTime", animationTime);
@@ -587,12 +594,11 @@ void SphereRenderer::display()
 */	
 	//std::cout << xpos << "," << ypos << ":" << to_string(lightPosition) << std::endl << std::endl;
 
-	m_programShade->setUniform("modelView", viewer()->modelViewTransform());
-	m_programShade->setUniform("projection", viewer()->projectionTransform());
-	m_programShade->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
-	m_programShade->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
-	m_programShade->setUniform("inverseModelViewProjection", inverseModelViewProjection);
-	m_programShade->setUniform("normalMatrix", mat3(transpose(inverse(viewer()->modelViewTransform()))));
+	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
+	m_programShade->setUniform("projectionMatrix", projectionMatrix);
+	m_programShade->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	m_programShade->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
+	m_programShade->setUniform("normalMatrix", normalMatrix);
 	m_programShade->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
@@ -636,11 +642,6 @@ void SphereRenderer::display()
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 		m_ambientFramebuffer->bind();
 
-		m_programAOSample->setUniform("modelView", viewer()->modelViewTransform());
-		m_programAOSample->setUniform("projection", viewer()->projectionTransform());
-		m_programAOSample->setUniform("inverseProjection", inverse(viewer()->projectionTransform()));
-		m_programAOSample->setUniform("modelViewProjection", viewer()->modelViewProjectionTransform());
-		m_programAOSample->setUniform("inverseModelViewProjection", inverseModelViewProjection);
 		m_programAOSample->setUniform("projectionInfo", projectionInfo);
 		m_programAOSample->setUniform("projectionScale", projectionScale);
 		m_programAOSample->setUniform("surfaceNormalTexture", 0);
@@ -708,7 +709,18 @@ void SphereRenderer::display()
 	m_environmentTexture->bindActive(7);
 	m_depthTexture->bindActive(8);
 
-	m_programBlend->setUniform("inverseModelViewProjection", inverseModelViewProjection);
+	m_programBlend->setUniform("modelViewMatrix", modelViewMatrix);
+	m_programBlend->setUniform("projectionMatrix", projectionMatrix);
+	m_programBlend->setUniform("modelViewProjection", modelViewProjectionMatrix);
+	m_programBlend->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
+	m_programBlend->setUniform("normalMatrix", normalMatrix);
+	m_programBlend->setUniform("inverseNormalMatrix", inverseNormalMatrix);
+	m_programBlend->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
+	m_programBlend->setUniform("ambientMaterial", ambientMaterial);
+	m_programBlend->setUniform("diffuseMaterial", diffuseMaterial);
+	m_programBlend->setUniform("specularMaterial", specularMaterial);
+	m_programBlend->setUniform("shininess", shininess);
+
 	m_programBlend->setUniform("spherePositionTexture", 0);
 	m_programBlend->setUniform("sphereNormalTexture", 1);
 	m_programBlend->setUniform("sphereDiffuseTexture", 2);

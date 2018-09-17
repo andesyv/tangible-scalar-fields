@@ -12,11 +12,6 @@ out vec4 fragAmbient;
 
 uniform sampler2D surfaceNormalTexture;
 
-uniform mat4 modelView;
-uniform mat4 projection;
-uniform mat4 inverseProjection;
-uniform mat4 modelViewProjection;
-uniform mat4 inverseModelViewProjection;
 uniform vec4 projectionInfo;
 uniform float projectionScale;
 

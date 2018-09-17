@@ -1,8 +1,21 @@
 #version 450
+#include "/defines.glsl"
+#include "/globals.glsl"
 
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-uniform mat4 inverseModelViewProjection;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewProjectionMatrix;
+uniform mat4 inverseModelViewProjectionMatrix;
+uniform mat3 normalMatrix;
+uniform mat3 inverseNormalMatrix;
+
+uniform vec3 lightPosition;
+uniform vec3 diffuseMaterial;
+uniform vec3 ambientMaterial;
+uniform vec3 specularMaterial;
+uniform float shininess;
 
 uniform sampler2D spherePositionTexture;
 uniform sampler2D sphereNormalTexture;
@@ -34,6 +47,17 @@ vec4 over(vec4 vecF, vec4 vecB)
 
 void main()
 {
+	vec4 fragCoord = gFragmentPosition;
+	fragCoord /= fragCoord.w;
+	
+	vec4 near = inverseModelViewProjectionMatrix*vec4(fragCoord.xy,-1.0,1.0);
+	near /= near.w;
+
+	vec4 far = inverseModelViewProjectionMatrix*vec4(fragCoord.xy,1.0,1.0);
+	far /= far.w;
+
+	vec3 V = normalize(far.xyz-near.xyz);
+
 	vec4 spherePosition = texelFetch(spherePositionTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 sphereNormal = texelFetch(sphereNormalTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 sphereDiffuse = texelFetch(sphereDiffuseTexture,ivec2(gl_FragCoord.xy),0);
@@ -42,7 +66,12 @@ void main()
 	vec4 surfaceNormal = texelFetch(surfaceNormalTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 surfaceDiffuse = texelFetch(surfaceDiffuseTexture,ivec2(gl_FragCoord.xy),0);
 
-	vec4 ambient = texelFetch(ambientTexture,ivec2(gl_FragCoord.xy),0);
+	vec4 ambient = vec4(1.0,1.0,1.0,1.0);
+
+#ifdef AMBIENT
+	ambient = texelFetch(ambientTexture,ivec2(gl_FragCoord.xy),0);
+#endif
+
 	float depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0).x;
 	/*
 	if (environment)
@@ -64,6 +93,20 @@ void main()
 		color += environmentColor;
 	}*/
 
+	vec3 ambientColor = ambientMaterial*ambient.rgb;
+	vec3 diffuseColor = surfaceDiffuse.rgb*diffuseMaterial*ambient.rgb;
+	vec3 specularColor = specularMaterial*ambient.rgb;
+
+	vec3 N = normalize(inverseNormalMatrix*surfaceNormal.xyz);
+	vec3 L = normalize(lightPosition-surfacePosition.xyz);
+	vec3 R = normalize(reflect(L, N));
+	float NdotL = max(0.0,dot(N, L));
+	float RdotV = max(0.0,dot(R, V));
+	
+	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);	
+
+	vec3 color = ambientColor + NdotL * diffuseColor + pow(RdotV,shininess) * specularColor;
+	/*
 	vec4 surfaceColor = surfaceDiffuse;
 	
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
@@ -71,12 +114,12 @@ void main()
 	
 	surfaceColor.rgb *= ambient.rrr;
 
+
 	surfaceColor.rgb *= surfaceColor.a;
+	*/
 
-	vec4 finalColor;
-	finalColor = surfaceColor;//over(surfaceColor,sphereDiffuse);
+	//color *= ambient.rrr;
 
-
-	fragColor = finalColor;
+	fragColor = vec4(color,surfaceDiffuse.a);
 	gl_FragDepth = depth;
 }

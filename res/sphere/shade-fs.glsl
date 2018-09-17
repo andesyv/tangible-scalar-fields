@@ -5,11 +5,10 @@
 
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-uniform mat4 modelView;
-uniform mat4 projection;
-uniform mat4 inverseProjection;
-uniform mat4 modelViewProjection;
-uniform mat4 inverseModelViewProjection;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewProjectionMatrix;
+uniform mat4 inverseModelViewProjectionMatrix;
 uniform mat3 normalMatrix;
 uniform float sharpness;
 uniform uint coloring;
@@ -156,7 +155,7 @@ float calcDepth(vec3 pos)
 {
 	float far = gl_DepthRange.far; 
 	float near = gl_DepthRange.near;
-	vec4 clip_space_pos = modelViewProjection * vec4(pos, 1.0);
+	vec4 clip_space_pos = modelViewProjectionMatrix * vec4(pos, 1.0);
 	float ndc_depth = clip_space_pos.z / clip_space_pos.w;
 	return (((far - near) * ndc_depth) + near + far) / 2.0;
 }
@@ -408,10 +407,10 @@ void main()
 	vec4 fragCoord = gFragmentPosition;
 	fragCoord /= fragCoord.w;
 	
-	vec4 near = inverseModelViewProjection*vec4(fragCoord.xy,-1.0,1.0);
+	vec4 near = inverseModelViewProjectionMatrix*vec4(fragCoord.xy,-1.0,1.0);
 	near /= near.w;
 
-	vec4 far = inverseModelViewProjection*vec4(fragCoord.xy,1.0,1.0);
+	vec4 far = inverseModelViewProjectionMatrix*vec4(fragCoord.xy,1.0,1.0);
 	far /= far.w;
 
 	vec3 V = normalize(far.xyz-near.xyz);
@@ -732,24 +731,24 @@ void main()
 	if (closestPosition.w >= 65535.0f)
 		discard;
 	//diffuseColor =+ vec3(0.25)*focusFactor;
-
+	/*
 	diffuseColor *= diffuseMaterial;
-
 	vec4 colorSurface = shade(ambientColor,diffuseColor,specularColor,shininess,closestPosition.xyz,closestNormal.xyz,lightPosition.xyz,V.xyz);
 	vec4 colorSphere = shade(ambientColor,diffuseSphereColor,specularColor,shininess,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
+	*/
 	//vec4 colorSphere = shade(diffuseColor,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
 	//	colorSurface.a = min(1.0,0.5*length(closestPosition.xyz-position.xyz));
 
 	/*
-	vec3 cameraNormal = modelView * vec4(closestNormal.xyz,0.0);
+	vec3 cameraNormal = modelViewMatrix * vec4(closestNormal.xyz,0.0);
 	vec2 materialUV = 0.5*(closestNormal.xy+1.0);
 	colorSurface = texture(materialTexture,materialUV);
 	*/
 
-	vec3 vU = normalize( vec3( modelView * vec4( closestPosition.xyz, 1.0 ) ) );
+	vec3 vU = normalize( vec3( modelViewMatrix * vec4( closestPosition.xyz, 1.0 ) ) );
 
 	vec3 n = normalize( normalMatrix * closestNormal.xyz );
-	//vec3 n = normalize( vec3( modelView * vec4(closestNormal.xyz,0.0) ) );
+	//vec3 n = normalize( vec3( modelViewMatrix * vec4(closestNormal.xyz,0.0) ) );
 
 	vec3 r = reflect( vU, n );
 	float m = 2.0 * sqrt( r.x * r.x + r.y * r.y + ( r.z + 1.0 ) * ( r.z+1.0 ) );
@@ -772,14 +771,14 @@ void main()
 	*/
 
 
-	vec4 color = colorSurface;
+	//vec4 color = colorSurface;
 	//color.rgb = vec3(float(entryCount)/32.0);
 
 	//color.r -= (float(entryCount)/16.0);
 	//color.a = 1.0;
 
 
-	vec4 cp = modelView*vec4(closestPosition.xyz, 1.0);
+	vec4 cp = modelViewMatrix*vec4(closestPosition.xyz, 1.0);
 	cp = cp / cp.w;
 //	float dist = length(cp);
 
@@ -789,8 +788,8 @@ void main()
 	closestNormal.xyz = normalize(closestNormal.xyz);
 	surfaceNormal = vec4(closestNormal.xyz,cp.z);
 
-	surfaceDiffuse = vec4(min(vec4(1.0),color)); 
-	sphereDiffuse = colorSphere;
+	surfaceDiffuse = vec4(diffuseColor,1.0);
+	sphereDiffuse = vec4(diffuseSphereColor,1.0);
 	gl_FragDepth = calcDepth(closestPosition.xyz);
 
 #ifdef STATISTICS

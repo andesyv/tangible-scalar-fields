@@ -1,7 +1,7 @@
 #version 450
 
-uniform mat4 modelViewProjection;
-uniform mat4 inverseModelViewProjection;
+uniform mat4 modelViewProjectionMatrix;
+uniform mat4 inverseModelViewProjectionMatrix;
 
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
@@ -45,7 +45,7 @@ float calcDepth(vec3 pos)
 {
 	float far = gl_DepthRange.far; 
 	float near = gl_DepthRange.near;
-	vec4 clip_space_pos = modelViewProjection * vec4(pos, 1.0);
+	vec4 clip_space_pos = modelViewProjectionMatrix * vec4(pos, 1.0);
 	float ndc_depth = clip_space_pos.z / clip_space_pos.w;
 	return (((far - near) * ndc_depth) + near + far) / 2.0;
 }
@@ -56,10 +56,10 @@ void main()
 	vec4 fragCoord = gFragmentPosition;
 	fragCoord /= fragCoord.w;
 	
-	vec4 near = inverseModelViewProjection*vec4(fragCoord.xy,-1.0,1.0);
+	vec4 near = inverseModelViewProjectionMatrix*vec4(fragCoord.xy,-1.0,1.0);
 	near /= near.w;
 
-	vec4 far = inverseModelViewProjection*vec4(fragCoord.xy,1.0,1.0);
+	vec4 far = inverseModelViewProjectionMatrix*vec4(fragCoord.xy,1.0,1.0);
 	far /= far.w;
 
 	vec3 V = normalize(far.xyz-near.xyz);	
