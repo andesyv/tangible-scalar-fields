@@ -179,7 +179,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
 	m_environmentTexture = Texture::create(GL_TEXTURE_2D);
-	m_environmentTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_environmentTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	m_environmentTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
 	m_environmentTexture->setParameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -194,7 +194,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	else
 	{
 		m_environmentTexture->image2D(0, GL_RGBA, environmentWidth, environmentHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&environmentImage.front());
-		//glGenerateMipmap(GL_TEXTURE_2D);
+		m_environmentTexture->generateMipmap();
 	}
 
 
