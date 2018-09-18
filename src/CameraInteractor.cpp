@@ -150,28 +150,30 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 	if (m_rotating)
 	{
-		if (m_xCurrent != m_xPrevious && m_yCurrent != m_yPrevious)
+		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
 		{
 			vec3 va = arcballVector(m_xPrevious, m_yPrevious);
 			vec3 vb = arcballVector(m_xCurrent, m_yCurrent);
-			float angle = acos(min(1.0f, dot(va, vb)));
-			vec3 axis = cross(va, vb);
 
-			mat4 viewTransform = viewer()->viewTransform();
-			mat4 inverseViewTransform = inverse(viewTransform);
-			vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
+			if (va != vb)
+			{
+				float angle = acos(max(-1.0f, min(1.0f, dot(va, vb))));
+				vec3 axis = cross(va, vb);
 
-			mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
-			viewer()->setViewTransform(newViewTransform);
+				mat4 viewTransform = viewer()->viewTransform();
+				mat4 inverseViewTransform = inverse(viewTransform);
+				vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
 
-			m_xPrevious = m_xCurrent;
-			m_yPrevious = m_yCurrent;
+				mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
+				viewer()->setViewTransform(newViewTransform);
+			}
 		}
+
 	}
 
 	if (m_scaling)
 	{
-		if (m_xCurrent != m_xPrevious && m_yCurrent != m_yPrevious)
+		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
 		{
 			ivec2 viewportSize = viewer()->viewportSize();
 			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
@@ -183,25 +185,22 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 			if (l > 0.0f)
 			{
-				s += std::min(0.5f, 2.0f*length(d));
+				s += std::min(0.5f, length(d));
 			}
 			else
 			{
-				s -= std::min(0.5f, 2.0f*length(d));
+				s -= std::min(0.5f, length(d));
 			}
 
 			mat4 viewTransform = viewer()->viewTransform();
 			mat4 newViewTransform = scale(viewTransform, vec3(s, s, s));
 			viewer()->setViewTransform(newViewTransform);
-
-			m_xPrevious = m_xCurrent;
-			m_yPrevious = m_yCurrent;
 		}
 	}
 
 	if (m_panning)
 	{
-		if (m_xCurrent != m_xPrevious && m_yCurrent != m_yPrevious)
+		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
 		{
 			ivec2 viewportSize = viewer()->viewportSize();
 			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
@@ -209,17 +208,24 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			vec2 d = vb - va;
 
 			mat4 viewTransform = viewer()->viewTransform();
-			mat4 newViewTransform = translate(mat4(1.0),vec3(2.0f*d.x,2.0f*d.y,0.0f))*viewTransform;
+			mat4 newViewTransform = translate(mat4(1.0),vec3(d.x,d.y,0.0f))*viewTransform;
 			viewer()->setViewTransform(newViewTransform);
-
-			m_xPrevious = m_xCurrent;
-			m_yPrevious = m_yCurrent;
 		}
 	}
+
+	const double smoothness = 0.33;
+
+	if (m_xCurrent != m_xPrevious)
+		m_xPrevious = m_xPrevious + (m_xCurrent - m_xPrevious)*smoothness;
+
+	if (m_yCurrent != m_yPrevious)
+		m_yPrevious = m_yPrevious + (m_yCurrent - m_yPrevious)*smoothness;
 }
 
 void CameraInteractor::display()
 {
+	CameraInteractor::cursorPosEvent(m_xCurrent, m_yCurrent);
+
 	if (ImGui::BeginMenu("Camera"))
 	{
 		static int projection = 0;
