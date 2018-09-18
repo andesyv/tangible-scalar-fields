@@ -36,6 +36,9 @@ void main()
 	vec4 p0 = modelViewMatrix * vec4(gl_in[0].gl_Position.xyz,1.0);
 	vec4 p1 = modelViewMatrix * (vec4(gl_in[0].gl_Position.xyz,1.0)+vec4(sphereRadius,0.0,0.0,0.0));	
 	float radius = length(p1.xyz-p0.xyz);
+	
+	if (p0.z > -0.5)
+		return;
 
 	vec3 up = vec3(0.0, 1.0, 0.0) * radius*sqrt(2.0);//*0.5*sqrt(2.0);//*sqrt(3.0)*0.5;
 	vec3 right = vec3(1.0, 0.0, 0.0) * radius*sqrt(2.0);//*0.5*sqrt(2.0);//*sqrt(3.0)*0.5;
