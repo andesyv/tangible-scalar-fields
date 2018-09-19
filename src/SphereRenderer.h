@@ -121,6 +121,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_blendFramebuffer = nullptr;
 
 		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
+		std::vector< std::unique_ptr<globjects::Texture> > m_bumpTextures;
 		std::unique_ptr<SSAO> m_ssao = nullptr;
 
 		glm::ivec2 m_framebufferSize;

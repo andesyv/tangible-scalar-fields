@@ -23,9 +23,10 @@ uniform sampler2D sphereDiffuseTexture;
 uniform sampler2D surfacePositionTexture;
 uniform sampler2D surfaceNormalTexture;
 uniform sampler2D surfaceDiffuseTexture;
-uniform sampler2D ambientTexture;
-uniform sampler2D environmentTexture;
 uniform sampler2D depthTexture;
+uniform sampler2D ambientTexture;
+uniform sampler2D materialTexture;
+uniform sampler2D environmentTexture;
 uniform bool environment;
 
 in vec4 gFragmentPosition;
@@ -66,6 +67,9 @@ void main()
 	vec4 surfaceNormal = texelFetch(surfaceNormalTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 surfaceDiffuse = texelFetch(surfaceDiffuseTexture,ivec2(gl_FragCoord.xy),0);
 
+	if (spherePosition.w >= 65535.0)
+		surfaceDiffuse.a = 0.0;
+
 	vec4 backgroundColor = vec4(0.0,0.0,0.0,1.0);
 
 #ifdef ENVIRONMENT
@@ -100,7 +104,27 @@ void main()
 	environmentColor = textureGrad(environmentTexture,latlong(N.xyz),vec2(width,0.0),vec2(0.0,width));
 #endif
 
-	vec3 color = ambientColor*environmentColor.rgb + NdotL * diffuseColor + pow(RdotV,shininess) * specularColor;
+	vec3 vOPosition = vec3(modelViewMatrix * vec4( surfacePosition.xyz, 1.0 ));
+    vec3 vU = normalize( vec3( modelViewMatrix * vec4( surfacePosition.xyz, 1.0 ) ) );
+
+    vec3 r = reflect( normalize( vU ), normalize( surfaceNormal.xyz ) );
+    float m = 2.0 * sqrt( r.x * r.x + r.y * r.y + ( r.z + 1.0 ) * ( r.z + 1.0 ) );
+    vec2 calculatedNormal = vec2( r.x / m + 0.5,  r.y / m + 0.5 );
+
+    vec3 base = texture2D( materialTexture , calculatedNormal ).rgb;
+	base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
+	/*
+	float useSSS = 0.5;
+	float rim = 1.75 * max( 0., abs( dot( normalize( surfaceNormal.xyz ), normalize( -vOPosition.xyz ) ) ) );
+	base += useSSS * vec3(0.2) * ( 1. - .75 * rim );
+	base += ( 1. - useSSS ) * 10. * base * vec3(0.2) * clamp( 1. - rim, 0., .15 );
+	*/
+	//base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
+	vec3 color = ambientColor*environmentColor.rgb + diffuseColor*base /*NdotL * diffuseColor*/;// + pow(RdotV,shininess) * specularColor;
+	
+	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
+		color.rgb += 0.25*vec3(min(1.0,0.5+0.5*abs(spherePosition.w-surfacePosition.w))).r;
+	
 	/*
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
 		color.rgb += 0.25*vec3(min(1.0,0.5+0.25*abs(spherePosition.w-surfacePosition.w)));
@@ -109,7 +133,7 @@ void main()
 	vec4 surfaceColor = surfaceDiffuse;
 	
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
-		surfaceColor.rgb += 0.5*vec3(min(1.0,0.75+0.25*abs(spherePosition.w-surfacePosition.w)));
+		color.rgb += 0.5*vec3(min(1.0,0.75+0.25*abs(spherePosition.w-surfacePosition.w)));
 	
 	surfaceColor.rgb *= ambient.rrr;
 

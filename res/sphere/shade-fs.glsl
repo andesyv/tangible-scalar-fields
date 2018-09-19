@@ -25,7 +25,7 @@ uniform vec2 focusPosition;
 uniform sampler2D positionTexture;
 uniform sampler2D normalTexture;
 uniform sampler2D environmentTexture;
-uniform sampler2D materialTexture;
+uniform sampler2D bumpTexture;
 uniform usampler2D offsetTexture;
 
 in vec4 gFragmentPosition;
@@ -354,6 +354,31 @@ vec4 shade(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, float shini
 	return vec4(color,1.0);
 }
 
+mat3 cotangentFrame(vec3 N, vec3 p, vec2 uv)
+{
+  // get edge vectors of the pixel triangle
+  vec3 dp1 = dFdx(p);
+  vec3 dp2 = dFdy(p);
+  vec2 duv1 = dFdx(uv);
+  vec2 duv2 = dFdy(uv);
+
+  // solve the linear system
+  vec3 dp2perp = cross(dp2, N);
+  vec3 dp1perp = cross(N, dp1);
+  vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+  vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+
+  // construct a scale-invariant frame 
+  float invmax = 1.0 / sqrt(max(dot(T,T), dot(B,B)));
+  return mat3(normalize(T * invmax), normalize(B * invmax), N);
+}
+
+vec3 perturb(vec3 map, vec3 N, vec3 V, vec2 texcoord)
+{
+  mat3 TBN = cotangentFrame(N, -V, texcoord);
+  return normalize(TBN * map);
+}
+
 #define MAGIC_ANGLE 0.868734829276 // radians
 
 const float warp_theta = MAGIC_ANGLE;
@@ -390,6 +415,32 @@ void posToGrid(in float N, in vec3 pos, out mat3 PT, out vec2 g) {
     // Map [-1,1] interval to [0,N] interval
     g = (q*0.5 + 0.5)*N;
     
+}
+
+vec2 warp(vec2 x)
+{
+	return atan(fract(x) * 1.18228668555) * 1.151099238;
+}
+
+vec3 PerturbNormal  (vec3 surf_pos, vec3 surf_norm, float height)
+{
+	vec3 vSigmaS = dFdx(surf_pos);
+	vec3 vSigmaT = dFdy(surf_pos);
+	vec3 vN = surf_norm;//normalized
+	vec3 vR1 = cross(vSigmaT,vN);
+	vec3 vR2 = cross(vN,vSigmaS);
+	float fDet = dot(vSigmaS,vR1);
+	float dBs = dFdxFine(height);
+	float dBt = dFdyFine(height);
+	vec3 vSurfGrad = sign(fDet)*(dBs*vR1+dBt*vR2);
+	return normalize(abs(fDet)*vN-vSurfGrad);
+}
+
+vec3 rnmBlendUnpacked(vec3 n1, vec3 n2)
+{
+    n1 += vec3( 0,  0, 1);
+    n2 *= vec3(-1, -1, 1);
+    return n1*dot(n1, n2)/n1.z - n2;
 }
 
 void main()
@@ -730,57 +781,67 @@ void main()
 
 	if (closestPosition.w >= 65535.0f)
 		discard;
-	//diffuseColor =+ vec3(0.25)*focusFactor;
-	/*
-	diffuseColor *= diffuseMaterial;
-	vec4 colorSurface = shade(ambientColor,diffuseColor,specularColor,shininess,closestPosition.xyz,closestNormal.xyz,lightPosition.xyz,V.xyz);
-	vec4 colorSphere = shade(ambientColor,diffuseSphereColor,specularColor,shininess,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
-	*/
-	//vec4 colorSphere = shade(diffuseColor,position.xyz,normal.xyz,lightPosition.xyz,V.xyz);
-	//	colorSurface.a = min(1.0,0.5*length(closestPosition.xyz-position.xyz));
-
-	/*
-	vec3 cameraNormal = modelViewMatrix * vec4(closestNormal.xyz,0.0);
-	vec2 materialUV = 0.5*(closestNormal.xy+1.0);
-	colorSurface = texture(materialTexture,materialUV);
-	*/
-
-	vec3 vU = normalize( vec3( modelViewMatrix * vec4( closestPosition.xyz, 1.0 ) ) );
-
-	vec3 n = normalize( normalMatrix * closestNormal.xyz );
-	//vec3 n = normalize( vec3( modelViewMatrix * vec4(closestNormal.xyz,0.0) ) );
-
-	vec3 r = reflect( vU, n );
-	float m = 2.0 * sqrt( r.x * r.x + r.y * r.y + ( r.z + 1.0 ) * ( r.z+1.0 ) );
-	vec2 vN = vec2( r.x / m + 0.5,  r.y / m + 0.5 );
+		
+	vec3 N = normalize(closestNormal);
 	
-	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);
+	vec3 blend = abs(normal.xyz);
+	blend /= blend.x + blend.y + blend.z;
+	
+	// https://medium.com/@bgolus/normal-mapping-for-a-triplanar-shader-10bf39dca05a
 	/*
-	if (environment)
-	{
-		vec3 N = normalize(closestNormal.xyz);
-		vec3 L = normalize(lightPosition.xyz.xyz-closestPosition.xyz);
-		vec3 R = normalize(reflect(L, N));
+	vec3 blend = abs(normal.xyz);
+	blend = max(blend - vec3(0.2), vec3(0));
+	blend /= dot(blend, vec3(1,1,1));*/
+	
 
-		vec2 uv = latlong(R);
-		environmentColor = texture(environmentTexture,uv);
-	}*/
-	/*colorSurface.rgb = texture(materialTexture,vN).rgb*0.75*environmentColor.rgb;
-	colorSurface.rgb += diffuseColor;
-	colorSurface.a = 1.0;
-	*/
+	vec2 uvX = warp(closestPosition.zy*0.5);
+	vec2 uvY = warp(closestPosition.xz*0.5);
+	vec2 uvZ = warp(closestPosition.xy*0.5);
 
 
-	//vec4 color = colorSurface;
-	//color.rgb = vec3(float(entryCount)/32.0);
+	vec3 normalX = 2.0*texture(bumpTexture,uvX).xyz - 1.0;
+	vec3 normalY = 2.0*texture(bumpTexture,uvY).xyz - 1.0;
+	vec3 normalZ = 2.0*texture(bumpTexture,uvZ).xyz - 1.0;
 
-	//color.r -= (float(entryCount)/16.0);
-	//color.a = 1.0;
+	normalX = vec3(0.0, normalX.yx);
+	normalY = vec3(normalY.x, 0.0, normalY.y);
+	normalZ = vec3(normalZ.xy, 0.0);
+
+	// Swizzle world normals into tangent space and apply Whiteout blend
+/*
+	normalX = vec3(normalX.xy + N.zy,abs(normalX.z) * N.x );
+	normalY = vec3(normalY.xy + N.xz,abs(normalY.z) * N.y);
+	normalZ = vec3(normalZ.xy + N.xy,abs(normalZ.z) * N.z);
+*/
+
+
+/*
+	// Get absolute value of normal to ensure positive tangent "z" for blend
+	vec3 absVertNormal = abs(N);
+	
+	// Swizzle world normals to match tangent space and apply RNM blend
+	normalX = rnmBlendUnpacked(vec3(N.zy, absVertNormal.x), normalX);
+	normalY = rnmBlendUnpacked(vec3(N.xz, absVertNormal.y), normalY);
+	normalZ = rnmBlendUnpacked(vec3(N.xy, absVertNormal.z), normalZ);
+
+	vec3 axisSign = sign(N);
+	
+	// Reapply sign to Z
+	normalX.z *= axisSign.x;
+	normalY.z *= axisSign.y;
+	normalZ.z *= axisSign.z;
+*/	
+	vec3 worldNormal = normalize(N + normalX.xyz * blend.x + normalY.xyz * blend.y + normalZ.xyz * blend.z);
+		
+ // Finally, blend the results of the 3 planar projections.
+
+
+	// Apply bump vector to vertex-interpolated normal vector.
+	closestNormal = worldNormal;
 
 
 	vec4 cp = modelViewMatrix*vec4(closestPosition.xyz, 1.0);
 	cp = cp / cp.w;
-//	float dist = length(cp);
 
 	surfacePosition = closestPosition;
 

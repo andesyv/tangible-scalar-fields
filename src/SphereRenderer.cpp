@@ -25,6 +25,24 @@ struct Statistics
 	uint maximumEntryCount = 0;
 };
 
+void flip(std::vector<unsigned char> & image, uint width, uint height)
+{
+	unsigned char *imagePtr = &image.front();
+
+	uint rows = height / 2; // Iterate only half the buffer to get a full flip
+	uint cols = width * 4;
+
+	std::vector<unsigned char> temp(cols);
+	unsigned char *tempPtr = &temp.front();
+
+	for (uint rowIndex = 0; rowIndex < rows; rowIndex++)
+	{
+		memcpy(tempPtr, imagePtr + rowIndex * cols, cols);
+		memcpy(imagePtr + rowIndex * cols, imagePtr + (height - rowIndex - 1) * cols, cols);
+		memcpy(imagePtr + (height - rowIndex - 1) * cols, tempPtr, cols);
+	}
+}
+
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
@@ -211,13 +229,15 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 			globjects::debug() << "Loading " << materialPath.string() << " ...";
 			uint error = lodepng::decode(materialImage, materialWidth, materialHeight, materialPath.string());
-
+			
 			if (error)
 			{
 				globjects::debug() << "Could not load " << materialPath.string() << "!";
 			}
 			else
 			{
+				flip(materialImage, materialWidth, materialHeight);
+
 				auto materialTexture = Texture::create(GL_TEXTURE_2D);
 				materialTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				materialTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -231,6 +251,36 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 		}
 	}
 
+	for (auto& d : std::filesystem::directory_iterator("./dat/bumps"))
+	{
+		std::filesystem::path bumpPath(d);
+
+		if (bumpPath.extension().string() == ".png")
+		{
+			std::vector<unsigned char> bumpImage;
+			uint bumpWidth, bumpHeight;
+
+			globjects::debug() << "Loading " << bumpPath.string() << " ...";
+			uint error = lodepng::decode(bumpImage, bumpWidth, bumpHeight, bumpPath.string());
+
+			if (error)
+			{
+				globjects::debug() << "Could not load " << bumpPath.string() << "!";
+			}
+			else
+			{
+				auto bumpTexture = Texture::create(GL_TEXTURE_2D);
+				bumpTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				bumpTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				bumpTexture->setParameter(GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+				bumpTexture->setParameter(GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+				bumpTexture->image2D(0, GL_RGBA, bumpWidth, bumpHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&bumpImage.front());
+				bumpTexture->generateMipmap();
+
+				m_bumpTextures.push_back(std::move(bumpTexture));
+			}
+		}
+	}
 
 	m_sphereFramebuffer = Framebuffer::create();
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
@@ -377,8 +427,32 @@ void SphereRenderer::display()
 
 			ImGui::ListBoxFooter();
 		}
+	}
 
-		//ImGui::EndCombo();
+	static uint bumpTextureIndex = 0;
+
+	if (ImGui::CollapsingHeader("Normals"))
+	{
+		if (ImGui::ListBoxHeader("Normal"))
+		{
+			for (uint i = 0; i < m_bumpTextures.size(); i++)
+			{
+				auto& texture = m_bumpTextures[i];
+				bool selected = (i == bumpTextureIndex);
+				ImGui::BeginGroup();
+				ImGui::PushID(i);
+
+				if (ImGui::Selectable("", &selected, 0, ImVec2(0.0f, 32.0f)))
+					bumpTextureIndex = i;
+
+				ImGui::SameLine();
+				ImGui::Image((ImTextureID)texture->id(), ImVec2(32.0f, 32.0f));
+				ImGui::PopID();
+				ImGui::EndGroup();
+			}
+
+			ImGui::ListBoxFooter();
+		}
 	}
 
 	if (ImGui::CollapsingHeader("Animation"))
@@ -569,7 +643,7 @@ void SphereRenderer::display()
 	m_sphereNormalTexture->bindActive(1);
 	m_offsetTexture->bindActive(3);
 	m_environmentTexture->bindActive(4);
-	m_materialTextures[materialTextureIndex]->bindActive(5);
+	m_bumpTextures[bumpTextureIndex]->bindActive(5);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
@@ -609,7 +683,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("normalTexture", 1);
 	m_programShade->setUniform("offsetTexture", 3);
 	m_programShade->setUniform("environmentTexture", 4);
-	m_programShade->setUniform("materialTexture", 5);
+	m_programShade->setUniform("bumpTexture", 5);
 	m_programShade->setUniform("sharpness", sharpness);
 	m_programShade->setUniform("coloring", uint(coloring));
 	m_programShade->setUniform("environment", environmentMapping);
@@ -625,7 +699,7 @@ void SphereRenderer::display()
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
-	m_materialTextures[materialTextureIndex]->bindActive(5);
+	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
 	m_environmentTexture->unbindActive(4);
 	m_offsetTexture->unbindActive(3);
 	m_sphereNormalTexture->unbindActive(1);
@@ -705,9 +779,10 @@ void SphereRenderer::display()
 	m_surfacePositionTexture->bindActive(3);
 	m_surfaceNormalTexture->bindActive(4);
 	m_surfaceDiffuseTexture->bindActive(5);
-	m_ambientTexture->bindActive(6);
-	m_environmentTexture->bindActive(7);
-	m_depthTexture->bindActive(8);
+	m_depthTexture->bindActive(6);
+	m_ambientTexture->bindActive(7);
+	m_materialTextures[materialTextureIndex]->bindActive(8);
+	m_environmentTexture->bindActive(9);
 
 	m_programBlend->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programBlend->setUniform("projectionMatrix", projectionMatrix);
@@ -729,9 +804,11 @@ void SphereRenderer::display()
 	m_programBlend->setUniform("surfaceNormalTexture", 4);
 	m_programBlend->setUniform("surfaceDiffuseTexture", 5);
 
-	m_programBlend->setUniform("ambientTexture", 6);
-	m_programBlend->setUniform("environmentTexture", 7);
-	m_programBlend->setUniform("depthTexture", 8);
+	m_programBlend->setUniform("depthTexture", 6);
+
+	m_programBlend->setUniform("ambientTexture", 7);
+	m_programBlend->setUniform("materialTexture", 8);
+	m_programBlend->setUniform("environmentTexture", 9);
 
 	m_programBlend->setUniform("environment", environmentMapping);
 	m_programBlend->use();
@@ -740,9 +817,10 @@ void SphereRenderer::display()
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();
 
-	m_depthTexture->unbindActive(8);
-	m_environmentTexture->unbindActive(7);
-	m_ambientTexture->unbindActive(6);
+	m_environmentTexture->unbindActive(9);
+	m_materialTextures[materialTextureIndex]->unbindActive(8);
+	m_ambientTexture->unbindActive(7);
+	m_depthTexture->unbindActive(6);
 	m_surfaceDiffuseTexture->unbindActive(5);
 	m_surfaceNormalTexture->unbindActive(4);
 	m_surfacePositionTexture->unbindActive(3);
