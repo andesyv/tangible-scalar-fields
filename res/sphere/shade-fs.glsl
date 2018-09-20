@@ -29,6 +29,11 @@ uniform sampler2D materialTexture;
 uniform sampler2D environmentTexture;
 uniform bool environment;
 
+uniform float maximumCoCRadius = 0.0;
+uniform float aparture = 0.0;
+uniform float focalDistance = 0.0;
+uniform float focalLength = 0.0;
+
 in vec4 gFragmentPosition;
 out vec4 fragColor;
 
@@ -66,8 +71,8 @@ void main()
 	vec4 surfacePosition = texelFetch(surfacePositionTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 surfaceNormal = texelFetch(surfaceNormalTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 surfaceDiffuse = texelFetch(surfaceDiffuseTexture,ivec2(gl_FragCoord.xy),0);
-
-	if (spherePosition.w >= 65535.0)
+	
+	if (surfaceDiffuse.a >= 65535.0)
 		surfaceDiffuse.a = 0.0;
 
 	vec4 backgroundColor = vec4(0.0,0.0,0.0,1.0);
@@ -103,7 +108,7 @@ void main()
 	float width = sqrt(ambient.r);
 	environmentColor = textureGrad(environmentTexture,latlong(N.xyz),vec2(width,0.0),vec2(0.0,width));
 #endif
-
+/*
 	vec3 vOPosition = vec3(modelViewMatrix * vec4( surfacePosition.xyz, 1.0 ));
     vec3 vU = normalize( vec3( modelViewMatrix * vec4( surfacePosition.xyz, 1.0 ) ) );
 
@@ -113,6 +118,7 @@ void main()
 
     vec3 base = texture2D( materialTexture , calculatedNormal ).rgb;
 	base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
+*/
 	/*
 	float useSSS = 0.5;
 	float rim = 1.75 * max( 0., abs( dot( normalize( surfaceNormal.xyz ), normalize( -vOPosition.xyz ) ) ) );
@@ -120,11 +126,11 @@ void main()
 	base += ( 1. - useSSS ) * 10. * base * vec3(0.2) * clamp( 1. - rim, 0., .15 );
 	*/
 	//base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
-	vec3 color = ambientColor*environmentColor.rgb + diffuseColor*base /*NdotL * diffuseColor*/;// + pow(RdotV,shininess) * specularColor;
-	
+	vec3 color = ambientColor + NdotL * diffuseColor + pow(RdotV,shininess) * specularColor;
+	/*
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
 		color.rgb += 0.25*vec3(min(1.0,0.5+0.5*abs(spherePosition.w-surfacePosition.w))).r;
-	
+	*/
 	/*
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
 		color.rgb += 0.25*vec3(min(1.0,0.5+0.25*abs(spherePosition.w-surfacePosition.w)));
@@ -144,6 +150,19 @@ void main()
 	//color *= ambient.rrr;
 	vec4 final = over(vec4(color,1.0)*surfaceDiffuse.a,backgroundColor);
 
+	vec4 cp = modelViewMatrix*vec4(surfacePosition.xyz, 1.0);
+	cp = cp / cp.w;
+	float dist = length(cp);
+
+	float coc = maximumCoCRadius * aparture * (focalLength * (focalDistance - dist)) / (dist * (focalDistance - focalLength));
+	coc = clamp( coc * 0.5 + 0.5, 0.0, 1.0 );
+
+	if (surfacePosition.w >= 65535.0)	
+		coc = 1.0;//maximumCoCRadius;
+
+	final.a = coc;
 	fragColor = final; 
-	gl_FragDepth = depth;
+
+
+	//gl_FragDepth = depth;
 }

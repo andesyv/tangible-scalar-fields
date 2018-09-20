@@ -47,10 +47,12 @@ namespace molumes
 		
 		std::unique_ptr<globjects::Program> m_programSphere = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSpawn = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programSurface = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOSample = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOBlur = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programBlend = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programDOFBlur = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programDOFBlend = std::make_unique<globjects::Program>();
 
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
@@ -98,6 +100,14 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
 
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceDOFBlur = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDOFBlur = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderDOFBlur = nullptr;
+
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceDOFBlend = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDOFBlend = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderDOFBlend = nullptr;
+
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
@@ -112,13 +122,17 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_surfaceDiffuseTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_ambientTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_blendTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
 
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_ambientFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_blurFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_blendFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_aoFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_aoBlurFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_dofFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_dofBlurFramebuffer = nullptr;
+
 
 		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
 		std::vector< std::unique_ptr<globjects::Texture> > m_bumpTextures;
