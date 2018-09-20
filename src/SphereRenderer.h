@@ -82,9 +82,9 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateSpawn = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderSpawn = nullptr;
 
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceShade = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceSurface = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateSurface = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderSurface = nullptr;
 
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceAOSample = nullptr;
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateAOSample = nullptr;
@@ -94,9 +94,9 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateAOBlur = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderAOBlur = nullptr;
 
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceBlend = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateBlend = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderBlend = nullptr;
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceShade = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
 
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
