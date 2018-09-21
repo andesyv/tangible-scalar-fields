@@ -72,7 +72,7 @@ void main()
 	vec4 surfaceNormal = texelFetch(surfaceNormalTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 surfaceDiffuse = texelFetch(surfaceDiffuseTexture,ivec2(gl_FragCoord.xy),0);
 	
-	if (surfaceDiffuse.a >= 65535.0)
+	if (surfacePosition.w >= 65535.0)	
 		surfaceDiffuse.a = 0.0;
 
 	vec4 backgroundColor = vec4(0.0,0.0,0.0,1.0);
@@ -127,10 +127,10 @@ void main()
 	*/
 	//base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
 	vec3 color = ambientColor + NdotL * diffuseColor + pow(RdotV,shininess) * specularColor;
-	/*
-	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
-		color.rgb += 0.25*vec3(min(1.0,0.5+0.5*abs(spherePosition.w-surfacePosition.w))).r;
-	*/
+	
+	//if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
+		color.rgb += 0.25*vec3(min(1.0,0.5+0.5*abs(surfacePosition.w-spherePosition.w))).r;
+	
 	/*
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
 		color.rgb += 0.25*vec3(min(1.0,0.5+0.25*abs(spherePosition.w-surfacePosition.w)));
@@ -158,7 +158,8 @@ void main()
 	coc = clamp( coc * 0.5 + 0.5, 0.0, 1.0 );
 
 	if (surfacePosition.w >= 65535.0)	
-		coc = 1.0;//maximumCoCRadius;
+		coc = 0.0;
+
 
 	final.a = coc;
 	fragColor = final; 
