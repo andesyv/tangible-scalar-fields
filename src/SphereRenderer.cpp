@@ -1,5 +1,6 @@
 #include "SphereRenderer.h"
 #include <globjects/base/File.h>
+#include <globjects/State.h>
 #include <iostream>
 #include <filesystem>
 #include <imgui.h>
@@ -308,6 +309,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
 	m_shadeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_shadeFramebuffer->printStatus();
 
 	m_aoBlurFramebuffer = Framebuffer::create();
@@ -363,6 +365,8 @@ std::list<globjects::File*> SphereRenderer::shaderFiles() const
 
 void SphereRenderer::display()
 {
+	auto currentState = State::currentState();
+
 	if (viewer()->viewportSize() != m_framebufferSize)
 	{
 		m_framebufferSize = viewer()->viewportSize();
@@ -834,10 +838,7 @@ void SphereRenderer::display()
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	m_shadeFramebuffer->bind();
-	glDepthFunc(GL_ALWAYS);
-
-	glClearColor(0.0, 0.0, 0.0, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glDepthMask(GL_FALSE);
 
 	m_spherePositionTexture->bindActive(0);
 	m_sphereNormalTexture->bindActive(1);
@@ -877,12 +878,12 @@ void SphereRenderer::display()
 	m_programShade->setUniform("environmentTexture", 9);
 
 	m_programShade->setUniform("environment", environmentMapping);
-
+	/*
 	std::cout << "maximumCoCRadius: " << maximumCoCRadius << std::endl;
 	std::cout << "aparture: " << aparture << std::endl;
 	std::cout << "focalDistance: " << focalDistance << std::endl;
 	std::cout << "focalLength: " << focalLength << std::endl << std::endl;
-
+	*/
 	m_programShade->setUniform("maximumCoCRadius", maximumCoCRadius);
 	m_programShade->setUniform("aparture", aparture);
 	m_programShade->setUniform("focalDistance", focalDistance);
@@ -914,8 +915,6 @@ void SphereRenderer::display()
 	if (depthOfField)
 	{
 		m_dofBlurFramebuffer->bind();
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glDepthFunc(GL_ALWAYS);
 
 		m_colorTexture->bindActive(0);
 		m_colorTexture->bindActive(1);
@@ -943,8 +942,6 @@ void SphereRenderer::display()
 		m_dofBlurFramebuffer->unbind();
 
 		m_dofFramebuffer->bind();
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glDepthFunc(GL_ALWAYS);
 
 		m_sphereNormalTexture->bindActive(0);
 		m_surfaceNormalTexture->bindActive(1);
@@ -964,8 +961,6 @@ void SphereRenderer::display()
 		m_dofFramebuffer->unbind();
 
 		m_shadeFramebuffer->bind();
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glDepthFunc(GL_ALWAYS);
 
 		m_colorTexture->bindActive(0);
 		m_sphereDiffuseTexture->bindActive(1);
@@ -991,7 +986,7 @@ void SphereRenderer::display()
 		m_shadeFramebuffer->unbind();
 	}
 	
-	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
 #ifdef STATISTICS
 	Statistics *s = (Statistics*) m_statisticsBuffer->map();	
@@ -1017,4 +1012,5 @@ void SphereRenderer::display()
 	ImGui::End();
 #endif	
 
+	currentState->apply();
 }

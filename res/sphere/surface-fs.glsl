@@ -555,7 +555,7 @@ void main()
 			indices[currentIndex] = temp;
 		}
 
-		if (startIndex <= currentIndex)
+		if (startIndex < currentIndex)
 		{
 			uint endIndex = currentIndex;
 
@@ -567,14 +567,14 @@ void main()
 				uint ii = indices[startIndex+1];
 				float nearDistance = intersections[ii].near;
 				float farDistance = intersections[indices[endIndex-1]].far;
-
+				/*
 				if (entryCount == 1)
 				{
 					nearDistance = intersections[indices[0]].near;
 					farDistance = intersections[indices[0]].far;
 					//fragColor = vec4(0.0,1.0,1.0,1.0);
 					//return;
-				}
+				}*/
 
 				float maximumDistance = (farDistance-nearDistance)+1.0;
 				float surfaceDistance = 1.0;
@@ -598,8 +598,8 @@ void main()
 				{    
 					currentPosition = rayOrigin + rayDirection*t;
 
-//					if (currentPosition.w > closestPosition.w)
-//						break;
+					if (currentPosition.w > closestPosition.w)
+						break;
 
 					float sumValue = 0.0;
 					vec3 sumNormal = vec3(0.0);

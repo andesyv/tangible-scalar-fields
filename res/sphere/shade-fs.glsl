@@ -1,4 +1,5 @@
 #version 450
+#extension GL_OES_standard_derivatives : enable
 #include "/defines.glsl"
 #include "/globals.glsl"
 
@@ -51,6 +52,15 @@ vec4 over(vec4 vecF, vec4 vecB)
 	return vecF + (1.0-vecF.a)*vecB;
 }
 
+float aastep(float threshold, float value) {
+  #ifdef GL_OES_standard_derivatives
+    float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
+    return smoothstep(threshold-afwidth, threshold+afwidth, value);
+  #else
+    return step(threshold, value);
+  #endif  
+}
+
 void main()
 {
 	vec4 fragCoord = gFragmentPosition;
@@ -74,6 +84,9 @@ void main()
 	
 	if (surfacePosition.w >= 65535.0)	
 		surfaceDiffuse.a = 0.0;
+
+//	surfaceDiffuse.a= aastep(0.0,surfaceDiffuse.a);//vec3(fw,0.0,0.0);
+
 
 	vec4 backgroundColor = vec4(0.0,0.0,0.0,1.0);
 
@@ -155,6 +168,7 @@ void main()
 	float dist = length(cp);
 
 	float coc = maximumCoCRadius * aparture * (focalLength * (focalDistance - dist)) / (dist * (focalDistance - focalLength));
+	//coc += fwidth(surfaceDiffuse.a);
 	coc = clamp( coc * 0.5 + 0.5, 0.0, 1.0 );
 
 	if (surfacePosition.w >= 65535.0)	
