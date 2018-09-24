@@ -34,8 +34,6 @@ out vec4 surfaceNormal;
 out vec4 surfaceDiffuse;
 out vec4 sphereDiffuse;
 
-const vec2 kCocReadScaleBias = vec2(2.0, -1.0);
-
 const float PI = 3.14159265359;
 
 struct Element
@@ -786,8 +784,10 @@ void main()
 		
 	vec3 N = normalize(closestNormal);
 	
-	vec3 blend = abs(normal.xyz);
-	blend /= blend.x + blend.y + blend.z;
+	vec3 blend = abs( N );
+	blend = normalize(max(blend, 0.00001)); // Force weights to sum to 1.0
+	float b = (blend.x + blend.y + blend.z);
+	blend /= vec3(b, b, b);	
 	
 	// https://medium.com/@bgolus/normal-mapping-for-a-triplanar-shader-10bf39dca05a
 	/*
@@ -795,11 +795,14 @@ void main()
 	blend = max(blend - vec3(0.2), vec3(0));
 	blend /= dot(blend, vec3(1,1,1));*/
 	
-
+/*
 	vec2 uvX = warp(closestPosition.zy*0.5);
 	vec2 uvY = warp(closestPosition.xz*0.5);
 	vec2 uvZ = warp(closestPosition.xy*0.5);
-
+*/
+	vec2 uvX = closestPosition.zy*0.5;
+	vec2 uvY = closestPosition.xz*0.5;
+	vec2 uvZ = closestPosition.xy*0.5;
 
 	vec3 normalX = 2.0*texture(bumpTexture,uvX).xyz - 1.0;
 	vec3 normalY = 2.0*texture(bumpTexture,uvY).xyz - 1.0;

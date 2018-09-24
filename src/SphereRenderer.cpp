@@ -538,6 +538,7 @@ void SphereRenderer::display()
 	float fieldOfView = 2.0f * atan(1.0f / projectionMatrix[1][1]);
 	//std::cout << "FOV :" << fieldOfView << std::endl;
 
+	static bool depthOfField = true;
 	static float focalDistance = 3.0f;
 	static float maximumCoCRadius = 9.0f;
 	static float farRadiusRescale = 1.0f;
@@ -550,6 +551,7 @@ void SphereRenderer::display()
 
 	if (ImGui::CollapsingHeader("Depth of Field"))
 	{
+		ImGui::Checkbox("Enabled", &depthOfField);
 
 		ImGui::SliderFloat("Focal Distance", &focalDistance, 0.1f, 35.0f);
 		ImGui::Combo("F-stop", &fStop_current, fStops, IM_ARRAYSIZE(fStops));
@@ -593,6 +595,9 @@ void SphereRenderer::display()
 
 	if (environmentMapping)
 		defines += "#define ENVIRONMENT\n";
+
+	if (depthOfField)
+		defines += "#define DEPTHOFFIELD\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
@@ -909,8 +914,6 @@ void SphereRenderer::display()
 	//glDisable(GL_BLEND);
 	m_programShade->release();
 	m_shadeFramebuffer->unbind();
-
-	bool depthOfField = true;
 
 	if (depthOfField)
 	{

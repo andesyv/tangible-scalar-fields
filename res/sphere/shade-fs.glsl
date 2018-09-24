@@ -163,9 +163,10 @@ void main()
 	//color *= ambient.rrr;
 	vec4 final = over(vec4(color,1.0)*surfaceDiffuse.a,backgroundColor);
 
+#ifdef DEPTHOFFIELD
 	vec4 cp = modelViewMatrix*vec4(surfacePosition.xyz, 1.0);
 	cp = cp / cp.w;
-	float dist = length(cp);
+	float dist = length(cp.xyz);
 
 	float coc = maximumCoCRadius * aparture * (focalLength * (focalDistance - dist)) / (dist * (focalDistance - focalLength));
 	//coc += fwidth(surfaceDiffuse.a);
@@ -174,8 +175,9 @@ void main()
 	if (surfacePosition.w >= 65535.0)	
 		coc = 0.0;
 
-
 	final.a = coc;
+#endif
+
 	fragColor = final; 
 
 
