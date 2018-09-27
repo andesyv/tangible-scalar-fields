@@ -11,11 +11,17 @@
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <glbinding/gl/gl.h>
+#include <glbinding/gl/enum.h>
+#include <glbinding/gl/functions.h>
 
 #include "Viewer.h"
 
 using namespace molumes;
 using namespace glm;
+using namespace gl;
 
 CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 {
@@ -236,6 +242,22 @@ void CameraInteractor::display()
 		}
 		ImGui::EndMenu();
 	}
+	/*
+	if (m_light)
+	{
+		glDepthFunc(GL_ALWAYS);
+		glMatrixMode(GL_PROJECTION);
+		glLoadMatrixf(value_ptr(viewer()->projectionTransform()));
+
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixf(value_ptr(viewer()->modelViewTransform()));
+
+		glColor4f(1.0, 1.0, 1.0, 1.0);
+		glPointSize(7.0);
+		glBegin(GL_POINTS);
+		glVertex3fv(value_ptr(viewer()->worldLightPosition()));
+		glEnd();
+	}*/
 }
 
 void CameraInteractor::resetProjectionTransform()

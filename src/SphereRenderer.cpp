@@ -282,8 +282,8 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 				auto bumpTexture = Texture::create(GL_TEXTURE_2D);
 				bumpTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 				bumpTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				bumpTexture->setParameter(GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-				bumpTexture->setParameter(GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+				bumpTexture->setParameter(GL_TEXTURE_WRAP_S, GL_REPEAT);
+				bumpTexture->setParameter(GL_TEXTURE_WRAP_T, GL_REPEAT);
 				bumpTexture->image2D(0, GL_RGBA, bumpWidth, bumpHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&bumpImage.front());
 				bumpTexture->generateMipmap();
 
@@ -436,6 +436,8 @@ void SphereRenderer::display()
 	static float shininess = 20.0f;
 
 	static float sharpness = 1.5f;
+	static float distanceBlending = 0.0f;
+	static float distanceScale = 1.0;
 	static bool ambientOcclusion = false;
 	static bool environmentMapping = false;
 	static int coloring = 0;
@@ -461,6 +463,8 @@ void SphereRenderer::display()
 	if (ImGui::CollapsingHeader("Surface"))
 	{
 		ImGui::SliderFloat("Sharpness", &sharpness, 0.5f, 16.0f);
+		ImGui::SliderFloat("Distance Blending", &distanceBlending, 0.0f, 1.0f);
+		ImGui::SliderFloat("Distance Scale", &distanceScale, 0.0f, 16.0f);
 		ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 		ImGui::Checkbox("Magic Lens", &lens);
 	}
@@ -878,6 +882,8 @@ void SphereRenderer::display()
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
 	m_programShade->setUniform("specularMaterial", specularMaterial);
+	m_programShade->setUniform("distanceBlending", distanceBlending);
+	m_programShade->setUniform("distanceScale", distanceScale);
 	m_programShade->setUniform("shininess", shininess);
 
 	m_programShade->setUniform("spherePositionTexture", 0);
@@ -1028,17 +1034,4 @@ void SphereRenderer::display()
 #endif	
 
 	currentState->apply();
-
-	glDepthFunc(GL_ALWAYS);
-	glMatrixMode(GL_PROJECTION);
-	glLoadMatrixf(value_ptr(projectionMatrix));
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf(value_ptr(modelViewMatrix));
-
-	glColor4f(1.0, 0.0, 0.0, 1.0);
-	glPointSize(3.0);
-	glBegin(GL_POINTS);
-	glVertex3fv(value_ptr(viewer()->worldLightPosition()));
-	glEnd();
 }

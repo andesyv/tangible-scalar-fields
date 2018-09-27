@@ -34,6 +34,9 @@ uniform float aparture = 0.0;
 uniform float focalDistance = 0.0;
 uniform float focalLength = 0.0;
 
+uniform float distanceBlending = 0.0;
+uniform float distanceScale = 1.0;
+
 in vec4 gFragmentPosition;
 out vec4 fragColor;
 
@@ -168,15 +171,18 @@ void main()
 	color = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
 	//color.rgb += vec3(0.125f * pow(1.0-min(ambient.w,1.0),2.0));
 
-	color.rgb += 0.25*vec3(min(1.0,0.5+0.25*abs(spherePosition.w-surfacePosition.w)));
+	//color.rgb += 0.25*vec3(min(1.0,pow(abs(spherePosition.w-surfacePosition.w),2.0)));
+	//color.rgb += 0.25*vec3(min(1.0,0.5+0.25*abs(spherePosition.w-surfacePosition.w)));
 	/*
-	float useSSS = 0.0;
+	float useSSS = 0.5;
 	float rim = 1.75 * NdotV;
 	color += useSSS * vec3(0.2) * ( 1. - .75 * rim );
 	color += ( 1. - useSSS ) * 10. * color * vec3(0.2) * clamp( 1. - rim, 0., .15 );
 	*/
 	//if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)
 	//color.rgb += 0.25*vec3(min(1.0,pow(abs(spherePosition.w-surfacePosition.w),1.0)));
+	//color.rgb += 1.0*vec3(min(1.0,smoothstep(0.0,8.0,abs(spherePosition.w-surfacePosition.w))));
+	color.rgb = mix(color.rgb,vec3(smoothstep(0.0,distanceScale,abs(spherePosition.w-surfacePosition.w))),distanceBlending);
 	// *(1.0-pow(NdotV,1.5))
 	/*
 	if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)

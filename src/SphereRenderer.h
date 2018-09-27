@@ -6,7 +6,6 @@
 #include <glbinding/gl/gl.h>
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/functions.h>
-#include <glm/glm.hpp>
 
 #include <globjects/VertexArray.h>
 #include <globjects/VertexAttributeBinding.h>
