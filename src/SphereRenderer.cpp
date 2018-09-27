@@ -10,6 +10,8 @@
 #include "SSAO.h"
 #include <lodepng.h>
 
+#include <glm/gtc/type_ptr.hpp>
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
@@ -716,6 +718,10 @@ void SphereRenderer::display()
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
+	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
+	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
+
+
 /*	double xpos, ypos;
 	glfwGetCursorPos(viewer()->window(), &xpos, &ypos);
 	xpos = 2.0 * xpos / double(viewer()->viewportSize().x) - 1.0;
@@ -727,6 +733,7 @@ void SphereRenderer::display()
 	vec3 viewLightDirection = normalize(vec3(xpos, ypos, 1.0f));
 	vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
 	vec4 worldLightPosition = inverseModelView * viewLightPosition;
+	
 
 	std::cout << "CENTER:" << to_string(center) << std::endl;
 	std::cout << "CORNER:" << to_string(corner) << std::endl;
@@ -797,15 +804,16 @@ void SphereRenderer::display()
 		m_vaoQuad->unbind();
 
 		m_programAOSample->release();
-		m_surfaceNormalTexture->unbindActive(0);
 
 		m_aoFramebuffer->unbind();
 		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 		m_aoBlurFramebuffer->bind();
-		m_programAOBlur->setUniform("ambientTexture", 0);
+		m_programAOBlur->setUniform("normalTexture", 0);
+		m_programAOBlur->setUniform("ambientTexture", 1);
 		m_programAOBlur->setUniform("offset", vec2(1.0f/float(viewportSize.x),0.0f));
-		m_ambientTexture->bindActive(0);
+
+		m_ambientTexture->bindActive(1);
 		m_programAOBlur->use();
 
 		m_vaoQuad->bind();
@@ -813,15 +821,16 @@ void SphereRenderer::display()
 		m_vaoQuad->unbind();
 
 		m_programAOBlur->release();
-		m_ambientTexture->unbindActive(0);
+
+		m_ambientTexture->unbindActive(1);
 		m_aoBlurFramebuffer->unbind();
 		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 		m_aoFramebuffer->bind();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		m_programAOBlur->setUniform("ambientTexture", 0);
 		m_programAOBlur->setUniform("offset", vec2(0.0f,1.0f / float(viewportSize.y)));
-		m_blurTexture->bindActive(0);
+
+		m_blurTexture->bindActive(1);
 		m_programAOBlur->use();
 
 		m_vaoQuad->bind();
@@ -829,7 +838,10 @@ void SphereRenderer::display()
 		m_vaoQuad->unbind();
 
 		m_programAOBlur->release();
-		m_blurTexture->unbindActive(0);
+
+		m_blurTexture->unbindActive(1);
+		m_surfaceNormalTexture->unbindActive(0);
+
 		m_aoFramebuffer->unbind();
 		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
@@ -1016,4 +1028,17 @@ void SphereRenderer::display()
 #endif	
 
 	currentState->apply();
+
+	glDepthFunc(GL_ALWAYS);
+	glMatrixMode(GL_PROJECTION);
+	glLoadMatrixf(value_ptr(projectionMatrix));
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadMatrixf(value_ptr(modelViewMatrix));
+
+	glColor4f(1.0, 0.0, 0.0, 1.0);
+	glPointSize(3.0);
+	glBegin(GL_POINTS);
+	glVertex3fv(value_ptr(viewer()->worldLightPosition()));
+	glEnd();
 }

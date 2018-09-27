@@ -629,7 +629,7 @@ void main()
 #endif
 
 #endif
-						vec3 atomOffset = currentPosition.xyz-aj;
+/*
 						vec3 n0 = normalize(atomOffset);
 
 
@@ -660,7 +660,6 @@ void main()
 
 						float fl = length(atomOffset);
 						//atomOffset = atomOffset - n0*displacement;
-						float atomDistance = length(atomOffset)/rj;
 						
 						vec3 g = 8.0*(vec3(dpx,dpy,dpz)-vec3(displacement));
 						//vec3 g = vec3( -amplitude*sin(uv.x)*cos(uv.y), -amplitude*cos(uv.x)*sin(uv.y), displacement);
@@ -672,11 +671,14 @@ void main()
 						//atomNormal = atomNormal+gt;
 
 						//sumDisplacement += displacement;
+*/
+						vec3 atomOffset = currentPosition.xyz-aj;
+						float atomDistance = length(atomOffset)/rj;
 
 						float atomValue = exp(-s*atomDistance*atomDistance);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						//vec3 atomNormal = 2.0*s*atomOffset*atomValue / (rj*rj);
-						//vec3 atomNormal = atomValue*normalize(atomOffset);
-						vec3 atomNormal = atomValue*normalize(n0);
+						vec3 atomNormal = atomValue*normalize(atomOffset);
+						//vec3 atomNormal = atomValue*normalize(n0);
 #ifdef COLORING
 						vec3 atomColor = cj*atomValue;//*mix(vec3(1.0),vec3(0.0,0.0,1.0),2.0*displacement);
 #endif

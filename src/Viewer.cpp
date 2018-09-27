@@ -10,6 +10,9 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
+
 #include "CameraInteractor.h"
 #include "BoundingBoxRenderer.h"
 #include "SphereRenderer.h"
@@ -275,7 +278,22 @@ vec4 Viewer::viewLightPosition() const
 
 vec4 Viewer::worldLightPosition() const
 {
-	return inverse(modelViewTransform())*m_viewLightPosition;
+	vec4 center = viewTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0);
+	vec4 corner = viewTransform() * vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	float radius = distance(viewLightPosition(), center);
+	vec3 lightDirection = normalize(viewLightPosition() - center);
+	vec4 lightPosition = center + vec4(lightDirection, 0.0f) * 1.0f;
+
+	mat4 inverseModelViewTransform = inverse(modelViewTransform());
+
+	center = inverseModelViewTransform * center;
+	corner = inverseModelViewTransform * corner;
+	lightPosition = inverseModelViewTransform * lightPosition;
+	lightDirection = normalize(vec3(lightPosition - center));
+	radius = distance(center, corner);
+
+	return center + vec4(lightDirection,0.0f)*radius;
+
 }
 
 void Viewer::saveImage(const std::string & filename)

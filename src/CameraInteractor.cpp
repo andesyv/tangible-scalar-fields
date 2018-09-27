@@ -133,14 +133,11 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 	if (m_light)
 	{
-		ivec2 viewportSize = viewer()->viewportSize();
-		vec2 v = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
-
 		mat4 viewTransform = viewer()->viewTransform();
 		vec4 center = viewTransform * vec4(0.0f, 0.0f, 0.0f, 1.0);
 		vec4 corner = viewTransform * vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		float radius = distance(corner, center);
-		vec3 viewLightDirection = normalize(vec3(v.x, v.y, 1.0f));
+		vec3 viewLightDirection = arcballVector(m_xCurrent, m_yCurrent);//normalize(vec3(v.x, v.y, 0.0f));
 		vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
 		viewer()->setViewLightPosition(viewLightPosition);
 

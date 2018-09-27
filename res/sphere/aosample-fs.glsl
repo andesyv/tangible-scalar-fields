@@ -16,7 +16,7 @@ uniform vec4 projectionInfo;
 uniform float projectionScale;
 
 uniform float occlusionRadius = 1.0;
-uniform float occlusionBias = 0.012;
+uniform float occlusionBias = 0.0;//0.012;
 uniform float occlusionIntensity = 1.0;
 
 const float occlusionRadius2 = occlusionRadius * occlusionRadius;
@@ -44,7 +44,7 @@ vec3 getOffsetPosition(ivec2 positionSS, vec2 unitOffset, float radiusSS)
 	return getPosition(positionSS + ivec2(radiusSS * unitOffset));
 }
 
-float sampleAO(ivec2 positionSS, vec3 positionVS, vec3 normalVS, float sampleRadiusSS,  int tapIndex, float rotationAngle)
+vec4 sampleAO(ivec2 positionSS, vec3 positionVS, vec3 normalVS, float sampleRadiusSS,  int tapIndex, float rotationAngle)
 {
 	const float epsilon = 0.01;
 
@@ -69,8 +69,24 @@ float sampleAO(ivec2 positionSS, vec3 positionVS, vec3 normalVS, float sampleRad
 #elif VARIATION == 1 // default / recommended
   
 	// Smoother transition to zero (lowers contrast, smoothing out corners). [Recommended]
+	//float f = max(occlusionRadius2 - vv, 0.0) / occlusionRadius2;
+	//float weight = f * f * f * max(vn / (epsilon + vv), 0.0);
+
+	float dist = length(v);
+	vec3 vnorm = v / dist;
+
 	float f = max(occlusionRadius2 - vv, 0.0) / occlusionRadius2;
-	return f * f * f * max(vn / (epsilon + vv), 0.0);
+
+	vec4 occlusion = vec4(0.0);
+	occlusion.w = f * f * f * max(vn / (epsilon + vv), 0.0);
+	occlusion.xyz = 2.0*vnorm*occlusion.w;
+	/*
+	float attenuation = 1.0-clamp(dist / occlusionRadius,0.0,1.0);
+	attenuation = attenuation*attenuation * step(0.0, vn/dist);
+	occlusion.xyz = attenuation * 5.0 * sqrt(3.0/PI) * vnorm;
+	*/
+	return occlusion;
+	//return vec4(normalize(v),1.0) * weight;
 
 #elif VARIATION == 2
   
@@ -110,18 +126,22 @@ void main()
 	//float randomPatternRotationAngle = (3 * positionSS.x ^ positionSS.y + positionSS.x * positionSS.y) * 10;
 
 
-	float occlusion = 0.0;
+	vec4 occlusion = vec4(0.0);
 	float radiusSS = -(projectionScale * occlusionRadius) / positionVS.z;
 	
 	for (int i = 0; i < NUM_SAMPLES; ++i)
 	{
 		occlusion += sampleAO(positionSS, positionVS, normalVS, radiusSS, i, randomPatternRotationAngle);
 	}
+
+	occlusion /= float(NUM_SAMPLES);
+	occlusion.w = clamp(pow(1.0-occlusion.w, 1.0 + occlusionIntensity), 0.0, 1.0);
   
 	//occlusion = max(0.0, 1.0 - occlusion * (occlusionIntensity/pow(occlusionRadius,6.0)) * (5.0 / NUM_SAMPLES));
-	occlusion = 1.0 - occlusion / (float(NUM_SAMPLES));
+	//occlusion = 1.0 - occlusion / (float(NUM_SAMPLES));
 	//occlusion = 1.0 - occlusion / (4.0 * float(NUM_SAMPLES));
-	occlusion = clamp(pow(occlusion, 1.0 + occlusionIntensity), 0.0, 1.0);
+	//occlusion = clamp(pow(occlusion, 1.0 + occlusionIntensity), 0.0, 1.0);
+	//occlusion /= NUM_SAMPLES;
 
     // Bilateral box-filter over a quad for free, respecting depth edges
     // (the difference that this makes is subtle)
@@ -135,5 +155,5 @@ void main()
         occlusion -= dFdy(occlusion) * ((positionSS.y & 1) - 0.5);
     }
 	*/
-	fragAmbient = vec4(occlusion, occlusion, occlusion, positionVS.z);
+	fragAmbient = occlusion;//vec4(occlusion, occlusion, occlusion, positionVS.z);
 }

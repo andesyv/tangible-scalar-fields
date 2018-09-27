@@ -113,9 +113,14 @@ void main()
 	vertexPosition.xyz = mix(position.xyz,nextPosition.xyz,animationDelta);
 #endif
 
+	vec3 offset;
+	offset.x = snoise(vec4(vertexPosition.xyz,animationFrequency*animationTime));
+	offset.y = snoise(vec4(vertexPosition.yyx,animationFrequency*animationTime));
+	offset.z = snoise(vec4(vertexPosition.zyx,animationFrequency*animationTime));
+
 #ifdef ANIMATION
 	if (animationTime >= 0.0)
-		vertexPosition.xyz += animationAmplitude*snoise(vec4(vertexPosition.xyz,animationFrequency*animationTime));
+		vertexPosition.xyz += offset*animationAmplitude;
 #endif
 	gl_Position = vertexPosition;
 }
