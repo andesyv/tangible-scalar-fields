@@ -16,8 +16,9 @@ uniform vec4 projectionInfo;
 uniform float projectionScale;
 
 uniform float occlusionRadius = 1.0;
-uniform float occlusionBias = 0.0;//0.012;
+uniform float occlusionBias = 0.012;
 uniform float occlusionIntensity = 1.0;
+uniform vec3 viewLightPosition;
 
 const float occlusionRadius2 = occlusionRadius * occlusionRadius;
 
@@ -33,15 +34,16 @@ vec2 tapLocation(int sampleNumber, float spinAngle, out float radiusSS)
 	return vec2(cos(angle), sin(angle));
 }
 
-vec3 getPosition(ivec2 positionSS)
+vec3 getPosition(ivec2 positionSS, out vec3 normal)
 {
-	float depth = texelFetch(surfaceNormalTexture,positionSS,0).a;	
-	return vec3((positionSS * projectionInfo.xy + projectionInfo.zw) * depth, depth);
+	vec4 value = texelFetch(surfaceNormalTexture,positionSS,0);	
+	normal = value.xyz;
+	return vec3((positionSS * projectionInfo.xy + projectionInfo.zw) * value.w, value.w);
 }
 
-vec3 getOffsetPosition(ivec2 positionSS, vec2 unitOffset, float radiusSS)
+vec3 getOffsetPosition(ivec2 positionSS, vec2 unitOffset, float radiusSS, out vec3 normal)
 {
-	return getPosition(positionSS + ivec2(radiusSS * unitOffset));
+	return getPosition(positionSS + ivec2(radiusSS * unitOffset), normal);
 }
 
 vec4 sampleAO(ivec2 positionSS, vec3 positionVS, vec3 normalVS, float sampleRadiusSS,  int tapIndex, float rotationAngle)
@@ -54,7 +56,8 @@ vec4 sampleAO(ivec2 positionSS, vec3 positionVS, vec3 normalVS, float sampleRadi
 	vec2 unitOffset = tapLocation(tapIndex, rotationAngle, radiusSS);
 	radiusSS *= sampleRadiusSS;
 
-	vec3 Q = getOffsetPosition(positionSS, unitOffset, radiusSS);
+	vec3 n;
+	vec3 Q = getOffsetPosition(positionSS, unitOffset, radiusSS, n);
 	vec3 v = Q - positionVS;
 	
 	float vv = dot(v, v);
@@ -79,7 +82,11 @@ vec4 sampleAO(ivec2 positionSS, vec3 positionVS, vec3 normalVS, float sampleRadi
 
 	vec4 occlusion = vec4(0.0);
 	occlusion.w = f * f * f * max(vn / (epsilon + vv), 0.0);
-	occlusion.xyz = 2.0*vnorm*occlusion.w;
+	//occlusion.w *= (1.0-abs(dot(normalVS,n)));
+	float ff = 1.0;//1.5*max(0.0,dot(normalize(viewLightPosition-Q),n));
+	float fd = 1.0;//8.0*max(0.0,-dot(n,normalVS));
+	occlusion.xyz = ff*fd*3.0*vnorm*occlusion.w;
+	occlusion.xyz = 3.0*vnorm*occlusion.w;
 	/*
 	float attenuation = 1.0-clamp(dist / occlusionRadius,0.0,1.0);
 	attenuation = attenuation*attenuation * step(0.0, vn/dist);
@@ -118,8 +125,8 @@ void main()
 {
 	ivec2 positionSS = ivec2(gl_FragCoord.xy);
 
-	vec3 positionVS = getPosition(positionSS);
-	vec3 normalVS = texelFetch(surfaceNormalTexture,positionSS,0).xyz;
+	vec3 normalVS;
+	vec3 positionVS = getPosition(positionSS, normalVS);
   
 	float sampleNoise = rand(positionSS);
 	float randomPatternRotationAngle = 2.0 * PI * sampleNoise;
@@ -135,7 +142,7 @@ void main()
 	}
 
 	occlusion /= float(NUM_SAMPLES);
-	occlusion.w = clamp(pow(1.0-occlusion.w, 1.0 + occlusionIntensity), 0.0, 1.0);
+	occlusion.w = clamp(pow(1.0-occlusion.w, 2.0 + occlusionIntensity), 0.0, 1.0);
   
 	//occlusion = max(0.0, 1.0 - occlusion * (occlusionIntensity/pow(occlusionRadius,6.0)) * (5.0 / NUM_SAMPLES));
 	//occlusion = 1.0 - occlusion / (float(NUM_SAMPLES));

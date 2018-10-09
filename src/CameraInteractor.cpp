@@ -102,6 +102,35 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 		mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
 		viewer()->setViewTransform(newViewTransform);
 	}
+	else if (key == GLFW_KEY_B && action == GLFW_RELEASE)
+	{
+		std::cout << "Starting benchmark" << std::endl;
+
+		m_benchmark = true;
+		m_startTime = glfwGetTime();
+		m_frameCount = 0;
+	}
+	else if (key == GLFW_KEY_W && action == GLFW_PRESS)
+	{
+		m_velocityForwardBackward += 1.0f;
+		m_rotating = true;
+	}
+	else if (key == GLFW_KEY_W && action == GLFW_RELEASE)
+	{
+		m_velocityForwardBackward -= 1.0f;
+		m_rotating = false;
+	}
+	else if (key == GLFW_KEY_S && action == GLFW_PRESS)
+	{
+		m_velocityForwardBackward -= 1.0f;
+		m_rotating = true;
+	}
+	else if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+	{
+		m_velocityForwardBackward += 1.0f;
+		m_rotating = false;
+	}
+
 }
 
 void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
@@ -229,6 +258,32 @@ void CameraInteractor::display()
 {
 	CameraInteractor::cursorPosEvent(m_xCurrent, m_yCurrent);
 
+	if (m_benchmark)
+	{
+		m_frameCount++;
+
+		mat4 viewTransform = viewer()->viewTransform();
+		mat4 inverseViewTransform = inverse(viewTransform);
+		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 1.0, 0.0, 0.0);
+
+		mat4 newViewTransform = rotate(viewTransform, pi<float>() / 180.0f, vec3(transformedAxis));
+		viewer()->setViewTransform(newViewTransform);
+
+
+		if (m_frameCount >= 360)
+		{
+			double currentTime = glfwGetTime();
+
+			std::cout << "Benchmark finished." << std::endl;
+			std::cout << "Rendered " << m_frameCount << " frames in " << (currentTime - m_startTime) << " seconds." << std::endl;
+			std::cout << "Average frames/second: " << double(m_frameCount) / (currentTime - m_startTime) << std::endl;
+
+			m_benchmark = false;
+		}
+
+
+	}
+
 	if (ImGui::BeginMenu("Camera"))
 	{
 		static int projection = 0;
@@ -258,6 +313,17 @@ void CameraInteractor::display()
 		glVertex3fv(value_ptr(viewer()->worldLightPosition()));
 		glEnd();
 	}*/
+
+
+	if (fabs(m_velocityForwardBackward) > 0.0f)
+	{
+		mat4 viewTransform = viewer()->viewTransform();
+		mat4 inverseViewTransform = inverse(viewTransform);
+		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 0.0, m_velocityForwardBackward*0.01f, 0.0);
+
+		mat4 newViewTransform = translate(viewTransform, vec3(transformedAxis));
+		viewer()->setViewTransform(newViewTransform);
+	}
 }
 
 void CameraInteractor::resetProjectionTransform()

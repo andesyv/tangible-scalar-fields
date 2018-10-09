@@ -528,7 +528,7 @@ const std::unordered_map<std::string, uint>& molumes::Protein::elementIds()
 const std::array<float, 116>& Protein::elementRadii()
 {
 	static const std::array<float,116> elementRadii = {
-		1.0f, // 0 - default
+		1.5f, // 0 - default
 		/*<vdw id = "1" radius = "*/1.200f,
 		/*<vdw id = "2" radius = "*/1.400f,
 		/*<vdw id = "3" radius = "*/1.820f,

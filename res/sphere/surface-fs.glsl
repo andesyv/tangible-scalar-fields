@@ -577,7 +577,7 @@ void main()
 				float maximumDistance = (farDistance-nearDistance)+1.0;
 				float surfaceDistance = 1.0;
 
-				const float eps = 0.0125/10.0;
+				const float eps = 0.0125;
 				vec4 rayOrigin = vec4(near.xyz+V*nearDistance,nearDistance);
 				vec4 rayDirection = vec4(V,1.0);
 				vec4 currentPosition;
@@ -704,9 +704,11 @@ void main()
 #endif
 					}
 					
+					//surfaceDistance = (-sumValue+exp(-s));///float(cnt);//1.0;//sqrt(-log(sumValue) / (s))-1.0;//-sumDisplacement;
 					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;//-sumDisplacement;
 
-					if (surfaceDistance < eps*currentPosition.w)
+
+					if (surfaceDistance < eps)
 					{
 						if (currentPosition.w <= closestPosition.w)
 						{
@@ -736,7 +738,7 @@ void main()
 
 					t += surfaceDistance*1.2;
 				}
-
+				
 				if (currentStep > maximumSteps)
 				{
 					if (candidatePosition.w <= closestPosition.w)
@@ -783,7 +785,8 @@ void main()
 
 	if (closestPosition.w >= 65535.0f)
 		discard;
-		
+
+#ifdef NORMAL		
 	vec3 N = normalize(closestNormal);
 	
 	vec3 blend = abs( N );
@@ -845,12 +848,32 @@ void main()
 
 	// Apply bump vector to vertex-interpolated normal vector.
 	closestNormal = worldNormal;
-
+#endif
 
 	vec4 cp = modelViewMatrix*vec4(closestPosition.xyz, 1.0);
 	cp = cp / cp.w;
 
 	surfacePosition = closestPosition;
+/*
+	vec3 cols[8]= {
+		vec3(255,255,255)/255.0,
+		vec3(255,255,178)/255.0,
+		vec3(254,217,118)/255.0,
+		vec3(254,178,76)/255.0,
+		vec3(253,141,60)/255.0,
+		vec3(252,78,42)/255.0,
+		vec3(227,26,28)/255.0,
+		vec3(177,0,38)/255.0,
+	};
+*/
+
+
+
+
+
+
+
+	//diffuseColor.rgb = cols[min(entryCount/2 + entryCount%2,7)];
 
 	closestNormal.xyz = normalMatrix*closestNormal.xyz;
 	closestNormal.xyz = normalize(closestNormal.xyz);

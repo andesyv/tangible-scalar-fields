@@ -1,6 +1,7 @@
 #include "SphereRenderer.h"
 #include <globjects/base/File.h>
 #include <globjects/State.h>
+#include <globjects/Query.h>
 #include <iostream>
 #include <filesystem>
 #include <imgui.h>
@@ -227,7 +228,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 
 	m_ssao = std::make_unique<SSAO>();
-
+	/*
 	for (auto& d : std::filesystem::directory_iterator("./dat/materials"))
 	{
 		std::filesystem::path materialPath(d);
@@ -260,7 +261,8 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 			}
 		}
 	}
-
+	*/
+	/*
 	for (auto& d : std::filesystem::directory_iterator("./dat/bumps"))
 	{
 		std::filesystem::path bumpPath(d);
@@ -291,6 +293,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 			}
 		}
 	}
+	*/
 
 	m_sphereFramebuffer = Framebuffer::create();
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
@@ -408,7 +411,10 @@ void SphereRenderer::display()
 
 	float projectionScale = float(viewportSize.y) / fabs(2.0f / projectionMatrix[1][1]);
 
-
+	// white
+	static vec3 ambientMaterial(0.3f, 0.3f, 0.3f);
+	static vec3 diffuseMaterial(0.6f, 0.6f, 0.6f);
+	static vec3 specularMaterial(0.3f, 0.3f, 0.3f);
 
 
 /*	
@@ -420,12 +426,11 @@ void SphereRenderer::display()
 
 
 	// orange
+/*
 	static vec3 ambientMaterial(0.336f, 0.113f, 0.149f);
 	static vec3 diffuseMaterial(1.0f, 0.679f, 0.023f);
 	static vec3 specularMaterial(0.707f, 1.0f, 0.997f);
-
-
-
+*/
 
 	// nice color scheme
 /*
@@ -435,11 +440,12 @@ void SphereRenderer::display()
 */
 	static float shininess = 20.0f;
 
-	static float sharpness = 1.5f;
+	static float sharpness = 2.0f;
 	static float distanceBlending = 0.0f;
 	static float distanceScale = 1.0;
 	static bool ambientOcclusion = false;
 	static bool environmentMapping = false;
+	static bool normalMapping = false;
 	static int coloring = 0;
 	static bool animate = false;
 	static float animationAmplitude = 1.0f;
@@ -457,20 +463,35 @@ void SphereRenderer::display()
 		ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 		ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
 		ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
+		//ImGui::Checkbox("Normal Mapping", &normalMapping);
 		ImGui::Checkbox("Environment Mapping", &environmentMapping);
 	}
 
 	if (ImGui::CollapsingHeader("Surface"))
-	{
+	{		
 		ImGui::SliderFloat("Sharpness", &sharpness, 0.5f, 16.0f);
-		ImGui::SliderFloat("Distance Blending", &distanceBlending, 0.0f, 1.0f);
-		ImGui::SliderFloat("Distance Scale", &distanceScale, 0.0f, 16.0f);
+		/*
+		ImGui::SameLine();
+		if (ImGui::Button("1.0"))
+			sharpness = 1.0;
+		ImGui::SameLine();
+		if (ImGui::Button("2.0"))
+			sharpness = 2.0;
+		ImGui::SameLine();
+		if (ImGui::Button("3.0"))
+			sharpness = 3.0;
+		ImGui::SameLine();
+		if (ImGui::Button("4.0"))
+			sharpness = 4.0;
+		*/
+		ImGui::SliderFloat("Dist. Blending", &distanceBlending, 0.0f, 1.0f);
+		ImGui::SliderFloat("Dist. Scale", &distanceScale, 0.0f, 16.0f);
 		ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 		ImGui::Checkbox("Magic Lens", &lens);
 	}
-
+	/*
 	static uint materialTextureIndex = 0;
-
+	
 	if (ImGui::CollapsingHeader("Materials"))
 	{
 		if (ImGui::ListBoxHeader("Material"))
@@ -494,12 +515,13 @@ void SphereRenderer::display()
 			ImGui::ListBoxFooter();
 		}
 	}
-
+	*/
+	/*
 	static uint bumpTextureIndex = 0;
 
 	if (ImGui::CollapsingHeader("Normals"))
 	{
-		if (ImGui::ListBoxHeader("Normal"))
+		if (ImGui::ListBoxHeader("Normal Map"))
 		{
 			for (uint i = 0; i < m_bumpTextures.size(); i++)
 			{
@@ -520,11 +542,12 @@ void SphereRenderer::display()
 			ImGui::ListBoxFooter();
 		}
 	}
+	*/
 
 	if (ImGui::CollapsingHeader("Animation"))
 	{
 		ImGui::Checkbox("Prodecural Animation", &animate);
-		ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 32.0f);
+		ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 256.0f);
 		ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
 	}
 	
@@ -544,14 +567,14 @@ void SphereRenderer::display()
 	float fieldOfView = 2.0f * atan(1.0f / projectionMatrix[1][1]);
 	//std::cout << "FOV :" << fieldOfView << std::endl;
 
-	static bool depthOfField = true;
-	static float focalDistance = 3.0f;
+	static bool depthOfField = false;
+	static float focalDistance = 2.0f*sqrt(3.0f);
 	static float maximumCoCRadius = 9.0f;
 	static float farRadiusRescale = 1.0f;
 	static float focalLength = 1.0f;
 	static float aparture = 1.0f;
 	static float fStop = 1.0;
-	static int fStop_current = 3;
+	static int fStop_current = 12;
 
 	const char* fStops[] = { "0.7", "0.8", "1.0", "1.2", "1.4", "1.7", "2.0", "2.4", "2.8", "3.3", "4.0", "4.8", "5.6", "6.7", "8.0", "9.5", "11.0", "16.0", "22.0", "32.0" };
 
@@ -563,7 +586,7 @@ void SphereRenderer::display()
 		ImGui::Combo("F-stop", &fStop_current, fStops, IM_ARRAYSIZE(fStops));
 
 		ImGui::SliderFloat("Max. CoC Radius", &maximumCoCRadius, 1.0f, 20.0f);
-		ImGui::SliderFloat("Far Radius Rescale", &farRadiusRescale, 0.1f, 5.0f);
+		ImGui::SliderFloat("Far Radius Scale", &farRadiusRescale, 0.1f, 5.0f);
 
 	}
 
@@ -584,7 +607,7 @@ void SphereRenderer::display()
 	uint nextTimestep = (currentTimestep + 1) % timestepCount;
 	float animationDelta = currentTime - floor(currentTime);
 	int vertexCount = int(viewer()->scene()->protein()->atoms()[currentTimestep].size());
-
+	//std::cout << currentTimestep << std::endl;
 	std::string defines = "";
 
 	if (animate)
@@ -601,6 +624,9 @@ void SphereRenderer::display()
 
 	if (environmentMapping)
 		defines += "#define ENVIRONMENT\n";
+
+	if (normalMapping)
+		defines += "#define NORMAL\n";
 
 	if (depthOfField)
 		defines += "#define DEPTHOFFIELD\n";
@@ -628,6 +654,10 @@ void SphereRenderer::display()
 		m_vao->enable(1);
 	}
 
+
+	//std::unique_ptr<Query> sphereQuery = Query::create();
+	//sphereQuery->begin(GL_TIME_ELAPSED);
+
 	m_sphereFramebuffer->bind();
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 65535.0f);
@@ -652,6 +682,11 @@ void SphereRenderer::display()
 	m_vao->unbind();
 
 	m_programSphere->release();
+
+	//sphereQuery->end(GL_TIME_ELAPSED);
+		
+	//std::unique_ptr<Query> spawnQuery = Query::create();
+	//spawnQuery->begin(GL_TIME_ELAPSED);
 
 	//m_ssao->display(mat4(1.0f)/*viewer()->modelViewTransform()*/,viewer()->projectionTransform(), m_frameBuffer->id(), m_depthTexture->id(), m_normalTexture->id());
 
@@ -695,6 +730,12 @@ void SphereRenderer::display()
 
 	m_sphereFramebuffer->unbind();
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	
+	//spawnQuery->end(GL_TIME_ELAPSED);
+
+
+	//std::unique_ptr<Query> surfaceQuery = Query::create();
+	//surfaceQuery->begin(GL_TIME_ELAPSED);
 
 //	uint sphereCount = 0;
 //	m_verticesSpawn->getSubData(0, sizeof(uint), &sphereCount);
@@ -718,12 +759,12 @@ void SphereRenderer::display()
 	m_sphereNormalTexture->bindActive(1);
 	m_offsetTexture->bindActive(3);
 	m_environmentTexture->bindActive(4);
-	m_bumpTextures[bumpTextureIndex]->bindActive(5);
+	//m_bumpTextures[bumpTextureIndex]->bindActive(5);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
-	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
-	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
+//	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
+//	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
 
 
 /*	double xpos, ypos;
@@ -779,7 +820,7 @@ void SphereRenderer::display()
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
-	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
+	//m_bumpTextures[bumpTextureIndex]->unbindActive(5);
 	m_environmentTexture->unbindActive(4);
 	m_offsetTexture->unbindActive(3);
 	m_sphereNormalTexture->unbindActive(1);
@@ -791,13 +832,19 @@ void SphereRenderer::display()
 
 	m_surfaceFramebuffer->unbind();
 
+	//surfaceQuery->end(GL_TIME_ELAPSED);
+
+	//std::unique_ptr<Query> shadeQuery = Query::create();
+	//shadeQuery->begin(GL_TIME_ELAPSED);
+
 	if (ambientOcclusion)
 	{
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
 		m_aoFramebuffer->bind();
 
 		m_programAOSample->setUniform("projectionInfo", projectionInfo);
 		m_programAOSample->setUniform("projectionScale", projectionScale);
+		m_programAOSample->setUniform("viewLightPosition", modelViewMatrix*viewer()->worldLightPosition());
 		m_programAOSample->setUniform("surfaceNormalTexture", 0);
 
 		m_surfaceNormalTexture->bindActive(0);
@@ -869,7 +916,7 @@ void SphereRenderer::display()
 	m_surfaceDiffuseTexture->bindActive(5);
 	m_depthTexture->bindActive(6);
 	m_ambientTexture->bindActive(7);
-	m_materialTextures[materialTextureIndex]->bindActive(8);
+	//m_materialTextures[materialTextureIndex]->bindActive(8);
 	m_environmentTexture->bindActive(9);
 
 	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
@@ -919,7 +966,7 @@ void SphereRenderer::display()
 	m_vaoQuad->unbind();
 
 	m_environmentTexture->unbindActive(9);
-	m_materialTextures[materialTextureIndex]->unbindActive(8);
+//	m_materialTextures[materialTextureIndex]->unbindActive(8);
 	m_ambientTexture->unbindActive(7);
 	m_depthTexture->unbindActive(6);
 	m_surfaceDiffuseTexture->unbindActive(5);
@@ -1009,6 +1056,9 @@ void SphereRenderer::display()
 	
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
+	//shadeQuery->end(GL_TIME_ELAPSED);
+
+
 #ifdef STATISTICS
 	Statistics *s = (Statistics*) m_statisticsBuffer->map();	
 	std::string intersectionCount = std::to_string(s->intersectionCount);
@@ -1032,6 +1082,61 @@ void SphereRenderer::display()
 	ImGui::InputText("Maximum Entry Count", (char*)maximumEntryCount.c_str(), maximumEntryCount.size(), ImGuiInputTextFlags_ReadOnly);
 	ImGui::End();
 #endif	
+
+/*
+	sphereQuery->wait();
+	spawnQuery->wait();
+	surfaceQuery->wait();
+	shadeQuery->wait();
+
+	uint sphereElapsed = sphereQuery->get(GL_QUERY_RESULT);
+	uint spawnElapsed = spawnQuery->get(GL_QUERY_RESULT);
+	uint surfaceElapsed = surfaceQuery->get(GL_QUERY_RESULT);
+	uint shadeElapsed = shadeQuery->get(GL_QUERY_RESULT);
+	
+	double sphereTime = double(sphereElapsed) / 1000000000.0;
+	double spawnTime = double(spawnElapsed) / 1000000000.0;
+	double surfaceTime = double(surfaceElapsed) / 1000000000.0;
+	double shadeTime = double(shadeElapsed) / 1000000000.0;
+
+	static uint counter = 0;
+
+	static double sphereTotal = 0.0;
+	static double spawnTotal = 0.0;
+	static double surfaceTotal = 0.0;
+	static double shadeTotal = 0.0;	
+
+	sphereTotal += sphereTime;
+	spawnTotal += spawnTime;
+	surfaceTotal += surfaceTime;
+	shadeTotal += shadeTime;
+
+	counter++;
+
+	if (counter >= 360)
+	{
+		sphereTotal /= double(counter);
+		spawnTotal /= double(counter);
+		surfaceTotal /= double(counter);
+		shadeTotal /= double(counter);
+		
+		double totalTime = sphereTotal + spawnTotal + surfaceTotal + shadeTotal;
+
+		std::cout << "SPHERE: " << sphereTotal << " -- " << (sphereTime / totalTime) * 100.0 << std::endl;
+		std::cout << "SPAWN : " << spawnTotal << " -- " << (spawnTime / totalTime) * 100.0 << std::endl;
+		std::cout << "SURF  : " << surfaceTotal << " -- " << (surfaceTime / totalTime) * 100.0 << std::endl;
+		std::cout << "SHADE : " << shadeTotal << " -- " << (shadeTime / totalTime) * 100.0 << std::endl;
+		std::cout << "TOTAL : " << totalTime << " -- " << 1.0 / totalTime << std::endl;
+		std::cout << sphereTotal << ";" << spawnTotal << ";" << surfaceTotal << ";" << shadeTotal << ";" << totalTime;
+		std::cout << std::endl;
+
+		sphereTotal = 0.0;
+		spawnTotal = 0.0;
+		surfaceTotal = 0.0;
+		shadeTotal = 0.0;
+		counter = 0;
+	}
+*/
 
 	currentState->apply();
 }
