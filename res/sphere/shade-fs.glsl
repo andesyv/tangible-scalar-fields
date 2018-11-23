@@ -137,8 +137,14 @@ void main()
     vec3 base = texture2D( materialTexture , calculatedNormal ).rgb;
 	base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
 */
-	
-	
+/*
+	vec3 e = normalize( vec3( modelViewMatrix * vec4( surfacePosition.xyz, 1.0 ) ) );
+	vec3 r = reflect(e,surfaceNormal.xyz);
+	float m = 2.0 * sqrt(r.x*r.x + r.y*r.y + (r.z+1.0)*(r.z+1.0));
+	vec2 uv = r.xy / m + 0.5;
+	vec3 base = texture2D( materialTexture , uv ).rgb;
+	base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
+*/	
 	//base = vec3( 1. ) - ( vec3( 1. ) - base ) * ( vec3( 1. ) - base );
 	//vec3 color = ambientColor + NdotL * diffuseColor + pow(RdotV,shininess) * specularColor;
 	vec3 color = vec3(0.0);
@@ -176,6 +182,8 @@ void main()
 	//color.rgb += vec3(0.125f * pow(1.0-min(ambient.w,1.0),2.0));
 
 	color.rgb += distanceBlending*vec3(min(1.0,pow(abs(spherePosition.w-surfacePosition.w),distanceScale)));
+
+	//color = ambient.a * light_occlusion * surfaceDiffuse.rgb;
 	//color.rgb = surfaceDiffuse.rgb;
 	//color.rgb += 0.25*vec3(min(1.0,0.5+0.25*abs(spherePosition.w-surfacePosition.w)));
 	/*
@@ -183,6 +191,11 @@ void main()
 	float rim = 1.75 * NdotV;
 	color += useSSS * vec3(0.2) * ( 1. - .75 * rim );
 	color += ( 1. - useSSS ) * 10. * color * vec3(0.2) * clamp( 1. - rim, 0., .15 );
+	*/
+	/*
+	float ww = fwidthFine(NdotV);
+	float cc = smoothstep(NdotV,0.0,0.25);
+	color.rgb *= (0.25+cc*0.75);
 	*/
 	//color = vec3(light_occlusion);
 	//if (spherePosition.w < 65535.0 && surfacePosition.w < 65535.0)

@@ -19,6 +19,11 @@
 using namespace molumes;
 using namespace glm;
 
+#ifdef HAVE_MATLAB
+#include <engine.h>
+
+#endif
+
 // trim from start (in place)
 static inline void ltrim(std::string &s)
 {

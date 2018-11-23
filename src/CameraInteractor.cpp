@@ -110,27 +110,6 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 		m_startTime = glfwGetTime();
 		m_frameCount = 0;
 	}
-	else if (key == GLFW_KEY_W && action == GLFW_PRESS)
-	{
-		m_velocityForwardBackward += 1.0f;
-		m_rotating = true;
-	}
-	else if (key == GLFW_KEY_W && action == GLFW_RELEASE)
-	{
-		m_velocityForwardBackward -= 1.0f;
-		m_rotating = false;
-	}
-	else if (key == GLFW_KEY_S && action == GLFW_PRESS)
-	{
-		m_velocityForwardBackward -= 1.0f;
-		m_rotating = true;
-	}
-	else if (key == GLFW_KEY_S && action == GLFW_RELEASE)
-	{
-		m_velocityForwardBackward += 1.0f;
-		m_rotating = false;
-	}
-
 }
 
 void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
@@ -175,9 +154,6 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		vec3 viewLightDirection = arcballVector(m_xCurrent, m_yCurrent);//normalize(vec3(v.x, v.y, 0.0f));
 		vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
 		viewer()->setViewLightPosition(viewLightPosition);
-
-		m_xPrevious = m_xCurrent;
-		m_yPrevious = m_yCurrent;
 	}
 
 	if (m_rotating)
@@ -235,29 +211,24 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
 		{
 			ivec2 viewportSize = viewer()->viewportSize();
+			float aspect = float(viewportSize.x) / float(viewportSize.y);
 			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
 			vec2 vb = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
 			vec2 d = vb - va;
 
 			mat4 viewTransform = viewer()->viewTransform();
-			mat4 newViewTransform = translate(mat4(1.0),vec3(d.x,d.y,0.0f))*viewTransform;
+			mat4 newViewTransform = translate(mat4(1.0),vec3(aspect*d.x,d.y,0.0f))*viewTransform;
 			viewer()->setViewTransform(newViewTransform);
 		}
 	}
 
-	const double smoothness = 0.33;
+	m_xPrevious = m_xCurrent;
+	m_yPrevious = m_yCurrent;
 
-	if (m_xCurrent != m_xPrevious)
-		m_xPrevious = m_xPrevious + (m_xCurrent - m_xPrevious)*smoothness;
-
-	if (m_yCurrent != m_yPrevious)
-		m_yPrevious = m_yPrevious + (m_yCurrent - m_yPrevious)*smoothness;
 }
 
 void CameraInteractor::display()
 {
-	CameraInteractor::cursorPosEvent(m_xCurrent, m_yCurrent);
-
 	if (m_benchmark)
 	{
 		m_frameCount++;
@@ -314,16 +285,6 @@ void CameraInteractor::display()
 		glEnd();
 	}*/
 
-
-	if (fabs(m_velocityForwardBackward) > 0.0f)
-	{
-		mat4 viewTransform = viewer()->viewTransform();
-		mat4 inverseViewTransform = inverse(viewTransform);
-		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 0.0, m_velocityForwardBackward*0.01f, 0.0);
-
-		mat4 newViewTransform = translate(viewTransform, vec3(transformedAxis));
-		viewer()->setViewTransform(newViewTransform);
-	}
 }
 
 void CameraInteractor::resetProjectionTransform()

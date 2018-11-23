@@ -25,7 +25,7 @@ namespace molumes
 
 		float m_fov = glm::radians(60.0f);
 		float m_near = 0.125f;
-		float m_far = 32.0f;
+		float m_far = 32768.0f;
 		float m_distance = 2.0*sqrt(3.0f);// 2.0;// 2.0f*sqrt(3.0f);
 		bool m_perspective = true;
 
@@ -38,7 +38,6 @@ namespace molumes
 		glm::uint m_frameCount = 0;
 		double m_xPrevious = 0.0, m_yPrevious = 0.0;
 		double m_xCurrent = 0.0, m_yCurrent = 0.0;
-		float m_velocityForwardBackward = 0.0f;
 	};
 
 }

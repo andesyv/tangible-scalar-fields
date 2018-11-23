@@ -228,7 +228,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 
 	m_ssao = std::make_unique<SSAO>();
-	/*
+	
 	for (auto& d : std::filesystem::directory_iterator("./dat/materials"))
 	{
 		std::filesystem::path materialPath(d);
@@ -261,8 +261,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 			}
 		}
 	}
-	*/
-	/*
+	
 	for (auto& d : std::filesystem::directory_iterator("./dat/bumps"))
 	{
 		std::filesystem::path bumpPath(d);
@@ -293,7 +292,6 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 			}
 		}
 	}
-	*/
 
 	m_sphereFramebuffer = Framebuffer::create();
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
@@ -446,6 +444,9 @@ void SphereRenderer::display()
 	static bool ambientOcclusion = false;
 	static bool environmentMapping = false;
 	static bool normalMapping = false;
+	static bool materialMapping = false;
+	static bool depthOfField = false;
+
 	static int coloring = 0;
 	static bool animate = false;
 	static float animationAmplitude = 1.0f;
@@ -462,9 +463,11 @@ void SphereRenderer::display()
 		ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 		ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 		ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-		ImGui::Checkbox("Ambient Occlusion", &ambientOcclusion);
-		//ImGui::Checkbox("Normal Mapping", &normalMapping);
-		ImGui::Checkbox("Environment Mapping", &environmentMapping);
+		ImGui::Checkbox("Ambient Occlusion Enabled", &ambientOcclusion);
+		ImGui::Checkbox("Material Mapping Enabled", &materialMapping);
+		ImGui::Checkbox("Normal Mapping Enabled", &normalMapping);
+		ImGui::Checkbox("Environment Mapping Enabled", &environmentMapping);
+		ImGui::Checkbox("Depth of Field Enabled", &depthOfField);
 	}
 
 	if (ImGui::CollapsingHeader("Surface"))
@@ -489,68 +492,66 @@ void SphereRenderer::display()
 		ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 		ImGui::Checkbox("Magic Lens", &lens);
 	}
-	/*
-	static uint materialTextureIndex = 0;
 	
-	if (ImGui::CollapsingHeader("Materials"))
+	static uint materialTextureIndex = 0;
+
+	if (materialMapping)
 	{
-		if (ImGui::ListBoxHeader("Material"))
+		if (ImGui::CollapsingHeader("Material Mapping"))
 		{
-			for (uint i = 0; i< m_materialTextures.size();i++)
+			if (ImGui::ListBoxHeader("Material Map"))
 			{
-				auto& texture = m_materialTextures[i];
-				bool selected = (i == materialTextureIndex);
-				ImGui::BeginGroup();
-				ImGui::PushID(i);
-				
-				if (ImGui::Selectable("", &selected, 0, ImVec2(0.0f, 32.0f)))
-					materialTextureIndex = i;
+				for (uint i = 0; i < m_materialTextures.size(); i++)
+				{
+					auto& texture = m_materialTextures[i];
+					bool selected = (i == materialTextureIndex);
+					ImGui::BeginGroup();
+					ImGui::PushID(i);
 
-				ImGui::SameLine();
-				ImGui::Image((ImTextureID)texture->id(), ImVec2(32.0f, 32.0f));
-				ImGui::PopID();
-				ImGui::EndGroup();
+					if (ImGui::Selectable("", &selected, 0, ImVec2(0.0f, 32.0f)))
+						materialTextureIndex = i;
+
+					ImGui::SameLine();
+					ImGui::Image((ImTextureID)texture->id(), ImVec2(32.0f, 32.0f));
+					ImGui::PopID();
+					ImGui::EndGroup();
+				}
+
+				ImGui::ListBoxFooter();
 			}
-
-			ImGui::ListBoxFooter();
 		}
 	}
-	*/
-	/*
+		
 	static uint bumpTextureIndex = 0;
 
-	if (ImGui::CollapsingHeader("Normals"))
+	if (normalMapping)
 	{
-		if (ImGui::ListBoxHeader("Normal Map"))
+		if (ImGui::CollapsingHeader("Normal Mapping"))
 		{
-			for (uint i = 0; i < m_bumpTextures.size(); i++)
+			if (ImGui::ListBoxHeader("Normal Map"))
 			{
-				auto& texture = m_bumpTextures[i];
-				bool selected = (i == bumpTextureIndex);
-				ImGui::BeginGroup();
-				ImGui::PushID(i);
+				for (uint i = 0; i < m_bumpTextures.size(); i++)
+				{
+					auto& texture = m_bumpTextures[i];
+					bool selected = (i == bumpTextureIndex);
+					ImGui::BeginGroup();
+					ImGui::PushID(i);
 
-				if (ImGui::Selectable("", &selected, 0, ImVec2(0.0f, 32.0f)))
-					bumpTextureIndex = i;
+					if (ImGui::Selectable("", &selected, 0, ImVec2(0.0f, 32.0f)))
+						bumpTextureIndex = i;
 
-				ImGui::SameLine();
-				ImGui::Image((ImTextureID)texture->id(), ImVec2(32.0f, 32.0f));
-				ImGui::PopID();
-				ImGui::EndGroup();
+					ImGui::SameLine();
+					ImGui::Image((ImTextureID)texture->id(), ImVec2(32.0f, 32.0f));
+					ImGui::PopID();
+					ImGui::EndGroup();
+				}
+
+				ImGui::ListBoxFooter();
 			}
-
-			ImGui::ListBoxFooter();
 		}
 	}
-	*/
-
-	if (ImGui::CollapsingHeader("Animation"))
-	{
-		ImGui::Checkbox("Prodecural Animation", &animate);
-		ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 256.0f);
-		ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
-	}
 	
+
 	/*
 	if (ImGui::Button("1.0"))
 		sharpness = 1.0f;
@@ -567,7 +568,6 @@ void SphereRenderer::display()
 	float fieldOfView = 2.0f * atan(1.0f / projectionMatrix[1][1]);
 	//std::cout << "FOV :" << fieldOfView << std::endl;
 
-	static bool depthOfField = false;
 	static float focalDistance = 2.0f*sqrt(3.0f);
 	static float maximumCoCRadius = 9.0f;
 	static float farRadiusRescale = 1.0f;
@@ -578,21 +578,30 @@ void SphereRenderer::display()
 
 	const char* fStops[] = { "0.7", "0.8", "1.0", "1.2", "1.4", "1.7", "2.0", "2.4", "2.8", "3.3", "4.0", "4.8", "5.6", "6.7", "8.0", "9.5", "11.0", "16.0", "22.0", "32.0" };
 
-	if (ImGui::CollapsingHeader("Depth of Field"))
+	if (depthOfField)
 	{
-		ImGui::Checkbox("Enabled", &depthOfField);
+		if (ImGui::CollapsingHeader("Depth of Field"))
+		{
+			ImGui::SliderFloat("Focal Distance", &focalDistance, 0.1f, 35.0f);
+			ImGui::Combo("F-stop", &fStop_current, fStops, IM_ARRAYSIZE(fStops));
 
-		ImGui::SliderFloat("Focal Distance", &focalDistance, 0.1f, 35.0f);
-		ImGui::Combo("F-stop", &fStop_current, fStops, IM_ARRAYSIZE(fStops));
+			ImGui::SliderFloat("Max. CoC Radius", &maximumCoCRadius, 1.0f, 20.0f);
+			ImGui::SliderFloat("Far Radius Scale", &farRadiusRescale, 0.1f, 5.0f);
 
-		ImGui::SliderFloat("Max. CoC Radius", &maximumCoCRadius, 1.0f, 20.0f);
-		ImGui::SliderFloat("Far Radius Scale", &farRadiusRescale, 0.1f, 5.0f);
-
+		}
 	}
 
 	fStop = std::stof(fStops[fStop_current]);
 	focalLength = 1.0f / (tan(fieldOfView * 0.5f) * 2.0f);
 	aparture = focalLength / fStop;
+
+	if (ImGui::CollapsingHeader("Animation"))
+	{
+		ImGui::Checkbox("Prodecural Animation", &animate);
+		ImGui::SliderFloat("Frequency", &animationFrequency, 1.0f, 256.0f);
+		ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
+	}
+
 
 	ImGui::End();
 
@@ -627,6 +636,9 @@ void SphereRenderer::display()
 
 	if (normalMapping)
 		defines += "#define NORMAL\n";
+
+	if (materialMapping)
+		defines += "#define MATERIAL\n";
 
 	if (depthOfField)
 		defines += "#define DEPTHOFFIELD\n";
@@ -665,6 +677,8 @@ void SphereRenderer::display()
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+
+	//std::cout << to_string(inverseProjectionMatrix * vec4(0.0, 0.0, -1.0, 1.0)) << std::endl;
 
 	m_programSphere->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSphere->setUniform("projectionMatrix", projectionMatrix);
@@ -759,7 +773,8 @@ void SphereRenderer::display()
 	m_sphereNormalTexture->bindActive(1);
 	m_offsetTexture->bindActive(3);
 	m_environmentTexture->bindActive(4);
-	//m_bumpTextures[bumpTextureIndex]->bindActive(5);
+	m_bumpTextures[bumpTextureIndex]->bindActive(5);
+	m_materialTextures[materialTextureIndex]->bindActive(6);
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
@@ -805,6 +820,7 @@ void SphereRenderer::display()
 	m_programSurface->setUniform("offsetTexture", 3);
 	m_programSurface->setUniform("environmentTexture", 4);
 	m_programSurface->setUniform("bumpTexture", 5);
+	m_programSurface->setUniform("materialTexture", 6);
 	m_programSurface->setUniform("sharpness", sharpness);
 	m_programSurface->setUniform("coloring", uint(coloring));
 	m_programSurface->setUniform("environment", environmentMapping);
@@ -820,7 +836,8 @@ void SphereRenderer::display()
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
-	//m_bumpTextures[bumpTextureIndex]->unbindActive(5);
+	m_materialTextures[materialTextureIndex]->unbindActive(6);
+	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
 	m_environmentTexture->unbindActive(4);
 	m_offsetTexture->unbindActive(3);
 	m_sphereNormalTexture->unbindActive(1);
@@ -916,7 +933,7 @@ void SphereRenderer::display()
 	m_surfaceDiffuseTexture->bindActive(5);
 	m_depthTexture->bindActive(6);
 	m_ambientTexture->bindActive(7);
-	//m_materialTextures[materialTextureIndex]->bindActive(8);
+	m_materialTextures[materialTextureIndex]->bindActive(8);
 	m_environmentTexture->bindActive(9);
 
 	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
@@ -966,7 +983,7 @@ void SphereRenderer::display()
 	m_vaoQuad->unbind();
 
 	m_environmentTexture->unbindActive(9);
-//	m_materialTextures[materialTextureIndex]->unbindActive(8);
+	m_materialTextures[materialTextureIndex]->unbindActive(8);
 	m_ambientTexture->unbindActive(7);
 	m_depthTexture->unbindActive(6);
 	m_surfaceDiffuseTexture->unbindActive(5);

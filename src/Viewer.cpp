@@ -20,6 +20,7 @@
 #include "Scene.h"
 #include "Protein.h"
 #include <fstream>
+#include <sstream>
 #include <list>
 #include <lodepng.h>
 

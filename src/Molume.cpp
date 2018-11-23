@@ -142,28 +142,28 @@ ivec3 Molume::pageSize()
 		GLenum format = GL_RGBA8;
 
 		glGetInternalformativ(target, format, GL_NUM_VIRTUAL_PAGE_SIZES_ARB, sizeof(int), &numPageSizes);
-		globjects::info("GL_NUM_VIRTUAL_PAGE_SIZES_ARB = %d;", numPageSizes);
+		globjects::info() << "GL_NUM_VIRTUAL_PAGE_SIZES_ARB = " << numPageSizes;
 
 		if (numPageSizes == 0)
 		{
-			globjects::fatal("Sparse textures are not supported!");
+			globjects::fatal() << "Sparse textures are not supported!";
 		}
 		else
 		{
 			auto pageSizesX = std::vector<int>(numPageSizes);
 			glGetInternalformativ(target, format, GL_VIRTUAL_PAGE_SIZE_X_ARB, static_cast<GLsizei>(numPageSizes * sizeof(int)), pageSizesX.data());
 			for (int i = 0; i < numPageSizes; ++i)
-				globjects::info("GL_VIRTUAL_PAGE_SIZE_X_ARB[%;] = %;", i, pageSizesX[i]);
+				globjects::info() << "GL_VIRTUAL_PAGE_SIZE_X_ARB[" << i << "] = " << pageSizesX[i];
 
 			auto pageSizesY = std::vector<int>(numPageSizes);
 			glGetInternalformativ(target, format, GL_VIRTUAL_PAGE_SIZE_Y_ARB, static_cast<GLsizei>(numPageSizes * sizeof(int)), pageSizesY.data());
 			for (int i = 0; i < numPageSizes; ++i)
-				globjects::info("GL_VIRTUAL_PAGE_SIZE_Y_ARB[%;] = %;", i, pageSizesY[i]);
+				globjects::info() << "GL_VIRTUAL_PAGE_SIZE_Y_ARB[" << i << "] = " << pageSizesY[i];
 
 			auto pageSizesZ = std::vector<int>(numPageSizes);
 			glGetInternalformativ(target, format, GL_VIRTUAL_PAGE_SIZE_Z_ARB, static_cast<GLsizei>(numPageSizes * sizeof(int)), pageSizesZ.data());
 			for (int i = 0; i < numPageSizes; ++i)
-				globjects::info("GL_VIRTUAL_PAGE_SIZE_Z_ARB[%;] = %;", i, pageSizesZ[i]);
+				globjects::info() << "GL_VIRTUAL_PAGE_SIZE_Z_ARB[" << i << "] = " << pageSizesZ[i];
 
 			size = ivec3(pageSizesX[0], pageSizesY[0], pageSizesZ[0]);
 		}

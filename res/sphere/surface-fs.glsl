@@ -26,6 +26,7 @@ uniform sampler2D positionTexture;
 uniform sampler2D normalTexture;
 uniform sampler2D environmentTexture;
 uniform sampler2D bumpTexture;
+uniform sampler2D materialTexture;
 uniform usampler2D offsetTexture;
 
 in vec4 gFragmentPosition;
@@ -870,14 +871,19 @@ void main()
 
 
 
-
-
-
 	//diffuseColor.rgb = cols[min(entryCount/2 + entryCount%2,7)];
 
 	closestNormal.xyz = normalMatrix*closestNormal.xyz;
 	closestNormal.xyz = normalize(closestNormal.xyz);
 	surfaceNormal = vec4(closestNormal.xyz,cp.z);
+
+#ifdef MATERIAL
+
+	vec3 materialColor = texture( materialTexture , closestNormal.xy*0.5+0.5 ).rgb;
+	//materialColor = vec3( 1. ) - ( vec3( 1. ) - materialColor ) * ( vec3( 1. ) - materialColor );
+	diffuseColor *= materialColor;
+
+#endif
 
 	surfaceDiffuse = vec4(diffuseColor,1.0);
 	sphereDiffuse = vec4(diffuseSphereColor,1.0);
