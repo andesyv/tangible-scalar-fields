@@ -112,6 +112,91 @@ void getBoundsForPhi(in float phi, in vec3 center, in float radius, in float nea
     L.z = bounds_az[1].y;
 }
 
+/** 
+    Calculates the upper and lower bounds along axis determined by phi; 
+    directly on the maxZ plane (which eliminates the need for a subsequent 
+    projection). See http://www.terathon.com/code/scissor.html or 
+    http://www.gamasutra.com/view/feature/2942/the_mechanics_of_robust_stencil_.php
+    for a derivation. The Z coordinate for U and L is omitted, since it is always maxZ.
+    This eliminates the need for explicit projection, which saves a division and two multiplies.
+
+    In practical testing, using this method instead of our default implementation results in anywhere from a
+    2%-30% slowdown, depending on the test harness parameters, on a GeForce TITAN with driver version 320.49.
+
+    This version uses many less multiply-adds and multiplies than the default implementation 
+    (and one less inverse square root), but 2-3 more divisions depending on whether the sphere intersects
+    the near plane (even without requiring the final projection).
+
+    We recommend testing and optimizing both methods on your target architecture if you need to eke out
+    maximal performance for this function.
+*/
+void getBoundsForPhiLengyel(in float phi, in vec3 center, in float radius, in float maxZ, in float nearZ, out vec2 perpendicularDirection, out vec2 U, out vec2 L){
+    bool trivialAccept = (center.z + radius) < nearZ; // Entirely in back of nearPlane (Trivial Accept)
+
+    vec2 a = vec2(cos(phi), sin(phi));
+    perpendicularDirection.x = -a.y;
+    perpendicularDirection.y = a.x;
+
+    // given in coordinates (a,z), where a is in the direction of the vector a, and z is in the standard z direction
+    vec2 projectedCenter = vec2(dot(a, center.xy), center.z);  
+    float bounds_a[2];
+    float projCenterSqLength = dot(projectedCenter, projectedCenter);
+    float tSquared = projCenterSqLength - square(radius);
+    float t;
+    float rC_a, normalCalculationSqrtPart, N_a_denominator;
+    
+	if(tSquared >  0)
+	{ // Camera is outside sphere
+        // Distance to the tangent points of the sphere (points where a vector from the camera are tangent to the sphere) (calculated a-z space)
+        t                           = sqrt(tSquared);
+        rC_a                        = radius * projectedCenter.x;
+        normalCalculationSqrtPart   = projectedCenter.y * t;
+        N_a_denominator             = 1 / projCenterSqLength;
+    }
+    
+	float sqrtPart, invC_z;
+    
+	if(!trivialAccept)
+	{
+        sqrtPart = sqrt(square(radius) - square(nearZ - projectedCenter.y));
+        invC_z = 1.0 / projectedCenter.y;
+    }
+
+    for(int i = 0; i < 2; ++i )
+	{
+        float N_a;
+
+        if(tSquared >  0)
+		{   
+            // Calculate the 'a' coordinate. This is Q_x in the terathon article (maxZ is the "e" value).
+			N_a = N_a_denominator * (rC_a + normalCalculationSqrtPart);
+            bounds_a[i] = -maxZ * (radius - N_a * projectedCenter.x) / ( N_a * projectedCenter.y );
+        } 
+
+        if(!trivialAccept)
+		{ 
+            bool replace = tSquared <= 0;
+            
+			if (!replace)
+			{ // Do the extra work to find the Z-coordinate of the tangent point
+                float N_z = (radius - N_a * projectedCenter.x) * invC_z;
+                float z = projectedCenter[1] - radius * N_z;
+                replace = z > nearZ;
+            }
+            
+			if ( replace )
+			{ 
+                bounds_a[i] = projectedCenter.x + sqrtPart;
+            }
+        }
+        normalCalculationSqrtPart *= -1;
+        sqrtPart *= -1; // negate sqrtPart for B
+    }
+    U   = bounds_a[0] * a;
+    L   = bounds_a[1] * a;
+}
+
+
 struct Element
 {
 	vec3 color;
@@ -149,8 +234,11 @@ void main()
     float invAxisNum = 1.0 / AXIS_NUM;
 
     // The plane we draw the bounds on
-    float maxZ = min(nearPlaneZ, c.z + radius);
+    float maxZ = min(nearPlaneZ, c.z);
 
+// If we use our default method, we need to project onto the maxZ plane, the lengyel 
+// method just solves for the x-y coordinates directly on the maxZ plane.
+#if USE_LENGYEL_METHOD == 0
     vec3    axesBounds[N];
     for(int i = 0; i < AXIS_NUM; ++i)
 	{
@@ -158,9 +246,18 @@ void main()
         getBoundsForPhi(phi, c.xyz, radius, nearPlaneZ, boundingLines[i].direction, axesBounds[i], axesBounds[i + AXIS_NUM]);
         boundingLines[i + AXIS_NUM].direction = boundingLines[i].direction;
     }
-    
-	for(int i = 0; i < N; ++i)
-        boundingLines[i].point = axesBounds[i].xy * (maxZ / axesBounds[i].z);   
+    for(int i = 0; i < N; ++i)
+	{
+        boundingLines[i].point = axesBounds[i].xy * (maxZ / axesBounds[i].z);
+    }
+#else
+    for(int i = 0; i < AXIS_NUM; ++i)
+	{
+        float phi = (i * PI) * invAxisNum;
+        getBoundsForPhiLengyel(phi, c.xyz, radius, maxZ, nearPlaneZ, boundingLines[i].direction, boundingLines[i].point, boundingLines[i + AXIS_NUM].point);
+        boundingLines[i + AXIS_NUM].direction = boundingLines[i].direction;
+    }
+#endif
 
     boundingLines[N] = boundingLines[0]; // Avoid modular arithmetic
     

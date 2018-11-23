@@ -451,9 +451,14 @@ void main()
 	if (offset == 0)
 		discard;
 
+
 	vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 normal = texelFetch(normalTexture,ivec2(gl_FragCoord.xy),0);
-
+	/*
+	surfaceDiffuse = vec4(1.0,0.0,0.0,1.0);
+	surfaceDiffuse.xyz += normal.xyz;
+	return;
+	*/
 	//vec4 depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0);
 
 	vec4 fragCoord = gFragmentPosition;
