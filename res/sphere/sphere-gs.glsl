@@ -3,6 +3,7 @@
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 uniform float radiusScale;
+uniform float clipRadiusScale;
 uniform float nearPlaneZ = -0.125;
 
 // Source: https://research.nvidia.com/publication/2d-polyhedral-bounds-clipped-perspective-projected-3d-sphere
@@ -213,22 +214,26 @@ void main()
 	uint sphereId = floatBitsToUint(gl_in[0].gl_Position.w);
 	uint elementId = bitfieldExtract(sphereId,0,8);
 	float sphereRadius = elements[elementId].radius*radiusScale;
+	float sphereClipRadius = elements[elementId].radius*clipRadiusScale;
 	
 	gSphereId = sphereId;
 	gSpherePosition = gl_in[0].gl_Position;
 	gSphereRadius = sphereRadius;
 
 	vec4 c = modelViewMatrix * vec4(gl_in[0].gl_Position.xyz,1.0);
-
-	if (c.z >= -0.75)
-		return;
-
+	
 	vec4 size = modelViewMatrix * vec4(sphereRadius,0.0,0.0,0.0);
 	float radius = length(size);
 
-	if(c.z - radius >= nearPlaneZ)
+	vec4 clipSize = modelViewMatrix * vec4( sphereClipRadius, 0.0,0.0,0.0);
+	float clipRadius = length(clipSize);
+
+	if (c.z + clipRadius >= nearPlaneZ)
+		return;
+/*
+	if(c.z - clipRadius >= nearPlaneZ)
 		return; // culled by near plane
-		
+*/		
     // We'll duplicate the first line into the last spot to avoid modular arithmetic while looping
     line2D  boundingLines[N + 1];
     float invAxisNum = 1.0 / AXIS_NUM;

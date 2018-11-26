@@ -414,6 +414,10 @@ void SphereRenderer::display()
 	static vec3 diffuseMaterial(0.6f, 0.6f, 0.6f);
 	static vec3 specularMaterial(0.3f, 0.3f, 0.3f);
 
+	//std::cout << to_string(projectionInfo) << std::endl
+
+	vec4 nearPlane = inverseProjectionMatrix * vec4(0.0, 0.0, -1.0, 1.0);
+	nearPlane /= nearPlane.w;
 
 /*	
 	// cyan
@@ -677,6 +681,8 @@ void SphereRenderer::display()
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+	//glEnable(GL_DEPTH_CLAMP);
+
 
 	//std::cout << to_string(inverseProjectionMatrix * vec4(0.0, 0.0, -1.0, 1.0)) << std::endl;
 
@@ -685,6 +691,8 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programSphere->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 	m_programSphere->setUniform("radiusScale", 1.0f);
+	m_programSphere->setUniform("clipRadiusScale", radiusScale);
+	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
 	m_programSphere->setUniform("animationDelta", animationDelta);
 	m_programSphere->setUniform("animationTime", animationTime);
 	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
@@ -726,6 +734,8 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programSpawn->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 	m_programSpawn->setUniform("radiusScale", radiusScale);
+	m_programSpawn->setUniform("clipRadiusScale", radiusScale);
+	m_programSpawn->setUniform("nearPlaneZ", nearPlane.z);
 	m_programSpawn->setUniform("animationDelta", animationDelta);
 	m_programSpawn->setUniform("animationTime", animationTime);
 	m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
