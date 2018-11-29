@@ -20,8 +20,6 @@
 #include <globjects/NamedString.h>
 #include <globjects/base/StaticStringSource.h>
 
-#include "SSAO.h"
-
 namespace molumes
 {
 	class Viewer;
@@ -135,7 +133,6 @@ namespace molumes
 
 		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
 		std::vector< std::unique_ptr<globjects::Texture> > m_bumpTextures;
-		std::unique_ptr<SSAO> m_ssao = nullptr;
 
 		glm::ivec2 m_framebufferSize;
 	};

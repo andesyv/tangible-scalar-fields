@@ -8,7 +8,6 @@
 #include "Viewer.h"
 #include "Scene.h"
 #include "Protein.h"
-#include "SSAO.h"
 #include <lodepng.h>
 
 #include <glm/gtc/type_ptr.hpp>
@@ -227,8 +226,6 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	}
 
 
-	m_ssao = std::make_unique<SSAO>();
-	
 	for (auto& d : std::filesystem::directory_iterator("./dat/materials"))
 	{
 		std::filesystem::path materialPath(d);

@@ -28,7 +28,6 @@ target_link_libraries(molumes PUBLIC glfw)
 target_link_libraries(molumes PUBLIC glbinding::glbinding )
 target_link_libraries(molumes PUBLIC glbinding::glbinding-aux )
 target_link_libraries(molumes PUBLIC globjects::globjects)
-target_link_libraries(molumes PUBLIC ${CMAKE_SOURCE_DIR}/lib/HBAOPlus/lib/GFSDK_SSAO_GL.win64.lib)
 target_link_libraries(molumes PUBLIC ${MATLAB_LIBRARIES})
 
 set_target_properties(molumes PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${Matlab_ENG_LIBRARY})
