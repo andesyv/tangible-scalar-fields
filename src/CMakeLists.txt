@@ -15,19 +15,19 @@ find_package(globjects REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(Matlab COMPONENTS ENG_LIBRARY)
 
-if (Matlab_FOUND)
-	target_compile_definitions(molumes INTERFACE HAVE_MATLAB)
-endif()
-
 include_directories(${CMAKE_SOURCE_DIR}/lib/HBAOPlus/include)
 include_directories(${CMAKE_SOURCE_DIR}/lib/imgui/)
 include_directories(${CMAKE_SOURCE_DIR}/lib/lodepng/)
-include_directories(${Matlab_INCLUDE_DIRS})
 
 target_link_libraries(molumes PUBLIC glfw)
 target_link_libraries(molumes PUBLIC glbinding::glbinding )
 target_link_libraries(molumes PUBLIC glbinding::glbinding-aux )
 target_link_libraries(molumes PUBLIC globjects::globjects)
-target_link_libraries(molumes PUBLIC ${MATLAB_LIBRARIES})
 
-set_target_properties(molumes PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${Matlab_ENG_LIBRARY})
+if (Matlab_FOUND)
+	include_directories(${Matlab_INCLUDE_DIRS})
+	target_link_libraries(molumes PUBLIC ${MATLAB_LIBRARIES})
+	target_compile_definitions(molumes INTERFACE HAVE_MATLAB)
+endif()
+
+set_target_properties(molumes PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
