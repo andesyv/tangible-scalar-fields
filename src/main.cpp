@@ -36,7 +36,7 @@ void error_callback(int errnum, const char * errmsg)
 	globjects::critical() << errnum << ": " << errmsg << std::endl;
 }
 
-int main(int /*argc*/, char * /*argv*/[])
+int main(int argc, char *argv[])
 {
 	// Initialize GLFW
 	if (!glfwInit())
@@ -79,8 +79,13 @@ int main(int /*argc*/, char * /*argv*/[])
 		<< "OpenGL Vendor:   " << glbinding::aux::ContextInfo::vendor() << std::endl
 		<< "OpenGL Renderer: " << glbinding::aux::ContextInfo::renderer() << std::endl;
 
+	std::string fileName = "./dat/6b0x.pdb";
+
+	if (argc > 1)
+		fileName = std::string(argv[1]);
+
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load("./dat/5odv.pdb");
+	scene->protein()->load(fileName);
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Scaling the model's bounding box to the canonical view volume

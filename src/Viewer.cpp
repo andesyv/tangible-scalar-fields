@@ -162,16 +162,13 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 	int i = 1;
 
-	std::cout << "Available renderers (use the number keys to toggle):" << std::endl;
+	globjects::debug() << "Available renderers (use the number keys to toggle):";
 
 	for (auto& r : m_renderers)
 	{
-		std::cout << "  " << i << " - " << typeid(*r.get()).name() << std::endl;
+		globjects::debug() << "  " << i << " - " << typeid(*r.get()).name();
 		++i;
 	}
-
-	std::cout << std::endl;
-
 }
 
 void Viewer::display()

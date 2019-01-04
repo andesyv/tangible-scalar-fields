@@ -19,6 +19,7 @@
 #include <globjects/TextureHandle.h>
 #include <globjects/NamedString.h>
 #include <globjects/base/StaticStringSource.h>
+#include <globjects/Query.h>
 
 namespace molumes
 {
@@ -133,6 +134,18 @@ namespace molumes
 
 		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
 		std::vector< std::unique_ptr<globjects::Texture> > m_bumpTextures;
+
+		std::unique_ptr<globjects::Query> m_sphereQuery = nullptr;
+		std::unique_ptr<globjects::Query> m_spawnQuery = nullptr;
+		std::unique_ptr<globjects::Query> m_surfaceQuery = nullptr;
+		std::unique_ptr<globjects::Query> m_shadeQuery = nullptr;
+		std::unique_ptr<globjects::Query> m_totalQuery = nullptr;
+		glm::uint m_benchmarkCounter = 0;
+		glm::uint m_benchmarkPhase = 0;
+		glm::uint m_benchmarkIndex = 0;
+		bool m_benchmarkWarmup = true;
+
+
 
 		glm::ivec2 m_framebufferSize;
 	};

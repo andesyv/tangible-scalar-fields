@@ -12,6 +12,8 @@
 #include <algorithm> 
 #include <cctype>
 #include <locale>
+#include <globjects/globjects.h>
+#include <globjects/logging.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -80,12 +82,12 @@ Protein::Protein(const std::string& filename)
 
 void Protein::load(const std::string& filename)
 {
-	std::cout << "Loading file " << filename << " ..." << std::endl;
+	globjects::debug() << "Loading file " << filename << " ...";
 	std::ifstream file(filename);
 
 	if (!file.is_open())
 	{
-		std::cerr << "Could not open file " << filename << "!" << std::endl << std::endl;
+		globjects::critical() << "Could not open file " << filename << "!";
 	}
 
 	m_filename = filename;
@@ -202,7 +204,7 @@ void Protein::load(const std::string& filename)
 
 	for (auto id : m_activeElementIds)
 	{
-		std::cout << "Element " << id << ": " << to_string(elementColors()[id]) << std::endl;
+		globjects::debug() << "Element " << id << ": " << to_string(elementColors()[id]);
 		m_activeElementColors.push_back(elementColors()[id]);
 		m_activeElementRadii.push_back(elementRadii()[id]);
 		m_activeElementColorsRadiiPacked.push_back(vec4(elementColors()[id],elementRadii()[id]));
@@ -210,23 +212,23 @@ void Protein::load(const std::string& filename)
 
 	for (auto id : m_activeResidueIds)
 	{
-		std::cout << "Residue " << id << ": " << to_string(residueColors()[id]) << std::endl;
+		globjects::debug() << "Residue " << id << ": " << to_string(residueColors()[id]);
 		m_activeResidueColors.push_back(residueColors()[id]);
 		m_activeResidueColorsPacked.push_back(vec4(residueColors()[id],1.0f));
 	}
 
 	for (auto id : m_activeChainIds)
 	{
-		std::cout << "Chain " << id << ": " << to_string(chainColors()[id]) << std::endl;
+		globjects::debug() << "Chain " << id << ": " << to_string(chainColors()[id]);
 		m_activeChainColors.push_back(chainColors()[id]);
 		m_activeChainColorsPacked.push_back(vec4(chainColors()[id], 1.0f));
 	}
 
-	std::cout << m_atoms.size() << " timesteps loaded from file " << filename << "." << std::endl;
+	globjects::debug() << uint(m_atoms.size()) << " timesteps loaded from file " << filename << ".";
 
 	for (uint i = 0; i < m_atoms.size(); i++)
 	{
-		std::cout << "Timestep " << i << ": " << m_atoms[i].size() << std::endl;
+		globjects::debug() << "Timestep " << i << ": " << uint(m_atoms[i].size());
 	}
 	
 	/*

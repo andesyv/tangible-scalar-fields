@@ -1,7 +1,6 @@
 #include "SphereRenderer.h"
 #include <globjects/base/File.h>
 #include <globjects/State.h>
-#include <globjects/Query.h>
 #include <iostream>
 #include <filesystem>
 #include <imgui.h>
@@ -11,6 +10,8 @@
 #include <lodepng.h>
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -45,6 +46,8 @@ void flip(std::vector<unsigned char> & image, uint width, uint height)
 		memcpy(imagePtr + (height - rowIndex - 1) * cols, tempPtr, cols);
 	}
 }
+
+#define BENCHMARK
 
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
@@ -295,7 +298,6 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
-	m_sphereFramebuffer->printStatus();
 
 	m_surfaceFramebuffer = Framebuffer::create();
 	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_surfacePositionTexture.get());
@@ -304,36 +306,36 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_sphereDiffuseTexture.get());
 	m_surfaceFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_surfaceFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 });
-	m_surfaceFramebuffer->printStatus();
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
 	m_shadeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_shadeFramebuffer->printStatus();
 
 	m_aoBlurFramebuffer = Framebuffer::create();
 	m_aoBlurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_blurTexture.get());
 	m_aoBlurFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-	m_aoBlurFramebuffer->printStatus();
 
 	m_aoFramebuffer = Framebuffer::create();
 	m_aoFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_ambientTexture.get());
 	m_aoFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-	m_aoFramebuffer->printStatus();
 
 	m_dofBlurFramebuffer = Framebuffer::create();
 	m_dofBlurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_sphereNormalTexture.get());
 	m_dofBlurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_surfaceNormalTexture.get());
 	m_dofBlurFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
-	m_dofBlurFramebuffer->printStatus();
 
 	m_dofFramebuffer = Framebuffer::create();
 	m_dofFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_sphereDiffuseTexture.get());
 	m_dofFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_surfaceDiffuseTexture.get());
 	m_dofFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
-	m_dofFramebuffer->printStatus();
 
+#ifdef BENCHMARK
+	m_sphereQuery = Query::create();
+	m_spawnQuery = Query::create();
+	m_surfaceQuery = Query::create();
+	m_shadeQuery = Query::create();
+#endif
 
 /*
 	m_blendFramebuffer = Framebuffer::create();
@@ -365,6 +367,44 @@ std::list<globjects::File*> SphereRenderer::shaderFiles() const
 
 void SphereRenderer::display()
 {
+#ifdef BENCHMARK
+
+	static mat4 viewTransform = viewer()->viewTransform();
+	static mat4 inverseViewTransform = inverse(viewTransform);
+
+	uint axisIndex = (m_benchmarkCounter / 360) % 3;
+	vec4 baseAxis = vec4(0.0);
+	baseAxis[axisIndex] = 1.0;
+
+	vec4 transformedAxis = inverseViewTransform * baseAxis;
+
+	float angle = float(m_benchmarkCounter % 360);
+	mat4 newViewTransform = rotate(viewTransform, angle * pi<float>() / 180.0f, vec3(transformedAxis));
+	viewer()->setViewTransform(newViewTransform);
+
+	std::array<ivec2,3> windowSizes = { ivec2(768,768), ivec2(1024,1024), ivec2(1280,1280) };
+	uint windowIndex = m_benchmarkPhase % windowSizes.size();
+	glfwSetWindowSize(viewer()->window(), windowSizes[windowIndex].x, windowSizes[windowIndex].y);
+
+	if (m_benchmarkPhase == 0 && m_benchmarkIndex == 0 && m_benchmarkCounter == 0 && m_benchmarkWarmup == true)
+	{
+		std::filesystem::path filePath(viewer()->scene()->protein()->filename());
+		std::string pdbName = filePath.stem().string();
+		std::transform(pdbName.begin(), pdbName.end(), pdbName.begin(), ::toupper);
+
+		std::cout << pdbName << ",";
+		std::cout << viewer()->scene()->protein()->atoms().at(0).size();
+	}
+
+	if (m_benchmarkPhase >= 3)
+	{
+		std::cout << std::endl;
+		exit(0);
+	}
+	m_benchmarkCounter++;
+
+#endif
+
 	auto currentState = State::currentState();
 
 	if (viewer()->viewportSize() != m_framebufferSize)
@@ -493,6 +533,11 @@ void SphereRenderer::display()
 		ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
 		ImGui::Checkbox("Magic Lens", &lens);
 	}
+
+#ifdef BENCHMARK
+	std::array<float, 4> sharpnessValues = { 1.0f, 2.0f, 3.0f, 4.0f };
+	sharpness = sharpnessValues[m_benchmarkIndex % sharpnessValues.size()];
+#endif
 	
 	static uint materialTextureIndex = 0;
 
@@ -652,6 +697,9 @@ void SphereRenderer::display()
 			s->reload();
 	}
 
+#ifdef BENCHMARK
+	m_sphereQuery->begin(GL_TIME_ELAPSED);
+#endif
 	auto vertexBinding = m_vao->binding(0);
 	vertexBinding->setAttribute(0);
 	vertexBinding->setBuffer(m_vertices[currentTimestep].get(), 0, sizeof(vec4));
@@ -668,8 +716,7 @@ void SphereRenderer::display()
 	}
 
 
-	//std::unique_ptr<Query> sphereQuery = Query::create();
-	//sphereQuery->begin(GL_TIME_ELAPSED);
+
 
 	m_sphereFramebuffer->bind();
 	glClearDepth(1.0f);
@@ -702,10 +749,13 @@ void SphereRenderer::display()
 
 	m_programSphere->release();
 
-	//sphereQuery->end(GL_TIME_ELAPSED);
-		
-	//std::unique_ptr<Query> spawnQuery = Query::create();
-	//spawnQuery->begin(GL_TIME_ELAPSED);
+#ifdef BENCHMARK
+	m_sphereQuery->end(GL_TIME_ELAPSED);
+#endif
+
+#ifdef BENCHMARK
+	m_spawnQuery->begin(GL_TIME_ELAPSED);
+#endif
 
 	//m_ssao->display(mat4(1.0f)/*viewer()->modelViewTransform()*/,viewer()->projectionTransform(), m_frameBuffer->id(), m_depthTexture->id(), m_normalTexture->id());
 
@@ -751,12 +801,14 @@ void SphereRenderer::display()
 
 	m_sphereFramebuffer->unbind();
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	
-	//spawnQuery->end(GL_TIME_ELAPSED);
 
+#ifdef BENCHMARK
+	m_spawnQuery->end(GL_TIME_ELAPSED);
+#endif
 
-	//std::unique_ptr<Query> surfaceQuery = Query::create();
-	//surfaceQuery->begin(GL_TIME_ELAPSED);
+#ifdef BENCHMARK
+	m_surfaceQuery->begin(GL_TIME_ELAPSED);
+#endif
 
 //	uint sphereCount = 0;
 //	m_verticesSpawn->getSubData(0, sizeof(uint), &sphereCount);
@@ -856,10 +908,13 @@ void SphereRenderer::display()
 
 	m_surfaceFramebuffer->unbind();
 
-	//surfaceQuery->end(GL_TIME_ELAPSED);
+#ifdef BENCHMARK
+	m_surfaceQuery->end(GL_TIME_ELAPSED);
+#endif
 
-	//std::unique_ptr<Query> shadeQuery = Query::create();
-	//shadeQuery->begin(GL_TIME_ELAPSED);
+#ifdef BENCHMARK
+	m_shadeQuery->begin(GL_TIME_ELAPSED);
+#endif
 
 	if (ambientOcclusion)
 	{
@@ -1080,8 +1135,9 @@ void SphereRenderer::display()
 	
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
-	//shadeQuery->end(GL_TIME_ELAPSED);
-
+#ifdef BENCHMARK
+	m_shadeQuery->end(GL_TIME_ELAPSED);
+#endif
 
 #ifdef STATISTICS
 	Statistics *s = (Statistics*) m_statisticsBuffer->map();	
@@ -1107,17 +1163,17 @@ void SphereRenderer::display()
 	ImGui::End();
 #endif	
 
-/*
-	sphereQuery->wait();
-	spawnQuery->wait();
-	surfaceQuery->wait();
-	shadeQuery->wait();
+#ifdef BENCHMARK
+	m_sphereQuery->wait();
+	m_spawnQuery->wait();
+	m_surfaceQuery->wait();
+	m_shadeQuery->wait();
 
-	uint sphereElapsed = sphereQuery->get(GL_QUERY_RESULT);
-	uint spawnElapsed = spawnQuery->get(GL_QUERY_RESULT);
-	uint surfaceElapsed = surfaceQuery->get(GL_QUERY_RESULT);
-	uint shadeElapsed = shadeQuery->get(GL_QUERY_RESULT);
-	
+	uint sphereElapsed = m_sphereQuery->get(GL_QUERY_RESULT);
+	uint spawnElapsed = m_spawnQuery->get(GL_QUERY_RESULT);
+	uint surfaceElapsed = m_surfaceQuery->get(GL_QUERY_RESULT);
+	uint shadeElapsed = m_shadeQuery->get(GL_QUERY_RESULT);
+
 	double sphereTime = double(sphereElapsed) / 1000000000.0;
 	double spawnTime = double(spawnElapsed) / 1000000000.0;
 	double surfaceTime = double(surfaceElapsed) / 1000000000.0;
@@ -1125,42 +1181,164 @@ void SphereRenderer::display()
 
 	static uint counter = 0;
 
-	static double sphereTotal = 0.0;
-	static double spawnTotal = 0.0;
-	static double surfaceTotal = 0.0;
-	static double shadeTotal = 0.0;	
+	static double sphereMin = std::numeric_limits<double>::max();
+	static double spawnMin = std::numeric_limits<double>::max();
+	static double surfaceMin = std::numeric_limits<double>::max();
+	static double shadeMin = std::numeric_limits<double>::max();
 
-	sphereTotal += sphereTime;
-	spawnTotal += spawnTime;
-	surfaceTotal += surfaceTime;
-	shadeTotal += shadeTime;
+	static double sphereMax = 0.0;
+	static double spawnMax = 0.0;
+	static double surfaceMax = 0.0;
+	static double shadeMax = 0.0;
 
-	counter++;
+	static double sphereSum = 0.0;
+	static double spawnSum = 0.0;
+	static double surfaceSum = 0.0;
+	static double shadeSum = 0.0;
 
-	if (counter >= 360)
+	sphereMin = std::min(sphereTime, sphereMin);
+	spawnMin = std::min(spawnTime, spawnMin);
+	surfaceMin = std::min(surfaceTime, surfaceMin);
+	shadeMin = std::min(shadeTime, shadeMin);
+
+	sphereMax = std::max(sphereTime, sphereMax);
+	spawnMax = std::max(spawnTime, spawnMax);
+	surfaceMax = std::max(surfaceTime, surfaceMax);
+	shadeMax = std::max(shadeTime, shadeMax);
+
+	sphereSum += sphereTime;
+	spawnSum += spawnTime;
+	surfaceSum += surfaceTime;
+	shadeSum += shadeTime;
+
+	if (m_benchmarkCounter >= 3*360)
 	{
-		sphereTotal /= double(counter);
-		spawnTotal /= double(counter);
-		surfaceTotal /= double(counter);
-		shadeTotal /= double(counter);
+		sphereSum /= double(m_benchmarkCounter);
+		spawnSum /= double(m_benchmarkCounter);
+		surfaceSum /= double(m_benchmarkCounter);
+		shadeSum /= double(m_benchmarkCounter);
 		
-		double totalTime = sphereTotal + spawnTotal + surfaceTotal + shadeTotal;
+		double phaseSum = sphereSum + spawnSum + surfaceSum + shadeSum;
+		double phaseMin = sphereMin + spawnMin + surfaceMin + shadeMin;
+		double phaseMax = sphereMax + spawnMax + surfaceMax + shadeMax;
 
-		std::cout << "SPHERE: " << sphereTotal << " -- " << (sphereTime / totalTime) * 100.0 << std::endl;
-		std::cout << "SPAWN : " << spawnTotal << " -- " << (spawnTime / totalTime) * 100.0 << std::endl;
-		std::cout << "SURF  : " << surfaceTotal << " -- " << (surfaceTime / totalTime) * 100.0 << std::endl;
-		std::cout << "SHADE : " << shadeTotal << " -- " << (shadeTime / totalTime) * 100.0 << std::endl;
-		std::cout << "TOTAL : " << totalTime << " -- " << 1.0 / totalTime << std::endl;
-		std::cout << sphereTotal << ";" << spawnTotal << ";" << surfaceTotal << ";" << shadeTotal << ";" << totalTime;
-		std::cout << std::endl;
+		/*
+		pdbid,atomcount,
+		sphereavgla,spheremaxla,sphereminla,
+		spawnavgla,spawnmaxla,spawnminla,
+		surfaceavgla,surfacemaxla,surfaceminla,
+		shadeavgla,shademaxla,shademinla,
+		fpsavgla,fpsminla,fpsmaxla,
+		sphereavglb, spheremaxlb, sphereminlb,
+		spawnavglb, spawnmaxlb, spawnminlb,
+		surfaceavglb, surfacemaxlb, surfaceminlb,
+		shadeavglb, shademaxlb, shademinlb,
+		fpsavglb, fpsminlb, fpsmaxlb,
+		sphereavglc, spheremaxlc, sphereminlc,
+		spawnavglc, spawnmaxlc, spawnminlc,
+		surfaceavglc, surfacemaxlc, surfaceminlc,
+		shadeavglc, shademaxlc, shademinlc,
+		fpsavglc, fpsminlc, fpsmaxlc,
+		sphereavgld, spheremaxld, sphereminld,
+		spawnavgld, spawnmaxld, spawnminld,
+		surfaceavgld, surfacemaxld, surfaceminld,
+		shadeavgld, shademaxld, shademinld,
+		fpsavgld, fpsminld, fpsmaxld,
+		sphereavgma, spheremaxma, sphereminma,
+		spawnavgma, spawnmaxma, spawnminma,
+		surfaceavgma, surfacemaxma, surfaceminma,
+		shadeavgma, shademaxma, shademinma,
+		fpsavgma, fpsminma, fpsmaxma,
+		sphereavgmb, spheremaxmb, sphereminmb,
+		spawnavgmb, spawnmaxmb, spawnminmb,
+		surfaceavgmb, surfacemaxmb, surfaceminmb,
+		shadeavgmb, shademaxmb, shademinmb,
+		fpsavgmb, fpsminmb, fpsmaxmb,
+		sphereavgmc, spheremaxmc, sphereminmc,
+		spawnavgmc, spawnmaxmc, spawnminmc,
+		surfaceavgmc, surfacemaxmc, surfaceminmc,
+		shadeavgmc, shademaxmc, shademinmc,
+		fpsavgmc, fpsminmc, fpsmaxmc,
+		sphereavgmd, spheremaxmd, sphereminmd,
+		spawnavgmd, spawnmaxmd, spawnminmd,
+		surfaceavgmd, surfacemaxmd, surfaceminmd,
+		shadeavgmd, shademaxmd, shademinmd,
+		fpsavgmd, fpsminmd, fpsmaxmd,
+		sphereavgha, spheremaxha, sphereminha,
+		spawnavgha, spawnmaxha, spawnminha,
+		surfaceavgha, surfacemaxha, surfaceminha,
+		shadeavgha, shademaxha, shademinha,
+		fpsavgha, fpsminha, fpsmaxha,
+		sphereavghb, spheremaxhb, sphereminhb,
+		spawnavghb, spawnmaxhb, spawnminhb,
+		surfaceavghb, surfacemaxhb, surfaceminhb,
+		shadeavghb, shademaxhb, shademinhb,
+		fpsavghb, fpsminhb, fpsmaxhb,
+		sphereavghc, spheremaxhc, sphereminhc,
+		spawnavghc, spawnmaxhc, spawnminhc,
+		surfaceavghc, surfacemaxhc, surfaceminhc,
+		shadeavghc, shademaxhc, shademinhc,
+		fpsavghc, fpsminhc, fpsmaxhc,
+		sphereavghd, spheremaxhd, sphereminhd,
+		spawnavghd, spawnmaxhd, spawnminhd,
+		surfaceavghd, surfacemaxhd, surfaceminhd,
+		shadeavghd, shademaxhd, shademinhd,
+		fpsavghd, fpsminhd, fpsmaxhd,
+		*/
+		if (!m_benchmarkWarmup)
+		{
+			std::cout << "," << sphereSum * 100.0 << ",";
+			std::cout << sphereMax * 100.0 << ",";
+			std::cout << sphereMin * 100.0 << ",";
+			
+			std::cout << spawnSum * 100.0 << ",";
+			std::cout << spawnMax * 100.0 << ",";
+			std::cout << spawnMin * 100.0 << ",";
 
-		sphereTotal = 0.0;
-		spawnTotal = 0.0;
-		surfaceTotal = 0.0;
-		shadeTotal = 0.0;
-		counter = 0;
+			std::cout << surfaceSum * 100.0 << ",";
+			std::cout << surfaceMax * 100.0 << ",";
+			std::cout << surfaceMin * 100.0 << ",";
+
+			std::cout << shadeSum * 100.0 << ",";
+			std::cout << shadeMax * 100.0 << ",";
+			std::cout << shadeMin * 100.0 << ",";
+
+			std::cout << std::round(1.0 / phaseSum) << ",";
+			std::cout << std::round(1.0 / phaseMax) << ",";
+			std::cout << std::round(1.0 / phaseMin);
+		}
+
+		sphereMin = std::numeric_limits<double>::max();
+		spawnMin = std::numeric_limits<double>::max();
+		surfaceMin = std::numeric_limits<double>::max();
+		shadeMin = std::numeric_limits<double>::max();
+
+		sphereMax = 0.0;
+		spawnMax = 0.0;
+		surfaceMax = 0.0;
+		shadeMax = 0.0;
+
+		sphereSum = 0.0;
+		spawnSum = 0.0;
+		surfaceSum = 0.0;
+		shadeSum = 0.0;
+
+		m_benchmarkCounter = 0;
+
+		if (!m_benchmarkWarmup)
+			m_benchmarkIndex++;
+
+		m_benchmarkWarmup = false;
+
+		if (m_benchmarkIndex >= 4)
+		{
+			m_benchmarkPhase++;
+			m_benchmarkIndex = 0;
+			m_benchmarkWarmup = true;
+		}
 	}
-*/
+
+#endif
 
 	currentState->apply();
 }
