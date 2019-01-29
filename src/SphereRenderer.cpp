@@ -8,6 +8,7 @@
 #include "Scene.h"
 #include "Protein.h"
 #include <lodepng.h>
+#include <sstream>
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -47,7 +48,8 @@ void flip(std::vector<unsigned char> & image, uint width, uint height)
 	}
 }
 
-#define BENCHMARK
+//#define BENCHMARK
+//#define STATISTICS
 
 SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 {
@@ -396,7 +398,7 @@ void SphereRenderer::display()
 		std::cout << viewer()->scene()->protein()->atoms().at(0).size();
 	}
 
-	if (m_benchmarkPhase >= 3)
+	if (m_benchmarkPhase >= windowSizes.size())
 	{
 		std::cout << std::endl;
 		exit(0);
@@ -479,7 +481,7 @@ void SphereRenderer::display()
 */
 	static float shininess = 20.0f;
 
-	static float sharpness = 2.0f;
+	static float sharpness = 1.0f;
 	static float distanceBlending = 0.0f;
 	static float distanceScale = 1.0;
 	static bool ambientOcclusion = false;
@@ -1011,6 +1013,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("distanceBlending", distanceBlending);
 	m_programShade->setUniform("distanceScale", distanceScale);
 	m_programShade->setUniform("shininess", shininess);
+	m_programShade->setUniform("focusPosition", focusPosition);
 
 	m_programShade->setUniform("spherePositionTexture", 0);
 	m_programShade->setUniform("sphereNormalTexture", 1);
@@ -1148,6 +1151,7 @@ void SphereRenderer::display()
 	std::string totalPixelCount = std::to_string(s->totalPixelCount);
 	std::string totalEntryCount = std::to_string(s->totalEntryCount);
 	std::string maximumEntryCount = std::to_string(s->maximumEntryCount);
+	std::string coverage = std::to_string(100.0*double(s->totalPixelCount) / double(viewportSize.x*viewportSize.y));
 
 	*s = Statistics();
 
@@ -1160,6 +1164,7 @@ void SphereRenderer::display()
 	ImGui::InputText("Total Pixel Count", (char*)totalPixelCount.c_str(), totalPixelCount.size(), ImGuiInputTextFlags_ReadOnly);
 	ImGui::InputText("Total Enrty Count", (char*)totalEntryCount.c_str(), totalEntryCount.size(), ImGuiInputTextFlags_ReadOnly);
 	ImGui::InputText("Maximum Entry Count", (char*)maximumEntryCount.c_str(), maximumEntryCount.size(), ImGuiInputTextFlags_ReadOnly);
+	ImGui::InputText("Coverage", (char*)coverage.c_str(), coverage.size(), ImGuiInputTextFlags_ReadOnly);
 	ImGui::End();
 #endif	
 
@@ -1330,7 +1335,7 @@ void SphereRenderer::display()
 
 		m_benchmarkWarmup = false;
 
-		if (m_benchmarkIndex >= 4)
+		if (m_benchmarkIndex >= sharpnessValues.size())
 		{
 			m_benchmarkPhase++;
 			m_benchmarkIndex = 0;
