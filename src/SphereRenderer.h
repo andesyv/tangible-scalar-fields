@@ -148,6 +148,29 @@ namespace molumes
 
 
 		glm::ivec2 m_framebufferSize;
+
+
+		// actual data vectors
+		std::vector<float> m_xAxisData, m_yAxisData, m_radiusData, m_colorData;
+
+		// GUI variables ----------------------------------------------------------------------------
+
+		std::string m_filePath;
+
+		// items for ImGui Combo
+		std::string m_guiFileNames = { 'N', 'o', 'n', 'e', '\0' };
+		std::vector<std::string>  m_fileNames = { "None" };
+
+		std::string m_guiColumnNames = { 'N', 'o', 'n', 'e', '\0' };
+		std::vector<std::string>  m_columnNames = { "None" };
+
+		// store combo ID of selected file
+		int m_fileDataID = 0;
+		
+		// store combo ID of selected columns
+		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
+		
+		// ------------------------------------------------------------------------------------------
 	};
 
 }

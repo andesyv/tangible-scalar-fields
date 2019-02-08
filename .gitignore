@@ -6,3 +6,10 @@
 /.vs/VSWorkspaceState.json
 /.vs/molumes
 /.vs/config
+
+## update 29-11-2018
+/dat
+/lib
+
+## imgui ini file
+imgui.ini

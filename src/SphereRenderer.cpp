@@ -17,6 +17,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
+#include "rapidcsv.h"
+
 using namespace molumes;
 using namespace gl;
 using namespace glm;
@@ -292,6 +294,22 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 				m_bumpTextures.push_back(std::move(bumpTexture));
 			}
+		}
+	}
+
+	for (auto& d : std::filesystem::directory_iterator("./dat"))
+	{
+		std::filesystem::path csvPath(d);
+
+		if (csvPath.extension().string() == ".csv")
+		{
+			// log CSV files that were found in the "./dat" folder
+			globjects::debug() << "Found CSV file: " << csvPath.string() << " ...";
+			std::string filename = csvPath.filename().string();
+
+			// update collections containing all current CSV files
+			m_guiFileNames += filename + '\0';
+			m_fileNames.push_back(filename);
 		}
 	}
 
@@ -650,8 +668,102 @@ void SphereRenderer::display()
 		ImGui::SliderFloat("Amplitude", &animationAmplitude, 1.0f, 32.0f);
 	}
 
+	ImGui::End();
+
+	// Scatterplot GUI ----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+	ImGui::Begin("Scatterplot");
+
+	if (ImGui::CollapsingHeader("CSV-Files"))
+	{
+
+		ImGui::Combo("Files", &m_fileDataID, m_guiFileNames.c_str());
+
+		if (ImGui::Button("Select"))
+		{
+			//std::cout << "File selection event - " << "File: " << m_fileDataID << "\n";
+
+			// reset variables --------------------------------------------------
+			m_guiColumnNames = { 'N', 'o', 'n', 'e', '\0' };
+
+			// reset selection of ImGui combo selection
+			m_xAxisDataID = 0; 
+			m_yAxisDataID = 0; 
+			m_radiusDataID = 0; 
+			m_colorDataID = 0;
+
+			// clear stored float vectors
+			m_xAxisData.clear(); 
+			m_yAxisData.clear(); 
+			m_radiusData.clear(); 
+			m_colorData.clear();
+			// ------------------------------------------------------------------
+
+			if (m_fileDataID != 0) {
+			
+				m_filePath = "./dat/" + m_fileNames[m_fileDataID];
+
+				// reading a file with column header but without row header
+				rapidcsv::Document csvDocument(m_filePath, rapidcsv::LabelParams(0, -1));
+
+				// extract column names
+				m_columnNames = csvDocument.GetColumnNames();
+
+				for (std::vector<std::string>::iterator it = m_columnNames.begin(); it != m_columnNames.end(); ++it) {
+					m_guiColumnNames += *it + '\0';
+				}
+
+				// make sure 'm_columnNames' and 'm_guiColumnNames' are consistent
+				m_columnNames.insert(m_columnNames.begin(), "None");
+			}
+		}
+
+	}
+
+	if (ImGui::CollapsingHeader("Column Data"))
+	{
+
+		// show all column names from selected CSV file
+		ImGui::Combo("X-axis", &m_xAxisDataID, m_guiColumnNames.c_str());
+		ImGui::Combo("Y-axis", &m_yAxisDataID, m_guiColumnNames.c_str());
+		ImGui::Combo("Radius", &m_radiusDataID, m_guiColumnNames.c_str());
+		ImGui::Combo("Color", &m_colorDataID, m_guiColumnNames.c_str());
+
+		if (ImGui::Button("Load"))
+		{
+
+			if(!m_filePath.empty())
+			{
+
+				// access file to read float vectors from it
+				rapidcsv::Document csvDocument(m_filePath, rapidcsv::LabelParams(0, -1));
+
+				if (m_xAxisDataID != 0) {
+					m_xAxisData = csvDocument.GetColumn<float>(m_columnNames[m_xAxisDataID]);
+				}
+
+				if (m_yAxisDataID != 0) {
+					m_yAxisData = csvDocument.GetColumn<float>(m_columnNames[m_yAxisDataID]);
+				}
+
+				if (m_radiusDataID != 0) {
+					m_radiusData = csvDocument.GetColumn<float>(m_columnNames[m_radiusDataID]);
+				}
+
+				if (m_colorDataID != 0) {
+					m_colorData = csvDocument.GetColumn<float>(m_columnNames[m_colorDataID]);
+				}
+
+			}
+
+			//std::cout << "Column Event - " << "X-axis: " << m_xAxisDataID << " Y-axis: " << m_yAxisDataID << " Radius: " << m_radiusDataID << " Color: " << m_colorDataID << "\n";
+		}
+
+	}
 
 	ImGui::End();
+
+	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
