@@ -2,8 +2,17 @@
 #extension GL_ARB_shading_language_include : require
 #include "/defines.glsl"
 
-in vec4 position;
-in vec4 nextPosition;
+layout(location = 0) in float xValue;
+layout(location = 1) in float yValue;
+layout(location = 2) in float radiusValue;
+layout(location = 3) in float colorValue;
+
+out VertexData
+{
+	float radiusValueVS;
+	float colorValueVS;
+} outData;
+
 uniform float animationDelta;
 uniform float animationTime;
 uniform float animationAmplitude;
@@ -107,20 +116,25 @@ float snoise(vec4 v){
 //#define ANIMATION
 void main()
 {
-	vec4 vertexPosition = position;
-#define INTERPOLATION
-#ifdef INTERPOLATION
-	vertexPosition.xyz = mix(position.xyz,nextPosition.xyz,animationDelta);
-#endif
+	vec4 vertexPosition = vec4(xValue, yValue, 0.0f, 1.0f);//position;
 
-	vec3 offset;
-	offset.x = snoise(vec4(vertexPosition.xyz,animationFrequency*animationTime));
-	offset.y = snoise(vec4(vertexPosition.yyx,animationFrequency*animationTime));
-	offset.z = snoise(vec4(vertexPosition.zyx,animationFrequency*animationTime));
+	outData.radiusValueVS = radiusValue;
+	outData.colorValueVS = colorValue;
 
-#ifdef ANIMATION
-	if (animationTime >= 0.0)
-		vertexPosition.xyz += offset*animationAmplitude;
-#endif
+//#define INTERPOLATION
+//#ifdef INTERPOLATION
+//	vertexPosition.xyz = mix(position.xyz,nextPosition.xyz,animationDelta);
+//#endif
+
+// 	vec3 offset;
+// 	offset.x = snoise(vec4(vertexPosition.xyz,animationFrequency*animationTime));
+// 	offset.y = snoise(vec4(vertexPosition.yyx,animationFrequency*animationTime));
+// 	offset.z = snoise(vec4(vertexPosition.zyx,animationFrequency*animationTime));
+// 
+// #ifdef ANIMATION
+// 	if (animationTime >= 0.0)
+// 		vertexPosition.xyz += offset*animationAmplitude;
+// #endif
+
 	gl_Position = vertexPosition;
 }

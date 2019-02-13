@@ -34,11 +34,11 @@ namespace molumes
 
 	private:
 		
-		std::vector< std::unique_ptr<globjects::Buffer> > m_vertices;
 		std::unique_ptr<globjects::VertexArray> m_vao = std::make_unique<globjects::VertexArray>();
-		std::unique_ptr<globjects::Buffer> m_elementColorsRadii = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Buffer> m_residueColors = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Buffer> m_chainColors = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_xColumnBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_yColumnBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_radiusColumnBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_colorColumnBuffer = std::make_unique<globjects::Buffer>();
 		
 		std::unique_ptr<globjects::VertexArray> m_vaoQuad = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
@@ -149,20 +149,13 @@ namespace molumes
 
 		glm::ivec2 m_framebufferSize;
 
-
-		// actual data vectors
-		std::vector<float> m_xAxisData, m_yAxisData, m_radiusData, m_colorData;
-
 		// GUI variables ----------------------------------------------------------------------------
-
-		std::string m_filePath;
 
 		// items for ImGui Combo
 		std::string m_guiFileNames = { 'N', 'o', 'n', 'e', '\0' };
 		std::vector<std::string>  m_fileNames = { "None" };
 
 		std::string m_guiColumnNames = { 'N', 'o', 'n', 'e', '\0' };
-		std::vector<std::string>  m_columnNames = { "None" };
 
 		// store combo ID of selected file
 		int m_fileDataID = 0;

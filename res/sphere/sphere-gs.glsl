@@ -17,6 +17,13 @@ uniform float nearPlaneZ = -0.125;
 layout(points) in;
 layout(triangle_strip, max_vertices = N) out;
 
+in VertexData
+{
+	float radiusValueVS;
+	float colorValueVS;
+} vert[];
+
+
 out vec4 gFragmentPosition;
 flat out vec4 gSpherePosition;
 flat out float gSphereRadius;
@@ -211,12 +218,12 @@ layout(std140, binding = 0) uniform elementBlock
 
 void main()
 {
-	uint sphereId = floatBitsToUint(gl_in[0].gl_Position.w);
-	uint elementId = bitfieldExtract(sphereId,0,8);
-	float sphereRadius = elements[elementId].radius*radiusScale;
-	float sphereClipRadius = elements[elementId].radius*clipRadiusScale;
+	//uint sphereId = floatBitsToUint(gl_in[0].gl_Position.w);
+	//uint elementId = bitfieldExtract(sphereId,0,8);
+	float sphereRadius = vert[0].radiusValueVS*radiusScale; //elements[elementId].radius*radiusScale;
+	float sphereClipRadius = vert[0].radiusValueVS*clipRadiusScale; //elements[elementId].radius*clipRadiusScale;
 	
-	gSphereId = sphereId;
+	//gSphereId = sphereId;
 	gSpherePosition = gl_in[0].gl_Position;
 	gSphereRadius = sphereRadius;
 

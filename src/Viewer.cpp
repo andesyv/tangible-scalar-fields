@@ -18,7 +18,7 @@
 #include "SphereRenderer.h"
 #include "MolumeRenderer.h"
 #include "Scene.h"
-#include "Protein.h"
+#include "Table.h"
 #include <fstream>
 #include <sstream>
 #include <list>
@@ -573,7 +573,7 @@ void Viewer::endFrame()
 
 	if (m_saveScreenshot)
 	{
-		std::string basename = scene()->protein()->filename();
+		std::string basename = scene()->table()->filename();
 		size_t pos = basename.rfind('.', basename.length());
 
 		if (pos != std::string::npos)

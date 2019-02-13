@@ -2,7 +2,7 @@
 #include <globjects/base/File.h>
 #include <iostream>
 #include "Viewer.h"
-#include "Protein.h"
+#include "Table.h"
 #include <glm/gtc/matrix_transform.hpp>
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -47,7 +47,7 @@ MolumeRenderer::MolumeRenderer(Viewer* viewer) : Renderer(viewer)
 	}};
 
 
-	m_molume.insert(viewer->scene()->protein()->atoms().front());
+	m_molume.insert(viewer->scene()->table()->activeTableData().front());
 
 	m_indices->setData(indices, GL_STATIC_DRAW);
 	m_vertices->setData(vertices, GL_STATIC_DRAW);

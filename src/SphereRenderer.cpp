@@ -6,7 +6,7 @@
 #include <imgui.h>
 #include "Viewer.h"
 #include "Scene.h"
-#include "Protein.h"
+#include "Table.h"
 #include <lodepng.h>
 #include <sstream>
 
@@ -14,10 +14,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/transform.hpp>
+#endif
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
-
-#include "rapidcsv.h"
 
 using namespace molumes;
 using namespace gl;
@@ -59,17 +62,6 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 	Statistics s;
 
-	//m_vertices->setData(viewer->scene()->protein()->atoms(), GL_STATIC_DRAW);
-	for (auto i : viewer->scene()->protein()->atoms())
-	{
-		m_vertices.push_back(Buffer::create());
-		m_vertices.back()->setStorage(i, gl::GL_NONE_BIT);
-	}
-	
-	m_elementColorsRadii->setStorage(viewer->scene()->protein()->activeElementColorsRadiiPacked(), gl::GL_NONE_BIT);
-	m_residueColors->setStorage(viewer->scene()->protein()->activeResidueColorsPacked(), gl::GL_NONE_BIT);
-	m_chainColors->setStorage(viewer->scene()->protein()->activeChainColorsPacked(), gl::GL_NONE_BIT);
-	
 	m_intersectionBuffer->setStorage(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, gl::GL_NONE_BIT);
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
@@ -408,12 +400,12 @@ void SphereRenderer::display()
 
 	if (m_benchmarkPhase == 0 && m_benchmarkIndex == 0 && m_benchmarkCounter == 0 && m_benchmarkWarmup == true)
 	{
-		std::filesystem::path filePath(viewer()->scene()->protein()->filename());
+		std::filesystem::path filePath(viewer()->scene()->table()->filename());
 		std::string pdbName = filePath.stem().string();
 		std::transform(pdbName.begin(), pdbName.end(), pdbName.begin(), ::toupper);
 
 		std::cout << pdbName << ",";
-		std::cout << viewer()->scene()->protein()->atoms().at(0).size();
+		std::cout << viewer()->scene()->table()->atoms().at(0).size();
 	}
 
 	if (m_benchmarkPhase >= windowSizes.size())
@@ -692,29 +684,19 @@ void SphereRenderer::display()
 			m_radiusDataID = 0; 
 			m_colorDataID = 0;
 
-			// clear stored float vectors
-			m_xAxisData.clear(); 
-			m_yAxisData.clear(); 
-			m_radiusData.clear(); 
-			m_colorData.clear();
 			// ------------------------------------------------------------------
 
 			if (m_fileDataID != 0) {
 			
-				m_filePath = "./dat/" + m_fileNames[m_fileDataID];
+				// initialize table
+				viewer()->scene()->table()->load("./dat/" + m_fileNames[m_fileDataID]);
 
-				// reading a file with column header but without row header
-				rapidcsv::Document csvDocument(m_filePath, rapidcsv::LabelParams(0, -1));
+				// extract column names and prepare GUI
+				std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
 
-				// extract column names
-				m_columnNames = csvDocument.GetColumnNames();
-
-				for (std::vector<std::string>::iterator it = m_columnNames.begin(); it != m_columnNames.end(); ++it) {
+				for (std::vector<std::string>::iterator it = tempNames.begin(); it != tempNames.end(); ++it) {
 					m_guiColumnNames += *it + '\0';
 				}
-
-				// make sure 'm_columnNames' and 'm_guiColumnNames' are consistent
-				m_columnNames.insert(m_columnNames.begin(), "None");
 			}
 		}
 
@@ -732,31 +714,45 @@ void SphereRenderer::display()
 		if (ImGui::Button("Load"))
 		{
 
-			if(!m_filePath.empty())
-			{
+			// update buffers according to recent changes -> since combo also contains 'None" we need to subtract 1 from ID
+			viewer()->scene()->table()->updateBuffers(m_xAxisDataID-1, m_yAxisDataID-1, m_radiusDataID-1, m_colorDataID-1);
 
-				// access file to read float vectors from it
-				rapidcsv::Document csvDocument(m_filePath, rapidcsv::LabelParams(0, -1));
+			// update VBOs for all four columns
+			m_xColumnBuffer->setData(viewer()->scene()->table()->activeXColumn(), GL_STATIC_DRAW);
+			m_yColumnBuffer->setData(viewer()->scene()->table()->activeYColumn(), GL_STATIC_DRAW);
+			m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
+			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
-				if (m_xAxisDataID != 0) {
-					m_xAxisData = csvDocument.GetColumn<float>(m_columnNames[m_xAxisDataID]);
-				}
+			// update VAO for all buffers ----------------------------------------------------
+			auto vertexBinding = m_vao->binding(0);
+			
+			vertexBinding->setBuffer(m_xColumnBuffer.get(), 0, sizeof(float));
+			vertexBinding->setFormat(1, GL_FLOAT);
+			m_vao->enable(0);
 
-				if (m_yAxisDataID != 0) {
-					m_yAxisData = csvDocument.GetColumn<float>(m_columnNames[m_yAxisDataID]);
-				}
+			vertexBinding = m_vao->binding(1);
+			vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
+			vertexBinding->setFormat(1, GL_FLOAT);
+			m_vao->enable(1);
 
-				if (m_radiusDataID != 0) {
-					m_radiusData = csvDocument.GetColumn<float>(m_columnNames[m_radiusDataID]);
-				}
+			vertexBinding = m_vao->binding(2);
+			vertexBinding->setBuffer(m_radiusColumnBuffer.get(), 0, sizeof(float));
+			vertexBinding->setFormat(1, GL_FLOAT);
+			m_vao->enable(2);
 
-				if (m_colorDataID != 0) {
-					m_colorData = csvDocument.GetColumn<float>(m_columnNames[m_colorDataID]);
-				}
+			vertexBinding = m_vao->binding(3);
+			vertexBinding->setBuffer(m_colorColumnBuffer.get(), 0, sizeof(float));
+			vertexBinding->setFormat(1, GL_FLOAT);
+			m_vao->enable(3);
+			// -------------------------------------------------------------------------------
 
-			}
 
-			//std::cout << "Column Event - " << "X-axis: " << m_xAxisDataID << " Y-axis: " << m_yAxisDataID << " Radius: " << m_radiusDataID << " Color: " << m_colorDataID << "\n";
+			// Scaling the model's bounding box to the canonical view volume
+			vec3 boundingBoxSize = viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
+			float maximumSize = std::max({ boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z });
+			mat4 modelTransform = scale(vec3(2.0f) / vec3(maximumSize));
+			modelTransform = modelTransform * translate(-0.5f*(viewer()->scene()->table()->minimumBounds() + viewer()->scene()->table()->maximumBounds()));
+			viewer()->setModelTransform(modelTransform);
 		}
 
 	}
@@ -765,17 +761,23 @@ void SphereRenderer::display()
 
 	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+	// do not render if data is not loaded
+	if (viewer()->scene()->table()->activeTableData().size() == 0)
+	{
+		return;
+	}
+
 	const float contributingAtoms = 32.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
 
-	uint timestepCount = viewer()->scene()->protein()->atoms().size();
+	uint timestepCount = viewer()->scene()->table()->activeTableData().size();
 	float animationTime = animate ? float(glfwGetTime()) : -1.0f;
 
-	float currentTime = glfwGetTime()*animationFrequency;
-	uint currentTimestep = uint(currentTime) % timestepCount;
+	float currentTime =  glfwGetTime()*animationFrequency;
+	uint currentTimestep =  uint(currentTime) % timestepCount;
 	uint nextTimestep = (currentTimestep + 1) % timestepCount;
 	float animationDelta = currentTime - floor(currentTime);
-	int vertexCount = int(viewer()->scene()->protein()->atoms()[currentTimestep].size());
+	int vertexCount = int(viewer()->scene()->table()->activeTableData()[currentTimestep].size());
 	//std::cout << currentTimestep << std::endl;
 	std::string defines = "";
 
@@ -814,23 +816,6 @@ void SphereRenderer::display()
 #ifdef BENCHMARK
 	m_sphereQuery->begin(GL_TIME_ELAPSED);
 #endif
-	auto vertexBinding = m_vao->binding(0);
-	vertexBinding->setAttribute(0);
-	vertexBinding->setBuffer(m_vertices[currentTimestep].get(), 0, sizeof(vec4));
-	vertexBinding->setFormat(4, GL_FLOAT);
-	m_vao->enable(0);
-	
-	if (timestepCount > 0)
-	{
-		auto nextVertexBinding = m_vao->binding(1);
-		nextVertexBinding->setAttribute(1);
-		nextVertexBinding->setBuffer(m_vertices[nextTimestep].get(), 0, sizeof(vec4));
-		nextVertexBinding->setFormat(4, GL_FLOAT);
-		m_vao->enable(1);
-	}
-
-
-
 
 	m_sphereFramebuffer->bind();
 	glClearDepth(1.0f);
@@ -886,9 +871,6 @@ void SphereRenderer::display()
 
 	m_spherePositionTexture->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
-	m_elementColorsRadii->bindBase(GL_UNIFORM_BUFFER, 0);
-	m_residueColors->bindBase(GL_UNIFORM_BUFFER, 1);
-	m_chainColors->bindBase(GL_UNIFORM_BUFFER, 2);
 	
 	m_programSpawn->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSpawn->setUniform("projectionMatrix", projectionMatrix);
@@ -1015,10 +997,6 @@ void SphereRenderer::display()
 	m_offsetTexture->unbindActive(3);
 	m_sphereNormalTexture->unbindActive(1);
 	m_spherePositionTexture->unbindActive(0);
-
-	m_chainColors->unbind(GL_UNIFORM_BUFFER);
-	m_residueColors->unbind(GL_UNIFORM_BUFFER);
-	m_elementColorsRadii->unbind(GL_UNIFORM_BUFFER);
 
 	m_surfaceFramebuffer->unbind();
 

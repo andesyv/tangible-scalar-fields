@@ -4,16 +4,16 @@
 
 namespace molumes
 {
-	class Protein;
+	class Table;
 
 	class Scene
 	{
 	public:
 		Scene();
-		Protein* protein();
+		Table* table();
 
 	private:
-		std::unique_ptr<Protein> m_protein;
+		std::unique_ptr<Table> m_table;
 	};
 
 

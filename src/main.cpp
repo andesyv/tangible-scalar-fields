@@ -21,7 +21,7 @@
 #include <globjects/logging.h>
 
 #include "Scene.h"
-#include "Protein.h"
+#include "Table.h"
 #include "Viewer.h"
 #include "Interactor.h"
 #include "Renderer.h"
@@ -79,20 +79,21 @@ int main(int argc, char *argv[])
 		<< "OpenGL Vendor:   " << glbinding::aux::ContextInfo::vendor() << std::endl
 		<< "OpenGL Renderer: " << glbinding::aux::ContextInfo::renderer() << std::endl;
 
-	std::string fileName = "./dat/6b0x.pdb";
+	//std::string fileName = "./dat/6b0x.pdb";
+	std::string fileName = "";
 
 	if (argc > 1)
 		fileName = std::string(argv[1]);
 
 	auto scene = std::make_unique<Scene>();
-	scene->protein()->load(fileName);
+	//scene->table()->load(fileName);
 	auto viewer = std::make_unique<Viewer>(window, scene.get());
 
 	// Scaling the model's bounding box to the canonical view volume
-	vec3 boundingBoxSize = scene->protein()->maximumBounds() - scene->protein()->minimumBounds();
+	vec3 boundingBoxSize = scene->table()->maximumBounds() - scene->table()->minimumBounds();
 	float maximumSize = std::max({ boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z });
 	mat4 modelTransform =  scale(vec3(2.0f) / vec3(maximumSize)); 
-	modelTransform = modelTransform * translate(-0.5f*(scene->protein()->minimumBounds() + scene->protein()->maximumBounds()));
+	modelTransform = modelTransform * translate(-0.5f*(scene->table()->minimumBounds() + scene->table()->maximumBounds()));
 	viewer->setModelTransform(modelTransform);
 
 

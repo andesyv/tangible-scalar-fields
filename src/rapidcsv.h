@@ -897,7 +897,7 @@ namespace rapidcsv
 
 			while (fileLength > 0)
 			{
-				std::streamsize readLength = std::min(fileLength, bufLength);
+				std::streamsize readLength = (std::min)(fileLength, bufLength);
 				pStream.read(buffer.data(), readLength);
 				for (int i = 0; i < readLength; ++i)
 				{

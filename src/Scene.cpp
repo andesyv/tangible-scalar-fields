@@ -1,15 +1,15 @@
 #include "Scene.h"
-#include "Protein.h"
+#include "Table.h"
 #include <iostream>
 
 using namespace molumes;
 
 Scene::Scene()
 {
-	m_protein = std::make_unique<Protein>();
+	m_table = std::make_unique<Table>();
 }
 
-Protein * Scene::protein()
+Table * Scene::table()
 {
-	return m_protein.get();
+	return m_table.get();
 }
