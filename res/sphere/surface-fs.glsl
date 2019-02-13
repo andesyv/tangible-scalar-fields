@@ -73,7 +73,8 @@ struct BufferEntry
 	float near;
 	float far;
 	vec3 center;
-	uint id;
+	float radius;
+	float value;
 	uint previous;
 };
 
@@ -509,18 +510,7 @@ void main()
 #ifdef COLORING
 	if (coloring > 0)
 	{
-		uint id = floatBitsToUint(normal.w);
-		uint elementId = bitfieldExtract(id,0,8);
-		uint residueId = bitfieldExtract(id,8,8);
-		uint chainId = bitfieldExtract(id,16,8);
-
-		if (coloring == 1)
-			diffuseColor = elements[elementId].color.rgb;
-		else if (coloring == 2)
-			diffuseColor = residues[residueId].color.rgb;
-		else if (coloring == 3)
-			diffuseColor = chains[chainId].color.rgb;
-
+		diffuseColor = vec3(normal.w,1.0,1.0);
 		diffuseSphereColor = diffuseColor;
 	}
 #endif
@@ -614,27 +604,16 @@ void main()
 					for (uint j = startIndex; j <= endIndex; j++)
 					{
 						uint ij = indices[j];
-						uint id = intersections[ij].id;
-
-						uint elementId = bitfieldExtract(id,0,8);
-						uint residueId = bitfieldExtract(id,8,8);
-						uint chainId = bitfieldExtract(id,16,8);
 
 						vec3 aj = intersections[ij].center;
-						float rj = elements[elementId].radius;
-						vec3 cj = vec3(1.0,1.0,1.0);
-#ifdef COLORING
-						if (coloring == 1)
-							cj = elements[elementId].color.rgb;
-						else if (coloring == 2)
-							cj = residues[residueId].color.rgb;
-						else if (coloring == 3)
-							cj = chains[chainId].color.rgb;
+						float rj = intersections[ij].radius;
+						vec3 cj = vec3(intersections[ij].value,1.0,1.0);
+
+
 #ifdef LENSING
 						cj = mix(vec3(diffuseMaterial),cj,focusFactor);
 #endif
 
-#endif
 /*
 						vec3 n0 = normalize(atomOffset);
 
@@ -877,6 +856,7 @@ void main()
 
 
 	//diffuseColor.rgb = cols[min(entryCount/2 + entryCount%2,7)];
+	//diffuseColor.rgb = vec3(float(entryCount)/32.0);
 
 	closestNormal.xyz = normalMatrix*closestNormal.xyz;
 	closestNormal.xyz = normalize(closestNormal.xyz);

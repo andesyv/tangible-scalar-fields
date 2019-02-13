@@ -767,7 +767,7 @@ void SphereRenderer::display()
 		return;
 	}
 
-	const float contributingAtoms = 32.0f;
+	const float contributingAtoms = 128.0f;
 	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
 
 	uint timestepCount = viewer()->scene()->table()->activeTableData().size();

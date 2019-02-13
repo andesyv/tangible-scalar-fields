@@ -27,7 +27,8 @@ in VertexData
 out vec4 gFragmentPosition;
 flat out vec4 gSpherePosition;
 flat out float gSphereRadius;
-flat out uint gSphereId;
+flat out float gSphereOriginalRadius;
+flat out float gSphereValue;
 
 /** 2D-line from point and direction */
 struct line2D
@@ -226,6 +227,8 @@ void main()
 	//gSphereId = sphereId;
 	gSpherePosition = gl_in[0].gl_Position;
 	gSphereRadius = sphereRadius;
+	gSphereOriginalRadius = vert[0].radiusValueVS;
+	gSphereValue = vert[0].colorValueVS;
 
 	vec4 c = modelViewMatrix * vec4(gl_in[0].gl_Position.xyz,1.0);
 	

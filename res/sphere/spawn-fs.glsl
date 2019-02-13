@@ -6,7 +6,8 @@ uniform mat4 inverseModelViewProjectionMatrix;
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
 flat in float gSphereRadius;
-flat in uint gSphereId;
+flat in float gSphereOriginalRadius;
+flat in float gSphereValue;
 
 //out vec4 fragPosition;
 //out vec4 fragNormal;
@@ -19,7 +20,8 @@ struct BufferEntry
 	float near;
 	float far;
 	vec3 center;
-	uint id;
+	float radius;
+	float value;
 	uint previous;
 };
 
@@ -97,7 +99,8 @@ void main()
 	entry.far = length(sphere.far.xyz-near.xyz);
 
 	entry.center = gSpherePosition.xyz;
-	entry.id = gSphereId;
+	entry.radius = gSphereOriginalRadius;
+	entry.value = gSphereValue;
 	entry.previous = prev;
 
 	intersections[index] = entry;
