@@ -555,7 +555,7 @@ void main()
 
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
-				const uint maximumSteps = 24;
+				const uint maximumSteps = 128;
 				const float s = sharpness*sharpnessFactor;
 
 				uint ii = indices[startIndex+1];
@@ -570,7 +570,7 @@ void main()
 					//return;
 				}*/
 
-				float maximumDistance = (farDistance-nearDistance)+1.0;
+				float maximumDistance = (farDistance-nearDistance)+32.0;
 				float surfaceDistance = 1.0;
 
 				const float eps = 0.0125;
