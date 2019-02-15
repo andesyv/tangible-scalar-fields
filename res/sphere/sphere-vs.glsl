@@ -17,6 +17,7 @@ uniform float animationDelta;
 uniform float animationTime;
 uniform float animationAmplitude;
 uniform float animationFrequency;
+uniform float radiusMultiplier;
 
 //	Simplex 4D Noise 
 //	by Ian McEwan, Ashima Arts
@@ -116,9 +117,10 @@ float snoise(vec4 v){
 //#define ANIMATION
 void main()
 {
-	vec4 vertexPosition = vec4(xValue, yValue, 0.0f, 1.0f);//position;
+	vec4 vertexPosition = vec4(xValue, yValue, 0.0f, 1.0f);
 
-	outData.radiusValueVS = radiusValue;
+	// allow the user to scale the sphere-radius using a GUI-slider ('m_radiusMultiplier')
+	outData.radiusValueVS = radiusValue*radiusMultiplier;
 	outData.colorValueVS = colorValue;
 
 //#define INTERPOLATION

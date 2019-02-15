@@ -711,6 +711,8 @@ void SphereRenderer::display()
 		ImGui::Combo("Radius", &m_radiusDataID, m_guiColumnNames.c_str());
 		ImGui::Combo("Color", &m_colorDataID, m_guiColumnNames.c_str());
 
+		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.0f, 10.0f);
+
 		if (ImGui::Button("Load"))
 		{
 
@@ -840,6 +842,7 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("animationTime", animationTime);
 	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
 	m_programSphere->setUniform("animationFrequency", animationFrequency);
+	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
 	m_programSphere->use();
 
 	m_vao->bind();
@@ -883,6 +886,7 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("animationTime", animationTime);
 	m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
 	m_programSpawn->setUniform("animationFrequency", animationFrequency);
+	m_programSpawn->setUniform("radiusMultiplier", m_radiusMultiplier);
 	m_programSpawn->use();
 
 	m_vao->bind();

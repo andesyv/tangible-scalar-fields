@@ -163,6 +163,9 @@ namespace molumes
 		// store combo ID of selected columns
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
 		
+		// GUI-slide used for additional sphere-radius scaling
+		float m_radiusMultiplier = 1.0f;
+
 		// ------------------------------------------------------------------------------------------
 	};
 
