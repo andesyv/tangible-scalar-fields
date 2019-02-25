@@ -92,6 +92,12 @@ layout(std430, binding = 2) buffer statisticsBuffer
 	uint maximumEntryCount;
 };
 
+layout(std430, binding = 3) buffer depthRangeBuffer
+{
+	uint minDepth;
+	uint maxDepth;
+};
+
 struct Sphere
 {			
 	bool hit;
@@ -880,4 +886,22 @@ void main()
 	atomicAdd(totalEntryCount,entryCount);
 	atomicMax(maximumEntryCount,entryCount);
 #endif
+
+#ifdef COLORMAP
+	if(gl_FragDepth < 1.0f)
+	{
+		
+		// compute position in view-space and calculate normal distance (using the camera view-vector)
+		vec4 posViewSpace = modelViewMatrix*surfacePosition;
+		float cameraDistance = abs(dot(posViewSpace.xyz,V));
+
+		// floatBitsToUint: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/floatBitsToInt.xhtml
+		uint uintDepth = floatBitsToUint(cameraDistance);
+		
+		// identify depth-range
+		atomicMin(minDepth, uintDepth);
+		atomicMax(maxDepth, uintDepth);
+	}	
+#endif
+
 }

@@ -29,6 +29,10 @@ uniform sampler2D materialTexture;
 uniform sampler2D environmentTexture;
 uniform bool environment;
 
+// 1D color map parameters
+uniform sampler1D colorMapTexture;
+uniform int textureWidth;
+
 uniform float maximumCoCRadius = 0.0;
 uniform float aparture = 0.0;
 uniform float focalDistance = 0.0;
@@ -39,6 +43,12 @@ uniform float distanceScale = 1.0;
 
 in vec4 gFragmentPosition;
 out vec4 fragColor;
+
+layout(std430, binding = 3) buffer depthRangeBuffer
+{
+	uint minDepth;
+	uint maxDepth;
+};
 
 // From http://http.developer.nvidia.com/GPUGems/gpugems_ch17.html
 vec2 latlong(vec3 v)
@@ -152,6 +162,44 @@ void main()
 		coc = 0.0;
 
 	final.a = coc;
+#endif
+
+#ifdef COLORMAP
+	if(depth != 1.0f)
+	{
+	
+		// 1D textur dimensions
+		int newMin = 0;
+		int newMax = textureWidth-1;
+
+		// calculate 'Point-Plane Distance' of a fragment (using the camera view-vector as plane normal)
+		vec4 posViewSpace = modelViewMatrix*surfacePosition;
+		float oldValue = abs(dot(posViewSpace.xyz,V));
+
+		// read from SSBO and convert back to float: 
+		// - https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/intBitsToFloat.xhtml
+		float oldMin =  uintBitsToFloat(minDepth);
+		float oldMax =  uintBitsToFloat(maxDepth);
+
+		// depth range
+		float oldRange = (oldMax - oldMin);  
+		float newRange = (newMax - newMin);  
+
+		// convert to different range: 
+		// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
+		float newValue = (((oldValue - oldMin) * newRange) / oldRange) + newMin;
+
+		// apply color map  using texelFetch with a range from [0, size) 
+		vec3 colorMap  = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 		
+
+	#ifdef ILLUMINATION
+		// MATLAB - rgb2gray: https://www.mathworks.com/help/matlab/ref/rgb2gray.html
+		float luminosity = 0.2989f * final.r + 0.5870f * final.g + 0.1140f * final.g;
+		final.rgb = colorMap * luminosity;
+	#else
+		final.rgb = colorMap;
+	#endif
+	}
 #endif
 
 	fragColor = final; 

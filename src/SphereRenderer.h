@@ -108,7 +108,11 @@ namespace molumes
 
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_depthRangeBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
+
+		int m_ColorMapWidth = 0;
+		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
 
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
@@ -162,6 +166,11 @@ namespace molumes
 		
 		// store combo ID of selected columns
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
+
+		// selection of color maps
+		int m_colorMap = 0;
+		bool m_colorMapLoaded = false;
+		bool m_surfaceIllumination = false;
 		
 		// GUI-slide used for additional sphere-radius scaling
 		float m_radiusMultiplier = 1.0f;

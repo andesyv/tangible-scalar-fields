@@ -35,6 +35,12 @@ struct Statistics
 	uint maximumEntryCount = 0;
 };
 
+struct DepthEntries
+{
+	uint minDepth = UINT_MAX;
+	uint maxDepth = 0;
+};
+
 void flip(std::vector<unsigned char> & image, uint width, uint height)
 {
 	unsigned char *imagePtr = &image.front();
@@ -61,9 +67,13 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
 	Statistics s;
+	DepthEntries depthEntries;
 
 	m_intersectionBuffer->setStorage(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, gl::GL_NONE_BIT);
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
+
+	// shader storage buffer object for current depth entries
+	m_depthRangeBuffer->setStorage(sizeof(depthEntries), gl::GL_NONE_BIT);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -224,6 +234,11 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 		m_environmentTexture->generateMipmap();
 	}
 
+	m_colorMapTexture = Texture::create(GL_TEXTURE_1D);
+	m_colorMapTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_colorMapTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_colorMapTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_colorMapTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	for (auto& d : std::filesystem::directory_iterator("./dat/materials"))
 	{
@@ -662,7 +677,7 @@ void SphereRenderer::display()
 
 	ImGui::End();
 
-	// Scatterplot GUI ----------------------------------------------------------------------------------------------------------------------------------------------------------
+	// Scatterplot GUI --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	ImGui::Begin("Scatterplot");
 
@@ -759,9 +774,47 @@ void SphereRenderer::display()
 
 	}
 
+	if (ImGui::CollapsingHeader("Color Maps"))
+	{
+		// show all available color-maps
+		ImGui::Combo("Maps", &m_colorMap, "None\0Cubehelix\0GistEart\0GnuPlot2\0Magma\0Virdis\0YlGnBu\0");
+
+		if (ImGui::Button("Apply"))
+		{
+
+			if (m_colorMap > 0) {
+				std::vector<std::string> colorMapFilenames = { "./dat/colormaps/cubehelix_1D.png", "./dat/colormaps/gist_earth_1D.png",  "./dat/colormaps/gnuplot2_1D.png" , "./dat/colormaps/magma_1D.png", "./dat/colormaps/virdis_1D.png", "./dat/colormaps/YlGnBu_1D.png" };
+
+				uint colorMapWidth, colorMapHeight;
+				std::vector<unsigned char> colorMapImage;
+				uint error = lodepng::decode(colorMapImage, colorMapWidth, colorMapHeight, colorMapFilenames[m_colorMap - 1]);
+
+				if (error)
+					globjects::debug() << "Could not load " << colorMapFilenames[m_colorMap - 1] << "!";
+				else
+				{
+					m_colorMapTexture->image1D(0, GL_RGBA, colorMapWidth, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&colorMapImage.front());
+					m_colorMapTexture->generateMipmap();
+
+					// store width of texture and mark as loaded
+					m_ColorMapWidth = colorMapWidth;
+					m_colorMapLoaded = true;
+				}
+			}
+			else 
+			{
+				// disable color map
+				m_colorMapLoaded = false;
+			}
+		}
+
+		ImGui::Checkbox("Surface Illumination", &m_surfaceIllumination);
+
+	}
+
 	ImGui::End();
 
-	// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	// do not render if data is not loaded
 	if (viewer()->scene()->table()->activeTableData().size() == 0)
@@ -806,6 +859,12 @@ void SphereRenderer::display()
 
 	if (depthOfField)
 		defines += "#define DEPTHOFFIELD\n";
+
+	if (m_colorMapLoaded)
+		defines += "#define COLORMAP\n";
+
+	if(m_surfaceIllumination)
+		defines += "#define ILLUMINATION\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
@@ -934,8 +993,16 @@ void SphereRenderer::display()
 	m_environmentTexture->bindActive(4);
 	m_bumpTextures[bumpTextureIndex]->bindActive(5);
 	m_materialTextures[materialTextureIndex]->bindActive(6);
+
+	// SSBO
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+	m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
+
+	const uint depthMinClearValue = UINT_MAX;
+	const uint depthMaxClearValue = 0;
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMinClearValue);
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 1 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMaxClearValue);
 
 //	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
 //	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
@@ -994,6 +1061,7 @@ void SphereRenderer::display()
 	m_programSurface->release();
 
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+	//m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 	m_materialTextures[materialTextureIndex]->unbindActive(6);
 	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
@@ -1094,6 +1162,8 @@ void SphereRenderer::display()
 	m_materialTextures[materialTextureIndex]->bindActive(8);
 	m_environmentTexture->bindActive(9);
 
+	//m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
+
 	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programShade->setUniform("projectionMatrix", projectionMatrix);
 	m_programShade->setUniform("modelViewProjection", modelViewProjectionMatrix);
@@ -1124,6 +1194,14 @@ void SphereRenderer::display()
 	m_programShade->setUniform("environmentTexture", 9);
 
 	m_programShade->setUniform("environment", environmentMapping);
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->bindActive(10);
+		m_programShade->setUniform("colorMapTexture", 10);
+		m_programShade->setUniform("textureWidth", m_ColorMapWidth);
+	}
+
 	/*
 	std::cout << "maximumCoCRadius: " << maximumCoCRadius << std::endl;
 	std::cout << "aparture: " << aparture << std::endl;
@@ -1140,6 +1218,13 @@ void SphereRenderer::display()
 	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 	m_vaoQuad->unbind();
+
+	m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->unbindActive(10);
+	}
 
 	m_environmentTexture->unbindActive(9);
 	m_materialTextures[materialTextureIndex]->unbindActive(8);
