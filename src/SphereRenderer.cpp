@@ -35,12 +35,6 @@ struct Statistics
 	uint maximumEntryCount = 0;
 };
 
-struct DepthEntries
-{
-	uint minDepth = UINT_MAX;
-	uint maxDepth = 0;
-};
-
 void flip(std::vector<unsigned char> & image, uint width, uint height)
 {
 	unsigned char *imagePtr = &image.front();
@@ -67,13 +61,12 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
 	Statistics s;
-	DepthEntries depthEntries;
 
 	m_intersectionBuffer->setStorage(sizeof(vec3) * 1024*1024*128 + sizeof(uint), nullptr, gl::GL_NONE_BIT);
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 	// shader storage buffer object for current depth entries
-	m_depthRangeBuffer->setStorage(sizeof(depthEntries), gl::GL_NONE_BIT);
+	m_depthRangeBuffer->setStorage(sizeof(uint) * 2, gl::GL_NONE_BIT);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
