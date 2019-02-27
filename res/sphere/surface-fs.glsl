@@ -501,7 +501,7 @@ void main()
 	if (entryCount == 0)
 		discard;
 
-	vec4 closestPosition = position;//vec4(far.xyz,65535.0);// position;
+	vec4 closestPosition = vec4(far.xyz,65535.0);// position;
 	vec3 closestNormal = normal.xyz;
 
 	float sharpnessFactor = 1.0;
@@ -561,7 +561,7 @@ void main()
 
 			if (currentIndex >= entryCount-1 || intersections[indices[startIndex]].far < intersections[indices[currentIndex]].near)
 			{
-				const uint maximumSteps = 128;
+				const uint maximumSteps = 1024;
 				const float s = sharpness*sharpnessFactor;
 
 				uint ii = indices[startIndex+1];
@@ -594,7 +594,7 @@ void main()
 				uint currentStep = 0;			
 				float t = 0.0;
 
-				while (++currentStep <= maximumSteps && t <= maximumDistance)
+				while (++currentStep <= maximumSteps)// && t <= maximumDistance)
 				{    
 					currentPosition = rayOrigin + rayDirection*t;
 
@@ -664,7 +664,7 @@ void main()
 						//sumDisplacement += displacement;
 */
 						vec3 atomOffset = currentPosition.xyz-aj;
-						float atomDistance = length(atomOffset)/rj;
+						float atomDistance = length(atomOffset.xy)/rj;
 
 						float atomValue = exp(-s*atomDistance*atomDistance);//exp(-(ad*ad)/(2.0*s*s*rj*rj)+0.5/(s*s));
 						//vec3 atomNormal = 2.0*s*atomOffset*atomValue / (rj*rj);
@@ -696,10 +696,12 @@ void main()
 					}
 					
 					//surfaceDistance = (-sumValue+exp(-s));///float(cnt);//1.0;//sqrt(-log(sumValue) / (s))-1.0;//-sumDisplacement;
-					surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;//-sumDisplacement;
+					//surfaceDistance = sqrt(-log(sumValue) / (s))-1.0;//-sumDisplacement;
+
+					surfaceDistance =  currentPosition.z-sumValue;
 
 
-					if (surfaceDistance < eps)
+					if (surfaceDistance < eps && currentPosition.z >=0)
 					{
 						if (currentPosition.w <= closestPosition.w)
 						{
@@ -718,7 +720,8 @@ void main()
 						break;
 					}
 
-					if (surfaceDistance < minimumDistance)
+					/*
+					if (surfaceDistance < minimumDistance && currentPosition.z >=0)
 					{
 						minimumDistance = surfaceDistance;
 						candidatePosition = currentPosition;
@@ -726,10 +729,11 @@ void main()
 						candidateColor = sumColor;
 						candidateValue = sumValue;
 					}
-
-					t += surfaceDistance*1.2;
+					*/
+					t += 0.01;
 				}
 				
+				/*
 				if (currentStep > maximumSteps)
 				{
 					if (candidatePosition.w <= closestPosition.w)
@@ -741,7 +745,7 @@ void main()
 							diffuseColor = candidateColor / candidateValue;
 					}
 				}
-
+				*/
 				startIndex++;
 			}
 
