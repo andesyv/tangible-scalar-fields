@@ -208,6 +208,13 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_offsetTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
 
+	m_kernelDensityTexture = Texture::create(GL_TEXTURE_2D);
+	m_kernelDensityTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_kernelDensityTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
 	m_environmentTexture = Texture::create(GL_TEXTURE_2D);
 	m_environmentTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	m_environmentTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -316,8 +323,9 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_sphereFramebuffer = Framebuffer::create();
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
+	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_kernelDensityTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
+	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 });
 
 	m_surfaceFramebuffer = Framebuffer::create();
 	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_surfacePositionTexture.get());
@@ -441,6 +449,7 @@ void SphereRenderer::display()
 		m_ambientTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 	
 	ivec2 viewportSize = viewer()->viewportSize();
@@ -467,7 +476,7 @@ void SphereRenderer::display()
 	float projectionScale = float(viewportSize.y) / fabs(2.0f / projectionMatrix[1][1]);
 
 	// white
-	static vec3 ambientMaterial(0.3f, 0.3f, 0.3f);
+	static vec3 ambientMaterial(0.75f, 0.75f, 0.75f);
 	static vec3 diffuseMaterial(0.6f, 0.6f, 0.6f);
 	static vec3 specularMaterial(0.3f, 0.3f, 0.3f);
 
@@ -719,7 +728,9 @@ void SphereRenderer::display()
 		ImGui::Combo("Radius", &m_radiusDataID, m_guiColumnNames.c_str());
 		ImGui::Combo("Color", &m_colorDataID, m_guiColumnNames.c_str());
 
-		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.0f, 10.0f);
+		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.0f, 100.0f);
+		ImGui::SliderFloat("Gauss-Scale", &m_gaussScale, 0.01f, 1.0f);
+		ImGui::SliderFloat("Sigma", &m_sigma, 0.01f, 200.0f);
 
 		if (ImGui::Button("Load"))
 		{
@@ -918,6 +929,7 @@ void SphereRenderer::display()
 
 	const uint offsetClearValue = 0;
 	m_offsetTexture->clearImage(0, GL_RED_INTEGER, GL_UNSIGNED_INT, &offsetClearValue);
+	//m_kernelDensityTexture->clearImage(0, GL_RGBA, GL_UNSIGNED_BYTE, vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	glDepthFunc(GL_ALWAYS);
@@ -926,7 +938,17 @@ void SphereRenderer::display()
 
 	m_spherePositionTexture->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
-	
+	//m_kernelDensityTexture->bindImageTexture(1, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+	// allow writing to draw-buffer 2
+	glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+	// test different blending options interactively: 
+	// https://andersriggelsen.dk/glblendfunc.php		
+	glEnablei(GL_BLEND, 2);				//glEnable(GL_BLEND);
+	glBlendFunci(2, GL_ONE, GL_ONE);	//glBlendFunc(GL_ONE, GL_ONE);
+	glBlendEquationi(2, GL_FUNC_ADD);	//glBlendEquation(GL_FUNC_ADD);	
+
 	m_programSpawn->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSpawn->setUniform("projectionMatrix", projectionMatrix);
 	m_programSpawn->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -939,6 +961,11 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
 	m_programSpawn->setUniform("animationFrequency", animationFrequency);
 	m_programSpawn->setUniform("radiusMultiplier", m_radiusMultiplier);
+
+	// KDE parameters
+	m_programSpawn->setUniform("sigma2", m_sigma);
+	m_programSpawn->setUniform("gaussScale", m_gaussScale);
+
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -947,8 +974,13 @@ void SphereRenderer::display()
 
 	m_programSpawn->release();
 
+	// disable blending for draw buffer 2
+	glDisablei(GL_BLEND, 2);		//glDisable(GL_BLEND);	
+
 	m_spherePositionTexture->unbindActive(0);
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+	//m_kernelDensityTexture->unbindImageTexture(1);
 	m_offsetTexture->unbindImageTexture(0);
 
 	m_sphereFramebuffer->unbind();
@@ -986,6 +1018,7 @@ void SphereRenderer::display()
 	m_environmentTexture->bindActive(4);
 	m_bumpTextures[bumpTextureIndex]->bindActive(5);
 	m_materialTextures[materialTextureIndex]->bindActive(6);
+	m_kernelDensityTexture->bindActive(7);
 
 	// SSBO
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
@@ -1034,12 +1067,15 @@ void SphereRenderer::display()
 	m_programSurface->setUniform("specularMaterial", specularMaterial);
 	m_programSurface->setUniform("shininess", shininess);
 	m_programSurface->setUniform("focusPosition", focusPosition);
+
 	m_programSurface->setUniform("positionTexture", 0);
 	m_programSurface->setUniform("normalTexture", 1);
 	m_programSurface->setUniform("offsetTexture", 3);
 	m_programSurface->setUniform("environmentTexture", 4);
 	m_programSurface->setUniform("bumpTexture", 5);
 	m_programSurface->setUniform("materialTexture", 6);
+	m_programSurface->setUniform("kernelDensityTexture", 7);
+
 	m_programSurface->setUniform("sharpness", sharpness);
 	m_programSurface->setUniform("coloring", uint(coloring));
 	m_programSurface->setUniform("environment", environmentMapping);
@@ -1056,6 +1092,7 @@ void SphereRenderer::display()
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 	//m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
+	m_kernelDensityTexture->unbindActive(7);
 	m_materialTextures[materialTextureIndex]->unbindActive(6);
 	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
 	m_environmentTexture->unbindActive(4);

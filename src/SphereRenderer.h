@@ -125,6 +125,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_ambientTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
 
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
@@ -172,9 +173,10 @@ namespace molumes
 		bool m_colorMapLoaded = false;
 		bool m_surfaceIllumination = false;
 		
-		// GUI-slide used for additional sphere-radius scaling
-		float m_radiusMultiplier = 1.0f;
-
+		// GUI-slide used for additional scaling values (empirically chosen)
+		float m_radiusMultiplier = 55.0f;
+		float m_sigma = 25.0f;
+		float m_gaussScale = 0.35f;
 		// ------------------------------------------------------------------------------------------
 	};
 

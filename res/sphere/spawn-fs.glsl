@@ -3,6 +3,14 @@
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
 
+const float PI = 3.14159265359;
+
+// Normal distribution N(mue,sigma^2) 
+const float mue = 0.0f;			// mean
+uniform float sigma2;			// standard deviation
+
+uniform float gaussScale;
+
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
 flat in float gSphereRadius;
@@ -11,9 +19,11 @@ flat in float gSphereValue;
 
 //out vec4 fragPosition;
 //out vec4 fragNormal;
+layout (location = 2) out vec4 kernelDensity;
 
 layout(binding = 0) uniform sampler2D positionTexture;
 layout(r32ui, binding = 0) uniform uimage2D offsetImage;
+//layout(rgba32f, binding = 1) uniform image2D kernelDensity;
 
 struct BufferEntry
 {
@@ -90,8 +100,8 @@ void main()
 	
 	entry.near = length(sphere.near.xyz-near.xyz);
 	
-	if (entry.near > position.w)
-		discard;	
+	//if (entry.near > position.w)
+	//	discard;	
 
 	uint index = atomicAdd(count,1);
 	uint prev = imageAtomicExchange(offsetImage,ivec2(gl_FragCoord.xy),index);
@@ -105,5 +115,13 @@ void main()
 
 	intersections[index] = entry;
 
-	discard;
+	// probability density function
+	float x = length(gSpherePosition.xy - sphere.near.xy);
+	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2)));
+
+	// additional GUI dependent scaling 
+	gaussKernel = pow(gaussKernel,gaussScale);
+
+	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, 0.0f, 0.0f, 1.0f));
+	kernelDensity = vec4(gaussKernel, 0.0f, 0.0f, 1.0f);
 }
