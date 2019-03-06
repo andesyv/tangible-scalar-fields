@@ -120,7 +120,7 @@ void main()
 	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2)));
 
 	// additional GUI dependent scaling 
-	gaussKernel = pow(gaussKernel,gaussScale);
+	gaussKernel = -pow(gaussKernel,gaussScale);
 
 	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, 0.0f, 0.0f, 1.0f));
 	kernelDensity = vec4(gaussKernel, 0.0f, 0.0f, 1.0f);

@@ -882,9 +882,10 @@ void main()
 	vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
 
 	surfacePosition = vec4(position.xyz, 1);
-	surfacePosition.z = -kernelDensity;
+	surfacePosition.z = kernelDensity;
 
 	surfaceNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy)), 1);
+	//surfaceNormal *= -1;
 
 	// set diffuse colors
 	surfaceDiffuse = vec4(1.0f, 1.0f, 1.0f, 1.0f); 
