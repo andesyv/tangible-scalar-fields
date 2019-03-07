@@ -781,13 +781,16 @@ void SphereRenderer::display()
 	if (ImGui::CollapsingHeader("Color Maps"))
 	{
 		// show all available color-maps
-		ImGui::Combo("Maps", &m_colorMap, "None\0Cubehelix\0GistEart\0GnuPlot2\0Magma\0Virdis\0YlGnBu\0");
+		ImGui::Combo("Maps", &m_colorMap, "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
 
 		if (ImGui::Button("Apply"))
 		{
 
 			if (m_colorMap > 0) {
-				std::vector<std::string> colorMapFilenames = { "./dat/colormaps/cubehelix_1D.png", "./dat/colormaps/gist_earth_1D.png",  "./dat/colormaps/gnuplot2_1D.png" , "./dat/colormaps/magma_1D.png", "./dat/colormaps/virdis_1D.png", "./dat/colormaps/YlGnBu_1D.png" };
+				std::vector<std::string> colorMapFilenames = { "./dat/colormaps/bone_1D.png", "./dat/colormaps/cubehelix_1D.png", "./dat/colormaps/gist_earth_1D.png",  "./dat/colormaps/gnuplot2_1D.png" , 
+					"./dat/colormaps/grey_1D.png", "./dat/colormaps/inferno_1D.png", "./dat/colormaps/magma_1D.png", "./dat/colormaps/plasma_1D.png", "./dat/colormaps/PuBuGn_1D.png", 
+					"./dat/colormaps/rainbow_1D.png", "./dat/colormaps/summer_1D.png", "./dat/colormaps/virdis_1D.png", "./dat/colormaps/winter_1D.png", "./dat/colormaps/wista_1D.png", "./dat/colormaps/YlGnBu_1D.png", 
+					"./dat/colormaps/YlOrRd_1D.png" };
 
 				uint colorMapWidth, colorMapHeight;
 				std::vector<unsigned char> colorMapImage;
