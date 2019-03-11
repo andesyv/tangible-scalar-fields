@@ -126,6 +126,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_scattePlotTexture = nullptr;
 
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
@@ -177,6 +178,12 @@ namespace molumes
 		float m_radiusMultiplier = 55.0f;
 		float m_sigma = 25.0f;
 		float m_gaussScale = 0.35f;
+		float m_scatterScale = 0.05;
+		float m_opacityScale = 0.7f;
+
+		// selection of blending function
+		int m_blendingFunction = 0;
+		int m_colorScheme = 0;
 		// ------------------------------------------------------------------------------------------
 	};
 

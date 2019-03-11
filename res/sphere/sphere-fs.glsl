@@ -1,4 +1,5 @@
 #version 450
+#include "/defines.glsl"
 
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
@@ -9,8 +10,10 @@ flat in float gSphereRadius;
 flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
-out vec4 fragPosition;
-out vec4 fragNormal;
+layout (location = 0) out vec4 fragPosition;
+layout (location = 1) out vec4 fragNormal;
+//layout (location = 2) out vec4 kernelDensity;
+layout (location = 3) out vec4 scatterPlott;
 
 struct Sphere
 {			
@@ -51,6 +54,60 @@ float calcDepth(vec3 pos)
 	return (((far - near) * ndc_depth) + near + far) / 2.0;
 }
 
+// From: http://colorbrewer2.org/#type=qualitative&scheme=Paired&n=12
+// input: index between (0-11) to access color-map for qualitative data
+vec4 assignQualitativeColor (int index)
+{
+	
+	// select red as default color
+	vec4 sphereColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+
+	// return red if dimensions are not within [0,12]
+	if(index < 0 || index > 12)
+	{
+		return sphereColor;
+	}
+
+#ifdef COLORSCHEME1
+	vec4 quantitativeColors[12] = vec4[12](
+		vec4(0.650f, 0.807f, 0.890f, 1.0f),
+		vec4(0.121f, 0.470f, 0.705f, 1.0f),
+		vec4(0.698f, 0.874f, 0.541f, 1.0f),
+		vec4(0.200f, 0.627f, 0.172f, 1.0f),
+		vec4(0.984f, 0.603f, 0.600f, 1.0f),
+		vec4(0.890f, 0.101f, 0.109f, 1.0f),
+		vec4(0.992f, 0.749f, 0.435f, 1.0f),
+		vec4(1.000f, 0.498f, 0.000f, 1.0f),
+		vec4(0.792f, 0.698f, 0.839f, 1.0f),
+		vec4(0.415f, 0.239f, 0.603f, 1.0f),
+		vec4(1.000f, 1.000f, 0.600f, 1.0f),
+		vec4(0.694f, 0.349f, 0.156f, 1.0f) 	
+	);
+
+	sphereColor = quantitativeColors[index];
+#endif
+
+#ifdef COLORSCHEME2
+	vec4 quantitativeColors[12] = vec4[12](
+		vec4(0.552f, 0.827f, 0.780f, 1.0f),
+		vec4(1.000f, 1.000f, 0.701f, 1.0f),
+		vec4(0.745f, 0.729f, 0.854f, 1.0f),
+		vec4(0.984f, 0.501f, 0.447f, 1.0f),
+		vec4(0.501f, 0.694f, 0.827f, 1.0f),
+		vec4(0.992f, 0.705f, 0.384f, 1.0f),
+		vec4(0.701f, 0.870f, 0.411f, 1.0f),
+		vec4(0.988f, 0.803f, 0.898f, 1.0f),
+		vec4(0.850f, 0.850f, 0.850f, 1.0f),
+		vec4(0.737f, 0.501f, 0.741f, 1.0f),
+		vec4(0.800f, 1.921f, 0.772f, 1.0f),
+		vec4(1.000f, 0.929f, 0.435f, 1.0f)	
+	);
+
+	sphereColor = quantitativeColors[index];
+#endif
+
+	return sphereColor;
+}
 
 void main()
 {
@@ -71,6 +128,11 @@ void main()
 
 	float depth = calcDepth(sphere.near.xyz);
 	fragPosition = vec4(sphere.near.xyz,length(sphere.near.xyz-near.xyz));
-	fragNormal = vec4(sphere.normal,gSphereValue);//vec4(normalize(normalMatrix*(mix(vec3(0.0,0.0,-1.0),-N,1.0))),1.0);
+	fragNormal = vec4(sphere.normal, 1.0f);
 	gl_FragDepth = depth;
+
+	// --------------------------------------------------------------------------------------------------------------------
+
+	// create classical 2D scatter plot and assign colors according to a qualitative coloring
+	scatterPlott.rgba = assignQualitativeColor(int(gSphereValue));
 }

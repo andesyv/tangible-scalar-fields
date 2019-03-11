@@ -29,6 +29,10 @@ uniform sampler2D materialTexture;
 uniform sampler2D environmentTexture;
 uniform bool environment;
 
+// texture for blending surface and classical scatter plot
+uniform sampler2D scatterPlotTexture;
+uniform float opacityScale;
+
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
 uniform int textureWidth;
@@ -202,5 +206,40 @@ void main()
 	}
 #endif
 
+
+	vec3 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgb;
+
+
+#ifdef CURVEBLENDING	
+	
+	// Curvature based blending 
+
+	// texelFetch (0,0) -> left bottom
+	vec3 top = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y+1), 0).rgb;
+	vec3 bottom = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y-1), 0).rgb;
+	vec3 left = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x-1, gl_FragCoord.y), 0).rgb;
+	vec3 right = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x+1, gl_FragCoord.y), 0).rgb;
+	
+	// compute curvature dependent opacity
+	float opacity = length(top-surfaceNormal.xyz) + length(bottom-surfaceNormal.xyz) + length(left-surfaceNormal.xyz) + length(right-surfaceNormal.xyz);
+	
+	// transform to [0,1];
+	opacity /= 4 * sqrt(2);
+	
+	// scale saturation
+	opacity = pow(opacity, opacityScale);
+	
+	// mix(x,y,a) --> x * (1-a) + y * a
+	final.rgb = mix(final.rgb, scatterPlot, opacity);
+
+#endif
+
+#ifdef DISTANCEBLENDING
+
+	// Distance based blending 
+	// TODO
+	
+#endif
+	
 	fragColor = final; 
 }

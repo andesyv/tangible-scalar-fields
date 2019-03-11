@@ -215,6 +215,13 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
+	m_scattePlotTexture = Texture::create(GL_TEXTURE_2D);
+	m_scattePlotTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_scattePlotTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_scattePlotTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_scattePlotTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_scattePlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
 	m_environmentTexture = Texture::create(GL_TEXTURE_2D);
 	m_environmentTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	m_environmentTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -324,8 +331,9 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_kernelDensityTexture.get());
+	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_scattePlotTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 });
+	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 });
 
 	m_surfaceFramebuffer = Framebuffer::create();
 	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_surfacePositionTexture.get());
@@ -450,6 +458,7 @@ void SphereRenderer::display()
 		m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_scattePlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 	
 	ivec2 viewportSize = viewer()->viewportSize();
@@ -819,6 +828,17 @@ void SphereRenderer::display()
 
 	}
 
+	if (ImGui::CollapsingHeader("2D Scatterplot"))
+	{
+
+		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0");
+		ImGui::Combo("Color Scheme", &m_colorScheme, "None\0Scheme1\0Scheme2\0");
+		
+		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 1.0f);
+		ImGui::SliderFloat("Opacity Scale", &m_opacityScale, 0.001f, 1.0f);
+
+	}
+
 	ImGui::End();
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -873,6 +893,18 @@ void SphereRenderer::display()
 	if(m_surfaceIllumination)
 		defines += "#define ILLUMINATION\n";
 
+	if (m_colorScheme == 1)
+		defines += "#define COLORSCHEME1\n";
+	else if (m_colorScheme == 2)
+		defines += "#define COLORSCHEME2\n";
+
+	if (m_blendingFunction == 1)
+		defines += "#define CURVEBLENDING\n";
+	else if (m_blendingFunction == 2)
+		defines +="#define DISTANCEBLENDING\n";
+
+
+
 	if (defines != m_shaderSourceDefines->string())
 	{
 		m_shaderSourceDefines->setString(defines);
@@ -894,14 +926,25 @@ void SphereRenderer::display()
 	glDepthFunc(GL_LESS);
 	//glEnable(GL_DEPTH_CLAMP);
 
+	// test different blending options interactively: ------------------------------------
+	// https://andersriggelsen.dk/glblendfunc.php
 
-	//std::cout << to_string(inverseProjectionMatrix * vec4(0.0, 0.0, -1.0, 1.0)) << std::endl;
+	// allow blending for the classical scatterPlot color-attachment
+	glEnablei(GL_BLEND, 3);				
+	glBlendFunci(3, GL_ONE, GL_ONE);
+	glBlendEquationi(3, GL_FUNC_ADD);
+	// -----------------------------------------------------------------------------------
 
 	m_programSphere->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSphere->setUniform("projectionMatrix", projectionMatrix);
 	m_programSphere->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programSphere->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-	m_programSphere->setUniform("radiusScale", 1.0f);
+
+	if(m_blendingFunction == 0)
+		m_programSphere->setUniform("radiusScale", 1.0f);
+	else
+		m_programSphere->setUniform("radiusScale", m_scatterScale);
+
 	m_programSphere->setUniform("clipRadiusScale", radiusScale);
 	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
 	m_programSphere->setUniform("animationDelta", animationDelta);
@@ -916,6 +959,9 @@ void SphereRenderer::display()
 	m_vao->unbind();
 
 	m_programSphere->release();
+
+	// disable blending for draw buffer 3
+	glDisablei(GL_BLEND, 3);
 
 #ifdef BENCHMARK
 	m_sphereQuery->end(GL_TIME_ELAPSED);
@@ -946,11 +992,14 @@ void SphereRenderer::display()
 	// allow writing to draw-buffer 2
 	glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	// test different blending options interactively: 
-	// https://andersriggelsen.dk/glblendfunc.php		
-	glEnablei(GL_BLEND, 2);				//glEnable(GL_BLEND);
-	glBlendFunci(2, GL_ONE, GL_ONE);	//glBlendFunc(GL_ONE, GL_ONE);
-	glBlendEquationi(2, GL_FUNC_ADD);	//glBlendEquation(GL_FUNC_ADD);	
+	// test different blending options interactively: ------------------------------------
+	// https://andersriggelsen.dk/glblendfunc.php
+
+	// allow blending for the KDE color-attachment	
+	glEnablei(GL_BLEND, 2);				
+	glBlendFunci(2, GL_ONE, GL_ONE);	
+	glBlendEquationi(2, GL_FUNC_ADD);	
+	// -----------------------------------------------------------------------------------
 
 	m_programSpawn->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSpawn->setUniform("projectionMatrix", projectionMatrix);
@@ -978,7 +1027,7 @@ void SphereRenderer::display()
 	m_programSpawn->release();
 
 	// disable blending for draw buffer 2
-	glDisablei(GL_BLEND, 2);		//glDisable(GL_BLEND);	
+	glDisablei(GL_BLEND, 2);		
 
 	m_spherePositionTexture->unbindActive(0);
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -987,6 +1036,7 @@ void SphereRenderer::display()
 	m_offsetTexture->unbindImageTexture(0);
 
 	m_sphereFramebuffer->unbind();
+
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 #ifdef BENCHMARK
@@ -1195,6 +1245,8 @@ void SphereRenderer::display()
 	m_materialTextures[materialTextureIndex]->bindActive(8);
 	m_environmentTexture->bindActive(9);
 
+	m_scattePlotTexture->bindActive(11);
+
 	//m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
 
 	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
@@ -1211,6 +1263,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("distanceScale", distanceScale);
 	m_programShade->setUniform("shininess", shininess);
 	m_programShade->setUniform("focusPosition", focusPosition);
+	m_programShade->setUniform("opacityScale", m_opacityScale);
 
 	m_programShade->setUniform("spherePositionTexture", 0);
 	m_programShade->setUniform("sphereNormalTexture", 1);
@@ -1235,6 +1288,8 @@ void SphereRenderer::display()
 		m_programShade->setUniform("textureWidth", m_ColorMapWidth);
 	}
 
+	m_programShade->setUniform("scatterPlotTexture", 11);
+
 	/*
 	std::cout << "maximumCoCRadius: " << maximumCoCRadius << std::endl;
 	std::cout << "aparture: " << aparture << std::endl;
@@ -1253,6 +1308,8 @@ void SphereRenderer::display()
 	m_vaoQuad->unbind();
 
 	m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+	m_scattePlotTexture->unbindActive(11);
 
 	if (m_colorMapLoaded)
 	{
