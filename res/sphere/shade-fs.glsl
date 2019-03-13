@@ -291,5 +291,12 @@ void main()
 	#endif
 #endif
 	
-	fragColor = final; 
+
+#ifdef SCATTERPLOT
+
+	// just display color-attachment of scatterplot
+	final.rgb = scatterPlot;
+#endif
+
+fragColor = final; 
 }

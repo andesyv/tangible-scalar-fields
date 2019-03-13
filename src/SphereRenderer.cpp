@@ -831,7 +831,7 @@ void SphereRenderer::display()
 	if (ImGui::CollapsingHeader("2D Scatterplot"))
 	{
 
-		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0NormalBased\0");
+		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0NormalBased\0ScatterPlot\0");
 		ImGui::Combo("Color Scheme", &m_colorScheme, "None\0Scheme1\0Scheme2\0");
 		
 		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 1.0f);
@@ -906,6 +906,8 @@ void SphereRenderer::display()
 		defines +="#define DISTANCEBLENDING\n";
 	else if (m_blendingFunction == 3)
 		defines += "#define NORMALBLENDING\n";
+	else if (m_blendingFunction == 4)
+		defines += "#define SCATTERPLOT\n";
 
 	if (m_invertFunction)
 		defines += "#define INVERTFUNCTION\n";
@@ -958,6 +960,9 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("animationFrequency", animationFrequency);
 	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
 	m_programSphere->use();
+
+	// make sure spheres are drawn on top of each other
+	glDepthFunc(GL_ALWAYS);
 
 	m_vao->bind();
 	m_vao->drawArrays(GL_POINTS, 0, vertexCount);

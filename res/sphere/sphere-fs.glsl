@@ -134,5 +134,23 @@ void main()
 	// --------------------------------------------------------------------------------------------------------------------
 
 	// create classical 2D scatter plot and assign colors according to a qualitative coloring
-	scatterPlott.rgba = assignQualitativeColor(int(gSphereValue));
+	scatterPlott.rgba = assignQualitativeColor(int(gSphereValue));// * 0.05f;
+
+	float borderDistance = length(fragPosition.xy - gSpherePosition.xy);
+
+	// highlight sphere-border and perform antialiasing within scatterplot
+	if(borderDistance >= gSphereRadius * 0.6f /*percentage the fade out will start*/)
+	{
+
+		// fade original sphere color to border color 
+		float fadeOut = ((1.0f - (gSphereRadius * 0.6f) / borderDistance) / 0.4f);
+		scatterPlott.rgb += vec3(fadeOut, fadeOut, fadeOut);
+
+		if(borderDistance > gSphereRadius * 0.8f /*percentage the border will start*/)
+		{
+			// perform antialiasing on border
+			fadeOut = 1 - ((1.0f - (gSphereRadius * 0.8f) / borderDistance) / 0.2f);
+			scatterPlott.rgb = vec3(fadeOut, fadeOut, fadeOut) * 0.8f ;
+		}
+	}
 }
