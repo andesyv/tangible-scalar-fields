@@ -33,6 +33,9 @@ uniform bool environment;
 uniform sampler2D scatterPlotTexture;
 uniform float opacityScale;
 
+// KDE texture
+uniform sampler2D kernelDensityTexture;
+
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
 uniform int textureWidth;
@@ -52,6 +55,9 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 {
 	uint minDepth;
 	uint maxDepth;
+
+	uint minKernelDifference;
+	uint maxKernelDifference;
 };
 
 // From http://http.developer.nvidia.com/GPUGems/gpugems_ch17.html
@@ -209,36 +215,80 @@ void main()
 
 	vec3 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgb;
 
-
 #ifdef CURVEBLENDING	
 	
 	// Curvature based blending 
 
 	// texelFetch (0,0) -> left bottom
-	vec3 top = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y+1), 0).rgb;
-	vec3 bottom = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y-1), 0).rgb;
-	vec3 left = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x-1, gl_FragCoord.y), 0).rgb;
-	vec3 right = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x+1, gl_FragCoord.y), 0).rgb;
+	vec3 top = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y+1), 0).xyz;
+	vec3 bottom = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y-1), 0).xyz;
+	vec3 left = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x-1, gl_FragCoord.y), 0).xyz;
+	vec3 right = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x+1, gl_FragCoord.y), 0).xyz;
 	
 	// compute curvature dependent opacity
 	float opacity = length(top-surfaceNormal.xyz) + length(bottom-surfaceNormal.xyz) + length(left-surfaceNormal.xyz) + length(right-surfaceNormal.xyz);
 	
 	// transform to [0,1];
 	opacity /= 4 * sqrt(2);
-	
-	// scale saturation
+
+	// scale opacity
 	opacity = pow(opacity, opacityScale);
 	
 	// mix(x,y,a) --> x * (1-a) + y * a
-	final.rgb = mix(final.rgb, scatterPlot, opacity);
-
+	#ifdef INVERTFUNCTION
+		final.rgb = mix(scatterPlot, final.rgb, opacity);
+	#else
+		final.rgb = mix(final.rgb, scatterPlot, opacity);
+	#endif
 #endif
 
 #ifdef DISTANCEBLENDING
 
 	// Distance based blending 
-	// TODO
+
+	// convert to different range: 
+	// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
+	float oldMin = uintBitsToFloat(minKernelDifference);
+	float oldMax = uintBitsToFloat(maxKernelDifference);
+	float oldRange = (oldMax - oldMin); 
+	float oldValue = texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).g;
+
+	// increase the opacity to at least 0.5f for regions with low density
+	float newMin = 0.5f;
+	float newMax = 1.0f;
+	float newRange = newMax - newMin;
+
+	// transform [minKernelDifference, maxKernelDifference] to [newMin, 1]
+	float opacity = (((oldValue - oldMin) * newRange) / oldRange) + newMin;
+
+	// scale opacity
+	opacity = pow((1.0f - opacity), opacityScale);
+
+	// mix(x,y,a) --> x * (1-a) + y * a
+	#ifdef INVERTFUNCTION
+		final.rgb = mix(scatterPlot, final.rgb, opacity);
+	#else
+		final.rgb = mix(final.rgb, scatterPlot, opacity);
+	#endif
+#endif
+
+#ifdef NORMALBLENDING
+
+	// Normal based blending
+	vec3 centerNormal = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.xy), 0).xyz;
+
+	// emphasize the curvature
+	float opacity = 1.0f - dot(centerNormal, -V /*vec3(0,0,-1)*/);
+
+	// scale opacity
+	opacity = pow(opacity, opacityScale);
 	
+	// mix(x,y,a) --> x * (1-a) + y * a
+	#ifdef INVERTFUNCTION
+		final.rgb = mix(scatterPlot, final.rgb, opacity);
+	#else
+		final.rgb = mix(final.rgb, scatterPlot, opacity);
+	#endif
 #endif
 	
 	fragColor = final; 

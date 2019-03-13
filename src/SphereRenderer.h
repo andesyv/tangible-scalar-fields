@@ -184,6 +184,7 @@ namespace molumes
 		// selection of blending function
 		int m_blendingFunction = 0;
 		int m_colorScheme = 0;
+		bool m_invertFunction = false;
 		// ------------------------------------------------------------------------------------------
 	};
 

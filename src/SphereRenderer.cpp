@@ -66,7 +66,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 	// shader storage buffer object for current depth entries
-	m_depthRangeBuffer->setStorage(sizeof(uint) * 2, gl::GL_NONE_BIT);
+	m_depthRangeBuffer->setStorage(sizeof(uint) * 4, nullptr, gl::GL_NONE_BIT);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -831,11 +831,13 @@ void SphereRenderer::display()
 	if (ImGui::CollapsingHeader("2D Scatterplot"))
 	{
 
-		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0");
+		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0NormalBased\0");
 		ImGui::Combo("Color Scheme", &m_colorScheme, "None\0Scheme1\0Scheme2\0");
 		
 		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 1.0f);
 		ImGui::SliderFloat("Opacity Scale", &m_opacityScale, 0.001f, 1.0f);
+
+		ImGui::Checkbox("Invert Function", &m_invertFunction);
 
 	}
 
@@ -902,8 +904,11 @@ void SphereRenderer::display()
 		defines += "#define CURVEBLENDING\n";
 	else if (m_blendingFunction == 2)
 		defines +="#define DISTANCEBLENDING\n";
+	else if (m_blendingFunction == 3)
+		defines += "#define NORMALBLENDING\n";
 
-
+	if (m_invertFunction)
+		defines += "#define INVERTFUNCTION\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
@@ -1082,6 +1087,8 @@ void SphereRenderer::display()
 	const uint depthMaxClearValue = 0;
 	m_depthRangeBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMinClearValue);
 	m_depthRangeBuffer->clearSubData(GL_R32UI, 1 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMaxClearValue);
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 2 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMinClearValue);
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 3 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMaxClearValue);
 
 //	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
 //	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
@@ -1290,6 +1297,13 @@ void SphereRenderer::display()
 
 	m_programShade->setUniform("scatterPlotTexture", 11);
 
+
+	if (m_blendingFunction == 2)	// DISTANCEBLENDING
+	{
+		m_kernelDensityTexture->bindActive(12);
+		m_programShade->setUniform("kernelDensityTexture", 12);
+	}
+
 	/*
 	std::cout << "maximumCoCRadius: " << maximumCoCRadius << std::endl;
 	std::cout << "aparture: " << aparture << std::endl;
@@ -1308,6 +1322,11 @@ void SphereRenderer::display()
 	m_vaoQuad->unbind();
 
 	m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+	if (m_blendingFunction == 2)	// DISTANCEBLENDING
+	{
+		m_kernelDensityTexture->unbindActive(12);
+	}
 
 	m_scattePlotTexture->unbindActive(11);
 

@@ -119,9 +119,13 @@ void main()
 	float x = length(gSpherePosition.xy - sphere.near.xy);
 	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2)));
 
+	// compute difference to current maximum value of the curve
+	float difference = (1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((0-mue),2) / (2 * sigma2)))) - gaussKernel;
+	
 	// additional GUI dependent scaling 
-	gaussKernel = -pow(gaussKernel,gaussScale);
+	gaussKernel = -pow(gaussKernel, gaussScale);
+	difference = -pow(difference, gaussScale);
 
-	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, 0.0f, 0.0f, 1.0f));
-	kernelDensity = vec4(gaussKernel, 0.0f, 0.0f, 1.0f);
+	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, difference, 0.0f, 1.0f));
+	kernelDensity = vec4(gaussKernel, difference, 0.0f, 1.0f);
 }
