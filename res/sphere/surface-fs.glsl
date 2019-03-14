@@ -29,6 +29,7 @@ uniform sampler2D bumpTexture;
 uniform sampler2D materialTexture;
 uniform usampler2D offsetTexture;
 uniform sampler2D kernelDensityTexture;
+uniform sampler2D scatterPlotTexture;
 
 in vec4 gFragmentPosition;
 out vec4 surfacePosition;
@@ -69,6 +70,8 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 
 	uint minKernelDifference;
 	uint maxKernelDifference;
+
+	uint maxScatterPlotAlpha;
 };
 
 //struct Sphere
@@ -933,4 +936,7 @@ void main()
 	atomicMax(maxKernelDifference, floatBitsToUint(kernelDifference));
 #endif
 
+	// find maximum alpha after additive blending
+	float alpha = texelFetch(scatterPlotTexture,ivec2(gl_FragCoord.xy),0).a;
+	atomicMax(maxScatterPlotAlpha, floatBitsToUint(alpha));
 }

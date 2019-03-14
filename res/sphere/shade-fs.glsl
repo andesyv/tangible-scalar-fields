@@ -58,6 +58,8 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 
 	uint minKernelDifference;
 	uint maxKernelDifference;
+
+	uint maxScatterPlotAlpha;
 };
 
 // From http://http.developer.nvidia.com/GPUGems/gpugems_ch17.html
@@ -81,6 +83,13 @@ float aastep(float threshold, float value) {
   #else
     return step(threshold, value);
   #endif  
+}
+
+// See Porter-Duff 'A over B' operators: https://de.wikipedia.org/wiki/Alpha_Blending
+vec4 overOperator(vec4 source, vec4 destination)
+{
+	float ac = source.a + (1.0f - source.a) * destination.a;
+	return 1.0f/ac * (source.a * source + (1.0f - source.a) * destination.a * destination);
 }
 
 void main()
@@ -213,12 +222,15 @@ void main()
 #endif
 
 
-	vec3 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgb;
+	vec4 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
+	// normalize scatterplot alpha range to [0,1]
+	scatterPlot.a /= uintBitsToFloat(maxScatterPlotAlpha);
+
+
+// Curvature based blending 
 #ifdef CURVEBLENDING	
 	
-	// Curvature based blending 
-
 	// texelFetch (0,0) -> left bottom
 	vec3 top = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y+1), 0).xyz;
 	vec3 bottom = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y-1), 0).xyz;
@@ -231,71 +243,68 @@ void main()
 	// transform to [0,1];
 	opacity /= 4 * sqrt(2);
 
-	// scale opacity
-	opacity = pow(opacity, opacityScale);
-	
-	// mix(x,y,a) --> x * (1-a) + y * a
 	#ifdef INVERTFUNCTION
-		final.rgb = mix(scatterPlot, final.rgb, opacity);
-	#else
-		final.rgb = mix(final.rgb, scatterPlot, opacity);
+		// TODO
 	#endif
+
+	// scale opacity and apply to alpha
+	opacity = pow(opacity, opacityScale);
+	final.a *= opacity;
+
+	// apply over-operator
+	final = overOperator(final, scatterPlot);
 #endif
 
+
+// Distance based blending 
 #ifdef DISTANCEBLENDING
 
-	// Distance based blending 
-
-	// convert to different range: 
+	// convert to range [0,1]:
 	// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
 	float oldMin = uintBitsToFloat(minKernelDifference);
 	float oldMax = uintBitsToFloat(maxKernelDifference);
-	float oldRange = (oldMax - oldMin); 
 	float oldValue = texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).g;
 
-	// increase the opacity to at least 0.5f for regions with low density
-	float newMin = 0.5f;
-	float newMax = 1.0f;
-	float newRange = newMax - newMin;
-
 	// transform [minKernelDifference, maxKernelDifference] to [newMin, 1]
-	float opacity = (((oldValue - oldMin) * newRange) / oldRange) + newMin;
+	float opacity = (oldValue - oldMin) / (oldMax - oldMin);
 
-	// scale opacity
-	opacity = pow((1.0f - opacity), opacityScale);
-
-	// mix(x,y,a) --> x * (1-a) + y * a
 	#ifdef INVERTFUNCTION
-		final.rgb = mix(scatterPlot, final.rgb, opacity);
-	#else
-		final.rgb = mix(final.rgb, scatterPlot, opacity);
+		// TODO
 	#endif
+
+	// scale opacity and apply to alpha
+	opacity = pow(opacity, opacityScale);
+	final.a *= opacity;
+
+	// apply over-operator
+	final = overOperator(final, scatterPlot);
 #endif
 
+
+// Normal based blending
 #ifdef NORMALBLENDING
 
-	// Normal based blending
 	vec3 centerNormal = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.xy), 0).xyz;
 
 	// emphasize the curvature
 	float opacity = 1.0f - dot(centerNormal, -V /*vec3(0,0,-1)*/);
 
-	// scale opacity
-	opacity = pow(opacity, opacityScale);
-	
-	// mix(x,y,a) --> x * (1-a) + y * a
 	#ifdef INVERTFUNCTION
-		final.rgb = mix(scatterPlot, final.rgb, opacity);
-	#else
-		final.rgb = mix(final.rgb, scatterPlot, opacity);
+		// TODO
 	#endif
+
+	// scale opacity and apply to alpha
+	opacity = pow(opacity, opacityScale);
+	final.a *= opacity;
+
+	// apply over-operator
+	final = overOperator(final, scatterPlot);
 #endif
 	
 
 #ifdef SCATTERPLOT
-
 	// just display color-attachment of scatterplot
-	final.rgb = scatterPlot;
+	final = scatterPlot;
 #endif
 
 fragColor = final; 

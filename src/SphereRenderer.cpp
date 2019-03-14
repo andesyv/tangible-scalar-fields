@@ -66,7 +66,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 	// shader storage buffer object for current depth entries
-	m_depthRangeBuffer->setStorage(sizeof(uint) * 4, nullptr, gl::GL_NONE_BIT);
+	m_depthRangeBuffer->setStorage(sizeof(uint) * 5, nullptr, gl::GL_NONE_BIT);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -215,12 +215,12 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	m_scattePlotTexture = Texture::create(GL_TEXTURE_2D);
-	m_scattePlotTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_scattePlotTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_scattePlotTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_scattePlotTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_scattePlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_scatterPlotTexture = Texture::create(GL_TEXTURE_2D);
+	m_scatterPlotTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_scatterPlotTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_scatterPlotTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_scatterPlotTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_scatterPlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_environmentTexture = Texture::create(GL_TEXTURE_2D);
 	m_environmentTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -331,7 +331,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_kernelDensityTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_scattePlotTexture.get());
+	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_scatterPlotTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 });
 
@@ -458,7 +458,7 @@ void SphereRenderer::display()
 		m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_scattePlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_scatterPlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 	
 	ivec2 viewportSize = viewer()->viewportSize();
@@ -753,6 +753,9 @@ void SphereRenderer::display()
 			m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
 			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
+			// find smalles radius within the column
+			m_smallestR = *std::min_element(std::begin(viewer()->scene()->table()->activeRadiusColumn()), std::end(viewer()->scene()->table()->activeRadiusColumn()));
+
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
 			
@@ -926,11 +929,11 @@ void SphereRenderer::display()
 
 	m_sphereFramebuffer->bind();
 	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 65535.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);// 65535.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
+	//glDepthFunc(GL_LESS);
 	//glEnable(GL_DEPTH_CLAMP);
 
 	// test different blending options interactively: ------------------------------------
@@ -959,6 +962,8 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
 	m_programSphere->setUniform("animationFrequency", animationFrequency);
 	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
+	m_programSphere->setUniform("smallestR", m_smallestR);
+
 	m_programSphere->use();
 
 	// make sure spheres are drawn on top of each other
@@ -1082,18 +1087,28 @@ void SphereRenderer::display()
 	m_bumpTextures[bumpTextureIndex]->bindActive(5);
 	m_materialTextures[materialTextureIndex]->bindActive(6);
 	m_kernelDensityTexture->bindActive(7);
+	m_scatterPlotTexture->bindActive(8);
 
 	// SSBO
 	m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 	m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 	m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
 
-	const uint depthMinClearValue = UINT_MAX;
-	const uint depthMaxClearValue = 0;
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMinClearValue);
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 1 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMaxClearValue);
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 2 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMinClearValue);
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 3 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &depthMaxClearValue);
+	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+	const uint minClearValue = UINT_MAX;
+	const uint maxClearValue = 0;
+
+	// min/ max depth range
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &minClearValue);
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 1 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
+
+	// min/ max KDE range
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 2 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &minClearValue);
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 3 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
+
+	// max scatterplot alpha
+	m_depthRangeBuffer->clearSubData(GL_R32UI, 4 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
+	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 
 //	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
 //	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
@@ -1140,6 +1155,7 @@ void SphereRenderer::display()
 	m_programSurface->setUniform("bumpTexture", 5);
 	m_programSurface->setUniform("materialTexture", 6);
 	m_programSurface->setUniform("kernelDensityTexture", 7);
+	m_programSurface->setUniform("scatterPlotTexture", 8);
 
 	m_programSurface->setUniform("sharpness", sharpness);
 	m_programSurface->setUniform("coloring", uint(coloring));
@@ -1157,6 +1173,7 @@ void SphereRenderer::display()
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 	//m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
+	m_scatterPlotTexture->unbindActive(8);
 	m_kernelDensityTexture->unbindActive(7);
 	m_materialTextures[materialTextureIndex]->unbindActive(6);
 	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
@@ -1257,7 +1274,7 @@ void SphereRenderer::display()
 	m_materialTextures[materialTextureIndex]->bindActive(8);
 	m_environmentTexture->bindActive(9);
 
-	m_scattePlotTexture->bindActive(11);
+	m_scatterPlotTexture->bindActive(11);
 
 	//m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
 
@@ -1333,7 +1350,7 @@ void SphereRenderer::display()
 		m_kernelDensityTexture->unbindActive(12);
 	}
 
-	m_scattePlotTexture->unbindActive(11);
+	m_scatterPlotTexture->unbindActive(11);
 
 	if (m_colorMapLoaded)
 	{

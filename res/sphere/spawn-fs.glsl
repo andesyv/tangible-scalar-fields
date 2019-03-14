@@ -17,9 +17,10 @@ flat in float gSphereRadius;
 flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
-//out vec4 fragPosition;
-//out vec4 fragNormal;
+//layout (location = 0) out vec4 fragPosition;
+//layout (location = 1) out vec4 fragNormal;
 layout (location = 2) out vec4 kernelDensity;
+//layout (location = 3) out vec4 scatterPlott;
 
 layout(binding = 0) uniform sampler2D positionTexture;
 layout(r32ui, binding = 0) uniform uimage2D offsetImage;

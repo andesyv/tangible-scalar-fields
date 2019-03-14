@@ -3,6 +3,7 @@
 
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
+uniform float smallestR;
 
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
@@ -13,7 +14,7 @@ flat in float gSphereValue;
 layout (location = 0) out vec4 fragPosition;
 layout (location = 1) out vec4 fragNormal;
 //layout (location = 2) out vec4 kernelDensity;
-layout (location = 3) out vec4 scatterPlott;
+layout (location = 3) out vec4 scatterPlot;
 
 struct Sphere
 {			
@@ -62,8 +63,8 @@ vec4 assignQualitativeColor (int index)
 	// select red as default color
 	vec4 sphereColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
-	// return red if dimensions are not within [0,12]
-	if(index < 0 || index > 12)
+	// return red if index is not within the dimension [0,11]
+	if(index < 0 || index > 11)
 	{
 		return sphereColor;
 	}
@@ -134,23 +135,32 @@ void main()
 	// --------------------------------------------------------------------------------------------------------------------
 
 	// create classical 2D scatter plot and assign colors according to a qualitative coloring
-	scatterPlott.rgba = assignQualitativeColor(int(gSphereValue));// * 0.05f;
+	scatterPlot = assignQualitativeColor(int(gSphereValue));
 
 	float borderDistance = length(fragPosition.xy - gSpherePosition.xy);
+	
+	float innerBorderStart = gSphereRadius - (smallestR * (1.0f - 0.5f /*percentage*/));
+	float middleBorderStart = gSphereRadius - (smallestR * (1.0f - 0.75f /*percentage*/));
 
 	// highlight sphere-border and perform antialiasing within scatterplot
-	if(borderDistance >= gSphereRadius * 0.6f /*percentage the fade out will start*/)
+	if(borderDistance >= innerBorderStart)
 	{
 
 		// fade original sphere color to border color 
-		float fadeOut = ((1.0f - (gSphereRadius * 0.6f) / borderDistance) / 0.4f);
-		scatterPlott.rgb += vec3(fadeOut, fadeOut, fadeOut);
+		float fadeOut = (borderDistance-innerBorderStart) / (middleBorderStart-innerBorderStart);
 
-		if(borderDistance > gSphereRadius * 0.8f /*percentage the border will start*/)
+		// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
+		float smoothFade = 3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
+		scatterPlot.rgb += vec3(smoothFade, smoothFade, smoothFade);
+
+		if(borderDistance > middleBorderStart)
 		{
 			// perform antialiasing on border
-			fadeOut = 1 - ((1.0f - (gSphereRadius * 0.8f) / borderDistance) / 0.2f);
-			scatterPlott.rgb = vec3(fadeOut, fadeOut, fadeOut) * 0.8f ;
+			fadeOut = 1.0f - (borderDistance-middleBorderStart) / (middleBorderStart-innerBorderStart);
+			
+			// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
+			smoothFade = 3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
+			scatterPlot.rgb = vec3(smoothFade, smoothFade, smoothFade)  * 0.8f;
 		}
 	}
 }
