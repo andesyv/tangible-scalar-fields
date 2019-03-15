@@ -134,33 +134,49 @@ void main()
 
 	// --------------------------------------------------------------------------------------------------------------------
 
+	// Stefan-03-15-2019 -----------------------------------------------------------------------------------------
+	// perform Hermite interpolation: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+	float factor= 1.0-smoothstep(gSphereRadius*0.75,gSphereRadius,length(sphere.near.xy-gSpherePosition.xy));
+	factor += 1.0-smoothstep(gSphereRadius*0.5,gSphereRadius*0.75,length(sphere.near.xy-gSpherePosition.xy));
+	scatterPlot = 0.25*factor*assignQualitativeColor(int(gSphereValue));
+	// -----------------------------------------------------------------------------------------------------------
+
 	// create classical 2D scatter plot and assign colors according to a qualitative coloring
-	scatterPlot = assignQualitativeColor(int(gSphereValue));
-
-	float borderDistance = length(fragPosition.xy - gSpherePosition.xy);
-	
-	float innerBorderStart = gSphereRadius - (smallestR * (1.0f - 0.5f /*percentage*/));
-	float middleBorderStart = gSphereRadius - (smallestR * (1.0f - 0.75f /*percentage*/));
-
-	// highlight sphere-border and perform antialiasing within scatterplot
-	if(borderDistance >= innerBorderStart)
-	{
-
-		// fade original sphere color to border color 
-		float fadeOut = (borderDistance-innerBorderStart) / (middleBorderStart-innerBorderStart);
-
-		// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
-		float smoothFade = 3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
-		scatterPlot.rgb += vec3(smoothFade, smoothFade, smoothFade);
-
-		if(borderDistance > middleBorderStart)
-		{
-			// perform antialiasing on border
-			fadeOut = 1.0f - (borderDistance-middleBorderStart) / (middleBorderStart-innerBorderStart);
-			
-			// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
-			smoothFade = 3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
-			scatterPlot.rgb = vec3(smoothFade, smoothFade, smoothFade)  * 0.8f;
-		}
-	}
+	//scatterPlot = assignQualitativeColor(int(gSphereValue));
+	//
+	//float borderDistance = length(fragPosition.xy - gSpherePosition.xy);
+	//
+	//float firstBorderStart = gSphereRadius - (smallestR * (1.0f - 0.7f /*percentage*/));
+	//float secondBorderStart = gSphereRadius - (smallestR * (1.0f - 0.855f /*percentage*/));
+	//float thirdBorderStart = gSphereRadius - (smallestR  * (1.0f - 0.86f /*percentage*/));
+	//
+	//
+	//// highlight sphere-border and perform antialiasing within scatterplot
+	//if(borderDistance >= firstBorderStart)
+	//{
+	//
+	//	// fade original sphere color to border color 
+	//	float fadeOut = (borderDistance-firstBorderStart) / (secondBorderStart-firstBorderStart);
+	//
+	//	// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
+	//	float smoothFade = 3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
+	//	scatterPlot.rgb += vec3(smoothFade, smoothFade, smoothFade);
+	//
+	//	if(borderDistance >= secondBorderStart)
+	//	{
+	//
+	//		// draw white border
+	//		scatterPlot.rgb = vec3(1.0f, 1.0f, 1.0f);
+	//
+	//		if(borderDistance > thirdBorderStart)
+	//		{
+	//			// perform antialiasing on border smooth-out
+	//			fadeOut = 1.0f -(borderDistance-thirdBorderStart) / (gSphereRadius-thirdBorderStart);
+	//		
+	//			// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
+	//			smoothFade = fadeOut;//3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
+	//			scatterPlot.rgb = vec3(smoothFade, smoothFade, smoothFade);
+	//		}
+	//	}
+	//}
 }

@@ -243,16 +243,16 @@ void main()
 	// transform to [0,1];
 	opacity /= 4 * sqrt(2);
 
-	#ifdef INVERTFUNCTION
-		// TODO
-	#endif
-
 	// scale opacity and apply to alpha
 	opacity = pow(opacity, opacityScale);
 	final.a *= opacity;
 
 	// apply over-operator
-	final = overOperator(final, scatterPlot);
+	#ifdef INVERTFUNCTION
+		final = overOperator(scatterPlot, final);
+	#else
+		final = overOperator(final, scatterPlot);
+	#endif
 #endif
 
 
@@ -268,16 +268,16 @@ void main()
 	// transform [minKernelDifference, maxKernelDifference] to [newMin, 1]
 	float opacity = (oldValue - oldMin) / (oldMax - oldMin);
 
-	#ifdef INVERTFUNCTION
-		// TODO
-	#endif
-
 	// scale opacity and apply to alpha
 	opacity = pow(opacity, opacityScale);
 	final.a *= opacity;
 
 	// apply over-operator
-	final = overOperator(final, scatterPlot);
+	#ifdef INVERTFUNCTION
+		final = overOperator(scatterPlot, final);
+	#else
+		final = overOperator(final, scatterPlot);
+	#endif
 #endif
 
 
@@ -289,16 +289,16 @@ void main()
 	// emphasize the curvature
 	float opacity = 1.0f - dot(centerNormal, -V /*vec3(0,0,-1)*/);
 
-	#ifdef INVERTFUNCTION
-		// TODO
-	#endif
-
 	// scale opacity and apply to alpha
 	opacity = pow(opacity, opacityScale);
 	final.a *= opacity;
 
 	// apply over-operator
-	final = overOperator(final, scatterPlot);
+	#ifdef INVERTFUNCTION
+		final = overOperator(scatterPlot, final);
+	#else
+		final = overOperator(final, scatterPlot);
+	#endif
 #endif
 	
 

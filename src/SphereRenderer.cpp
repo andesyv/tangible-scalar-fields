@@ -951,9 +951,15 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 
 	if(m_blendingFunction == 0)
+	{
 		m_programSphere->setUniform("radiusScale", 1.0f);
+		m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier);
+	}
 	else
+	{
 		m_programSphere->setUniform("radiusScale", m_scatterScale);
+		m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier * m_scatterScale);
+	}
 
 	m_programSphere->setUniform("clipRadiusScale", radiusScale);
 	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
@@ -962,7 +968,6 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
 	m_programSphere->setUniform("animationFrequency", animationFrequency);
 	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
-	m_programSphere->setUniform("smallestR", m_smallestR);
 
 	m_programSphere->use();
 
