@@ -131,57 +131,6 @@ void main()
 	float depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0).x;
 	vec3 surfaceNormalWorld = normalize(inverseNormalMatrix*surfaceNormal.xyz);
 
-	vec3 ambientColor = ambientMaterial*ambient.a;
-	vec3 diffuseColor = surfaceDiffuse.rgb*diffuseMaterial*ambient.a;
-	vec3 specularColor = specularMaterial*ambient.a;
-
-	vec3 N = surfaceNormalWorld;
-	vec3 L = normalize(lightPosition-surfacePosition.xyz);
-	vec3 R = normalize(reflect(L, N));
-	float NdotV = max(0.0,abs(dot(N, V)));
-	float NdotL = dot(N, L);
-	float RdotV = max(0.0,dot(R, V));
-	
-	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);
-
-#ifdef ENVIRONMENT
-	float width = sqrt(ambient.r);
-	environmentColor = textureGrad(environmentTexture,latlong(N.xyz),vec2(width,0.0),vec2(0.0,width));
-#endif
-
-	vec3 color = vec3(0.0);
-	float light_occlusion = 1.0;
-
-#ifdef AMBIENT
-	vec3 VL =  normalize(normalMatrix*normalize(lightPosition-surfacePosition.xyz));
-	light_occlusion = 1.0-clamp(dot(VL.xyz, ambient.xyz),0.0,1.0);
-#endif
-
-	float lightRadius = 4.0*length(lightPosition);
-	float lightDistance = length(lightPosition.xyz-surfacePosition.xyz) / lightRadius;
-	float lightAttenuation = 1.0 / (1.0 + lightDistance*lightDistance);
-	light_occlusion *= lightAttenuation;
-
-	NdotL = clamp((NdotL+1.0)*0.5,0.0,1.0);
-	color = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
-	color.rgb += distanceBlending*vec3(min(1.0,pow(abs(spherePosition.w-surfacePosition.w),distanceScale)));
-
-	vec4 final = over(vec4(color,1.0)*surfaceDiffuse.a,backgroundColor);
-
-#ifdef DEPTHOFFIELD
-	vec4 cp = modelViewMatrix*vec4(surfacePosition.xyz, 1.0);
-	cp = cp / cp.w;
-	float dist = length(cp.xyz);
-
-	float coc = maximumCoCRadius * aparture * (focalLength * (focalDistance - dist)) / (dist * (focalDistance - focalLength));
-	//coc += fwidth(surfaceDiffuse.a);
-	coc = clamp( coc * 0.5 + 0.5, 0.0, 1.0 );
-
-	if (surfacePosition.w >= 65535.0)	
-		coc = 0.0;
-
-	final.a = coc;
-#endif
 
 #ifdef COLORMAP
 	if(depth != 1.0f)
@@ -210,7 +159,8 @@ void main()
 
 		// apply color map  using texelFetch with a range from [0, size) 
 		vec3 colorMap  = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 		
-
+		surfaceDiffuse.rgb = colorMap;
+/*
 	#ifdef ILLUMINATION
 		// MATLAB - rgb2gray: https://www.mathworks.com/help/matlab/ref/rgb2gray.html
 		float luminosity = 0.2989f * final.r + 0.5870f * final.g + 0.1140f * final.g;
@@ -218,9 +168,67 @@ void main()
 	#else
 		final.rgb = colorMap;
 	#endif
+*/
 	}
 #endif
+	
+	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);
 
+#ifdef ENVIRONMENT
+	float width = sqrt(ambient.r);
+	environmentColor = textureGrad(environmentTexture,latlong(N.xyz),vec2(width,0.0),vec2(0.0,width));
+#endif
+
+	vec3 color = surfaceDiffuse.rgb;
+	float light_occlusion = 1.0;
+
+#ifdef AMBIENT
+	vec3 VL =  normalize(normalMatrix*normalize(lightPosition-surfacePosition.xyz));
+	light_occlusion = 1.0-clamp(dot(-VL.xyz, ambient.xyz),0.0,1.0); // negation of VL is a hack -- maybe surfacePosition.z wrong?
+#endif
+
+#ifdef ILLUMINATION
+
+	vec3 ambientColor = surfaceDiffuse.rgb*ambientMaterial*ambient.a;
+	vec3 diffuseColor = surfaceDiffuse.rgb*diffuseMaterial;//*ambient.a;
+	vec3 specularColor = surfaceDiffuse.rgb*specularMaterial;//*ambient.a;
+
+	vec3 N = surfaceNormalWorld;
+	vec3 L = normalize(lightPosition-surfacePosition.xyz);
+	vec3 R = normalize(reflect(L, N));
+	float NdotV = max(0.0,abs(dot(N, V)));
+	float NdotL = dot(N, L);
+	float RdotV = max(0.0,dot(R, V));
+
+	/*
+	float lightRadius = 4.0*length(lightPosition);
+	float lightDistance = length(lightPosition.xyz-surfacePosition.xyz) / lightRadius;
+	float lightAttenuation = 1.0 / (1.0 + lightDistance*lightDistance);
+	light_occlusion *= lightAttenuation;
+	*/
+
+	NdotL = clamp((NdotL+1.0)*0.5,0.0,1.0);
+	color = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
+	color.rgb += distanceBlending*vec3(min(1.0,pow(abs(spherePosition.w-surfacePosition.w),distanceScale)));
+
+#endif
+
+	vec4 final = vec4(color.rgb,surfaceDiffuse.a);
+
+#ifdef DEPTHOFFIELD
+	vec4 cp = modelViewMatrix*vec4(surfacePosition.xyz, 1.0);
+	cp = cp / cp.w;
+	float dist = length(cp.xyz);
+
+	float coc = maximumCoCRadius * aparture * (focalLength * (focalDistance - dist)) / (dist * (focalDistance - focalLength));
+	//coc += fwidth(surfaceDiffuse.a);
+	coc = clamp( coc * 0.5 + 0.5, 0.0, 1.0 );
+
+	if (surfacePosition.w >= 65535.0)	
+		coc = 0.0;
+
+	final.a = coc;
+#endif
 
 	vec4 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
@@ -272,12 +280,16 @@ void main()
 	opacity = pow(opacity, opacityScale);
 	final.a *= opacity;
 
+//	scatterPlot.rgb *= (0.5+0.5*light_occlusion*pow(ambient.a,1.0));
+	
 	// apply over-operator
 	#ifdef INVERTFUNCTION
 		final = overOperator(scatterPlot, final);
 	#else
 		final = overOperator(final, scatterPlot);
 	#endif
+
+	//final = over(final,backgroundColor);
 #endif
 
 
@@ -307,5 +319,7 @@ void main()
 	final = scatterPlot;
 #endif
 
-fragColor = final; 
+	final = over(final,backgroundColor);
+	fragColor = final; 
+
 }

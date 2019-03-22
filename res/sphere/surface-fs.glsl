@@ -437,7 +437,7 @@ vec3 calculateNormal(ivec2 texelCoord){
 	float right = texelFetch(kernelDensityTexture, ivec2(texelCoord.x+1, texelCoord.y), 0).r;
 
 	// reconstruct normal
-	vec3 normal = vec3((right-left)/2,(bottom-top)/2,-1);
+	vec3 normal = vec3((right-left)/2,(top-bottom)/2,1);
 	return normalize(normal);
 }
 
@@ -891,7 +891,7 @@ void main()
 	surfacePosition.z = kernelDensity;
 
 	surfaceNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy)), 1);
-	//surfaceNormal *= -1;
+	//surfaceNormal *= -1.0;
 
 	// set diffuse colors
 	surfaceDiffuse = vec4(1.0f, 1.0f, 1.0f, 1.0f); 
