@@ -280,7 +280,8 @@ void main()
 	opacity = pow(opacity, opacityScale);
 	final.a *= opacity;
 
-//	scatterPlot.rgb *= (0.5+0.5*light_occlusion*pow(ambient.a,1.0));
+	scatterPlot.rgb = vec3(1.0);
+	scatterPlot.rgb *= (0.5+0.5*light_occlusion*pow(ambient.a,1.0));
 	
 	// apply over-operator
 	#ifdef INVERTFUNCTION

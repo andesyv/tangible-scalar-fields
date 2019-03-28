@@ -61,7 +61,7 @@ vec4 assignQualitativeColor (int index)
 {
 	
 	// select red as default color
-	vec4 sphereColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	vec4 sphereColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	// return red if index is not within the dimension [0,11]
 	if(index < 0 || index > 11)
