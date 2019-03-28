@@ -741,6 +741,9 @@ void SphereRenderer::display()
 		ImGui::SliderFloat("Gauss-Scale", &m_gaussScale, 0.01f, 1.0f);
 		ImGui::SliderFloat("Sigma", &m_sigma, 0.01f, 200.0f);
 
+		// section for adaptive kernels
+		ImGui::Checkbox("Adaptive Kernel", &m_adaptKernel);
+
 		if (ImGui::Button("Load"))
 		{
 
@@ -914,6 +917,9 @@ void SphereRenderer::display()
 
 	if (m_invertFunction)
 		defines += "#define INVERTFUNCTION\n";
+
+	if (m_adaptKernel)
+		defines += "#define ADAPTIVEKERNEL\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{

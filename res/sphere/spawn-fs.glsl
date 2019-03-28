@@ -1,5 +1,7 @@
 #version 450
+#include "/defines.glsl"
 
+uniform mat4 modelViewMatrix;
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
 
@@ -116,12 +118,28 @@ void main()
 
 	intersections[index] = entry;
 
+
+	float sigmaScale = 1.0f;
+
+#ifdef ADAPTIVEKERNEL
+	// scale sigma dependent on camera distance
+	float distanceScaling = pow(entry.near/6500,3);
+
+	// TODO: less magic! --------------------------------------------- 
+	vec4 sized = modelViewMatrix * vec4(4024.0f, 0.0f, 0.0f, 0.0f);
+	float radiusd = length(sized);
+	// ---------------------------------------------------------------
+
+	sigmaScale = sigma2/(radiusd*radiusd);
+
+#endif
+
 	// probability density function
 	float x = length(gSpherePosition.xy - sphere.near.xy);
-	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2)));
+	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2 * sigmaScale)));
 
 	// compute difference to current maximum value of the curve
-	float difference = (1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((0-mue),2) / (2 * sigma2)))) - gaussKernel;
+	float difference = (1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((0-mue),2) / (2 * sigma2 * sigmaScale)))) - gaussKernel;
 	
 	// additional GUI dependent scaling 
 	gaussKernel = -pow(gaussKernel, gaussScale);
