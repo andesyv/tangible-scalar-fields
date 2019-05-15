@@ -36,6 +36,10 @@ uniform float opacityScale;
 // KDE texture
 uniform sampler2D kernelDensityTexture;
 
+// focus and context
+uniform vec2 focusPosition;
+uniform float lensSize;
+
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
 uniform int textureWidth;
@@ -89,7 +93,12 @@ float aastep(float threshold, float value) {
 vec4 overOperator(vec4 source, vec4 destination)
 {
 	float ac = source.a + (1.0f - source.a) * destination.a;
-	return 1.0f/ac * (source.a * source + (1.0f - source.a) * destination.a * destination);
+	vec4 blended = 1.0f/ac * (source.a * source + (1.0f - source.a) * destination.a * destination);
+
+	// make sure dimensions fit after blending 
+	blended = clamp(blended, vec4(0), vec4(1));
+
+	return blended;
 }
 
 void main()
@@ -289,8 +298,6 @@ void main()
 	#else
 		final = overOperator(final, scatterPlot);
 	#endif
-
-	//final = over(final,backgroundColor);
 #endif
 
 
@@ -319,6 +326,29 @@ void main()
 	// just display color-attachment of scatterplot
 	final = scatterPlot;
 #endif
+
+
+#ifdef LENSING
+	float pxlDistance = length((focusPosition-gFragmentPosition.xy) / vec2(0.5625 /*Aspect ratio: 720 divided by 1280*/, 1.0));
+	
+	// color border of lens
+	vec3 borderColor = vec3(0.9f, 0.09f, 0.05f);
+
+	// fixed anti-aliasing distance
+	float startInner = lensSize - 0.01f;
+	float endOuter = lensSize + 0.01f;
+
+	// draw border of lens
+	if(pxlDistance >= startInner && pxlDistance <= lensSize)
+	{
+		final.rgb = mix(final.rgb, borderColor, smoothstep(startInner, lensSize, pxlDistance));
+	}
+	else if (pxlDistance > lensSize && pxlDistance <= endOuter)
+	{
+		final.rgb = mix(final.rgb, borderColor, 1.0f - smoothstep(lensSize, endOuter, pxlDistance));
+	}
+#endif
+
 
 	final = over(final,backgroundColor);
 	fragColor = final; 

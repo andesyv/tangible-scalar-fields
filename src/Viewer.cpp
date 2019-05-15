@@ -469,6 +469,12 @@ void Viewer::scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 		}
 
 		viewer->m_mouseWheel += (float)yoffset; // Use fractional mouse wheel.
+
+		// use down-scaled mouse wheel y-offset to update sigma
+		viewer->m_scrollWheelSigma += (float)yoffset / 10.0f;
+
+		// clamp to adjust to GUI slider
+		viewer->m_scrollWheelSigma = clamp(viewer->m_scrollWheelSigma, 0.1f, 1.0f);
 	}
 }
 

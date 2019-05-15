@@ -19,6 +19,11 @@ flat in float gSphereRadius;
 flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
+// focus and context
+uniform vec2 focusPosition;
+uniform float lensSize;
+uniform float lensSigma;
+
 //layout (location = 0) out vec4 fragPosition;
 //layout (location = 1) out vec4 fragNormal;
 layout (location = 2) out vec4 kernelDensity;
@@ -134,6 +139,20 @@ void main()
 
 #endif
 
+
+#ifdef LENSING
+
+	// compute distance to mouse cursor
+	float pxlDistance = length((focusPosition-gFragmentPosition.xy)/vec2(0.5625 /*Aspect ratio: 720 divided by 1280*/,1.0));
+
+	if(pxlDistance <= lensSize)
+	{
+		// scale sigma down within the lens
+		sigmaScale *= lensSigma;
+	}
+#endif
+
+
 	// probability density function
 	float x = length(gSpherePosition.xy - sphere.near.xy);
 	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2 * sigmaScale)));
@@ -144,6 +163,16 @@ void main()
 	// additional GUI dependent scaling 
 	gaussKernel = -pow(gaussKernel, gaussScale);
 	difference = -pow(difference, gaussScale);
+
+
+#ifdef LENSING
+	if(pxlDistance <= lensSize)
+	{
+		// scale difference to emphsaize scatter plot within lense
+		difference *= sigmaScale;
+	}
+#endif
+
 
 	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, difference, 0.0f, 1.0f));
 	kernelDensity = vec4(gaussKernel, difference, 0.0f, 1.0f);

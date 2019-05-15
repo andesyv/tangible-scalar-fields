@@ -569,7 +569,11 @@ void SphereRenderer::display()
 		ImGui::SliderFloat("Dist. Blending", &distanceBlending, 0.0f, 1.0f);
 		ImGui::SliderFloat("Dist. Scale", &distanceScale, 0.0f, 16.0f);
 		ImGui::Combo("Coloring", &coloring, "None\0Element\0Residue\0Chain\0");
+
+		// magic lens
 		ImGui::Checkbox("Magic Lens", &lens);
+		ImGui::SliderFloat("Lens Size", &m_lensSize, 0.1f, 0.5f);
+		ImGui::SliderFloat("Lens Sigma", &viewer()->m_scrollWheelSigma, 0.1f, 1.0f);
 	}
 
 #ifdef BENCHMARK
@@ -1044,6 +1048,11 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("sigma2", m_sigma);
 	m_programSpawn->setUniform("gaussScale", m_gaussScale);
 
+	// Focus and Contes (mouse position for lens)
+	m_programSpawn->setUniform("focusPosition", focusPosition);
+	m_programSpawn->setUniform("lensSize", m_lensSize);
+	m_programSpawn->setUniform("lensSigma", viewer()->m_scrollWheelSigma);
+
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -1347,6 +1356,11 @@ void SphereRenderer::display()
 	m_programShade->setUniform("aparture", aparture);
 	m_programShade->setUniform("focalDistance", focalDistance);
 	m_programShade->setUniform("focalLength", focalLength);
+
+	// focus and context -> draw lens border
+	m_programShade->setUniform("focusPosition", focusPosition);
+	m_programShade->setUniform("lensSize", m_lensSize);
+
 
 	m_programShade->use();
 

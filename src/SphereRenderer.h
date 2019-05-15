@@ -175,10 +175,10 @@ namespace molumes
 		bool m_surfaceIllumination = false;
 		
 		// GUI-slide used for additional scaling values (empirically chosen)
-		float m_radiusMultiplier = 55.0f;
-		float m_sigma = 25.0f;
-		float m_gaussScale = 0.35f;
-		float m_scatterScale = 0.05;
+		float m_radiusMultiplier = 30.0f;
+		float m_sigma = 20.0f;
+		float m_gaussScale = 0.1f;
+		float m_scatterScale = 0.08;
 		float m_opacityScale = 0.7f;
 
 		// selection of blending function
@@ -190,6 +190,11 @@ namespace molumes
 
 		// adaptive kernel size
 		bool m_adaptKernel = false;
+
+		// focus and context
+		float m_lensSize = 0.25f;
+		float m_lensSigma = 0.2f;
+
 		// ------------------------------------------------------------------------------------------
 	};
 
