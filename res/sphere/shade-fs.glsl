@@ -38,6 +38,8 @@ uniform sampler2D kernelDensityTexture;
 // focus and context
 uniform vec2 focusPosition;
 uniform float lensSize;
+uniform float aspectRatio;
+uniform float windowHeight;
 
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
@@ -328,14 +330,14 @@ void main()
 
 
 #ifdef LENSING
-	float pxlDistance = length((focusPosition-gFragmentPosition.xy) / vec2(0.5625 /*Aspect ratio: 720 divided by 1280*/, 1.0));
+	float pxlDistance = length((focusPosition-gFragmentPosition.xy) / vec2(aspectRatio, 1.0));
 	
 	// color border of lens
 	vec3 borderColor = vec3(0.9f, 0.09f, 0.05f);
 
-	// fixed anti-aliasing distance
-	float startInner = lensSize - 0.01f;
-	float endOuter = lensSize + 0.01f;
+	// anti-aliasing distance -> make lens thickness independent of window size
+	float startInner = lensSize - 7.5f /*empirically chosen*/ / windowHeight;
+	float endOuter = lensSize + 7.5f /*empirically chosen*/ / windowHeight;
 
 	// draw border of lens
 	if(pxlDistance >= startInner && pxlDistance <= lensSize)

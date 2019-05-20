@@ -1060,6 +1060,9 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("lensSize", m_lensSize);
 	m_programSpawn->setUniform("lensSigma", viewer()->m_scrollWheelSigma);
 
+	// pass aspect ratio to the shader to make sure lens is always a circle and does not degenerate to an ellipse
+	m_programSpawn->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+
 	m_programSpawn->use();
 
 	m_vao->bind();
@@ -1341,6 +1344,9 @@ void SphereRenderer::display()
 	m_programShade->setUniform("focusPosition", focusPosition);
 	m_programShade->setUniform("lensSize", m_lensSize);
 
+	// pass aspect ratio to the shader to make sure lens is always a circle and does not degenerate to an ellipse
+	m_programShade->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+	m_programShade->setUniform("windowHeight", viewer()->m_windowHeight);
 
 	m_programShade->use();
 

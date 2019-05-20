@@ -180,7 +180,10 @@ void Viewer::display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glViewport(0, 0, viewportSize().x, viewportSize().y);
 
-
+	// update screen dimensions
+	m_windowWidth = viewportSize().x;
+	m_windowHeight = viewportSize().y;
+	
 	for (auto& r : m_renderers)
 	{
 		if (r->isEnabled())

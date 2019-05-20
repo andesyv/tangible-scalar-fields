@@ -23,6 +23,7 @@ flat in float gSphereValue;
 uniform vec2 focusPosition;
 uniform float lensSize;
 uniform float lensSigma;
+uniform float aspectRatio;
 
 //layout (location = 0) out vec4 fragPosition;
 //layout (location = 1) out vec4 fragNormal;
@@ -142,7 +143,7 @@ void main()
 
 #ifdef LENSING
 	// compute distance to mouse cursor
-	float pxlDistance = length((focusPosition-gFragmentPosition.xy)/vec2(0.5625 /*Aspect ratio: 720 divided by 1280*/,1.0));
+	float pxlDistance = length((focusPosition-gFragmentPosition.xy)/vec2(aspectRatio,1.0));
 
 	if(pxlDistance <= lensSize)
 	{

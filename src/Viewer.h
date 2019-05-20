@@ -38,6 +38,8 @@ namespace molumes
 		glm::mat4 projectionTransform() const;
 
 		float m_scrollWheelSigma = 0.2f;
+		float m_windowHeight = 720.0f;
+		float m_windowWidth = 1280.0f;
 
 		void setBackgroundColor(const glm::vec3& c);
 		void setViewTransform(const glm::mat4& m);

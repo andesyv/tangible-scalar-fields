@@ -178,7 +178,7 @@ namespace molumes
 		float m_radiusMultiplier = 30.0f;
 		float m_sigma = 20.0f;
 		float m_gaussScale = 0.1f;
-		float m_scatterScale = 0.08;
+		float m_scatterScale = 0.163f;
 		float m_opacityScale = 0.7f;
 
 		// selection of blending function
