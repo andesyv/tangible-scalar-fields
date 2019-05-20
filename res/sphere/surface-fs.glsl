@@ -130,7 +130,7 @@ void main()
 		vec3 V = normalize(far.xyz-near.xyz);
 
 		// compute position in view-space and calculate normal distance (using the camera view-vector)
-		vec4 posViewSpace = modelViewMatrix*surfacePosition;
+		vec4 posViewSpace = modelViewMatrix*vec4(gl_FragCoord.xy, texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).b, 1);
 		float cameraDistance = abs(dot(posViewSpace.xyz,V));
 
 		// floatBitsToUint: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/floatBitsToInt.xhtml

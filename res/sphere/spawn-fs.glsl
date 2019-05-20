@@ -137,6 +137,9 @@ void main()
 #endif
 
 
+	// this sigma is used to calculate height range (prevent flickering if lens is used)
+	float originalSigmaScale = sigmaScale;
+
 #ifdef LENSING
 	// compute distance to mouse cursor
 	float pxlDistance = length((focusPosition-gFragmentPosition.xy)/vec2(0.5625 /*Aspect ratio: 720 divided by 1280*/,1.0));
@@ -153,12 +156,16 @@ void main()
 	float x = length(gSpherePosition.xy - sphere.near.xy);
 	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2 * sigmaScale)));
 
+	// evaluate kernel that is not influenced by the lens itneraction
+	float originalKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2 * originalSigmaScale)));
+
 	// compute difference to current maximum value of the curve
 	float difference = (1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((0-mue),2) / (2 * sigma2 * sigmaScale)))) - gaussKernel;
 	
 	// additional GUI dependent scaling 
 	gaussKernel = -pow(gaussKernel, gaussScale);
 	difference = -pow(difference, gaussScale);
+	originalKernel = -pow(originalKernel, gaussScale);
 
 
 #ifdef LENSING
@@ -171,5 +178,5 @@ void main()
 
 
 	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, difference, 0.0f, 1.0f));
-	kernelDensity = vec4(gaussKernel, difference, 0.0f, 1.0f);
+	kernelDensity = vec4(gaussKernel, difference, originalKernel, 1.0f);
 }
