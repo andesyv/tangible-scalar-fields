@@ -3,16 +3,16 @@
 
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
-uniform float smallestR;
+//uniform float smallestR;
 
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
 flat in float gSphereRadius;
-flat in float gSphereOriginalRadius;
+//flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
-layout (location = 0) out vec4 fragPosition;
-layout (location = 1) out vec4 fragNormal;
+//layout (location = 0) out vec4 fragPosition;
+//layout (location = 1) out vec4 fragNormal;
 //layout (location = 2) out vec4 kernelDensity;
 layout (location = 3) out vec4 scatterPlot;
 
@@ -127,9 +127,10 @@ void main()
 	if (!sphere.hit)
 		discard;
 
+	//fragPosition = vec4(sphere.near.xyz,length(sphere.near.xyz-near.xyz));
+	//fragNormal = vec4(sphere.normal, 1.0f);
+
 	float depth = calcDepth(sphere.near.xyz);
-	fragPosition = vec4(sphere.near.xyz,length(sphere.near.xyz-near.xyz));
-	fragNormal = vec4(sphere.normal, 1.0f);
 	gl_FragDepth = depth;
 
 	// --------------------------------------------------------------------------------------------------------------------

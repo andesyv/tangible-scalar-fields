@@ -27,7 +27,7 @@ in VertexData
 out vec4 gFragmentPosition;
 flat out vec4 gSpherePosition;
 flat out float gSphereRadius;
-flat out float gSphereOriginalRadius;
+//flat out float gSphereOriginalRadius;
 flat out float gSphereValue;
 
 /** 2D-line from point and direction */
@@ -219,15 +219,14 @@ layout(std140, binding = 0) uniform elementBlock
 
 void main()
 {
-	//uint sphereId = floatBitsToUint(gl_in[0].gl_Position.w);
-	//uint elementId = bitfieldExtract(sphereId,0,8);
-	float sphereRadius = vert[0].radiusValueVS*radiusScale; //elements[elementId].radius*radiusScale;
-	float sphereClipRadius = vert[0].radiusValueVS*clipRadiusScale; //elements[elementId].radius*clipRadiusScale;
+
+	float sphereRadius = vert[0].radiusValueVS*radiusScale; 
+	float sphereClipRadius = vert[0].radiusValueVS*clipRadiusScale; 
 	
 	//gSphereId = sphereId;
 	gSpherePosition = gl_in[0].gl_Position;
 	gSphereRadius = sphereRadius;
-	gSphereOriginalRadius = vert[0].radiusValueVS;
+	//gSphereOriginalRadius = vert[0].radiusValueVS;
 	gSphereValue = vert[0].colorValueVS;
 
 	vec4 c = modelViewMatrix * vec4(gl_in[0].gl_Position.xyz,1.0);

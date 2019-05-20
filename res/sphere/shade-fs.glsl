@@ -17,8 +17,8 @@ uniform vec3 ambientMaterial;
 uniform vec3 specularMaterial;
 uniform float shininess;
 
-uniform sampler2D spherePositionTexture;
-uniform sampler2D sphereNormalTexture;
+//uniform sampler2D spherePositionTexture;
+//uniform sampler2D sphereNormalTexture;
 uniform sampler2D sphereDiffuseTexture;
 uniform sampler2D surfacePositionTexture;
 uniform sampler2D surfaceNormalTexture;
@@ -27,7 +27,6 @@ uniform sampler2D depthTexture;
 uniform sampler2D ambientTexture;
 uniform sampler2D materialTexture;
 uniform sampler2D environmentTexture;
-uniform bool environment;
 
 // texture for blending surface and classical scatter plot
 uniform sampler2D scatterPlotTexture;
@@ -114,8 +113,8 @@ void main()
 
 	vec3 V = normalize(far.xyz-near.xyz);
 
-	vec4 spherePosition = texelFetch(spherePositionTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 sphereNormal = texelFetch(sphereNormalTexture,ivec2(gl_FragCoord.xy),0);
+	//vec4 spherePosition = texelFetch(spherePositionTexture,ivec2(gl_FragCoord.xy),0);
+	//vec4 sphereNormal = texelFetch(sphereNormalTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 sphereDiffuse = texelFetch(sphereDiffuseTexture,ivec2(gl_FragCoord.xy),0);
 
 	vec4 surfacePosition = texelFetch(surfacePositionTexture,ivec2(gl_FragCoord.xy),0);
@@ -169,15 +168,15 @@ void main()
 		// apply color map  using texelFetch with a range from [0, size) 
 		vec3 colorMap  = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 		
 		surfaceDiffuse.rgb = colorMap;
-/*
-	#ifdef ILLUMINATION
-		// MATLAB - rgb2gray: https://www.mathworks.com/help/matlab/ref/rgb2gray.html
-		float luminosity = 0.2989f * final.r + 0.5870f * final.g + 0.1140f * final.g;
-		final.rgb = colorMap * luminosity;
-	#else
-		final.rgb = colorMap;
-	#endif
-*/
+
+//	#ifdef ILLUMINATION
+//		// MATLAB - rgb2gray: https://www.mathworks.com/help/matlab/ref/rgb2gray.html
+//		float luminosity = 0.2989f * final.r + 0.5870f * final.g + 0.1140f * final.g;
+//		final.rgb = colorMap * luminosity;
+//	#else
+//		final.rgb = colorMap;
+//	#endif
+
 	}
 #endif
 	
@@ -218,7 +217,7 @@ void main()
 
 	NdotL = clamp((NdotL+1.0)*0.5,0.0,1.0);
 	color = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
-	color.rgb += distanceBlending*vec3(min(1.0,pow(abs(spherePosition.w-surfacePosition.w),distanceScale)));
+	color.rgb += distanceBlending * vec3(min(1.0, pow(surfacePosition.w, distanceScale)));
 
 #endif
 
@@ -307,7 +306,7 @@ void main()
 	vec3 centerNormal = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.xy), 0).xyz;
 
 	// emphasize the curvature
-	float opacity = 1.0f - dot(centerNormal, -V /*vec3(0,0,-1)*/);
+	float opacity = 1.0f - dot(centerNormal, V);
 
 	// scale opacity and apply to alpha
 	opacity = pow(opacity, opacityScale);

@@ -761,7 +761,7 @@ void SphereRenderer::display()
 			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
 			// find smalles radius within the column
-			m_smallestR = *std::min_element(std::begin(viewer()->scene()->table()->activeRadiusColumn()), std::end(viewer()->scene()->table()->activeRadiusColumn()));
+			//m_smallestR = *std::min_element(std::begin(viewer()->scene()->table()->activeRadiusColumn()), std::end(viewer()->scene()->table()->activeRadiusColumn()));
 
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
@@ -939,21 +939,22 @@ void SphereRenderer::display()
 
 	m_sphereFramebuffer->bind();
 	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);// 65535.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_DEPTH_TEST);
-	//glDepthFunc(GL_LESS);
-	//glEnable(GL_DEPTH_CLAMP);
 
-	// test different blending options interactively: ------------------------------------
+	// make sure spheres are drawn on top of each other
+	glDepthFunc(GL_ALWAYS);
+
+	// test different blending options interactively: --------------------------------------------------
 	// https://andersriggelsen.dk/glblendfunc.php
 
-	// allow blending for the classical scatterPlot color-attachment
+	// allow blending for the classical scatter plot color-attachment (3) of the sphere frame-buffer
 	glEnablei(GL_BLEND, 3);				
 	glBlendFunci(3, GL_ONE, GL_ONE);
 	glBlendEquationi(3, GL_FUNC_ADD);
-	// -----------------------------------------------------------------------------------
+	// -------------------------------------------------------------------------------------------------
 
 	m_programSphere->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSphere->setUniform("projectionMatrix", projectionMatrix);
@@ -963,26 +964,26 @@ void SphereRenderer::display()
 	if(m_blendingFunction == 0)
 	{
 		m_programSphere->setUniform("radiusScale", 1.0f);
-		m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier);
+		//m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier);
 	}
 	else
 	{
 		m_programSphere->setUniform("radiusScale", m_scatterScale);
-		m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier * m_scatterScale);
+		//m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier * m_scatterScale);
 	}
 
 	m_programSphere->setUniform("clipRadiusScale", radiusScale);
 	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
-	m_programSphere->setUniform("animationDelta", animationDelta);
-	m_programSphere->setUniform("animationTime", animationTime);
-	m_programSphere->setUniform("animationAmplitude", animationAmplitude);
-	m_programSphere->setUniform("animationFrequency", animationFrequency);
 	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
 
-	m_programSphere->use();
+	// animation uniforms
+	//m_programSphere->setUniform("animationDelta", animationDelta);
+	//m_programSphere->setUniform("animationTime", animationTime);
+	//m_programSphere->setUniform("animationAmplitude", animationAmplitude);
+	//m_programSphere->setUniform("animationFrequency", animationFrequency);
+	
 
-	// make sure spheres are drawn on top of each other
-	glDepthFunc(GL_ALWAYS);
+	m_programSphere->use();
 
 	m_vao->bind();
 	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
@@ -990,7 +991,7 @@ void SphereRenderer::display()
 
 	m_programSphere->release();
 
-	// disable blending for draw buffer 3
+	// disable blending for draw buffer 3 (classical scatter plot)
 	glDisablei(GL_BLEND, 3);
 
 #ifdef BENCHMARK
@@ -1008,18 +1009,21 @@ void SphereRenderer::display()
 
 	const uint offsetClearValue = 0;
 	m_offsetTexture->clearImage(0, GL_RED_INTEGER, GL_UNSIGNED_INT, &offsetClearValue);
-	//m_kernelDensityTexture->clearImage(0, GL_RGBA, GL_UNSIGNED_BYTE, vec4(0.0f, 0.0f, 0.0f, 0.0f));
+
+	/* not needed since 'm_kernelDensityTexture' is part of the sphere frame-buffer (2)
+	//m_kernelDensityTexture->clearImage(0, GL_RGBA, GL_UNSIGNED_BYTE, vec4(0.0f, 0.0f, 0.0f, 0.0f));*/	
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	glDepthFunc(GL_ALWAYS);
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	glDepthMask(GL_FALSE);
 
-	m_spherePositionTexture->bindActive(0);
 	m_offsetTexture->bindImageTexture(0, 0, false, 0, GL_READ_WRITE, GL_R32UI);
-	//m_kernelDensityTexture->bindImageTexture(1, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-	// allow writing to draw-buffer 2
+	/* not needed since 'm_kernelDensityTexture' is part of the sphere frame-buffer (2)
+	m_kernelDensityTexture->bindImageTexture(1, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F); */			
+
+	// allow writing to the kernel density texture/ draw buffer (2) of the sphere frame-buffer
 	glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// test different blending options interactively: ------------------------------------
@@ -1038,11 +1042,14 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("radiusScale", radiusScale);
 	m_programSpawn->setUniform("clipRadiusScale", radiusScale);
 	m_programSpawn->setUniform("nearPlaneZ", nearPlane.z);
-	m_programSpawn->setUniform("animationDelta", animationDelta);
-	m_programSpawn->setUniform("animationTime", animationTime);
-	m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
-	m_programSpawn->setUniform("animationFrequency", animationFrequency);
 	m_programSpawn->setUniform("radiusMultiplier", m_radiusMultiplier);
+
+	// animation uniforms
+	//m_programSpawn->setUniform("animationDelta", animationDelta);
+	//m_programSpawn->setUniform("animationTime", animationTime);
+	//m_programSpawn->setUniform("animationAmplitude", animationAmplitude);
+	//m_programSpawn->setUniform("animationFrequency", animationFrequency);
+	
 
 	// KDE parameters
 	m_programSpawn->setUniform("sigma2", m_sigma);
@@ -1061,10 +1068,9 @@ void SphereRenderer::display()
 
 	m_programSpawn->release();
 
-	// disable blending for draw buffer 2
+	// disable blending for KDE draw buffer (2)
 	glDisablei(GL_BLEND, 2);		
 
-	m_spherePositionTexture->unbindActive(0);
 	m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 	//m_kernelDensityTexture->unbindImageTexture(1);
@@ -1095,17 +1101,17 @@ void SphereRenderer::display()
 	glDepthMask(GL_TRUE);
 
 	glClearDepth(1.0f);
-	glClearColor(0.0f, 0.0f, 0.0f, 65535.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//Framebuffer::defaultFBO()->bind();
 
-	m_spherePositionTexture->bindActive(0);
-	m_sphereNormalTexture->bindActive(1);
-	m_offsetTexture->bindActive(3);
-	m_environmentTexture->bindActive(4);
-	m_bumpTextures[bumpTextureIndex]->bindActive(5);
-	m_materialTextures[materialTextureIndex]->bindActive(6);
+	//m_spherePositionTexture->bindActive(0);
+	//m_sphereNormalTexture->bindActive(1);
+	//m_offsetTexture->bindActive(3);
+	//m_environmentTexture->bindActive(4);
+	//m_bumpTextures[bumpTextureIndex]->bindActive(5);
+	//m_materialTextures[materialTextureIndex]->bindActive(6);
 	m_kernelDensityTexture->bindActive(7);
 	m_scatterPlotTexture->bindActive(8);
 
@@ -1130,32 +1136,6 @@ void SphereRenderer::display()
 	m_depthRangeBuffer->clearSubData(GL_R32UI, 4 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 
-//	std::cout << to_string(viewer()->worldLightPosition()) << std::endl;
-//	std::cout << "DIST: " << length(viewer()->worldLightPosition()) << std::endl;
-
-
-/*	double xpos, ypos;
-	glfwGetCursorPos(viewer()->window(), &xpos, &ypos);
-	xpos = 2.0 * xpos / double(viewer()->viewportSize().x) - 1.0;
-	ypos = -(2.0 * ypos / double(viewer()->viewportSize().y) - 1.0);
-
-	vec4 center = view * vec4(0.0f, 0.0f, 0.0f, 1.0);
-	vec4 corner = view * vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	float radius = distance(corner, center);
-	vec3 viewLightDirection = normalize(vec3(xpos, ypos, 1.0f));
-	vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
-	vec4 worldLightPosition = inverseModelView * viewLightPosition;
-	
-
-	std::cout << "CENTER:" << to_string(center) << std::endl;
-	std::cout << "CORNER:" << to_string(corner) << std::endl;
-	std::cout << "RADIUS:" << radius << std::endl;
-	std::cout << "viewLightDirection:" << to_string(viewLightDirection) << std::endl;
-	std::cout << "viewLightPosition:" << to_string(viewLightPosition) << std::endl;
-	std::cout << "worldLightPosition:" << to_string(worldLightPosition) << std::endl << std::endl;
-*/	
-	//std::cout << xpos << "," << ypos << ":" << to_string(lightPosition) << std::endl << std::endl;
-
 	m_programSurface->setUniform("modelViewMatrix", modelViewMatrix);
 	m_programSurface->setUniform("projectionMatrix", projectionMatrix);
 	m_programSurface->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -1168,19 +1148,19 @@ void SphereRenderer::display()
 	m_programSurface->setUniform("shininess", shininess);
 	m_programSurface->setUniform("focusPosition", focusPosition);
 
-	m_programSurface->setUniform("positionTexture", 0);
-	m_programSurface->setUniform("normalTexture", 1);
-	m_programSurface->setUniform("offsetTexture", 3);
-	m_programSurface->setUniform("environmentTexture", 4);
-	m_programSurface->setUniform("bumpTexture", 5);
-	m_programSurface->setUniform("materialTexture", 6);
+	//m_programSurface->setUniform("positionTexture", 0);
+	//m_programSurface->setUniform("normalTexture", 1);
+	//m_programSurface->setUniform("offsetTexture", 3);
+	//m_programSurface->setUniform("environmentTexture", 4);
+	//m_programSurface->setUniform("bumpTexture", 5);
+	//m_programSurface->setUniform("materialTexture", 6);
+	
 	m_programSurface->setUniform("kernelDensityTexture", 7);
 	m_programSurface->setUniform("scatterPlotTexture", 8);
 
-	m_programSurface->setUniform("sharpness", sharpness);
-	m_programSurface->setUniform("coloring", uint(coloring));
-	m_programSurface->setUniform("environment", environmentMapping);
-	m_programSurface->setUniform("lens", lens);
+	//m_programSurface->setUniform("sharpness", sharpness);
+	//m_programSurface->setUniform("coloring", uint(coloring));
+	//m_programSurface->setUniform("environment", environmentMapping);
 
 	m_programSurface->use();
 	
@@ -1195,12 +1175,12 @@ void SphereRenderer::display()
 
 	m_scatterPlotTexture->unbindActive(8);
 	m_kernelDensityTexture->unbindActive(7);
-	m_materialTextures[materialTextureIndex]->unbindActive(6);
-	m_bumpTextures[bumpTextureIndex]->unbindActive(5);
-	m_environmentTexture->unbindActive(4);
-	m_offsetTexture->unbindActive(3);
-	m_sphereNormalTexture->unbindActive(1);
-	m_spherePositionTexture->unbindActive(0);
+	//m_materialTextures[materialTextureIndex]->unbindActive(6);
+	//m_bumpTextures[bumpTextureIndex]->unbindActive(5);
+	//m_environmentTexture->unbindActive(4);
+	//m_offsetTexture->unbindActive(3);
+	//m_sphereNormalTexture->unbindActive(1);
+	//m_spherePositionTexture->unbindActive(0);
 
 	m_surfaceFramebuffer->unbind();
 
@@ -1283,8 +1263,8 @@ void SphereRenderer::display()
 	m_shadeFramebuffer->bind();
 	glDepthMask(GL_FALSE);
 
-	m_spherePositionTexture->bindActive(0);
-	m_sphereNormalTexture->bindActive(1);
+	//m_spherePositionTexture->bindActive(0);
+	//m_sphereNormalTexture->bindActive(1);
 	m_sphereDiffuseTexture->bindActive(2);
 	m_surfacePositionTexture->bindActive(3);
 	m_surfaceNormalTexture->bindActive(4);
@@ -1314,8 +1294,8 @@ void SphereRenderer::display()
 	m_programShade->setUniform("focusPosition", focusPosition);
 	m_programShade->setUniform("opacityScale", m_opacityScale);
 
-	m_programShade->setUniform("spherePositionTexture", 0);
-	m_programShade->setUniform("sphereNormalTexture", 1);
+	//m_programShade->setUniform("spherePositionTexture", 0);
+	//m_programShade->setUniform("sphereNormalTexture", 1);
 	m_programShade->setUniform("sphereDiffuseTexture", 2);
 
 	m_programShade->setUniform("surfacePositionTexture", 3);
@@ -1328,7 +1308,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("materialTexture", 8);
 	m_programShade->setUniform("environmentTexture", 9);
 
-	m_programShade->setUniform("environment", environmentMapping);
+	//m_programShade->setUniform("environment", environmentMapping);
 
 	if (m_colorMapLoaded)
 	{
@@ -1390,8 +1370,8 @@ void SphereRenderer::display()
 	m_surfaceNormalTexture->unbindActive(4);
 	m_surfacePositionTexture->unbindActive(3);
 	m_sphereDiffuseTexture->unbindActive(2);
-	m_sphereNormalTexture->unbindActive(1);
-	m_spherePositionTexture->unbindActive(0);
+	//m_sphereNormalTexture->unbindActive(1);
+	//m_spherePositionTexture->unbindActive(0);
 
 	//glDisable(GL_BLEND);
 	m_programShade->release();

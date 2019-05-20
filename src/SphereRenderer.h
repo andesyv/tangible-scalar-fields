@@ -186,7 +186,7 @@ namespace molumes
 		int m_colorScheme = 0;
 		bool m_invertFunction = false;
 
-		float m_smallestR = 0.0f;
+		//float m_smallestR = 0.0f;
 
 		// adaptive kernel size
 		bool m_adaptKernel = false;

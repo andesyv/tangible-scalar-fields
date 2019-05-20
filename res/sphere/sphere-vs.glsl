@@ -13,11 +13,14 @@ out VertexData
 	float colorValueVS;
 } outData;
 
-uniform float animationDelta;
-uniform float animationTime;
-uniform float animationAmplitude;
-uniform float animationFrequency;
 uniform float radiusMultiplier;
+
+// animation uniforms
+//uniform float animationDelta;
+//uniform float animationTime;
+//uniform float animationAmplitude;
+//uniform float animationFrequency;
+
 
 //	Simplex 4D Noise 
 //	by Ian McEwan, Ashima Arts

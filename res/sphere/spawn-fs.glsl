@@ -16,7 +16,7 @@ uniform float gaussScale;
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
 flat in float gSphereRadius;
-flat in float gSphereOriginalRadius;
+//flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
 // focus and context
@@ -29,25 +29,25 @@ uniform float lensSigma;
 layout (location = 2) out vec4 kernelDensity;
 //layout (location = 3) out vec4 scatterPlott;
 
-layout(binding = 0) uniform sampler2D positionTexture;
-layout(r32ui, binding = 0) uniform uimage2D offsetImage;
+//layout(binding = 0) uniform sampler2D positionTexture;
+//layout(r32ui, binding = 0) uniform uimage2D offsetImage;
 //layout(rgba32f, binding = 1) uniform image2D kernelDensity;
 
-struct BufferEntry
-{
-	float near;
-	float far;
-	vec3 center;
-	float radius;
-	float value;
-	uint previous;
-};
+//struct BufferEntry
+//{
+//	float near;
+//	float far;
+//	vec3 center;
+//	float radius;
+//	float value;
+//	uint previous;
+//};
 
-layout(std430, binding = 1) buffer intersectionBuffer
-{
-	uint count;
-	BufferEntry intersections[];
-};
+//layout(std430, binding = 1) buffer intersectionBuffer
+//{
+//	uint count;
+//	BufferEntry intersections[];
+//};
 
 struct Sphere
 {			
@@ -76,15 +76,15 @@ Sphere calcSphereIntersection(float r, vec3 origin, vec3 center, vec3 line)
 		return Sphere(false, vec3(0), vec3(0));
 	}
 }
-float calcDepth(vec3 pos)
-{
-	float far = gl_DepthRange.far; 
-	float near = gl_DepthRange.near;
-	vec4 clip_space_pos = modelViewProjectionMatrix * vec4(pos, 1.0);
-	float ndc_depth = clip_space_pos.z / clip_space_pos.w;
-	return (((far - near) * ndc_depth) + near + far) / 2.0;
-}
 
+//float calcDepth(vec3 pos)
+//{
+//	float far = gl_DepthRange.far; 
+//	float near = gl_DepthRange.near;
+//	vec4 clip_space_pos = modelViewProjectionMatrix * vec4(pos, 1.0);
+//	float ndc_depth = clip_space_pos.z / clip_space_pos.w;
+//	return (((far - near) * ndc_depth) + near + far) / 2.0;
+//}
 
 void main()
 {
@@ -103,25 +103,22 @@ void main()
 	if (!sphere.hit)
 		discard;
 
-	vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
-	BufferEntry entry;
+	//vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
+	//BufferEntry entry;
 	
-	entry.near = length(sphere.near.xyz-near.xyz);
+	//entry.near = length(sphere.near.xyz-near.xyz);	
 	
-	//if (entry.near > position.w)
-	//	discard;	
-
-	uint index = atomicAdd(count,1);
-	uint prev = imageAtomicExchange(offsetImage,ivec2(gl_FragCoord.xy),index);
-
-	entry.far = length(sphere.far.xyz-near.xyz);
-
-	entry.center = gSpherePosition.xyz;
-	entry.radius = gSphereOriginalRadius;
-	entry.value = gSphereValue;
-	entry.previous = prev;
-
-	intersections[index] = entry;
+	//uint index = atomicAdd(count,1);
+	//uint prev = imageAtomicExchange(offsetImage,ivec2(gl_FragCoord.xy),index);
+	
+	//entry.far = length(sphere.far.xyz-near.xyz);
+	
+	//entry.center = gSpherePosition.xyz;
+	//entry.radius = gSphereOriginalRadius;
+	//entry.value = gSphereValue;
+	//entry.previous = prev;
+	
+	//intersections[index] = entry;
 
 
 	float sigmaScale = 1.0f;
@@ -141,7 +138,6 @@ void main()
 
 
 #ifdef LENSING
-
 	// compute distance to mouse cursor
 	float pxlDistance = length((focusPosition-gFragmentPosition.xy)/vec2(0.5625 /*Aspect ratio: 720 divided by 1280*/,1.0));
 
