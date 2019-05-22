@@ -126,10 +126,10 @@ void main()
 
 #ifdef ADAPTIVEKERNEL
 	// scale sigma dependent on camera distance
-	float distanceScaling = pow(entry.near/6500,3);
 
 	// TODO: less magic! --------------------------------------------- 
-	vec4 sized = modelViewMatrix * vec4(4024.0f, 0.0f, 0.0f, 0.0f);
+	//float distanceScaling = pow(entry.near/6500,3);
+	vec4 sized = modelViewMatrix * vec4(4024.0f /*distanceScaling*/, 0.0f, 0.0f, 0.0f);
 	float radiusd = length(sized);
 	// ---------------------------------------------------------------
 
