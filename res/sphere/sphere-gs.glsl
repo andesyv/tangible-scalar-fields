@@ -205,18 +205,6 @@ void getBoundsForPhiLengyel(in float phi, in vec3 center, in float radius, in fl
     L   = bounds_a[1] * a;
 }
 
-
-struct Element
-{
-	vec3 color;
-	float radius;
-};
-
-layout(std140, binding = 0) uniform elementBlock
-{
-	Element elements[32];
-};
-
 void main()
 {
 

@@ -1,22 +1,28 @@
 #version 450
 #include "/defines.glsl"
 
+layout(pixel_center_integer) in vec4 gl_FragCoord;
+
 uniform mat4 modelViewMatrix;
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
 
+uniform float windowWidth;
+uniform float windowHeight;
+
 const float PI = 3.14159265359;
 
 // Normal distribution N(mue,sigma^2) 
-const float mue = 0.0f;			// mean
 uniform float sigma2;			// standard deviation
-
 uniform float gaussScale;
+uniform float alpha;			// sensitivity parameter
+
+// estimated density from previous render pass
+uniform sampler2D estimatedDensityTexture;
 
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
 flat in float gSphereRadius;
-//flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
 // focus and context
@@ -25,30 +31,17 @@ uniform float lensSize;
 uniform float lensSigma;
 uniform float aspectRatio;
 
-//layout (location = 0) out vec4 fragPosition;
-//layout (location = 1) out vec4 fragNormal;
+// pass number of sample points
+uniform float samplesCount;
+
 layout (location = 2) out vec4 kernelDensity;
 //layout (location = 3) out vec4 scatterPlott;
+//layout (location = 4) out vec4 densityEstimation;
 
-//layout(binding = 0) uniform sampler2D positionTexture;
-//layout(r32ui, binding = 0) uniform uimage2D offsetImage;
-//layout(rgba32f, binding = 1) uniform image2D kernelDensity;
-
-//struct BufferEntry
-//{
-//	float near;
-//	float far;
-//	vec3 center;
-//	float radius;
-//	float value;
-//	uint previous;
-//};
-
-//layout(std430, binding = 1) buffer intersectionBuffer
-//{
-//	uint count;
-//	BufferEntry intersections[];
-//};
+layout(std430, binding = 1) buffer geomMeanBuffer
+{
+	uint geomMean;
+};
 
 struct Sphere
 {			
@@ -78,14 +71,10 @@ Sphere calcSphereIntersection(float r, vec3 origin, vec3 center, vec3 line)
 	}
 }
 
-//float calcDepth(vec3 pos)
-//{
-//	float far = gl_DepthRange.far; 
-//	float near = gl_DepthRange.near;
-//	vec4 clip_space_pos = modelViewProjectionMatrix * vec4(pos, 1.0);
-//	float ndc_depth = clip_space_pos.z / clip_space_pos.w;
-//	return (((far - near) * ndc_depth) + near + far) / 2.0;
-//}
+float gaussKernel(float x, float sigma)
+{
+	return 1.0f / (sqrt(2.0f * PI* sigma)) * exp(-(pow((x),2) / (2 * sigma)));
+}
 
 void main()
 {
@@ -104,22 +93,7 @@ void main()
 	if (!sphere.hit)
 		discard;
 
-	//vec4 position = texelFetch(positionTexture,ivec2(gl_FragCoord.xy),0);
-	//BufferEntry entry;
-	
-	//entry.near = length(sphere.near.xyz-near.xyz);	
-	
-	//uint index = atomicAdd(count,1);
-	//uint prev = imageAtomicExchange(offsetImage,ivec2(gl_FragCoord.xy),index);
-	
-	//entry.far = length(sphere.far.xyz-near.xyz);
-	
-	//entry.center = gSpherePosition.xyz;
-	//entry.radius = gSphereOriginalRadius;
-	//entry.value = gSphereValue;
-	//entry.previous = prev;
-	
-	//intersections[index] = entry;
+// -----------------------------------------------------------------------------------------------------
 
 
 	float sigmaScale = 1.0f;
@@ -133,8 +107,7 @@ void main()
 	float radiusd = length(sized);
 	// ---------------------------------------------------------------
 
-	sigmaScale = sigma2/(radiusd*radiusd);
-
+	sigmaScale = sigma2/pow(radiusd,2);
 #endif
 
 
@@ -153,18 +126,54 @@ void main()
 #endif
 
 
-	// probability density function
 	float x = length(gSpherePosition.xy - sphere.near.xy);
-	float gaussKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2 * sigmaScale)));
 
-	// evaluate kernel that is not influenced by the lens itneraction
-	float originalKernel = 1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((x-mue),2) / (2 * sigma2 * originalSigmaScale)));
 
-	// compute difference to current maximum value of the curve
-	float difference = (1.0f / (sqrt(2.0f * PI* sigma2)) * exp(-(pow((0-mue),2) / (2 * sigma2 * sigmaScale)))) - gaussKernel;
+#ifdef ADAPTIVEKDE
 	
+	// transform to NDC coordinates requires perspective divide
+	vec4 sphereCenter = modelViewProjectionMatrix * gSpherePosition;		
+	sphereCenter /= sphereCenter.w;
+
+	// transform to viewport coordinates
+	sphereCenter.xy = (sphereCenter.xy * 0.5f + vec2(0.5f));
+	
+	// transform to pixel coordinates
+	sphereCenter.xy *= vec2(windowWidth, windowHeight);
+
+	// Fixpoint arithmetic: convert back to float
+	float geomMeanFloat = float(geomMean / 256);
+
+	// 1/n * sum(log(fp)) = log(geometic_mean) --> geometic_mean = exp(log(geometric_mean)
+	geomMeanFloat = exp(geomMeanFloat / samplesCount);
+
+	// compute variable bandwidth (lambda)
+	float lambda = pow(texelFetch(estimatedDensityTexture,ivec2(sphereCenter.xy),0).r / geomMeanFloat, -alpha);
+
+	// apply lambda to distance x
+	x = x / lambda;
+#endif
+
+
+	// calculate variable kernel density estimation
+	float variableKDE = gaussKernel(x, sigma2*sigmaScale);
+	
+	// evaluate kernel that is not influenced by the lens interaction
+	float originalKernel = gaussKernel(x, sigma2*originalSigmaScale);
+	
+	// compute difference to current maximum value of the curve
+	float difference = gaussKernel(0, sigma2*sigmaScale) - variableKDE;
+
+
+#ifdef ADAPTIVEKDE	
+	originalKernel = originalKernel / lambda;
+	variableKDE = variableKDE / lambda;
+	difference = difference / lambda;
+#endif	
+
+
 	// additional GUI dependent scaling 
-	gaussKernel = -pow(gaussKernel, gaussScale);
+	variableKDE = -pow(variableKDE, gaussScale);
 	difference = -pow(difference, gaussScale);
 	originalKernel = -pow(originalKernel, gaussScale);
 
@@ -179,5 +188,5 @@ void main()
 
 
 	//imageStore(kernelDensity, ivec2(gl_FragCoord.xy), vec4(gaussKernel, difference, 0.0f, 1.0f));
-	kernelDensity = vec4(gaussKernel, difference, originalKernel, 1.0f);
+	kernelDensity = vec4(variableKDE, difference, originalKernel, 1.0f);
 }

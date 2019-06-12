@@ -9,10 +9,6 @@ uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
-//uniform mat3 normalMatrix;
-//uniform float sharpness;
-//uniform uint coloring;
-//uniform bool environment;
 
 uniform vec3 lightPosition;
 uniform vec3 diffuseMaterial;
@@ -21,12 +17,6 @@ uniform vec3 specularMaterial;
 uniform float shininess;
 uniform vec2 focusPosition;
 
-//uniform sampler2D positionTexture;
-//uniform sampler2D normalTexture;
-//uniform sampler2D environmentTexture;
-//uniform sampler2D bumpTexture;
-//uniform sampler2D materialTexture;
-//uniform usampler2D offsetTexture;
 uniform sampler2D kernelDensityTexture;
 uniform sampler2D scatterPlotTexture;
 
@@ -35,32 +25,6 @@ out vec4 surfacePosition;
 out vec4 surfaceNormal;
 out vec4 surfaceDiffuse;
 out vec4 sphereDiffuse;
-
-//const float PI = 3.14159265359;
-
-//struct BufferEntry
-//{
-//	float near;
-//	float far;
-//	vec3 center;
-//	float radius;
-//	float value;
-//	uint previous;
-//};
-
-//layout(std430, binding = 1) buffer intersectionBuffer
-//{
-//	uint count;
-//	BufferEntry intersections[];
-//};
-
-//layout(std430, binding = 2) buffer statisticsBuffer
-//{
-//	uint intersectionCount;
-//	uint totalPixelCount;
-//	uint totalEntryCount;
-//	uint maximumEntryCount;
-//};
 
 layout(std430, binding = 3) buffer depthRangeBuffer
 {

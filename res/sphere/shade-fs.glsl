@@ -17,8 +17,6 @@ uniform vec3 ambientMaterial;
 uniform vec3 specularMaterial;
 uniform float shininess;
 
-//uniform sampler2D spherePositionTexture;
-//uniform sampler2D sphereNormalTexture;
 uniform sampler2D sphereDiffuseTexture;
 uniform sampler2D surfacePositionTexture;
 uniform sampler2D surfaceNormalTexture;

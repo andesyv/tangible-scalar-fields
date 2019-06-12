@@ -11,10 +11,9 @@ flat in float gSphereRadius;
 //flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
-//layout (location = 0) out vec4 fragPosition;
-//layout (location = 1) out vec4 fragNormal;
 //layout (location = 2) out vec4 kernelDensity;
 layout (location = 3) out vec4 scatterPlot;
+//layout (location = 4) out vec4 densityEstimation;
 
 struct Sphere
 {			

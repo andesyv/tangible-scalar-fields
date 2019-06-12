@@ -45,6 +45,8 @@ namespace molumes
 		
 		std::unique_ptr<globjects::Program> m_programSphere = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSpawn = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programDensityEstimation = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programGeomMean = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSurface = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOSample = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOBlur = std::make_unique<globjects::Program>();
@@ -86,6 +88,18 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateSurface = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderSurface = nullptr;
 
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceDensityEstimation = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDensityEstimation = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderDensityEstimation = nullptr;
+
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceGeomMean = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateGeomMean = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderGeomMean = nullptr;
+
+		std::unique_ptr<globjects::File> m_vertexShaderSourceGeomMean = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_vertexShaderTemplateGeomMean = nullptr;
+		std::unique_ptr<globjects::Shader> m_vertexShaderGeomMean = nullptr;
+
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceAOSample = nullptr;
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateAOSample = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderAOSample = nullptr;
@@ -109,11 +123,12 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_depthRangeBuffer = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
+		std::unique_ptr<globjects::Buffer> m_geomMeanBuffer = std::make_unique<globjects::Buffer>();
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
 
+		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_spherePositionTexture = nullptr;
@@ -126,6 +141,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_adaptiveKernelDensityTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_scatterPlotTexture = nullptr;
 
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
@@ -190,6 +206,10 @@ namespace molumes
 
 		// adaptive kernel size
 		bool m_adaptKernel = false;
+
+		// adaptive kernel density estimation
+		bool m_adaptiveKDE = false;
+		float m_alpha = 0.5f;
 
 		// focus and context
 		float m_lensSize = 0.25f;
