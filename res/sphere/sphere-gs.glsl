@@ -2,6 +2,7 @@
 
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
+
 uniform float radiusScale;
 uniform float clipRadiusScale;
 uniform float nearPlaneZ = -0.125;
@@ -27,7 +28,6 @@ in VertexData
 out vec4 gFragmentPosition;
 flat out vec4 gSpherePosition;
 flat out float gSphereRadius;
-//flat out float gSphereOriginalRadius;
 flat out float gSphereValue;
 
 /** 2D-line from point and direction */

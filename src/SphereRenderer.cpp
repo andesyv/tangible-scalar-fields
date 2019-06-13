@@ -67,7 +67,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 
 	// shader storage buffer object for current depth entries
 	m_depthRangeBuffer->setStorage(sizeof(uint) * 5, nullptr, gl::GL_NONE_BIT);
-	m_geomMeanBuffer->setStorage(sizeof(uint), nullptr, gl::GL_NONE_BIT);
+	m_geomMeanBuffer->setStorage(sizeof(int), nullptr, gl::GL_NONE_BIT);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -228,12 +228,12 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	m_adaptiveKernelDensityTexture = Texture::create(GL_TEXTURE_2D);
-	m_adaptiveKernelDensityTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_adaptiveKernelDensityTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_adaptiveKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_adaptiveKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_adaptiveKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_pilotKernelDensityTexture = Texture::create(GL_TEXTURE_2D);
+	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_pilotKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_scatterPlotTexture = Texture::create(GL_TEXTURE_2D);
 	m_scatterPlotTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -352,7 +352,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_kernelDensityTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_scatterPlotTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT4, m_adaptiveKernelDensityTexture.get());
+	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT4, m_pilotKernelDensityTexture.get());
 	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 });
 
@@ -482,7 +482,7 @@ void SphereRenderer::display()
 		m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_adaptiveKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_pilotKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_scatterPlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 	
@@ -1074,15 +1074,15 @@ void SphereRenderer::display()
 		// Additional render pass to estimate the geometric mean -----------------------------
 		m_geomMeanBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 
-		const uint clearValue = 0;
-		m_geomMeanBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &clearValue);
+		const int clearValue = 0;
+		m_geomMeanBuffer->clearSubData(GL_R32UI, 0, sizeof(int), GL_RED_INTEGER, GL_UNSIGNED_INT, &clearValue);
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 		// bind texture containing density from initial pilot density estimation
-		m_adaptiveKernelDensityTexture->bindActive(0);
+		m_pilotKernelDensityTexture->bindActive(0);
 
 		// pilot estimation
-		m_programGeomMean->setUniform("estimatedDensityTexture", 0);
+		m_programGeomMean->setUniform("pilotDensityTexture", 0);
 		m_programGeomMean->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 		m_programGeomMean->use();
@@ -1113,7 +1113,7 @@ void SphereRenderer::display()
 	if (m_adaptiveKDE)
 	{
 		// pilot estimation
-		m_programSpawn->setUniform("estimatedDensityTexture", 0);
+		m_programSpawn->setUniform("pilotDensityTexture", 0);
 
 		// window properties
 		m_programSpawn->setUniform("windowWidth", viewer()->m_windowWidth);
@@ -1160,7 +1160,7 @@ void SphereRenderer::display()
 
 	if (m_adaptiveKDE)
 	{
-		m_adaptiveKernelDensityTexture->unbindActive(0);
+		m_pilotKernelDensityTexture->unbindActive(0);
 		m_geomMeanBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 	}
 

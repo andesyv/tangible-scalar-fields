@@ -18,7 +18,7 @@ uniform float gaussScale;
 uniform float alpha;			// sensitivity parameter
 
 // estimated density from previous render pass
-uniform sampler2D estimatedDensityTexture;
+uniform sampler2D pilotDensityTexture;
 
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
@@ -40,7 +40,7 @@ layout (location = 2) out vec4 kernelDensity;
 
 layout(std430, binding = 1) buffer geomMeanBuffer
 {
-	uint geomMean;
+	int geomMean;
 };
 
 struct Sphere
@@ -132,11 +132,13 @@ void main()
 #ifdef ADAPTIVEKDE
 	
 	// transform to NDC coordinates requires perspective divide
-	vec4 sphereCenter = modelViewProjectionMatrix * gSpherePosition;		
-	sphereCenter /= sphereCenter.w;
+	vec4 sphereCenter = modelViewProjectionMatrix * gSpherePosition;	
+	
+	// orthographic projection: no change since w-component is still 1.0f
+	sphereCenter /= sphereCenter.w;				
 
 	// transform to viewport coordinates
-	sphereCenter.xy = (sphereCenter.xy * 0.5f + vec2(0.5f));
+	sphereCenter.xy = sphereCenter.xy * 0.5f + vec2(0.5f);
 	
 	// transform to pixel coordinates
 	sphereCenter.xy *= vec2(windowWidth, windowHeight);
@@ -148,7 +150,7 @@ void main()
 	geomMeanFloat = exp(geomMeanFloat / samplesCount);
 
 	// compute variable bandwidth (lambda)
-	float lambda = pow(texelFetch(estimatedDensityTexture,ivec2(sphereCenter.xy),0).r / geomMeanFloat, -alpha);
+	float lambda = pow(texelFetch(pilotDensityTexture,ivec2(sphereCenter.xy), 0).r / geomMeanFloat, -alpha);
 
 	// apply lambda to distance x
 	x = x / lambda;

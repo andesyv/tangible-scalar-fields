@@ -140,9 +140,11 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_ambientTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_adaptiveKernelDensityTexture = nullptr;
+
 		std::unique_ptr<globjects::Texture> m_scatterPlotTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_pilotKernelDensityTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
+
 
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
