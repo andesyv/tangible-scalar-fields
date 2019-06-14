@@ -231,8 +231,8 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_pilotKernelDensityTexture = Texture::create(GL_TEXTURE_2D);
 	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);		// GL_TEXTURE_BORDER_COLOR is (0,0,0,0) by default
+	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);		// GL_TEXTURE_BORDER_COLOR is (0,0,0,0) by default
 	m_pilotKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_scatterPlotTexture = Texture::create(GL_TEXTURE_2D);

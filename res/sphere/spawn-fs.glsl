@@ -131,17 +131,17 @@ void main()
 
 #ifdef ADAPTIVEKDE
 	
-	// transform to NDC coordinates requires perspective divide
+	// transform to NDC coordinates including perspective divide
 	vec4 sphereCenter = modelViewProjectionMatrix * gSpherePosition;	
 	
 	// orthographic projection: no change since w-component is still 1.0f
-	sphereCenter /= sphereCenter.w;				
+	//sphereCenter /= sphereCenter.w;				
 
 	// transform to viewport coordinates
 	sphereCenter.xy = sphereCenter.xy * 0.5f + vec2(0.5f);
 	
-	// transform to pixel coordinates
-	sphereCenter.xy *= vec2(windowWidth, windowHeight);
+	// transform to pixel coordinates (only needed for 'texelFetch')
+	//sphereCenter.xy *= vec2(windowWidth, windowHeight);
 
 	// Fixpoint arithmetic: convert back to float
 	float geomMeanFloat = float(geomMean / 256);
@@ -150,7 +150,8 @@ void main()
 	geomMeanFloat = exp(geomMeanFloat / samplesCount);
 
 	// compute variable bandwidth (lambda)
-	float lambda = pow(texelFetch(pilotDensityTexture,ivec2(sphereCenter.xy), 0).r / geomMeanFloat, -alpha);
+	//float lambda = pow(texelFetch(pilotDensityTexture,ivec2(sphereCenter.xy), 0).r / geomMeanFloat, -alpha);
+	float lambda = pow(texture(pilotDensityTexture, sphereCenter.xy).r / geomMeanFloat, -alpha);
 
 	// apply lambda to distance x
 	x = x / lambda;
