@@ -1006,14 +1006,13 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
 	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
 
+	m_vao->bind();
 
 	m_programSphere->use();
-
-	m_vao->bind();
 	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-	m_vao->unbind();
-
 	m_programSphere->release();
+	
+	m_vao->unbind();
 
 	// disable blending for draw buffer 3 (classical scatter plot)
 	glDisablei(GL_BLEND, 3);
@@ -1059,13 +1058,13 @@ void SphereRenderer::display()
 		m_programDensityEstimation->setUniform("sigma2", m_sigma);
 		m_programDensityEstimation->setUniform("gaussScale", m_gaussScale);
 
-		m_programDensityEstimation->use();
-
 		m_vao->bind();
-		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-		m_vao->unbind();
 
+		m_programDensityEstimation->use();
+		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 		m_programDensityEstimation->release();
+
+		m_vao->unbind();
 
 		// disable blending for pilot density estimation (4)
 		glDisablei(GL_BLEND, 4);
@@ -1085,13 +1084,13 @@ void SphereRenderer::display()
 		m_programGeomMean->setUniform("pilotDensityTexture", 0);
 		m_programGeomMean->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-		m_programGeomMean->use();
-
 		m_vao->bind();
-		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-		m_vao->unbind();
 
+		m_programGeomMean->use();
+		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 		m_programGeomMean->release();
+
+		m_vao->unbind();
 		// -----------------------------------------------------------------------------------
 
 	}
@@ -1145,14 +1144,14 @@ void SphereRenderer::display()
 	// pass aspect ratio to the shader to make sure lens is always a circle and does not degenerate to an ellipse
 	m_programSpawn->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 	
-	m_programSpawn->use();
-
 	m_vao->bind();
-	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-	m_vao->unbind();
 
+	m_programSpawn->use();
+	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 	m_programSpawn->release();
 
+	m_vao->unbind();
+		
 	// disable blending for (adaptive) KDE draw buffer (2)
 	glDisablei(GL_BLEND, 2);		
 
@@ -1223,14 +1222,13 @@ void SphereRenderer::display()
 	m_programSurface->setUniform("kernelDensityTexture", 7);
 	m_programSurface->setUniform("scatterPlotTexture", 8);
 
+	m_vaoQuad->bind();
 
 	m_programSurface->use();
-	
-	m_vaoQuad->bind();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_vaoQuad->unbind();
-
 	m_programSurface->release();
+
+	m_vaoQuad->unbind();
 
 	//m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
@@ -1258,13 +1256,14 @@ void SphereRenderer::display()
 		m_programAOSample->setUniform("surfaceNormalTexture", 0);
 
 		m_surfaceNormalTexture->bindActive(0);
-		m_programAOSample->use();
 
 		m_vaoQuad->bind();
-		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		m_vaoQuad->unbind();
 
+		m_programAOSample->use();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 		m_programAOSample->release();
+
+		m_vaoQuad->unbind();
 
 		m_aoFramebuffer->unbind();
 		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -1275,14 +1274,15 @@ void SphereRenderer::display()
 		m_programAOBlur->setUniform("offset", vec2(1.0f/float(viewportSize.x),0.0f));
 
 		m_ambientTexture->bindActive(1);
-		m_programAOBlur->use();
 
 		m_vaoQuad->bind();
-		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		m_vaoQuad->unbind();
 
+		m_programAOBlur->use();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 		m_programAOBlur->release();
 
+		m_vaoQuad->unbind();
+		
 		m_ambientTexture->unbindActive(1);
 		m_aoBlurFramebuffer->unbind();
 		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -1292,13 +1292,14 @@ void SphereRenderer::display()
 		m_programAOBlur->setUniform("offset", vec2(0.0f,1.0f / float(viewportSize.y)));
 
 		m_blurTexture->bindActive(1);
-		m_programAOBlur->use();
 
 		m_vaoQuad->bind();
-		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		m_vaoQuad->unbind();
 
+		m_programAOBlur->use();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 		m_programAOBlur->release();
+
+		m_vaoQuad->unbind();
 
 		m_blurTexture->unbindActive(1);
 		m_surfaceNormalTexture->unbindActive(0);
@@ -1400,10 +1401,12 @@ void SphereRenderer::display()
 	m_programShade->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 	m_programShade->setUniform("windowHeight", viewer()->m_windowHeight);
 
-	m_programShade->use();
-
 	m_vaoQuad->bind();
+
+	m_programShade->use();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	m_programShade->release();
+
 	m_vaoQuad->unbind();
 
 	m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -1432,7 +1435,6 @@ void SphereRenderer::display()
 	//m_spherePositionTexture->unbindActive(0);
 
 	//glDisable(GL_BLEND);
-	m_programShade->release();
 	m_shadeFramebuffer->unbind();
 
 	if (depthOfField)
@@ -1454,11 +1456,13 @@ void SphereRenderer::display()
 		m_programDOFBlur->setUniform("nearTexture", 0);
 		m_programDOFBlur->setUniform("blurTexture", 1);
 
-		m_programDOFBlur->use();
 		m_vaoQuad->bind();
+
+		m_programDOFBlur->use();
 		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		m_vaoQuad->unbind();
 		m_programDOFBlur->release();
+
+		m_vaoQuad->unbind();
 
 		m_colorTexture->unbindActive(1);
 		m_colorTexture->unbindActive(0);
@@ -1471,12 +1475,14 @@ void SphereRenderer::display()
 		m_programDOFBlur->setUniform("horizontal", false);
 		m_programDOFBlur->setUniform("nearTexture", 0);
 		m_programDOFBlur->setUniform("blurTexture", 1);
-
-		m_programDOFBlur->use();		
+		
 		m_vaoQuad->bind();
+
+		m_programDOFBlur->use();
 		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		m_vaoQuad->unbind();
 		m_programDOFBlur->release();
+
+		m_vaoQuad->unbind();
 
 		m_surfaceNormalTexture->unbindActive(1);
 		m_sphereNormalTexture->unbindActive(0);
@@ -1498,11 +1504,13 @@ void SphereRenderer::display()
 		m_programDOFBlend->setUniform("nearTexture", 1);
 		m_programDOFBlend->setUniform("blurTexture", 2);
 
-		m_programDOFBlend->use();
 		m_vaoQuad->bind();
+
+		m_programDOFBlend->use();
 		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		m_vaoQuad->unbind();
 		m_programDOFBlend->release();
+
+		m_vaoQuad->unbind();
 
 		m_sphereDiffuseTexture->bindActive(1);
 		m_sphereDiffuseTexture->bindActive(0);
