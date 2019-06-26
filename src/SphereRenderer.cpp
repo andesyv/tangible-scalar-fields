@@ -873,9 +873,13 @@ void SphereRenderer::display()
 		
 		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 1.0f);
 		ImGui::SliderFloat("Opacity Scale", &m_opacityScale, 0.001f, 1.0f);
-
 		ImGui::Checkbox("Invert Function", &m_invertFunction);
 
+		// contour lines -------------------------------------------------------
+		ImGui::Checkbox("Contour Lines", &m_countourLines);
+		ImGui::SliderInt("Number of Contours", &m_contourLinesCount, 1, 25);
+		ImGui::SliderFloat("Contour Thickness", &m_contourThickness, 0.001f, 0.1f);
+		// ---------------------------------------------------------------------
 	}
 
 	ImGui::End();
@@ -954,6 +958,9 @@ void SphereRenderer::display()
 
 	if(m_adaptiveKDE)
 		defines += "#define ADAPTIVEKDE\n";
+
+	if (m_countourLines)
+		defines += "#define CONTOURLINES\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
@@ -1380,6 +1387,12 @@ void SphereRenderer::display()
 	{
 		m_kernelDensityTexture->bindActive(12);
 		m_programShade->setUniform("kernelDensityTexture", 12);
+	}
+
+	if (m_countourLines)
+	{
+		m_programShade->setUniform("contourCount", m_contourLinesCount);
+		m_programShade->setUniform("contourThickness", m_contourThickness);
 	}
 
 	/*

@@ -51,6 +51,14 @@ uniform float focalLength = 0.0;
 uniform float distanceBlending = 0.0;
 uniform float distanceScale = 1.0;
 
+// contour lines
+uniform int contourCount;
+uniform float contourThickness;	
+
+// color constants
+const vec3 contourColor = vec3(0.9f, 0.09f, 0.05f);
+const vec3 lensBorderColor = vec3(0.9f, 0.09f, 0.05f);
+
 in vec4 gFragmentPosition;
 out vec4 fragColor;
 
@@ -139,8 +147,12 @@ void main()
 	float depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0).x;
 	vec3 surfaceNormalWorld = normalize(inverseNormalMatrix*surfaceNormal.xyz);
 
+	// read texel from scatterplot texture
+	vec4 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
-#ifdef COLORMAP
+	// normalize scatterplot alpha range to [0,1]
+	scatterPlot.a /= uintBitsToFloat(maxScatterPlotAlpha);
+
 	if(depth != 1.0f)
 	{
 	
@@ -159,27 +171,38 @@ void main()
 
 		// depth range
 		float oldRange = (oldMax - oldMin);  
-		float newRange = (newMax - newMin);  
+		float newRange = (newMax - newMin);  		
 
+	#ifdef COLORMAP
 		// convert to different range: 
 		// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
 		float newValue = (((oldValue - oldMin) * newRange) / oldRange) + newMin;
 
 		// apply color map  using texelFetch with a range from [0, size) 
-		vec3 colorMap  = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 		
-		surfaceDiffuse.rgb = colorMap;
+		surfaceDiffuse.rgb  = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 
+	#endif
 
-//	#ifdef ILLUMINATION
-//		// MATLAB - rgb2gray: https://www.mathworks.com/help/matlab/ref/rgb2gray.html
-//		float luminosity = 0.2989f * final.r + 0.5870f * final.g + 0.1140f * final.g;
-//		final.rgb = colorMap * luminosity;
-//	#else
-//		final.rgb = colorMap;
-//	#endif
+	#ifdef SCATTERPLOT
+		// just display color-attachment of scatterplot
+		surfaceDiffuse.rgb = scatterPlot.rgb;
+	#endif
 
+	#ifdef CONTOURLINES
+		// create contour-lines
+		float normalizedTexturePos = 1.0f - ((oldValue-oldMin) / oldRange);
+
+		float discreticedPos = mod(normalizedTexturePos, 1.0f/(contourCount+1.0f));
+
+		if (discreticedPos <= contourThickness && normalizedTexturePos >= contourThickness)
+		{
+			// assign contour line color
+			surfaceDiffuse.rgb = vec3(1.0f, 0.0f, 0.0f);
+		}
+	#endif
 	}
-#endif
-	
+
+	//surfaceDiffuse.rgb = vec3(1.0f, 0.0f, 0.0f);
+
 	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);
 
 #ifdef ENVIRONMENT
@@ -237,11 +260,6 @@ void main()
 
 	final.a = coc;
 #endif
-
-	vec4 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-
-	// normalize scatterplot alpha range to [0,1]
-	scatterPlot.a /= uintBitsToFloat(maxScatterPlotAlpha);
 
 
 // Curvature based blending 
@@ -319,20 +337,10 @@ void main()
 		final = overOperator(final, scatterPlot);
 	#endif
 #endif
-	
-
-#ifdef SCATTERPLOT
-	// just display color-attachment of scatterplot
-	final = scatterPlot;
-#endif
-
 
 #ifdef LENSING
 	float pxlDistance = length((focusPosition-gFragmentPosition.xy) / vec2(aspectRatio, 1.0));
 	
-	// color border of lens
-	vec3 borderColor = vec3(0.9f, 0.09f, 0.05f);
-
 	// anti-aliasing distance -> make lens thickness independent of window size
 	float startInner = lensSize - 7.5f /*empirically chosen*/ / windowHeight;
 	float endOuter = lensSize + 7.5f /*empirically chosen*/ / windowHeight;
@@ -340,11 +348,11 @@ void main()
 	// draw border of lens
 	if(pxlDistance >= startInner && pxlDistance <= lensSize)
 	{
-		final.rgb = mix(final.rgb, borderColor, smoothstep(startInner, lensSize, pxlDistance));
+		final.rgb = mix(final.rgb, lensBorderColor, smoothstep(startInner, lensSize, pxlDistance));
 	}
 	else if (pxlDistance > lensSize && pxlDistance <= endOuter)
 	{
-		final.rgb = mix(final.rgb, borderColor, 1.0f - smoothstep(lensSize, endOuter, pxlDistance));
+		final.rgb = mix(final.rgb, lensBorderColor, 1.0f - smoothstep(lensSize, endOuter, pxlDistance));
 	}
 #endif
 

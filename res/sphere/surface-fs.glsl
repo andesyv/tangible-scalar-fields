@@ -78,7 +78,6 @@ void main()
 
 	gl_FragDepth = calcDepth(surfacePosition.xyz);
 
-#ifdef COLORMAP
 	if(gl_FragDepth < 1.0f)
 	{
 		
@@ -104,7 +103,6 @@ void main()
 		atomicMin(minDepth, uintDepth);
 		atomicMax(maxDepth, uintDepth);
 	}	
-#endif
 		
 #ifdef DISTANCEBLENDING
 	float kernelDifference = texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).g;

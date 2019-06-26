@@ -204,6 +204,11 @@ namespace molumes
 		int m_colorScheme = 0;
 		bool m_invertFunction = false;
 
+		// contour lines
+		int m_contourLinesCount = 1;
+		float m_contourThickness = 0.01f;
+		bool m_countourLines = false;
+
 		//float m_smallestR = 0.0f;
 
 		// adaptive kernel size
