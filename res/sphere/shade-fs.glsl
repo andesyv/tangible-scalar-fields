@@ -23,8 +23,6 @@ uniform sampler2D surfaceNormalTexture;
 uniform sampler2D surfaceDiffuseTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ambientTexture;
-uniform sampler2D materialTexture;
-uniform sampler2D environmentTexture;
 
 // texture for blending surface and classical scatter plot
 uniform sampler2D scatterPlotTexture;
@@ -42,14 +40,6 @@ uniform float windowHeight;
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
 uniform int textureWidth;
-
-uniform float maximumCoCRadius = 0.0;
-uniform float aparture = 0.0;
-uniform float focalDistance = 0.0;
-uniform float focalLength = 0.0;
-
-uniform float distanceBlending = 0.0;
-uniform float distanceScale = 1.0;
 
 // contour lines
 uniform int contourCount;
@@ -132,12 +122,6 @@ void main()
 	if (surfacePosition.w >= 65535.0)	
 		surfaceDiffuse.a = 0.0;
 
-	vec4 backgroundColor = vec4(0.0,0.0,0.0,1.0);
-
-#ifdef ENVIRONMENT
-	backgroundColor = textureLod(environmentTexture,latlong(V),0.0);
-#endif
-
 	vec4 ambient = vec4(1.0,1.0,1.0,1.0);
 
 #ifdef AMBIENT
@@ -156,6 +140,9 @@ void main()
 	if(depth != 1.0f)
 	{
 	
+		// set default vaule in case no color-map texture was bound
+		vec3 colorMapTexel = vec3(1,1,1);
+
 		// 1D textur dimensions
 		int newMin = 0;
 		int newMax = textureWidth-1;
@@ -173,18 +160,18 @@ void main()
 		float oldRange = (oldMax - oldMin);  
 		float newRange = (newMax - newMin);  		
 
-	#ifdef COLORMAP
 		// convert to different range: 
 		// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
 		float newValue = (((oldValue - oldMin) * newRange) / oldRange) + newMin;
-
+	
+	#ifdef COLORMAP
 		// apply color map  using texelFetch with a range from [0, size) 
-		surfaceDiffuse.rgb  = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 
+		colorMapTexel = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 
+		surfaceDiffuse.rgb  = colorMapTexel; 
 	#endif
 
 	#ifdef SCATTERPLOT
-		// just display color-attachment of scatterplot
-		surfaceDiffuse.rgb = scatterPlot.rgb;
+		surfaceDiffuse.rgb = colorMapTexel * scatterPlot.rgb;
 	#endif
 
 	#ifdef CONTOURLINES
@@ -201,15 +188,6 @@ void main()
 	#endif
 	}
 
-	//surfaceDiffuse.rgb = vec3(1.0f, 0.0f, 0.0f);
-
-	vec4 environmentColor = vec4(1.0,1.0,1.0,1.0);
-
-#ifdef ENVIRONMENT
-	float width = sqrt(ambient.r);
-	environmentColor = textureGrad(environmentTexture,latlong(N.xyz),vec2(width,0.0),vec2(0.0,width));
-#endif
-
 	vec3 color = surfaceDiffuse.rgb;
 	float light_occlusion = 1.0;
 
@@ -219,10 +197,9 @@ void main()
 #endif
 
 #ifdef ILLUMINATION
-
 	vec3 ambientColor = surfaceDiffuse.rgb*ambientMaterial*ambient.a;
-	vec3 diffuseColor = surfaceDiffuse.rgb*diffuseMaterial;//*ambient.a;
-	vec3 specularColor = surfaceDiffuse.rgb*specularMaterial;//*ambient.a;
+	vec3 diffuseColor = surfaceDiffuse.rgb*diffuseMaterial;
+	vec3 specularColor = surfaceDiffuse.rgb*specularMaterial;
 
 	vec3 N = surfaceNormalWorld;
 	vec3 L = normalize(lightPosition-surfacePosition.xyz);
@@ -231,36 +208,11 @@ void main()
 	float NdotL = dot(N, L);
 	float RdotV = max(0.0,dot(R, V));
 
-	/*
-	float lightRadius = 4.0*length(lightPosition);
-	float lightDistance = length(lightPosition.xyz-surfacePosition.xyz) / lightRadius;
-	float lightAttenuation = 1.0 / (1.0 + lightDistance*lightDistance);
-	light_occlusion *= lightAttenuation;
-	*/
-
 	NdotL = clamp((NdotL+1.0)*0.5,0.0,1.0);
 	color = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
-	color.rgb += distanceBlending * vec3(min(1.0, pow(surfacePosition.w, distanceScale)));
-
 #endif
 
 	vec4 final = vec4(color.rgb,surfaceDiffuse.a);
-
-#ifdef DEPTHOFFIELD
-	vec4 cp = modelViewMatrix*vec4(surfacePosition.xyz, 1.0);
-	cp = cp / cp.w;
-	float dist = length(cp.xyz);
-
-	float coc = maximumCoCRadius * aparture * (focalLength * (focalDistance - dist)) / (dist * (focalDistance - focalLength));
-	//coc += fwidth(surfaceDiffuse.a);
-	coc = clamp( coc * 0.5 + 0.5, 0.0, 1.0 );
-
-	if (surfacePosition.w >= 65535.0)	
-		coc = 0.0;
-
-	final.a = coc;
-#endif
-
 
 // Curvature based blending 
 #ifdef CURVEBLENDING	
@@ -356,8 +308,6 @@ void main()
 	}
 #endif
 
-
-	final = over(final,backgroundColor);
 	fragColor = final; 
 
 }

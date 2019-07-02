@@ -51,8 +51,6 @@ namespace molumes
 		std::unique_ptr<globjects::Program> m_programAOSample = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOBlur = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programDOFBlur = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programDOFBlend = std::make_unique<globjects::Program>();
 
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
@@ -112,14 +110,6 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
 
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceDOFBlur = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDOFBlur = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderDOFBlur = nullptr;
-
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceDOFBlend = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDOFBlend = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderDOFBlend = nullptr;
-
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_depthRangeBuffer = std::make_unique<globjects::Buffer>();
@@ -128,7 +118,6 @@ namespace molumes
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
 
-		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_offsetTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_spherePositionTexture = nullptr;
@@ -155,10 +144,6 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_dofFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_dofBlurFramebuffer = nullptr;
 
-
-		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
-		std::vector< std::unique_ptr<globjects::Texture> > m_bumpTextures;
-
 		std::unique_ptr<globjects::Query> m_sphereQuery = nullptr;
 		std::unique_ptr<globjects::Query> m_spawnQuery = nullptr;
 		std::unique_ptr<globjects::Query> m_surfaceQuery = nullptr;
@@ -183,6 +168,7 @@ namespace molumes
 
 		// store combo ID of selected file
 		int m_fileDataID = 0;
+		int m_oldFileDataID = 0;
 		
 		// store combo ID of selected columns
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
@@ -191,6 +177,11 @@ namespace molumes
 		int m_colorMap = 0;
 		bool m_colorMapLoaded = false;
 		bool m_surfaceIllumination = false;
+		bool m_ambientOcclusion = false;
+		bool m_discreteMap = false;
+		// ---------------------------------
+		int m_oldColorMap = 0;
+		bool m_oldDiscreteMap = false;
 		
 		// GUI-slide used for additional scaling values (empirically chosen)
 		float m_radiusMultiplier = 30.0f;
@@ -205,8 +196,8 @@ namespace molumes
 		bool m_invertFunction = false;
 
 		// contour lines
-		int m_contourLinesCount = 1;
-		float m_contourThickness = 0.01f;
+		int m_contourLinesCount = 4;
+		float m_contourThickness = 0.02f;
 		bool m_countourLines = false;
 
 		//float m_smallestR = 0.0f;
@@ -221,6 +212,7 @@ namespace molumes
 		// focus and context
 		float m_lensSize = 0.25f;
 		float m_lensSigma = 0.2f;
+		bool m_lenseEnabled = false;
 
 		// ------------------------------------------------------------------------------------------
 	};
