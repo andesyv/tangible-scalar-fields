@@ -383,7 +383,7 @@ void SphereRenderer::display()
 
 	ImGui::Begin("Illuminated Point Plots");
 
-	if (ImGui::CollapsingHeader("CSV-Files"))
+	if (ImGui::CollapsingHeader("CSV-Files"), ImGuiTreeNodeFlags_DefaultOpen)
 	{
 
 		ImGui::Combo("Files", &m_fileDataID, m_guiFileNames.c_str());
@@ -488,7 +488,7 @@ void SphereRenderer::display()
 		ImGui::Checkbox("Adaptive Density Estimation", &m_adaptiveKDE);
 	}
 
-	if (ImGui::CollapsingHeader("Lighting"))
+	if (ImGui::CollapsingHeader("Lighting"), ImGuiTreeNodeFlags_DefaultOpen)
 	{
 		ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
 		ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
@@ -498,7 +498,7 @@ void SphereRenderer::display()
 		ImGui::Checkbox("Ambient Occlusion Enabled", &m_ambientOcclusion);
 	}
 
-	if (ImGui::CollapsingHeader("Color Maps"))
+	if (ImGui::CollapsingHeader("Color Maps"), ImGuiTreeNodeFlags_DefaultOpen)
 	{
 		// show all available color-maps
 		ImGui::Combo("Maps", &m_colorMap, "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
@@ -554,7 +554,7 @@ void SphereRenderer::display()
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Blending Function"))
+	if (ImGui::CollapsingHeader("Blending Function"), ImGuiTreeNodeFlags_DefaultOpen)
 	{
 		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0NormalBased\0ScatterPlot\0");
 		ImGui::Combo("Color Scheme", &m_colorScheme, "None\0Scheme1\0Scheme2\0");
@@ -713,7 +713,6 @@ void SphereRenderer::display()
 
 		m_programDensityEstimation->setUniform("modelViewMatrix", modelViewMatrix);
 		m_programDensityEstimation->setUniform("projectionMatrix", projectionMatrix);
-		m_programDensityEstimation->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 		m_programDensityEstimation->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 		m_programDensityEstimation->setUniform("radiusScale", radiusScale);
 		m_programDensityEstimation->setUniform("clipRadiusScale", radiusScale);
@@ -866,16 +865,8 @@ void SphereRenderer::display()
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	m_programSurface->setUniform("modelViewMatrix", modelViewMatrix);
-	m_programSurface->setUniform("projectionMatrix", projectionMatrix);
 	m_programSurface->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programSurface->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-	m_programSurface->setUniform("normalMatrix", normalMatrix);
-	m_programSurface->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
-	m_programSurface->setUniform("ambientMaterial", ambientMaterial);
-	m_programSurface->setUniform("diffuseMaterial", diffuseMaterial);
-	m_programSurface->setUniform("specularMaterial", specularMaterial);
-	m_programSurface->setUniform("shininess", shininess);
-	m_programSurface->setUniform("focusPosition", focusPosition);
 	
 	m_programSurface->setUniform("kernelDensityTexture", 7);
 	m_programSurface->setUniform("scatterPlotTexture", 8);
@@ -958,12 +949,6 @@ void SphereRenderer::display()
 		//glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 
-	//m_ssao->display(viewer()->modelViewTransform(), viewer()->projectionTransform(), m_frameBuffers[1]->id(), m_depthTextures[1]->id(), m_normalTextures[1]->id());
-
-	//m_frameBuffers[1]->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-	//Framebuffer::defaultFBO()->bind();
-	//glDepthFunc(GL_LEQUAL);
-
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	m_shadeFramebuffer->bind();
@@ -983,11 +968,11 @@ void SphereRenderer::display()
 	//m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
 
 	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
-	m_programShade->setUniform("projectionMatrix", projectionMatrix);
 	m_programShade->setUniform("modelViewProjection", modelViewProjectionMatrix);
 	m_programShade->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 	m_programShade->setUniform("normalMatrix", normalMatrix);
 	m_programShade->setUniform("inverseNormalMatrix", inverseNormalMatrix);
+
 	m_programShade->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);

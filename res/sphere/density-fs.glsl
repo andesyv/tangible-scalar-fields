@@ -1,8 +1,6 @@
 #version 450
 #include "/defines.glsl"
 
-uniform mat4 modelViewMatrix;
-uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
 
 const float PI = 3.14159265359;

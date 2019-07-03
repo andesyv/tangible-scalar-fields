@@ -6,6 +6,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <globjects/Texture.h>
 #include <globjects/VertexArray.h>
 #include <globjects/VertexAttributeBinding.h>
@@ -98,7 +99,9 @@ namespace molumes
 		glm::mat4 m_modelTransform = glm::mat4(1.0f);
 		glm::mat4 m_viewTransform = glm::mat4(1.0f);
 		glm::mat4 m_projectionTransform = glm::mat4(1.0f);
-		glm::vec4 m_viewLightPosition = glm::vec4(0.0f, 0.0f,2.0f*sqrt(3.0f),1.0f);
+
+		// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center)
+		glm::vec4 m_viewLightPosition = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::vec4(5.0f*sqrt(3.0f), 0.0f, 0.0f, 1.0f);
 
 		bool m_showUi = true;
 		bool m_saveScreenshot = false;

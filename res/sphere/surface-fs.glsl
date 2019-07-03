@@ -6,16 +6,8 @@
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
-
-uniform vec3 lightPosition;
-uniform vec3 diffuseMaterial;
-uniform vec3 ambientMaterial;
-uniform vec3 specularMaterial;
-uniform float shininess;
-uniform vec2 focusPosition;
 
 uniform sampler2D kernelDensityTexture;
 uniform sampler2D scatterPlotTexture;

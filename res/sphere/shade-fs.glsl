@@ -5,7 +5,6 @@
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
 uniform mat3 normalMatrix;
