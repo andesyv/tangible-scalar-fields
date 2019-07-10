@@ -285,16 +285,6 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_aoFramebuffer = Framebuffer::create();
 	m_aoFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_ambientTexture.get());
 	m_aoFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-
-	m_dofBlurFramebuffer = Framebuffer::create();
-	m_dofBlurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_sphereNormalTexture.get());
-	m_dofBlurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_surfaceNormalTexture.get());
-	m_dofBlurFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
-
-	m_dofFramebuffer = Framebuffer::create();
-	m_dofFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_sphereDiffuseTexture.get());
-	m_dofFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_surfaceDiffuseTexture.get());
-	m_dofFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
 }
 
 std::list<globjects::File*> SphereRenderer::shaderFiles() const
@@ -363,18 +353,15 @@ void SphereRenderer::display()
 
 	float projectionScale = float(viewportSize.y) / fabs(2.0f / projectionMatrix[1][1]);
 
-	// white
-	static vec3 ambientMaterial(0.75f, 0.75f, 0.75f);
-	static vec3 diffuseMaterial(0.6f, 0.6f, 0.6f);
-	static vec3 specularMaterial(0.3f, 0.3f, 0.3f);
-
-	//std::cout << to_string(projectionInfo) << std::endl
+	// adapted version of "pearl" from teapots.c File Reference
+	// Mark J. Kilgard, Silicon Graphics, Inc. 1994 - http://web.archive.org/web/20100725103839/http://www.cs.utk.edu/~kuck/materials_ogl.htm
+	static vec3 ambientMaterial(0.20725f, 0.20725f, 0.20725f);
+	static vec3 diffuseMaterial(0.829f, 0.829f, 0.829f);
+	static vec3 specularMaterial(0.296648f, 0.296648f, 0.296648f);
+	static float shininess = 11.264f;
 
 	vec4 nearPlane = inverseProjectionMatrix * vec4(0.0, 0.0, -1.0, 1.0);
 	nearPlane /= nearPlane.w;
-
-	static float shininess = 20.0f;
-	static float sharpness = 1.0f;
 
 	// boolean variable used to automatically update the data
 	static bool dataChanged = false;
@@ -437,9 +424,6 @@ void SphereRenderer::display()
 			m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
 			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
-			// find smalles radius within the column
-			//m_smallestR = *std::min_element(std::begin(viewer()->scene()->table()->activeRadiusColumn()), std::end(viewer()->scene()->table()->activeRadiusColumn()));
-
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
 			
@@ -478,7 +462,7 @@ void SphereRenderer::display()
 
 	if (ImGui::CollapsingHeader("Kernel Density Estimation"))
 	{
-		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.0f, 100.0f);
+		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.001f, 100.0f);
 		ImGui::SliderFloat("Gauss-Scale", &m_gaussScale, 0.01f, 1.0f);
 		ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 200.0f);
 		ImGui::SliderFloat("Alpha", &m_alpha, 0.01f, 1.0f);
@@ -559,7 +543,7 @@ void SphereRenderer::display()
 		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0NormalBased\0ScatterPlot\0");
 		ImGui::Combo("Color Scheme", &m_colorScheme, "None\0Scheme1\0Scheme2\0");
 		
-		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 1.0f);
+		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 10.0f);
 		ImGui::SliderFloat("Opacity Scale", &m_opacityScale, 0.001f, 1.0f);
 		ImGui::Checkbox("Invert Function", &m_invertFunction);
 	}
@@ -582,14 +566,11 @@ void SphereRenderer::display()
 
 	// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-	// do not render if data is not loaded
-	if (viewer()->scene()->table()->activeTableData().size() == 0)
+	// do not render if either the dataset was not loaded or the window is minimized 
+	if (viewer()->scene()->table()->activeTableData().size() == 0 || viewer()->viewportSize().x == 0 || viewer()->viewportSize().y == 0)
 	{
 		return;
 	}
-
-	const float contributingAtoms = 128.0f;
-	float radiusScale = sqrtf(log(contributingAtoms*exp(sharpness)) / sharpness);
 
 	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
 
@@ -665,20 +646,13 @@ void SphereRenderer::display()
 	m_programSphere->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programSphere->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 
-	if(m_blendingFunction == 0)
-	{
-		m_programSphere->setUniform("radiusScale", 1.0f);
-		//m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier);
-	}
-	else
-	{
-		m_programSphere->setUniform("radiusScale", m_scatterScale);
-		//m_programSphere->setUniform("smallestR", m_smallestR * m_radiusMultiplier * m_scatterScale);
-	}
+	// GUI dependent color selection
+	m_programSphere->setUniform("samplePointColor", viewer()->samplePointColor());
 
-	m_programSphere->setUniform("clipRadiusScale", radiusScale);
+	// point radius is dependent on GUI variable "Scatter Plot Scale"
+	m_programSphere->setUniform("radiusScale", m_scatterScale);
+	m_programSphere->setUniform("clipRadiusScale", m_scatterScale);
 	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
-	m_programSphere->setUniform("radiusMultiplier", m_radiusMultiplier);
 
 	m_vao->bind();
 
@@ -714,10 +688,11 @@ void SphereRenderer::display()
 		m_programDensityEstimation->setUniform("modelViewMatrix", modelViewMatrix);
 		m_programDensityEstimation->setUniform("projectionMatrix", projectionMatrix);
 		m_programDensityEstimation->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-		m_programDensityEstimation->setUniform("radiusScale", radiusScale);
-		m_programDensityEstimation->setUniform("clipRadiusScale", radiusScale);
+
+		// sphere of influence radius is dependent on GUI variable "Radius-Scale"
+		m_programDensityEstimation->setUniform("radiusScale", m_radiusMultiplier);
+		m_programDensityEstimation->setUniform("clipRadiusScale", m_radiusMultiplier);
 		m_programDensityEstimation->setUniform("nearPlaneZ", nearPlane.z);
-		m_programDensityEstimation->setUniform("radiusMultiplier", m_radiusMultiplier);
 
 		// KDE parameters
 		m_programDensityEstimation->setUniform("sigma2", m_sigma);
@@ -792,10 +767,11 @@ void SphereRenderer::display()
 	m_programSpawn->setUniform("projectionMatrix", projectionMatrix);
 	m_programSpawn->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programSpawn->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-	m_programSpawn->setUniform("radiusScale", radiusScale);
-	m_programSpawn->setUniform("clipRadiusScale", radiusScale);
+
+	// sphere of influence radius is dependent on GUI variable "Radius-Scale"
+	m_programSpawn->setUniform("radiusScale", m_radiusMultiplier);
+	m_programSpawn->setUniform("clipRadiusScale", m_radiusMultiplier);
 	m_programSpawn->setUniform("nearPlaneZ", nearPlane.z);
-	m_programSpawn->setUniform("radiusMultiplier", m_radiusMultiplier);
 
 	// KDE parameters
 	m_programSpawn->setUniform("sigma2", m_sigma);
@@ -954,16 +930,11 @@ void SphereRenderer::display()
 	m_shadeFramebuffer->bind();
 	glDepthMask(GL_FALSE);
 
-	//m_spherePositionTexture->bindActive(0);
-	//m_sphereNormalTexture->bindActive(1);
-	m_sphereDiffuseTexture->bindActive(2);
-	m_surfacePositionTexture->bindActive(3);
-	m_surfaceNormalTexture->bindActive(4);
-	m_surfaceDiffuseTexture->bindActive(5);
-	m_depthTexture->bindActive(6);
-	m_ambientTexture->bindActive(7);
-
-	m_scatterPlotTexture->bindActive(11);
+	m_surfacePositionTexture->bindActive(0);
+	m_surfaceNormalTexture->bindActive(1);
+	m_depthTexture->bindActive(2);
+	m_ambientTexture->bindActive(3);
+	m_scatterPlotTexture->bindActive(4);
 
 	//m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
 
@@ -973,6 +944,12 @@ void SphereRenderer::display()
 	m_programShade->setUniform("normalMatrix", normalMatrix);
 	m_programShade->setUniform("inverseNormalMatrix", inverseNormalMatrix);
 
+	// GUI dependent color selection
+	m_programShade->setUniform("samplePointColor", viewer()->samplePointColor());
+	m_programShade->setUniform("backgroundColor", viewer()->backgroundColor());
+	m_programShade->setUniform("contourLineColor", viewer()->contourLineColor());
+	m_programShade->setUniform("lensBorderColor", viewer()->lensBorderColor());
+
 	m_programShade->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
@@ -981,34 +958,24 @@ void SphereRenderer::display()
 	m_programShade->setUniform("focusPosition", focusPosition);
 	m_programShade->setUniform("opacityScale", m_opacityScale);
 
-	//m_programShade->setUniform("spherePositionTexture", 0);
-	//m_programShade->setUniform("sphereNormalTexture", 1);
-	m_programShade->setUniform("sphereDiffuseTexture", 2);
 
-	m_programShade->setUniform("surfacePositionTexture", 3);
-	m_programShade->setUniform("surfaceNormalTexture", 4);
-	m_programShade->setUniform("surfaceDiffuseTexture", 5);
-
-	m_programShade->setUniform("depthTexture", 6);
-
-	m_programShade->setUniform("ambientTexture", 7);
-	//m_programShade->setUniform("materialTexture", 8);
-	m_programShade->setUniform("environmentTexture", 9);
+	m_programShade->setUniform("surfacePositionTexture", 0);
+	m_programShade->setUniform("surfaceNormalTexture", 1);
+	m_programShade->setUniform("depthTexture", 2);
+	m_programShade->setUniform("ambientTexture", 3);
+	m_programShade->setUniform("scatterPlotTexture", 4);
 
 	if (m_colorMapLoaded)
 	{
-		m_colorMapTexture->bindActive(10);
-		m_programShade->setUniform("colorMapTexture", 10);
+		m_colorMapTexture->bindActive(5);
+		m_programShade->setUniform("colorMapTexture", 5);
 		m_programShade->setUniform("textureWidth", m_ColorMapWidth);
 	}
 
-	m_programShade->setUniform("scatterPlotTexture", 11);
-
-
 	if (m_blendingFunction == 2)	// DISTANCEBLENDING
 	{
-		m_kernelDensityTexture->bindActive(12);
-		m_programShade->setUniform("kernelDensityTexture", 12);
+		m_kernelDensityTexture->bindActive(6);
+		m_programShade->setUniform("kernelDensityTexture", 6);
 	}
 
 	if (m_countourLines)
@@ -1037,24 +1004,19 @@ void SphereRenderer::display()
 
 	if (m_blendingFunction == 2)	// DISTANCEBLENDING
 	{
-		m_kernelDensityTexture->unbindActive(12);
+		m_kernelDensityTexture->unbindActive(6);
 	}
-
-	m_scatterPlotTexture->unbindActive(11);
 
 	if (m_colorMapLoaded)
 	{
-		m_colorMapTexture->unbindActive(10);
+		m_colorMapTexture->unbindActive(5);
 	}
 
-	m_ambientTexture->unbindActive(7);
-	m_depthTexture->unbindActive(6);
-	m_surfaceDiffuseTexture->unbindActive(5);
-	m_surfaceNormalTexture->unbindActive(4);
-	m_surfacePositionTexture->unbindActive(3);
-	m_sphereDiffuseTexture->unbindActive(2);
-	//m_sphereNormalTexture->unbindActive(1);
-	//m_spherePositionTexture->unbindActive(0);
+	m_scatterPlotTexture->unbindActive(4);
+	m_ambientTexture->unbindActive(3);
+	m_depthTexture->unbindActive(2);
+	m_surfaceNormalTexture->unbindActive(1);
+	m_surfacePositionTexture->unbindActive(0);
 
 	//glDisable(GL_BLEND);
 	m_shadeFramebuffer->unbind();

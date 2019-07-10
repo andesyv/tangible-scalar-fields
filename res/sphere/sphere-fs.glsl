@@ -3,12 +3,13 @@
 
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 inverseModelViewProjectionMatrix;
-//uniform float smallestR;
+
+// GUI dependent color selection
+uniform vec3 samplePointColor;
 
 in vec4 gFragmentPosition;
 flat in vec4 gSpherePosition;
 flat in float gSphereRadius;
-//flat in float gSphereOriginalRadius;
 flat in float gSphereValue;
 
 //layout (location = 2) out vec4 kernelDensity;
@@ -58,11 +59,10 @@ float calcDepth(vec3 pos)
 // input: index between (0-11) to access color-map for qualitative data
 vec4 assignQualitativeColor (int index)
 {
-	
-	// select red as default color
-	vec4 sphereColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	// select default color
+	vec4 sphereColor = vec4(samplePointColor, 1.0f);
 
-	// return red if index is not within the dimension [0,11]
+	// return default if index is not within the dimension [0,11]
 	if(index < 0 || index > 11)
 	{
 		return sphereColor;
@@ -126,57 +126,24 @@ void main()
 	if (!sphere.hit)
 		discard;
 
-	//fragPosition = vec4(sphere.near.xyz,length(sphere.near.xyz-near.xyz));
-	//fragNormal = vec4(sphere.normal, 1.0f);
+	// assign default color or color from a color-scheme
+	scatterPlot = assignQualitativeColor(int(gSphereValue));
 
-	float depth = calcDepth(sphere.near.xyz);
-	gl_FragDepth = depth;
+	// Perform anti-aliasing -----------------------------------------------------------------------------------------------------
+	// draw outline around the sample points: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+	float factor = 1.0f-smoothstep(gSphereRadius*0.5,gSphereRadius*0.75,length(sphere.near.xy-gSpherePosition.xy));
+	scatterPlot.rgb -= factor*vec3(0.15f);
 
-	// --------------------------------------------------------------------------------------------------------------------
+	factor = smoothstep(gSphereRadius*0.75,gSphereRadius,length(sphere.near.xy-gSpherePosition.xy));
+	scatterPlot.rgb += factor*vec3(0.15);
 
-	// Stefan-03-15-2019 -----------------------------------------------------------------------------------------
-	// perform Hermite interpolation: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/smoothstep.xhtml
-	float factor= 1.0-smoothstep(gSphereRadius*0.75,gSphereRadius,length(sphere.near.xy-gSpherePosition.xy));
-	factor += 1.0-smoothstep(gSphereRadius*0.5,gSphereRadius*0.75,length(sphere.near.xy-gSpherePosition.xy));
-	scatterPlot = 0.25*factor*assignQualitativeColor(int(gSphereValue));
-	// -----------------------------------------------------------------------------------------------------------
+	// perform additional anti-aliasing by smoothing the outline alpha
+	scatterPlot.a *= 1.0f-factor;
+	//----------------------------------------------------------------------------------------------------------------------------
 
-	// create classical 2D scatter plot and assign colors according to a qualitative coloring
-	//scatterPlot = assignQualitativeColor(int(gSphereValue));
-	//
-	//float borderDistance = length(fragPosition.xy - gSpherePosition.xy);
-	//
-	//float firstBorderStart = gSphereRadius - (smallestR * (1.0f - 0.7f /*percentage*/));
-	//float secondBorderStart = gSphereRadius - (smallestR * (1.0f - 0.855f /*percentage*/));
-	//float thirdBorderStart = gSphereRadius - (smallestR  * (1.0f - 0.86f /*percentage*/));
-	//
-	//
-	//// highlight sphere-border and perform antialiasing within scatterplot
-	//if(borderDistance >= firstBorderStart)
-	//{
-	//
-	//	// fade original sphere color to border color 
-	//	float fadeOut = (borderDistance-firstBorderStart) / (secondBorderStart-firstBorderStart);
-	//
-	//	// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
-	//	float smoothFade = 3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
-	//	scatterPlot.rgb += vec3(smoothFade, smoothFade, smoothFade);
-	//
-	//	if(borderDistance >= secondBorderStart)
-	//	{
-	//
-	//		// draw white border
-	//		scatterPlot.rgb = vec3(1.0f, 1.0f, 1.0f);
-	//
-	//		if(borderDistance > thirdBorderStart)
-	//		{
-	//			// perform antialiasing on border smooth-out
-	//			fadeOut = 1.0f -(borderDistance-thirdBorderStart) / (gSphereRadius-thirdBorderStart);
-	//		
-	//			// Smoothstep: https://en.wikipedia.org/wiki/Smoothstep
-	//			smoothFade = fadeOut;//3.0f * pow(fadeOut, 2.0f) - 2.0f  * pow(fadeOut, 3.0f);
-	//			scatterPlot.rgb = vec3(smoothFade, smoothFade, smoothFade);
-	//		}
-	//	}
-	//}
+	// convert from RGB to CMY color-space
+	scatterPlot.rgb = vec3(1.0f) - scatterPlot.rgb;
+
+	// calculate fragemtn depth
+	gl_FragDepth = calcDepth(sphere.near.xyz);
 }

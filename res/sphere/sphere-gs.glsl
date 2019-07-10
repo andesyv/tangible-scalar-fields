@@ -211,7 +211,6 @@ void main()
 	float sphereRadius = vert[0].radiusValueVS*radiusScale; 
 	float sphereClipRadius = vert[0].radiusValueVS*clipRadiusScale; 
 	
-	//gSphereId = sphereId;
 	gSpherePosition = gl_in[0].gl_Position;
 	gSphereRadius = sphereRadius;
 	//gSphereOriginalRadius = vert[0].radiusValueVS;

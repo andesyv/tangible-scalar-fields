@@ -134,15 +134,13 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_pilotKernelDensityTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
 
-
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_ambientFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_aoFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_aoBlurFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_dofFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_dofBlurFramebuffer = nullptr;
+
 
 		std::unique_ptr<globjects::Query> m_sphereQuery = nullptr;
 		std::unique_ptr<globjects::Query> m_spawnQuery = nullptr;
@@ -153,8 +151,6 @@ namespace molumes
 		glm::uint m_benchmarkPhase = 0;
 		glm::uint m_benchmarkIndex = 0;
 		bool m_benchmarkWarmup = true;
-
-
 
 		glm::ivec2 m_framebufferSize;
 
@@ -174,7 +170,7 @@ namespace molumes
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
 
 		// selection of color maps
-		int m_colorMap = 0;
+		int m_colorMap = 8;						// use "plasma" as default heatmap
 		bool m_colorMapLoaded = false;
 		bool m_surfaceIllumination = false;
 		bool m_ambientOcclusion = false;
@@ -184,11 +180,11 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 		
 		// GUI-slide used for additional scaling values (empirically chosen)
-		float m_radiusMultiplier = 30.0f;
+		float m_radiusMultiplier = 55.0f;
 		float m_sigma = 20.0f;
 		float m_gaussScale = 0.1f;
-		float m_scatterScale = 0.163f;
-		float m_opacityScale = 0.7f;
+		float m_scatterScale = 5.0f;
+		float m_opacityScale = 0.8f;
 
 		// selection of blending function
 		int m_blendingFunction = 0;
@@ -196,11 +192,9 @@ namespace molumes
 		bool m_invertFunction = false;
 
 		// contour lines
-		int m_contourLinesCount = 4;
+		int m_contourLinesCount = 7;
 		float m_contourThickness = 0.02f;
 		bool m_countourLines = false;
-
-		//float m_smallestR = 0.0f;
 
 		// adaptive kernel size
 		bool m_adaptKernel = false;

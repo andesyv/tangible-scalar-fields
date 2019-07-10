@@ -255,19 +255,20 @@ void CameraInteractor::display()
 
 	}
 
-	if (ImGui::BeginMenu("Camera"))
-	{
-		static int projection = 0;
-		ImGui::RadioButton("Perspective", &projection,0);
-		ImGui::RadioButton("Orthographic", &projection,1);
+	//if (ImGui::BeginMenu("Camera"))
+	//{
+	//	static int projection = 0;
+	//	//ImGui::RadioButton("Perspective", &projection,0);
+	//	ImGui::RadioButton("Orthographic", &projection,1);
+	//
+	//	if ((projection == 0) != m_perspective)
+	//	{
+	//		m_perspective = (projection == 0);
+	//		resetProjectionTransform();
+	//	}
+	//	ImGui::EndMenu();
+	//}
 
-		if ((projection == 0) != m_perspective)
-		{
-			m_perspective = (projection == 0);
-			resetProjectionTransform();
-		}
-		ImGui::EndMenu();
-	}
 	/*
 	if (m_light)
 	{

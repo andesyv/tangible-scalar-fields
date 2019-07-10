@@ -13,16 +13,10 @@ out VertexData
 	float colorValueVS;
 } outData;
 
-uniform float radiusMultiplier;
-
-
 void main()
 {
-	vec4 vertexPosition = vec4(xValue, yValue, 0.0f, 1.0f);
-
-	// allow the user to scale the sphere-radius using a GUI-slider ('m_radiusMultiplier')
-	outData.radiusValueVS = radiusValue*radiusMultiplier;
+	outData.radiusValueVS = radiusValue;
 	outData.colorValueVS = colorValue;
 
-	gl_Position = vertexPosition;
+	gl_Position = vec4(xValue, yValue, 0.0f, 1.0f);
 }

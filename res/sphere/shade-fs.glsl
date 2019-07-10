@@ -16,10 +16,15 @@ uniform vec3 ambientMaterial;
 uniform vec3 specularMaterial;
 uniform float shininess;
 
-uniform sampler2D sphereDiffuseTexture;
+// GUI dependent color selection
+uniform vec3 samplePointColor;
+uniform vec3 backgroundColor;
+uniform vec3 contourLineColor;
+uniform vec3 lensBorderColor;
+
 uniform sampler2D surfacePositionTexture;
 uniform sampler2D surfaceNormalTexture;
-uniform sampler2D surfaceDiffuseTexture;
+
 uniform sampler2D depthTexture;
 uniform sampler2D ambientTexture;
 
@@ -44,10 +49,6 @@ uniform int textureWidth;
 uniform int contourCount;
 uniform float contourThickness;	
 
-// color constants
-const vec3 contourColor = vec3(0.9f, 0.09f, 0.05f);
-const vec3 lensBorderColor = vec3(0.9f, 0.09f, 0.05f);
-
 in vec4 gFragmentPosition;
 out vec4 fragColor;
 
@@ -62,29 +63,6 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 	uint maxScatterPlotAlpha;
 };
 
-// From http://http.developer.nvidia.com/GPUGems/gpugems_ch17.html
-vec2 latlong(vec3 v)
-{
-	v = normalize(v);
-	float theta = acos(v.z) / 2; // +z is up
-	float phi = atan(v.y, v.x) + 3.1415926535897932384626433832795;
-	return vec2(phi, theta) * vec2(0.1591549, 0.6366198);
-}
-
-vec4 over(vec4 vecF, vec4 vecB)
-{
-	return vecF + (1.0-vecF.a)*vecB;
-}
-
-float aastep(float threshold, float value) {
-  #ifdef GL_OES_standard_derivatives
-    float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
-    return smoothstep(threshold-afwidth, threshold+afwidth, value);
-  #else
-    return step(threshold, value);
-  #endif  
-}
-
 // See Porter-Duff 'A over B' operators: https://de.wikipedia.org/wiki/Alpha_Blending
 vec4 overOperator(vec4 source, vec4 destination)
 {
@@ -92,9 +70,7 @@ vec4 overOperator(vec4 source, vec4 destination)
 	vec4 blended = 1.0f/ac * (source.a * source + (1.0f - source.a) * destination.a * destination);
 
 	// make sure dimensions fit after blending 
-	blended = clamp(blended, vec4(0), vec4(1));
-
-	return blended;
+	return clamp(blended, vec4(0), vec4(1));
 }
 
 void main()
@@ -110,95 +86,88 @@ void main()
 
 	vec3 V = normalize(far.xyz-near.xyz);
 
-	//vec4 spherePosition = texelFetch(spherePositionTexture,ivec2(gl_FragCoord.xy),0);
-	//vec4 sphereNormal = texelFetch(sphereNormalTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 sphereDiffuse = texelFetch(sphereDiffuseTexture,ivec2(gl_FragCoord.xy),0);
-
 	vec4 surfacePosition = texelFetch(surfacePositionTexture,ivec2(gl_FragCoord.xy),0);
 	vec4 surfaceNormal = texelFetch(surfaceNormalTexture,ivec2(gl_FragCoord.xy),0);
-	vec4 surfaceDiffuse = texelFetch(surfaceDiffuseTexture,ivec2(gl_FragCoord.xy),0);
-	
-	if (surfacePosition.w >= 65535.0)	
-		surfaceDiffuse.a = 0.0;
+	vec3 surfaceNormalWorld = normalize(inverseNormalMatrix*surfaceNormal.xyz);
 
-	vec4 ambient = vec4(1.0,1.0,1.0,1.0);
+	float depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0).x;
+	vec4 ambient = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 #ifdef AMBIENT
 	ambient = texelFetch(ambientTexture,ivec2(gl_FragCoord.xy),0);
 #endif
 
-	float depth = texelFetch(depthTexture,ivec2(gl_FragCoord.xy),0).x;
-	vec3 surfaceNormalWorld = normalize(inverseNormalMatrix*surfaceNormal.xyz);
+	// set background color as default fragment color
+	vec4 finalColor = vec4(backgroundColor, 0.0f);
 
 	// read texel from scatterplot texture
 	vec4 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-
+	
 	// normalize scatterplot alpha range to [0,1]
-	scatterPlot.a /= uintBitsToFloat(maxScatterPlotAlpha);
+	//scatterPlot /= uintBitsToFloat(maxScatterPlotAlpha);
+	// TODO: remove maxScatterPlotAlpha!
 
+	// convert from CMY to RGB color-space
+	scatterPlot.rgb = vec3(1.0f) - scatterPlot.rgb;
+
+
+	// 1D textur dimensions
+	int newDepthMin = 0;
+	int newDepthMax = textureWidth-1;
+
+	// calculate 'Point-Plane Distance' of a fragment (using the camera view-vector as plane normal)
+	vec4 posViewSpace = modelViewMatrix*surfacePosition;
+	float oldDepthValue = abs(dot(posViewSpace.xyz,V));
+
+	// read from SSBO and convert back to float: 
+	// - https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/intBitsToFloat.xhtml
+	float oldDepthMin =  uintBitsToFloat(minDepth);
+	float oldDepthMax =  uintBitsToFloat(maxDepth);
+
+	// depth range
+	float oldDepthRange = (oldDepthMax - oldDepthMin);  
+	float newDepthRange = (newDepthMax - newDepthMin);  		
+
+	// convert to different range: 
+	// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
+	float newDepthValue = (((oldDepthValue - oldDepthMin) * newDepthRange) / oldDepthRange) + newDepthMin;
+	
 	if(depth != 1.0f)
-	{
-	
-		// set default vaule in case no color-map texture was bound
-		vec3 colorMapTexel = vec3(1,1,1);
-
-		// 1D textur dimensions
-		int newMin = 0;
-		int newMax = textureWidth-1;
-
-		// calculate 'Point-Plane Distance' of a fragment (using the camera view-vector as plane normal)
-		vec4 posViewSpace = modelViewMatrix*surfacePosition;
-		float oldValue = abs(dot(posViewSpace.xyz,V));
-
-		// read from SSBO and convert back to float: 
-		// - https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/intBitsToFloat.xhtml
-		float oldMin =  uintBitsToFloat(minDepth);
-		float oldMax =  uintBitsToFloat(maxDepth);
-
-		// depth range
-		float oldRange = (oldMax - oldMin);  
-		float newRange = (newMax - newMin);  		
-
-		// convert to different range: 
-		// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
-		float newValue = (((oldValue - oldMin) * newRange) / oldRange) + newMin;
-	
-	#ifdef COLORMAP
-		// apply color map  using texelFetch with a range from [0, size) 
-		colorMapTexel = texelFetch(colorMapTexture, newMax-int(round(newValue)), 0).rgb; 
-		surfaceDiffuse.rgb  = colorMapTexel; 
-	#endif
+	{	
+		// assign default color and alpha
+		finalColor = vec4(samplePointColor, 1.0f);
 
 	#ifdef SCATTERPLOT
-		surfaceDiffuse.rgb = colorMapTexel * scatterPlot.rgb;
+		finalColor.rgb = scatterPlot.rgb;
+
+		// clamp alpha to 1.0f to be able to blend it with the background
+		finalColor.a = min(scatterPlot.a, 1.0f);
 	#endif
 
-	#ifdef CONTOURLINES
-		// create contour-lines
-		float normalizedTexturePos = 1.0f - ((oldValue-oldMin) / oldRange);
+	#ifdef COLORMAP
+		// apply color map  using texelFetch with a range from [0, size) 
+		finalColor.rgb = texelFetch(colorMapTexture, newDepthMax-int(round(newDepthValue)), 0).rgb;
 
-		float discreticedPos = mod(normalizedTexturePos, 1.0f/(contourCount+1.0f));
-
-		if (discreticedPos <= contourThickness && normalizedTexturePos >= contourThickness)
-		{
-			// assign contour line color
-			surfaceDiffuse.rgb = vec3(1.0f, 0.0f, 0.0f);
-		}
+		#ifdef SCATTERPLOT
+			finalColor.rgb *= scatterPlot.rgb;
+		#endif
 	#endif
 	}
 
-	vec3 color = surfaceDiffuse.rgb;
+
 	float light_occlusion = 1.0;
 
 #ifdef AMBIENT
 	vec3 VL =  normalize(normalMatrix*normalize(lightPosition-surfacePosition.xyz));
-	light_occlusion = 1.0-clamp(dot(-VL.xyz, ambient.xyz),0.0,1.0); // negation of VL is a hack -- maybe surfacePosition.z wrong?
+
+	//TODO: // negation of VL is a hack -- maybe surfacePosition.z wrong?
+	light_occlusion = 1.0-clamp(dot(-VL.xyz, ambient.xyz),0.0,1.0); 
 #endif
 
 #ifdef ILLUMINATION
-	vec3 ambientColor = surfaceDiffuse.rgb*ambientMaterial*ambient.a;
-	vec3 diffuseColor = surfaceDiffuse.rgb*diffuseMaterial;
-	vec3 specularColor = surfaceDiffuse.rgb*specularMaterial;
+	vec3 ambientColor = finalColor.rgb*ambientMaterial*ambient.a;
+	vec3 diffuseColor = finalColor.rgb*diffuseMaterial;
+	vec3 specularColor = finalColor.rgb*specularMaterial;
 
 	vec3 N = surfaceNormalWorld;
 	vec3 L = normalize(lightPosition-surfacePosition.xyz);
@@ -208,12 +177,11 @@ void main()
 	float RdotV = max(0.0,dot(R, V));
 
 	NdotL = clamp((NdotL+1.0)*0.5,0.0,1.0);
-	color = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
+	finalColor.rgb = ambientColor + light_occlusion * (NdotL * diffuseColor + pow(RdotV,shininess) * specularColor);
 #endif
 
-	vec4 final = vec4(color.rgb,surfaceDiffuse.a);
 
-// Curvature based blending 
+// Curvature based blending -------------------------------------------------------------------------------------------------------
 #ifdef CURVEBLENDING	
 	
 	// texelFetch (0,0) -> left bottom
@@ -228,20 +196,23 @@ void main()
 	// transform to [0,1];
 	opacity /= 4 * sqrt(2);
 
-	// scale opacity and apply to alpha
+	// scale opacity
 	opacity = pow(opacity, opacityScale);
-	final.a *= opacity;
+
+	vec3 blendColor = backgroundColor;
+
+	// emphasize scatterplot and allow changes with the GUI
+	if(scatterPlot.a > 0.0f)
+	{
+		blendColor = scatterPlot.rgb*samplePointColor;
+		blendColor.rgb *= (0.5+0.5*light_occlusion*ambient.a);
+	}
 
 	// apply over-operator
-	#ifdef INVERTFUNCTION
-		final = overOperator(scatterPlot, final);
-	#else
-		final = overOperator(final, scatterPlot);
-	#endif
+	finalColor.rgb = overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
 #endif
 
-
-// Distance based blending 
+// Distance based blending --------------------------------------------------------------------------------------------------------
 #ifdef DISTANCEBLENDING
 
 	// convert to range [0,1]:
@@ -250,26 +221,26 @@ void main()
 	float oldMax = uintBitsToFloat(maxKernelDifference);
 	float oldValue = texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).g;
 
-	// transform [minKernelDifference, maxKernelDifference] to [newMin, 1]
+	// transform [minKernelDifference, maxKernelDifference] to [0, 1]
 	float opacity = (oldValue - oldMin) / (oldMax - oldMin);
 
-	// scale opacity and apply to alpha
+	// scale opacity
 	opacity = pow(opacity, opacityScale);
-	final.a *= opacity;
 
-	scatterPlot.rgb = vec3(1.0);
-	scatterPlot.rgb *= (0.5+0.5*light_occlusion*pow(ambient.a,1.0));
-	
+	vec3 blendColor = backgroundColor;
+
+	// emphasize scatterplot and allow changes with the GUI
+	if(scatterPlot.a > 0.0f)
+	{
+		blendColor = scatterPlot.rgb*samplePointColor;
+		blendColor.rgb *= (0.5+0.5*light_occlusion*ambient.a);
+	}
+
 	// apply over-operator
-	#ifdef INVERTFUNCTION
-		final = overOperator(scatterPlot, final);
-	#else
-		final = overOperator(final, scatterPlot);
-	#endif
+	finalColor.rgb = overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
 #endif
 
-
-// Normal based blending
+// Normal based blending ----------------------------------------------------------------------------------------------------------
 #ifdef NORMALBLENDING
 
 	vec3 centerNormal = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.xy), 0).xyz;
@@ -279,14 +250,37 @@ void main()
 
 	// scale opacity and apply to alpha
 	opacity = pow(opacity, opacityScale);
-	final.a *= opacity;
+
+	vec3 blendColor = backgroundColor;
+
+	// emphasize scatterplot and allow changes with the GUI
+	if(scatterPlot.a > 0.0f)
+	{
+		blendColor = scatterPlot.rgb*samplePointColor;
+		blendColor.rgb *= (0.5+0.5*light_occlusion*ambient.a);
+	}
 
 	// apply over-operator
-	#ifdef INVERTFUNCTION
-		final = overOperator(scatterPlot, final);
-	#else
-		final = overOperator(final, scatterPlot);
-	#endif
+	finalColor.rgb = overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
+#endif
+//---------------------------------------------------------------------------------------------------------------------------------
+
+
+	// blend with background color
+	finalColor = overOperator(finalColor, vec4(backgroundColor, 1.0f-finalColor.a));
+
+
+#ifdef CONTOURLINES
+	// normalize depth-range to [0, 1]
+	float normalizedTexturePos = 1.0f - ((oldDepthValue-oldDepthMin) / oldDepthRange);
+	float discreticedPos = mod(normalizedTexturePos, 1.0f/(contourCount+1.0f));
+
+	if (discreticedPos <= contourThickness && normalizedTexturePos >= contourThickness && depth != 1.0f)
+	{
+		// assign contour line color
+		finalColor.rgb = contourLineColor;
+		finalColor.a = 1.0f;
+	}
 #endif
 
 #ifdef LENSING
@@ -299,14 +293,13 @@ void main()
 	// draw border of lens
 	if(pxlDistance >= startInner && pxlDistance <= lensSize)
 	{
-		final.rgb = mix(final.rgb, lensBorderColor, smoothstep(startInner, lensSize, pxlDistance));
+		finalColor.rgb = mix(finalColor.rgb, lensBorderColor, smoothstep(startInner, lensSize, pxlDistance));
 	}
 	else if (pxlDistance > lensSize && pxlDistance <= endOuter)
 	{
-		final.rgb = mix(final.rgb, lensBorderColor, 1.0f - smoothstep(lensSize, endOuter, pxlDistance));
+		finalColor.rgb = mix(finalColor.rgb, lensBorderColor, 1.0f - smoothstep(lensSize, endOuter, pxlDistance));
 	}
 #endif
 
-	fragColor = final; 
-
+	fragColor = finalColor; 
 }
