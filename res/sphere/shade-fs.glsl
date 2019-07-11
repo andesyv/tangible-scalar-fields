@@ -40,10 +40,15 @@ uniform vec2 focusPosition;
 uniform float lensSize;
 uniform float aspectRatio;
 uniform float windowHeight;
+uniform float windowWidth;
 
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
 uniform int textureWidth;
+
+const int rightDistance = 50;
+const int topDistance = 50;
+const int guiWidth = 40;
 
 // contour lines
 uniform int contourCount;
@@ -296,6 +301,14 @@ void main()
 	else if (pxlDistance > lensSize && pxlDistance <= endOuter)
 	{
 		finalColor.rgb = mix(finalColor.rgb, lensBorderColor, 1.0f - smoothstep(lensSize, endOuter, pxlDistance));
+	}
+#endif
+	
+#ifdef HEATMAP_GUI
+	if(gl_FragCoord.x <= windowWidth-rightDistance && gl_FragCoord.x > windowWidth-rightDistance-guiWidth && gl_FragCoord.y < windowHeight-topDistance && gl_FragCoord.y >= windowHeight-topDistance-textureWidth) 
+	{	
+		int texCoords = textureWidth-int(windowHeight-topDistance-gl_FragCoord.y);
+		finalColor.rgb = texelFetch(colorMapTexture, texCoords, 0).rgb;
 	}
 #endif
 

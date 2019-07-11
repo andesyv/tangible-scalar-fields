@@ -488,6 +488,7 @@ void SphereRenderer::display()
 		ImGui::Combo("Maps", &m_colorMap, "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
 
 		// allow the user to load a discrete version of the color map
+		ImGui::Checkbox("GUI Heatmap", &m_heatMapGUI);
 		ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap);
 
 		// load new texture if either the texture has changed or the type has changed from discrete to continuous or vice versa
@@ -613,6 +614,9 @@ void SphereRenderer::display()
 
 	if (m_countourLines)
 		defines += "#define CONTOURLINES\n";
+
+	if(m_colorMapLoaded && m_heatMapGUI)
+		defines += "#define HEATMAP_GUI\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
@@ -991,6 +995,7 @@ void SphereRenderer::display()
 	// pass aspect ratio to the shader to make sure lens is always a circle and does not degenerate to an ellipse
 	m_programShade->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 	m_programShade->setUniform("windowHeight", viewer()->m_windowHeight);
+	m_programShade->setUniform("windowWidth", viewer()->m_windowWidth);
 
 	m_vaoQuad->bind();
 
