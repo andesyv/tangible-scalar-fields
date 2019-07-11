@@ -159,9 +159,7 @@ void main()
 
 #ifdef AMBIENT
 	vec3 VL =  normalize(normalMatrix*normalize(lightPosition-surfacePosition.xyz));
-
-	//TODO: // negation of VL is a hack -- maybe surfacePosition.z wrong?
-	light_occlusion = 1.0-clamp(dot(-VL.xyz, ambient.xyz),0.0,1.0); 
+	light_occlusion = 1.0f-clamp(dot(VL.xyz, ambient.xyz),0.0,1.0); 
 #endif
 
 #ifdef ILLUMINATION
