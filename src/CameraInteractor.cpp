@@ -151,33 +151,33 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		vec4 center = viewTransform * vec4(0.0f, 0.0f, 0.0f, 1.0);
 		vec4 corner = viewTransform * vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		float radius = distance(corner, center);
-		vec3 viewLightDirection = arcballVector(m_xCurrent, m_yCurrent);//normalize(vec3(v.x, v.y, 0.0f));
+		vec3 viewLightDirection = arcballVector(m_xCurrent, m_yCurrent);
 		vec4 viewLightPosition = center + vec4(viewLightDirection, 0.0f) * radius;
 		viewer()->setViewLightPosition(viewLightPosition);
 	}
 
-	if (m_rotating)
-	{
-		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
-		{
-			vec3 va = arcballVector(m_xPrevious, m_yPrevious);
-			vec3 vb = arcballVector(m_xCurrent, m_yCurrent);
-
-			if (va != vb)
-			{
-				float angle = acos(max(-1.0f, min(1.0f, dot(va, vb))));
-				vec3 axis = cross(va, vb);
-
-				mat4 viewTransform = viewer()->viewTransform();
-				mat4 inverseViewTransform = inverse(viewTransform);
-				vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
-
-				mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
-				viewer()->setViewTransform(newViewTransform);
-			}
-		}
-
-	}
+	//if (m_rotating)
+	//{
+	//	if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
+	//	{
+	//		vec3 va = arcballVector(m_xPrevious, m_yPrevious);
+	//		vec3 vb = arcballVector(m_xCurrent, m_yCurrent);
+	//
+	//		if (va != vb)
+	//		{
+	//			float angle = acos(max(-1.0f, min(1.0f, dot(va, vb))));
+	//			vec3 axis = cross(va, vb);
+	//
+	//			mat4 viewTransform = viewer()->viewTransform();
+	//			mat4 inverseViewTransform = inverse(viewTransform);
+	//			vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
+	//
+	//			mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
+	//			viewer()->setViewTransform(newViewTransform);
+	//		}
+	//	}
+	//
+	//}
 
 	if (m_scaling)
 	{
@@ -255,19 +255,20 @@ void CameraInteractor::display()
 
 	}
 
-	if (ImGui::BeginMenu("Camera"))
-	{
-		static int projection = 0;
-		ImGui::RadioButton("Perspective", &projection,0);
-		ImGui::RadioButton("Orthographic", &projection,1);
+	//if (ImGui::BeginMenu("Camera"))
+	//{
+	//	static int projection = 0;
+	//	//ImGui::RadioButton("Perspective", &projection,0);
+	//	ImGui::RadioButton("Orthographic", &projection,1);
+	//
+	//	if ((projection == 0) != m_perspective)
+	//	{
+	//		m_perspective = (projection == 0);
+	//		resetProjectionTransform();
+	//	}
+	//	ImGui::EndMenu();
+	//}
 
-		if ((projection == 0) != m_perspective)
-		{
-			m_perspective = (projection == 0);
-			resetProjectionTransform();
-		}
-		ImGui::EndMenu();
-	}
 	/*
 	if (m_light)
 	{

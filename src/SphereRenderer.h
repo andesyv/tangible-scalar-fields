@@ -45,12 +45,12 @@ namespace molumes
 		
 		std::unique_ptr<globjects::Program> m_programSphere = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSpawn = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programDensityEstimation = std::make_unique<globjects::Program>();
+		std::unique_ptr<globjects::Program> m_programGeomMean = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programSurface = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOSample = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programAOBlur = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programDOFBlur = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programDOFBlend = std::make_unique<globjects::Program>();
 
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
@@ -86,6 +86,18 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateSurface = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderSurface = nullptr;
 
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceDensityEstimation = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDensityEstimation = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderDensityEstimation = nullptr;
+
+		std::unique_ptr<globjects::File> m_fragmentShaderSourceGeomMean = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateGeomMean = nullptr;
+		std::unique_ptr<globjects::Shader> m_fragmentShaderGeomMean = nullptr;
+
+		std::unique_ptr<globjects::File> m_vertexShaderSourceGeomMean = nullptr;
+		std::unique_ptr<globjects::AbstractStringSource> m_vertexShaderTemplateGeomMean = nullptr;
+		std::unique_ptr<globjects::Shader> m_vertexShaderGeomMean = nullptr;
+
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceAOSample = nullptr;
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateAOSample = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderAOSample = nullptr;
@@ -98,18 +110,10 @@ namespace molumes
 		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
 		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
 
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceDOFBlur = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDOFBlur = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderDOFBlur = nullptr;
-
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceDOFBlend = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateDOFBlend = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderDOFBlend = nullptr;
-
 		std::unique_ptr<globjects::Buffer> m_intersectionBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_statisticsBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_depthRangeBuffer = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Texture> m_environmentTexture = nullptr;
+		std::unique_ptr<globjects::Buffer> m_geomMeanBuffer = std::make_unique<globjects::Buffer>();
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -125,8 +129,10 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_ambientTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
+
 		std::unique_ptr<globjects::Texture> m_scatterPlotTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_pilotKernelDensityTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
 
 		std::unique_ptr<globjects::Framebuffer> m_sphereFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_surfaceFramebuffer = nullptr;
@@ -134,12 +140,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_aoFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_aoBlurFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_dofFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_dofBlurFramebuffer = nullptr;
 
-
-		std::vector< std::unique_ptr<globjects::Texture> > m_materialTextures;
-		std::vector< std::unique_ptr<globjects::Texture> > m_bumpTextures;
 
 		std::unique_ptr<globjects::Query> m_sphereQuery = nullptr;
 		std::unique_ptr<globjects::Query> m_spawnQuery = nullptr;
@@ -150,8 +151,6 @@ namespace molumes
 		glm::uint m_benchmarkPhase = 0;
 		glm::uint m_benchmarkIndex = 0;
 		bool m_benchmarkWarmup = true;
-
-
 
 		glm::ivec2 m_framebufferSize;
 
@@ -165,31 +164,54 @@ namespace molumes
 
 		// store combo ID of selected file
 		int m_fileDataID = 0;
+		int m_oldFileDataID = 0;
 		
 		// store combo ID of selected columns
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
 
+
 		// selection of color maps
-		int m_colorMap = 0;
+		int m_colorMap = 8;						// use "plasma" as default heatmap
 		bool m_colorMapLoaded = false;
+		bool m_heatMapGUI = true;
+		bool m_discreteMap = false;
+		// ---------------------------------
+		int m_oldColorMap = 0;
+		bool m_oldDiscreteMap = false;
+
+		// illumination selections
 		bool m_surfaceIllumination = false;
+		bool m_ambientOcclusion = false;
 		
 		// GUI-slide used for additional scaling values (empirically chosen)
 		float m_radiusMultiplier = 55.0f;
-		float m_sigma = 25.0f;
-		float m_gaussScale = 0.35f;
-		float m_scatterScale = 0.05;
-		float m_opacityScale = 0.7f;
+		float m_sigma = 20.0f;
+		float m_gaussScale = 0.1f;
+		float m_scatterScale = 5.0f;
+		float m_opacityScale = 0.8f;
 
 		// selection of blending function
 		int m_blendingFunction = 0;
 		int m_colorScheme = 0;
 		bool m_invertFunction = false;
 
-		float m_smallestR = 0.0f;
+		// contour lines
+		int m_contourLinesCount = 7;
+		float m_contourThickness = 0.02f;
+		bool m_countourLines = false;
 
 		// adaptive kernel size
 		bool m_adaptKernel = false;
+
+		// adaptive kernel density estimation
+		bool m_adaptiveKDE = false;
+		float m_alpha = 0.5f;
+
+		// focus and context
+		float m_lensSize = 0.25f;
+		float m_lensSigma = 0.2f;
+		bool m_lenseEnabled = false;
+
 		// ------------------------------------------------------------------------------------------
 	};
 
