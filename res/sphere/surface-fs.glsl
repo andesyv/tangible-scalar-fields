@@ -22,11 +22,6 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 {
 	uint minDepth;
 	uint maxDepth;
-
-	uint minKernelDifference;
-	uint maxKernelDifference;
-
-	uint maxScatterPlotAlpha;
 };
 
 float calcDepth(vec3 pos)
@@ -94,17 +89,5 @@ void main()
 		// identify depth-range
 		atomicMin(minDepth, uintDepth);
 		atomicMax(maxDepth, uintDepth);
-	}	
-		
-#ifdef DISTANCEBLENDING
-	float kernelDifference = texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).g;
-
-	// identify KDE-difference-range
-	atomicMin(minKernelDifference, floatBitsToUint(kernelDifference));
-	atomicMax(maxKernelDifference, floatBitsToUint(kernelDifference));
-#endif
-
-	// find maximum alpha after additive blending
-	float alpha = texelFetch(scatterPlotTexture,ivec2(gl_FragCoord.xy),0).a;
-	atomicMax(maxScatterPlotAlpha, floatBitsToUint(alpha));
+	}
 }
