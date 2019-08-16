@@ -66,7 +66,7 @@ SphereRenderer::SphereRenderer(Viewer* viewer) : Renderer(viewer)
 	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
 
 	// shader storage buffer object for current depth entries
-	m_depthRangeBuffer->setStorage(sizeof(uint) * 5, nullptr, gl::GL_NONE_BIT);
+	m_depthRangeBuffer->setStorage(sizeof(uint) * 2, nullptr, gl::GL_NONE_BIT);
 	m_geomMeanBuffer->setStorage(sizeof(int), nullptr, gl::GL_NONE_BIT);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
@@ -462,7 +462,7 @@ void SphereRenderer::display()
 
 	if (ImGui::CollapsingHeader("Kernel Density Estimation"))
 	{
-		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.001f, 100.0f);
+		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.001f, 256.0f);
 		ImGui::SliderFloat("Gauss-Scale", &m_gaussScale, 0.01f, 1.0f);
 		ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 200.0f);
 		ImGui::SliderFloat("Alpha", &m_alpha, 0.01f, 1.0f);
@@ -478,6 +478,7 @@ void SphereRenderer::display()
 		ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 		ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 		ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
+		ImGui::SliderFloat("SSAO Intensity", &m_occlusionIntensity, 1.0f, 512.0f);
 		ImGui::Checkbox("Surface Illumination", &m_surfaceIllumination);
 		ImGui::Checkbox("Ambient Occlusion Enabled", &m_ambientOcclusion);
 	}
@@ -835,13 +836,6 @@ void SphereRenderer::display()
 	// min/ max depth range
 	m_depthRangeBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &minClearValue);
 	m_depthRangeBuffer->clearSubData(GL_R32UI, 1 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
-
-	// min/ max KDE range
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 2 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &minClearValue);
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 3 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
-
-	// max scatterplot alpha
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 4 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	m_programSurface->setUniform("modelViewMatrix", modelViewMatrix);
@@ -875,6 +869,7 @@ void SphereRenderer::display()
 		m_programAOSample->setUniform("projectionScale", projectionScale);
 		m_programAOSample->setUniform("viewLightPosition", modelViewMatrix*viewer()->worldLightPosition());
 		m_programAOSample->setUniform("surfaceNormalTexture", 0);
+		m_programAOSample->setUniform("occlusionIntensity", m_occlusionIntensity);
 
 		m_surfaceNormalTexture->bindActive(0);
 

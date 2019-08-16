@@ -61,11 +61,6 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 {
 	uint minDepth;
 	uint maxDepth;
-
-	uint minKernelDifference;
-	uint maxKernelDifference;
-
-	uint maxScatterPlotAlpha;
 };
 
 // See Porter-Duff 'A over B' operators: https://de.wikipedia.org/wiki/Alpha_Blending
@@ -107,10 +102,6 @@ void main()
 
 	// read texel from scatterplot texture
 	vec4 scatterPlot = texelFetch(scatterPlotTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-	
-	// normalize scatterplot alpha range to [0,1]
-	//scatterPlot /= uintBitsToFloat(maxScatterPlotAlpha);
-	// TODO: remove maxScatterPlotAlpha!
 
 	// convert from CMY to RGB color-space
 	scatterPlot.rgb = vec3(1.0f) - scatterPlot.rgb;
@@ -175,7 +166,7 @@ void main()
 	vec3 N = surfaceNormalWorld;
 	vec3 L = normalize(lightPosition-surfacePosition.xyz);
 	vec3 R = normalize(reflect(L, N));
-	float NdotV = max(0.0,abs(dot(N, V)));
+
 	float NdotL = dot(N, L);
 	float RdotV = max(0.0,dot(R, V));
 
@@ -219,13 +210,7 @@ void main()
 #ifdef DISTANCEBLENDING
 
 	// convert to range [0,1]:
-	// - https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
-	float oldMin = uintBitsToFloat(minKernelDifference);
-	float oldMax = uintBitsToFloat(maxKernelDifference);
-	float oldValue = texelFetch(kernelDensityTexture,ivec2(gl_FragCoord.xy),0).g;
-
-	// transform [minKernelDifference, maxKernelDifference] to [0, 1]
-	float opacity = (oldValue - oldMin) / (oldMax - oldMin);
+	float opacity = max(1-(newDepthValue/newDepthRange), 0.0f);
 
 	// scale opacity
 	opacity = pow(opacity, opacityScale);
@@ -246,10 +231,8 @@ void main()
 // Normal based blending ----------------------------------------------------------------------------------------------------------
 #ifdef NORMALBLENDING
 
-	vec3 centerNormal = texelFetch(surfaceNormalTexture, ivec2(gl_FragCoord.xy), 0).xyz;
-
 	// emphasize the curvature
-	float opacity = 1.0f - dot(centerNormal, V);
+	float opacity = 1.0f - dot(surfaceNormal.xyz, V);
 
 	// scale opacity and apply to alpha
 	opacity = pow(opacity, opacityScale);

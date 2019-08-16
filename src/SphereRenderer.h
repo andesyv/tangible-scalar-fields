@@ -169,7 +169,6 @@ namespace molumes
 		// store combo ID of selected columns
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
 
-
 		// selection of color maps
 		int m_colorMap = 8;						// use "plasma" as default heatmap
 		bool m_colorMapLoaded = false;
@@ -182,6 +181,8 @@ namespace molumes
 		// illumination selections
 		bool m_surfaceIllumination = false;
 		bool m_ambientOcclusion = false;
+
+		float m_occlusionIntensity = 128;
 		
 		// GUI-slide used for additional scaling values (empirically chosen)
 		float m_radiusMultiplier = 55.0f;

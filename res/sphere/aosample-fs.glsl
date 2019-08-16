@@ -17,7 +17,7 @@ uniform float projectionScale;
 
 uniform float occlusionRadius = 1.0;
 uniform float occlusionBias = 0.012;
-uniform float occlusionIntensity = 1.0;
+uniform float occlusionIntensity;
 uniform vec3 viewLightPosition;
 
 const float occlusionRadius2 = occlusionRadius * occlusionRadius;
