@@ -40,11 +40,17 @@ namespace molumes
 
 		glm::mat4 modelTransform() const;
 		glm::mat4 viewTransform() const;
+		glm::mat4 lightTransform() const;
 		glm::mat4 projectionTransform() const;
+
+		glm::mat4 modelViewTransform() const;
+		glm::mat4 modelViewProjectionTransform() const;
+		glm::mat4 modelLightTransform() const;
 
 		float m_scrollWheelSigma = 0.2f;
 		float m_windowHeight = 720.0f;
 		float m_windowWidth = 1280.0f;
+		float m_scatterPlotDiameter = 2.0f*sqrt(3.0f);
 
 		void setBackgroundColor(const glm::vec3& c);
 		void setSamplePointColor(const glm::vec3& c);
@@ -53,14 +59,8 @@ namespace molumes
 
 		void setViewTransform(const glm::mat4& m);
 		void setModelTransform(const glm::mat4& m);
+		void setLightTransform(const glm::mat4& m);
 		void setProjectionTransform(const glm::mat4& m);
-
-		glm::mat4 modelViewTransform() const;
-		glm::mat4 modelViewProjectionTransform() const;
-
-		void setViewLightPosition(const glm::vec4 & p);
-		glm::vec4 viewLightPosition() const;
-		glm::vec4 worldLightPosition() const;
 
 		void saveImage(const std::string & filename);
 
@@ -112,9 +112,7 @@ namespace molumes
 		glm::mat4 m_modelTransform = glm::mat4(1.0f);
 		glm::mat4 m_viewTransform = glm::mat4(1.0f);
 		glm::mat4 m_projectionTransform = glm::mat4(1.0f);
-
-		// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center)
-		glm::vec4 m_viewLightPosition = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::vec4(5.0f*sqrt(3.0f), 0.0f, 0.0f, 1.0f);
+		glm::mat4 m_lightTransform = glm::mat4(1.0f);
 
 		bool m_showUi = true;
 		bool m_saveScreenshot = false;

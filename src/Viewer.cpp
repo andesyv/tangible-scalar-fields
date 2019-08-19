@@ -154,10 +154,8 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	glfwSetCharCallback(window, &Viewer::charCallback);
 	glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
-
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
 	m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
-	//m_renderers.emplace_back(std::make_unique<MolumeRenderer>(this));
 	m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
 
 	int i = 1;
@@ -282,10 +280,22 @@ void Viewer::setProjectionTransform(const glm::mat4& m)
 	m_projectionTransform = m;
 }
 
+void Viewer::setLightTransform(const glm::mat4& m)
+{
+	m_lightTransform = m;
+}
+
+
 mat4 Viewer::projectionTransform() const
 {
 	return m_projectionTransform;
 }
+
+mat4 Viewer::lightTransform() const
+{
+	return m_lightTransform;
+}
+
 
 mat4 Viewer::modelViewTransform() const
 {
@@ -297,34 +307,9 @@ mat4 Viewer::modelViewProjectionTransform() const
 	return projectionTransform()*modelViewTransform();
 }
 
-void Viewer::setViewLightPosition(const glm::vec4& p)
+mat4 Viewer::modelLightTransform() const
 {
-	m_viewLightPosition = p;
-}
-
-vec4 Viewer::viewLightPosition() const
-{
-	return m_viewLightPosition;
-}
-
-vec4 Viewer::worldLightPosition() const
-{
-	vec4 center = viewTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0);
-	vec4 corner = viewTransform() * vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	float radius = distance(viewLightPosition(), center);
-	vec3 lightDirection = normalize(viewLightPosition() - center);
-	vec4 lightPosition = center + vec4(lightDirection, 0.0f) * 1.0f;
-
-	mat4 inverseModelViewTransform = inverse(modelViewTransform());
-
-	center = inverseModelViewTransform * center;
-	corner = inverseModelViewTransform * corner;
-	lightPosition = inverseModelViewTransform * lightPosition;
-	lightDirection = normalize(vec3(lightPosition - center));
-	radius = distance(center, corner);
-
-	return center + vec4(lightDirection,0.0f)*radius;
-
+	return lightTransform()*modelTransform();
 }
 
 void Viewer::saveImage(const std::string & filename)

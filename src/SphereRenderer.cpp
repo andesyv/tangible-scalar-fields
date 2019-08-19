@@ -329,22 +329,28 @@ void SphereRenderer::display()
 		m_pilotKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_scatterPlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
+
+	// retrieve/compute all necessary matrices and related properties
+	const mat4 viewMatrix = viewer()->viewTransform();
+	const mat4 inverseViewMatrix = inverse(viewMatrix);
+	const mat4 modelViewMatrix = viewer()->modelViewTransform();
+	const mat4 inverseModelViewMatrix = inverse(modelViewMatrix);
+	const mat4 modelLightMatrix = viewer()->modelLightTransform();
+	const mat4 inverseModelLightMatrix = inverse(modelLightMatrix);
+	const mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
+	const mat4 inverseModelViewProjectionMatrix = inverse(modelViewProjectionMatrix);
+	const mat4 projectionMatrix = viewer()->projectionTransform();
+	const mat4 inverseProjectionMatrix = inverse(projectionMatrix);
+	const mat3 normalMatrix = mat3(transpose(inverseModelViewMatrix));
+	const mat3 inverseNormalMatrix = inverse(normalMatrix);
+	const ivec2 viewportSize = viewer()->viewportSize();
+
+	vec4 worldCameraPosition = inverseModelViewMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	vec4 worldLightPosition = inverseModelLightMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	
-	ivec2 viewportSize = viewer()->viewportSize();
 	double mouseX, mouseY;
 	glfwGetCursorPos(viewer()->window(), &mouseX, &mouseY);
 	vec2 focusPosition = vec2(2.0f*float(mouseX) / float(viewportSize.x) - 1.0f, -2.0f*float(mouseY) / float(viewportSize.y) + 1.0f);
-
-	mat4 viewMatrix = viewer()->viewTransform();
-	mat4 inverseViewMatrix = inverse(viewMatrix);
-	mat4 modelViewMatrix = viewer()->modelViewTransform();
-	mat4 inverseModelViewMatrix = inverse(modelViewMatrix);
-	mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
-	mat4 inverseModelViewProjectionMatrix = inverse(modelViewProjectionMatrix);
-	mat4 projectionMatrix = viewer()->projectionTransform();
-	mat4 inverseProjectionMatrix = inverse(projectionMatrix);
-	mat3 normalMatrix = mat3(transpose(inverseModelViewMatrix));
-	mat3 inverseNormalMatrix = inverse(normalMatrix);
 
 	vec4 projectionInfo(float(-2.0 / (viewportSize.x * projectionMatrix[0][0])),
 		float(-2.0 / (viewportSize.y * projectionMatrix[1][1])),
@@ -454,6 +460,16 @@ void SphereRenderer::display()
 			mat4 modelTransform = scale(vec3(2.0f) / vec3(maximumSize));
 			modelTransform = modelTransform * translate(-0.5f*(viewer()->scene()->table()->minimumBounds() + viewer()->scene()->table()->maximumBounds()));
 			viewer()->setModelTransform(modelTransform);
+			
+			// store diameter of current scatter plot and initialize light position
+			viewer()->m_scatterPlotDiameter = sqrt(pow(boundingBoxSize.x, 2) + pow(boundingBoxSize.y, 2));
+
+			// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------------------------------------------------------
+			glm::mat4 viewTransform = viewer()->viewTransform();
+			glm::vec3 initLightDir = normalize(glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+			glm::mat4 newLightTransform = glm::inverse(viewTransform)*glm::translate(mat4(1.0f), (-5*viewer()->m_scatterPlotDiameter*initLightDir))*viewTransform;
+			viewer()->setLightTransform(newLightTransform);
+			//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		}
 
 		// update status
@@ -867,7 +883,7 @@ void SphereRenderer::display()
 
 		m_programAOSample->setUniform("projectionInfo", projectionInfo);
 		m_programAOSample->setUniform("projectionScale", projectionScale);
-		m_programAOSample->setUniform("viewLightPosition", modelViewMatrix*viewer()->worldLightPosition());
+		m_programAOSample->setUniform("viewLightPosition", modelViewMatrix*worldLightPosition);
 		m_programAOSample->setUniform("surfaceNormalTexture", 0);
 		m_programAOSample->setUniform("occlusionIntensity", m_occlusionIntensity);
 
@@ -949,7 +965,7 @@ void SphereRenderer::display()
 	m_programShade->setUniform("contourLineColor", viewer()->contourLineColor());
 	m_programShade->setUniform("lensBorderColor", viewer()->lensBorderColor());
 
-	m_programShade->setUniform("lightPosition", vec3(viewer()->worldLightPosition()));
+	m_programShade->setUniform("lightPosition", vec3(worldLightPosition));
 	m_programShade->setUniform("ambientMaterial", ambientMaterial);
 	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
 	m_programShade->setUniform("specularMaterial", specularMaterial);
