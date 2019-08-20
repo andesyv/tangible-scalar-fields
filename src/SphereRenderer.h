@@ -182,7 +182,8 @@ namespace molumes
 		bool m_surfaceIllumination = false;
 		bool m_ambientOcclusion = false;
 
-		float m_occlusionIntensity = 1;
+		float m_occlusionIntensity = 1.0f;
+		float m_occlusionRadius = 0.2f;
 		
 		// GUI-slide used for additional scaling values (empirically chosen)
 		float m_radiusMultiplier = 55.0f;

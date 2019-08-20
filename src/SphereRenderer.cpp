@@ -494,7 +494,8 @@ void SphereRenderer::display()
 		ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
 		ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
 		ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-		ImGui::SliderFloat("SSAO Intensity", &m_occlusionIntensity, 1.0f, 512.0f);
+		ImGui::SliderFloat("SSAO Intensity", &m_occlusionIntensity, 0.01f, 128.0f);
+		ImGui::SliderFloat("SSAO Radius", &m_occlusionRadius, 0.01f, 1.0f);
 		ImGui::Checkbox("Surface Illumination", &m_surfaceIllumination);
 		ImGui::Checkbox("Ambient Occlusion Enabled", &m_ambientOcclusion);
 	}
@@ -886,6 +887,7 @@ void SphereRenderer::display()
 		m_programAOSample->setUniform("viewLightPosition", modelViewMatrix*worldLightPosition);
 		m_programAOSample->setUniform("surfaceNormalTexture", 0);
 		m_programAOSample->setUniform("occlusionIntensity", m_occlusionIntensity);
+		m_programAOSample->setUniform("occlusionRadius", m_occlusionRadius);
 
 		m_surfaceNormalTexture->bindActive(0);
 

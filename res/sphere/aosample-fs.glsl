@@ -15,9 +15,9 @@ uniform sampler2D surfaceNormalTexture;
 uniform vec4 projectionInfo;
 uniform float projectionScale;
 
-uniform float occlusionRadius = 1.0;
+uniform float occlusionRadius;// = 1.0f;
 uniform float occlusionBias = 0.012;
-uniform float occlusionIntensity;
+uniform float occlusionIntensity;// = 1.0f;
 uniform vec3 viewLightPosition;
 
 const float occlusionRadius2 = occlusionRadius * occlusionRadius;
