@@ -1,0 +1,21 @@
+Project Name: 				IPP Survey
+Title:					Visualizations of Dense Scatter Plots
+
+Description:				Look at different visualizations of scatter plots, investigate interesting regions, and answer multiple choice questions.
+
+Keywords:				survey, visualization, scatter plots, density
+Reward per response:			2
+Number of respondents:			1
+Time allotted per Worker:		2 Hours
+Survey expires in:			7 Days
+Auto-approve and pay Workers in:	3 Days
+Require that Workers be Masters:	Yes
+
+-----------------------------------------------------
+
+Hit Approval Rate (%):			90
+Minimum accepted Hits:			1000
+Location is:				United States (US)	
+Location is:				United Kingdom (UK)
+Location is:				Canada (CA)
+			
