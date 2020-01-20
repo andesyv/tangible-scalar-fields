@@ -131,14 +131,14 @@ void main()
 
 	// Perform anti-aliasing -----------------------------------------------------------------------------------------------------
 	// draw outline around the sample points: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/smoothstep.xhtml
-	float factor = 1.0f-smoothstep(gSphereRadius*0.5,gSphereRadius*0.75,length(sphere.near.xy-gSpherePosition.xy));
+	float factor = 1.0f-smoothstep(gSphereRadius*0.75,gSphereRadius*0.75,length(sphere.near.xy-gSpherePosition.xy));
 	scatterPlot.rgb -= factor*vec3(0.15f);
 
-	factor = smoothstep(gSphereRadius*0.75,gSphereRadius,length(sphere.near.xy-gSpherePosition.xy));
-	scatterPlot.rgb += factor*vec3(0.15);
+	factor = smoothstep(gSphereRadius*0.95,gSphereRadius,length(sphere.near.xy-gSpherePosition.xy));
+	//scatterPlot.rgb += factor*vec3(0.15);
 
 	// perform additional anti-aliasing by smoothing the outline alpha
-	scatterPlot.a *= 1.0f-factor;
+	//scatterPlot.a *= 1.0f-factor;
 	//----------------------------------------------------------------------------------------------------------------------------
 
 	// convert from RGB to CMY color-space

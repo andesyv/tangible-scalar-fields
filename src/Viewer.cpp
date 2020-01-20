@@ -156,7 +156,10 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
 	m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
-	m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
+	
+	// remove the following line to disable the bounding box renderer---------
+	//m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
+	//------------------------------------------------------------------------
 
 	int i = 1;
 

@@ -130,6 +130,10 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_blurTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
 
+		// necessary to make rendered dataset exactly the same size as used in user study------
+		//int m_minx, m_maxx, m_miny, m_maxy;
+		//-------------------------------------------------------------------------------------
+
 		std::unique_ptr<globjects::Texture> m_scatterPlotTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_pilotKernelDensityTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kernelDensityTexture = nullptr;
@@ -172,7 +176,7 @@ namespace molumes
 		// selection of color maps
 		int m_colorMap = 8;						// use "plasma" as default heatmap
 		bool m_colorMapLoaded = false;
-		bool m_heatMapGUI = true;
+		bool m_heatMapGUI = false;
 		bool m_discreteMap = false;
 		// ---------------------------------
 		int m_oldColorMap = 0;

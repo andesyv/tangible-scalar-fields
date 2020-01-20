@@ -362,7 +362,7 @@ void SphereRenderer::display()
 	// adapted version of "pearl" from teapots.c File Reference
 	// Mark J. Kilgard, Silicon Graphics, Inc. 1994 - http://web.archive.org/web/20100725103839/http://www.cs.utk.edu/~kuck/materials_ogl.htm
 	static vec3 ambientMaterial(0.20725f, 0.20725f, 0.20725f);
-	static vec3 diffuseMaterial(0.829f, 0.829f, 0.829f);
+	static vec3 diffuseMaterial(1, 1, 1);// 0.829f, 0.829f, 0.829f);
 	static vec3 specularMaterial(0.296648f, 0.296648f, 0.296648f);
 	static float shininess = 11.264f;
 
@@ -371,6 +371,7 @@ void SphereRenderer::display()
 
 	// boolean variable used to automatically update the data
 	static bool dataChanged = false;
+	//static bool adjust = true;
 
 	// Scatterplot GUI --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -392,6 +393,76 @@ void SphereRenderer::display()
 			
 				// initialize table
 				viewer()->scene()->table()->load("./dat/" + m_fileNames[m_fileDataID]);
+
+				//-------------------------------------------------------------------------------------------------------------------------------------------
+				/*std::string location = "C:/Users/thoma/OneDrive/Desktop/PhD Bergen/Papers/Paper 1/Matlab/UserStudyPrep/Output/" + m_fileNames[m_fileDataID].substr(0, m_fileNames[m_fileDataID].length() - 4) + "/" + m_fileNames[m_fileDataID].substr(0, m_fileNames[m_fileDataID].length() - 4) + "_BoundingBox.csv";
+				std::ifstream myfile1(location);
+				if (myfile1.is_open())
+				{
+					std::string number;
+					std::vector <std::string> record;
+
+					// skip header
+					std::getline(myfile1, number);
+
+					while (std::getline(myfile1, number, ','))
+					{
+						record.push_back(number);
+					}
+					myfile1.close();
+
+					m_minx = stoi(record.at(0));
+					m_maxx = stoi(record.at(1));
+					m_miny = stoi(record.at(2));
+					m_maxy = stoi(record.at(3));
+				}
+
+				location = "C:/Users/thoma/OneDrive/Desktop/PhD Bergen/Papers/Paper 1/Matlab/UserStudyPrep/Output/" + m_fileNames[m_fileDataID].substr(0, m_fileNames[m_fileDataID].length() - 4) + "/" + m_fileNames[m_fileDataID].substr(0, m_fileNames[m_fileDataID].length() - 4) + "_RenderParameters.csv";
+				std::ifstream myfile2(location);
+				if (myfile2.is_open())
+				{
+					std::string number;
+					std::vector <std::string> record;
+
+					// skip header
+					std::getline(myfile2, number);
+
+					while (std::getline(myfile2, number, ','))
+					{
+						record.push_back(number);
+					}
+					myfile2.close();
+
+					// parse values form file
+					m_radiusMultiplier = stof(record.at(0));
+					m_gaussScale = stof(record.at(1));
+					m_sigma = stof(record.at(2));
+					m_alpha = stof(record.at(3));
+					
+					if (record.at(4) == "No")
+						m_adaptiveKDE = false;
+					else if(record.at(4) == "Yes")
+						m_adaptiveKDE = true;
+					
+					//viewer()->setBackgroundColor(glm::vec3());
+					//viewer()->setSamplePointColor();
+					//ambientMaterial = glm::vec3();
+					//diffuseMaterial = glm::vec3();
+					//specularMaterial = glm::vec3();
+
+					shininess = stof(record.at(11));
+
+					m_occlusionIntensity = stof(record.at(12));
+					m_occlusionRadius = stof(record.at(13));
+					
+					//m_heatMapGUI // is Plasma by default
+
+					m_scatterScale = stof(record.at(15));
+					m_opacityScale = stof(record.at(16));
+				}
+
+				adjust = true;*/
+				//-------------------------------------------------------------------------------------------------------------------------------------------
 
 				// extract column names and prepare GUI
 				std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
@@ -480,7 +551,7 @@ void SphereRenderer::display()
 	{
 		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.001f, 256.0f);
 		ImGui::SliderFloat("Gauss-Scale", &m_gaussScale, 0.01f, 1.0f);
-		ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 200.0f);
+		ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 500.0f);
 		ImGui::SliderFloat("Alpha", &m_alpha, 0.01f, 1.0f);
 
 		// section for adaptive kernels
@@ -1041,5 +1112,93 @@ void SphereRenderer::display()
 	
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, {0,0,viewer()->viewportSize().x, viewer()->viewportSize().y}, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
+
+	/*if (adjust)
+	{
+
+		//-----------------------------------------
+		int sizeX = viewportSize.x;
+		int sizeY = viewportSize.y;
+
+		//TODO
+		unsigned char BACKGROUND = 255;
+
+		std::vector<unsigned char> image(sizeX * sizeY * 4);
+		glReadPixels(0, 0, sizeX, sizeY, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&image.front());
+
+		int curMinX = 2560;
+		int curMaxX = 0;
+		int curMinY = 1377;
+		int curMaxY = 0;
+
+
+
+		for (uint y = 0; y < sizeY; y++)
+		{
+			for (uint x = 0; x < sizeX; x++)
+			{
+				if (image[4 * x + 0 + 4 * y*sizeX] != BACKGROUND && image[4 * x + 1 + 4 * y*sizeX] != BACKGROUND && image[4 * x + 2 + 4 * y*sizeX] != BACKGROUND) {
+
+					if (curMinX > x) {
+						curMinX = x;
+					}
+
+					if (curMaxX < x) {
+						curMaxX = x;
+					}
+
+					if (curMinY > y) {
+						curMinY = y;
+					}
+
+					if (curMaxY < y) {
+						curMaxY = y;
+					}
+				}
+			}
+		}
+
+		if (curMinX < curMaxX && curMinY < curMaxY)
+		{
+			vec4 r1(m_minx, m_miny, m_maxx, m_maxy);
+			vec4 r2(curMinX, curMinY, curMaxX, curMaxY);
+
+
+
+
+			vec2 originalSize(m_maxx - m_minx + 1, m_maxy - m_miny + 1);
+
+			vec2 currentSize(curMaxX - curMinX + 1, curMaxY - curMinY + 1);
+			vec2 sizeRatio = originalSize / currentSize;
+
+			float scale = std::max(sizeRatio.x, sizeRatio.y);
+
+			//std::cout << "O: " << to_string(originalSize) << std::endl;
+			//std::cout << "C: " << to_string(currentSize) << std::endl;
+			//std::cout << "R1: " << to_string(r1) << std::endl;
+			//std::cout << "R2: " << to_string(r2) << std::endl;
+
+
+			mat4 viewTransform = viewer()->viewTransform();
+			viewTransform = glm::scale(viewTransform, vec3(scale, scale, scale));
+			viewer()->setViewTransform(viewTransform);
+
+			//save camera matrix
+			glm:mat4 currentCamerMatrix = viewer()->viewTransform();
+
+			std::ofstream myfile;
+			myfile.open("C:/Users/thoma/OneDrive/Desktop/PhD Bergen/Papers/Paper 1/Matlab/UserStudyPrep/Output/" + m_fileNames[m_fileDataID].substr(0, m_fileNames[m_fileDataID].length() - 4) + "/" + m_fileNames[m_fileDataID].substr(0, m_fileNames[m_fileDataID].length() - 4) + "_ViewTransform.csv");
+			myfile << std::to_string(currentCamerMatrix[0][0]) + ',' + std::to_string(currentCamerMatrix[0][1]) + ',' + std::to_string(currentCamerMatrix[0][2]) + ',' + std::to_string(currentCamerMatrix[0][3]) + "\n";
+			myfile << std::to_string(currentCamerMatrix[1][0]) + ',' + std::to_string(currentCamerMatrix[1][1]) + ',' + std::to_string(currentCamerMatrix[1][2]) + ',' + std::to_string(currentCamerMatrix[1][3]) + "\n";
+			myfile << std::to_string(currentCamerMatrix[2][0]) + ',' + std::to_string(currentCamerMatrix[2][1]) + ',' + std::to_string(currentCamerMatrix[2][2]) + ',' + std::to_string(currentCamerMatrix[2][3]) + "\n";
+			myfile << std::to_string(currentCamerMatrix[3][0]) + ',' + std::to_string(currentCamerMatrix[3][1]) + ',' + std::to_string(currentCamerMatrix[3][2]) + ',' + std::to_string(currentCamerMatrix[3][3]) + "\n";
+			myfile.close();
+
+
+			//adjust = false;
+		}		
+
+	}*/
+	//-----------------------------------------
 	currentState->apply();
 }

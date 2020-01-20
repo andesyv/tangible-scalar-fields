@@ -66,8 +66,10 @@ layout(std430, binding = 3) buffer depthRangeBuffer
 // See Porter-Duff 'A over B' operators: https://de.wikipedia.org/wiki/Alpha_Blending
 vec4 overOperator(vec4 source, vec4 destination)
 {
-	float ac = source.a + (1.0f - source.a) * destination.a;
-	vec4 blended = 1.0f/ac * (source.a * source + (1.0f - source.a) * destination.a * destination);
+	float source_a = clamp(source.a, 0.0f, 1.0f);
+	float destination_a = clamp(destination.a, 0.0f, 1.0f);
+	float ac = source_a + (1.0f - source_a) * destination.a;
+	vec4 blended = 1.0f/ac * (source_a * source + (1.0f - source_a) * destination_a * destination);
 
 	// make sure dimensions fit after blending 
 	return clamp(blended, vec4(0), vec4(1));
@@ -221,6 +223,7 @@ void main()
 	if(scatterPlot.a > 0.0f)
 	{
 		blendColor = scatterPlot.rgb*samplePointColor;
+		//blendColor = vec3(0.0f, 0.0f, 0.0f) * samplePointColor;
 		blendColor.rgb *= (0.5+0.5*light_occlusion*ambient.a);
 	}
 
@@ -228,6 +231,11 @@ void main()
 	finalColor.rgb *= mix(vec3(1.0),scatterPlot.rgb,1.0-opacity);//overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
 	//finalColor.rgb -= (vec3(1.0)-scatterPlot.rgb)*opacity*0.5;//overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
 	//finalColor.rgb = overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
+	
+	// (Thomas) this is what is done (if opacity were computed like --> max((newDepthValue/newDepthRange), 0.0f)):
+	//float opacity = max((newDepthValue/newDepthRange), 0.0f);
+	//finalColor.rgb = finalColor.rgb * (scatterPlot.rgb*(opacity) + vec3(1.0)*(1-opacity));
+
 #endif
 
 // Normal based blending ----------------------------------------------------------------------------------------------------------

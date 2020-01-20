@@ -298,6 +298,12 @@ void CameraInteractor::resetViewTransform()
 {
 	viewer()->setViewTransform(lookAt(vec3(0.0f, 0.0f, -m_distance), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
 
+	// necessary to perform the bounding-box dependent adaption-------------------------------------------------------
+	// --> making sure the resulting visualization has the same dimensions as the screenshot used in the user study
+	mat4 newViewTransform = scale(viewer()->viewTransform(), vec3(0.5f, 0.5f, 0.5f));
+	viewer()->setViewTransform(newViewTransform);
+	//----------------------------------------------------------------------------------------------------------------
+
 	// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------------------------------------------------------
 	glm::mat4 viewTransform = viewer()->viewTransform();
 	glm::vec3 initLightDir = normalize(glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
