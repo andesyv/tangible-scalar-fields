@@ -225,7 +225,9 @@ void main()
 	}
 
 	// apply over-operator
-	finalColor.rgb = overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
+	finalColor.rgb *= mix(vec3(1.0),scatterPlot.rgb,1.0-opacity);//overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
+	//finalColor.rgb -= (vec3(1.0)-scatterPlot.rgb)*opacity*0.5;//overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
+	//finalColor.rgb = overOperator(vec4(finalColor.rgb, opacity), vec4(blendColor.rgb, 1.0f-opacity)).rgb;
 #endif
 
 // Normal based blending ----------------------------------------------------------------------------------------------------------
