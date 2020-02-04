@@ -17,7 +17,7 @@
 
 #include "Scene.h"
 #include "Interactor.h"
-#include "Renderer.h"
+#include "renderer/Renderer.h"
 
 namespace molumes
 {

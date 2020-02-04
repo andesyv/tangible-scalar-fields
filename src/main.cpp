@@ -24,7 +24,7 @@
 #include "Table.h"
 #include "Viewer.h"
 #include "Interactor.h"
-#include "Renderer.h"
+#include "renderer/Renderer.h"
 
 using namespace gl;
 using namespace glm;

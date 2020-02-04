@@ -18,7 +18,7 @@
 #include <globjects/Renderbuffer.h>
 #include <globjects/Texture.h>
 #include <globjects/TextureHandle.h>
-#include "Molume.h"
+#include "../Molume.h"
 
 namespace molumes
 {

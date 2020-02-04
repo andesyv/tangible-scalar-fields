@@ -4,9 +4,9 @@
 #include <iostream>
 #include <filesystem>
 #include <imgui.h>
-#include "Viewer.h"
-#include "Scene.h"
-#include "Table.h"
+#include "../Viewer.h"
+#include "../Scene.h"
+#include "../Table.h"
 #include <lodepng.h>
 #include <sstream>
 

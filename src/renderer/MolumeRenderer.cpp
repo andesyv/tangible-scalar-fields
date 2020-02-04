@@ -1,8 +1,8 @@
 #include "MolumeRenderer.h"
 #include <globjects/base/File.h>
 #include <iostream>
-#include "Viewer.h"
-#include "Table.h"
+#include "../Viewer.h"
+#include "../Table.h"
 #include <glm/gtc/matrix_transform.hpp>
 
 #define GLM_ENABLE_EXPERIMENTAL

@@ -14,10 +14,11 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "CameraInteractor.h"
-#include "BoundingBoxRenderer.h"
-#include "SphereRenderer.h"
-#include "MolumeRenderer.h"
-#include "Scene.h"
+#include "renderer/BoundingBoxRenderer.h"
+#include "renderer/SphereRenderer.h"
+#include "renderer/MolumeRenderer.h"
+#include "renderer/HexTileRenderer.h"
+#include "Scene.h" 
 #include "Table.h"
 #include <fstream>
 #include <sstream>
@@ -155,8 +156,9 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-	m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
-	
+	//m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
+	m_renderers.emplace_back(std::make_unique<HexTileRenderer>(this));
+
 	// remove the following line to disable the bounding box renderer---------
 	//m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
 	//------------------------------------------------------------------------

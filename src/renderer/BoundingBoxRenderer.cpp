@@ -1,7 +1,7 @@
 #include "BoundingBoxRenderer.h"
 #include <globjects/base/File.h>
 #include <iostream>
-#include "Viewer.h"
+#include "../Viewer.h"
 
 using namespace molumes;
 using namespace gl;
