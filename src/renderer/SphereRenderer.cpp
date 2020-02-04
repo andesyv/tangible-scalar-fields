@@ -503,22 +503,25 @@ void SphereRenderer::display()
 
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
-			
+			vertexBinding->setAttribute(0);
 			vertexBinding->setBuffer(m_xColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(0);
 
 			vertexBinding = m_vao->binding(1);
+			vertexBinding->setAttribute(1);
 			vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
 
 			vertexBinding = m_vao->binding(2);
+			vertexBinding->setAttribute(2);
 			vertexBinding->setBuffer(m_radiusColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(2);
 
 			vertexBinding = m_vao->binding(3);
+			vertexBinding->setAttribute(3);
 			vertexBinding->setBuffer(m_colorColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(3);
