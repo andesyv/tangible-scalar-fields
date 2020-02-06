@@ -42,15 +42,6 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
-	Statistics s;
-
-	m_intersectionBuffer->setStorage(sizeof(vec3) * 1024 * 1024 * 128 + sizeof(uint), nullptr, gl::GL_NONE_BIT);
-	m_statisticsBuffer->setStorage(sizeof(s), (void*)&s, GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
-
-	// shader storage buffer object for current depth entries
-	m_depthRangeBuffer->setStorage(sizeof(uint) * 2, nullptr, gl::GL_NONE_BIT);
-	m_geomMeanBuffer->setStorage(sizeof(int), nullptr, gl::GL_NONE_BIT);
-
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
 	auto vertexBindingQuad = m_vaoQuad->binding(0);
 	vertexBindingQuad->setBuffer(m_verticesQuad.get(), 0, sizeof(vec3));
@@ -61,129 +52,38 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shaderSourceDefines = StaticStringSource::create("");
 	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
 
-	m_shaderSourceGlobals = File::create("./res/sphere/globals.glsl");
+	m_shaderSourceGlobals = File::create("./res/hexagon/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
 
-	// load shader file
-	m_vertexShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-vs.glsl");
-	m_geometryShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-gs.glsl");
-	m_fragmentShaderSourceSphere = Shader::sourceFromFile("./res/sphere/sphere-fs.glsl");
-	m_fragmentShaderSourceSpawn = Shader::sourceFromFile("./res/sphere/spawn-fs.glsl");
-	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-vs.glsl");
-	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/sphere/image-gs.glsl");
-	m_fragmentShaderSourceSurface = Shader::sourceFromFile("./res/sphere/surface-fs.glsl");
-	m_fragmentShaderSourceAOSample = Shader::sourceFromFile("./res/sphere/aosample-fs.glsl");
-	m_fragmentShaderSourceAOBlur = Shader::sourceFromFile("./res/sphere/aoblur-fs.glsl");
-	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/sphere/shade-fs.glsl");
-	m_fragmentShaderSourceDensityEstimation = Shader::sourceFromFile("./res/sphere/density-fs.glsl");
-	m_vertexShaderSourceGeomMean = Shader::sourceFromFile("./res/sphere/geomMean-vs.glsl");
-	m_fragmentShaderSourceGeomMean = Shader::sourceFromFile("./res/sphere/geomMean-fs.glsl");
+	m_vertexShaderSourcePoint = Shader::sourceFromFile("./res/hexagon/point-vs.glsl");
+	m_fragmentShaderSourcePoint = Shader::sourceFromFile("./res/hexagon/point-fs.glsl");
+	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/hexagon/image-vs.glsl");
+	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/hexagon/image-gs.glsl");
+	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/hexagon/shade-fs.glsl");
 
-	//TODO: ask thomas what this does
-	m_vertexShaderTemplateSphere = Shader::applyGlobalReplacements(m_vertexShaderSourceSphere.get());
-	m_geometryShaderTemplateSphere = Shader::applyGlobalReplacements(m_geometryShaderSourceSphere.get());
-	m_fragmentShaderTemplateSphere = Shader::applyGlobalReplacements(m_fragmentShaderSourceSphere.get());
-	m_fragmentShaderTemplateSpawn = Shader::applyGlobalReplacements(m_fragmentShaderSourceSpawn.get());
+	m_vertexShaderTemplatePoint = Shader::applyGlobalReplacements(m_vertexShaderSourcePoint.get());
+	m_fragmentShaderTemplatePoint = Shader::applyGlobalReplacements(m_fragmentShaderSourcePoint.get());
 	m_vertexShaderTemplateImage = Shader::applyGlobalReplacements(m_vertexShaderSourceImage.get());
 	m_geometryShaderTemplateImage = Shader::applyGlobalReplacements(m_geometryShaderSourceImage.get());
-	m_fragmentShaderTemplateSurface = Shader::applyGlobalReplacements(m_fragmentShaderSourceSurface.get());
-	m_fragmentShaderTemplateDensityEstimation = Shader::applyGlobalReplacements(m_fragmentShaderSourceDensityEstimation.get());
-	m_vertexShaderTemplateGeomMean = Shader::applyGlobalReplacements(m_vertexShaderSourceGeomMean.get());
-	m_fragmentShaderTemplateGeomMean = Shader::applyGlobalReplacements(m_fragmentShaderSourceGeomMean.get());
-	m_fragmentShaderTemplateAOSample = Shader::applyGlobalReplacements(m_fragmentShaderSourceAOSample.get());
-	m_fragmentShaderTemplateAOBlur = Shader::applyGlobalReplacements(m_fragmentShaderSourceAOBlur.get());
 	m_fragmentShaderTemplateShade = Shader::applyGlobalReplacements(m_fragmentShaderSourceShade.get());
 
-
-	// create shader
-	m_vertexShaderSphere = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateSphere.get());
-	m_geometryShaderSphere = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateSphere.get());
-	m_fragmentShaderSphere = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateSphere.get());
-	m_fragmentShaderSpawn = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateSpawn.get());
+	m_vertexShaderPoint = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplatePoint.get());
+	m_fragmentShaderPoint = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplatePoint.get());
 	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateImage.get());
 	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateImage.get());
-	m_fragmentShaderSurface = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateSurface.get());
-	m_fragmentShaderDensityEstimation = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateDensityEstimation.get());
-	m_fragmentShaderGeomMean = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateGeomMean.get());
-	m_vertexShaderGeomMean = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateGeomMean.get());
-	m_fragmentShaderAOSample = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateAOSample.get());
-	m_fragmentShaderAOBlur = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateAOBlur.get());
 	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateShade.get());
 
-	// combine shader to program
-	m_programSphere->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSphere.get());
-	m_programDensityEstimation->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderDensityEstimation.get());
-	m_programSpawn->attach(m_vertexShaderSphere.get(), m_geometryShaderSphere.get(), m_fragmentShaderSpawn.get());
-	m_programSurface->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderSurface.get());
-	m_programAOSample->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderAOSample.get());
-	m_programAOBlur->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderAOBlur.get());
+	m_programPoint->attach(m_vertexShaderPoint.get(), m_fragmentShaderPoint.get());
 	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
-	m_programGeomMean->attach(m_vertexShaderGeomMean.get(), m_fragmentShaderGeomMean.get());
 
 	m_framebufferSize = viewer->viewportSize();
 
-	m_depthTexture = Texture::create(GL_TEXTURE_2D);
-	m_depthTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_depthTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_depthTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_depthTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_depthTexture->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
-
-	m_spherePositionTexture = Texture::create(GL_TEXTURE_2D);
-	m_spherePositionTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_spherePositionTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_spherePositionTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_spherePositionTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_spherePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_sphereNormalTexture = Texture::create(GL_TEXTURE_2D);
-	m_sphereNormalTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_sphereNormalTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_sphereNormalTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_sphereNormalTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_sphereNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_surfacePositionTexture = Texture::create(GL_TEXTURE_2D);
-	m_surfacePositionTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_surfacePositionTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_surfacePositionTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_surfacePositionTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_surfacePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_surfaceNormalTexture = Texture::create(GL_TEXTURE_2D);
-	m_surfaceNormalTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_surfaceNormalTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_surfaceNormalTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_surfaceNormalTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_surfaceNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_sphereDiffuseTexture = Texture::create(GL_TEXTURE_2D);
-	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_sphereDiffuseTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_sphereDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_surfaceDiffuseTexture = Texture::create(GL_TEXTURE_2D);
-	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_surfaceDiffuseTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_surfaceDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_ambientTexture = Texture::create(GL_TEXTURE_2D);
-	m_ambientTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_ambientTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_ambientTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_ambientTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_ambientTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_blurTexture = Texture::create(GL_TEXTURE_2D);
-	m_blurTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_blurTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_blurTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_blurTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_pointChartTexture = Texture::create(GL_TEXTURE_2D);
+	m_pointChartTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_pointChartTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_pointChartTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_pointChartTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_colorTexture = Texture::create(GL_TEXTURE_2D);
 	m_colorTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -191,40 +91,6 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_colorTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_colorTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_offsetTexture = Texture::create(GL_TEXTURE_2D);
-	m_offsetTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_offsetTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_offsetTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_offsetTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
-
-	m_kernelDensityTexture = Texture::create(GL_TEXTURE_2D);
-	m_kernelDensityTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_kernelDensityTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_kernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_pilotKernelDensityTexture = Texture::create(GL_TEXTURE_2D);
-	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);		// GL_TEXTURE_BORDER_COLOR is (0,0,0,0) by default
-	m_pilotKernelDensityTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);		// GL_TEXTURE_BORDER_COLOR is (0,0,0,0) by default
-	m_pilotKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_scatterPlotTexture = Texture::create(GL_TEXTURE_2D);
-	m_scatterPlotTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_scatterPlotTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_scatterPlotTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_scatterPlotTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	m_scatterPlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	m_colorMapTexture = Texture::create(GL_TEXTURE_1D);
-	m_colorMapTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	m_colorMapTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	m_colorMapTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	m_colorMapTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	for (auto& d : std::filesystem::directory_iterator("./dat"))
 	{
@@ -242,53 +108,25 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		}
 	}
 
-	m_sphereFramebuffer = Framebuffer::create();
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_spherePositionTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_sphereNormalTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_kernelDensityTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_scatterPlotTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_COLOR_ATTACHMENT4, m_pilotKernelDensityTexture.get());
-	m_sphereFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_sphereFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 });
-
-	m_surfaceFramebuffer = Framebuffer::create();
-	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_surfacePositionTexture.get());
-	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_surfaceNormalTexture.get());
-	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT2, m_surfaceDiffuseTexture.get());
-	m_surfaceFramebuffer->attachTexture(GL_COLOR_ATTACHMENT3, m_sphereDiffuseTexture.get());
-	m_surfaceFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_surfaceFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 });
+	m_pointFramebuffer = Framebuffer::create();
+	m_pointFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_pointChartTexture.get());
+	m_pointFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_pointFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
 	m_shadeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-
-	m_aoBlurFramebuffer = Framebuffer::create();
-	m_aoBlurFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_blurTexture.get());
-	m_aoBlurFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-
-	m_aoFramebuffer = Framebuffer::create();
-	m_aoFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_ambientTexture.get());
-	m_aoFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 }
 
 std::list<globjects::File*> HexTileRenderer::shaderFiles() const
 {
 	return std::list<globjects::File*>({
 		m_shaderSourceGlobals.get(),
-		m_vertexShaderSourceSphere.get(),
-		m_geometryShaderSourceSphere.get(),
-		m_fragmentShaderSourceSphere.get(),
+		m_vertexShaderSourcePoint.get(),
+		m_fragmentShaderSourcePoint.get(),
 		m_vertexShaderSourceImage.get(),
 		m_geometryShaderSourceImage.get(),
-		m_fragmentShaderSourceDensityEstimation.get(),
-		m_vertexShaderSourceGeomMean.get(),
-		m_fragmentShaderSourceGeomMean.get(),
-		m_fragmentShaderSourceSpawn.get(),
-		m_fragmentShaderSourceSurface.get(),
-		m_fragmentShaderSourceAOSample.get(),
-		m_fragmentShaderSourceAOBlur.get(),
 		m_fragmentShaderSourceShade.get()
 		});
 }
@@ -302,20 +140,8 @@ void HexTileRenderer::display()
 	if (viewer()->viewportSize() != m_framebufferSize)
 	{
 		m_framebufferSize = viewer()->viewportSize();
-		m_offsetTexture->image2D(0, GL_R32UI, m_framebufferSize, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr);
-		m_depthTexture->image2D(0, GL_DEPTH_COMPONENT, m_framebufferSize, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
-		m_spherePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_sphereNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_surfacePositionTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_surfaceNormalTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_surfaceDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_sphereDiffuseTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_ambientTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_blurTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_kernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_pilotKernelDensityTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_scatterPlotTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
 	// retrieve/compute all necessary matrices and related properties
@@ -332,9 +158,6 @@ void HexTileRenderer::display()
 	const mat3 normalMatrix = mat3(transpose(inverseModelViewMatrix));
 	const mat3 inverseNormalMatrix = inverse(normalMatrix);
 	const ivec2 viewportSize = viewer()->viewportSize();
-
-	vec4 worldCameraPosition = inverseModelViewMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	vec4 worldLightPosition = inverseModelLightMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	double mouseX, mouseY;
 	glfwGetCursorPos(viewer()->window(), &mouseX, &mouseY);
@@ -373,394 +196,52 @@ void HexTileRenderer::display()
 
 	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
 
-	m_sphereFramebuffer->bind();
+	// ====================================================================================== FIRST RENDER PASS =======================================================================================
+	m_pointFramebuffer->bind();
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	// make sure points are drawn on top of each other
 	glEnable(GL_DEPTH_TEST);
-
-	// make sure spheres are drawn on top of each other
 	glDepthFunc(GL_ALWAYS);
 
 	// test different blending options interactively: --------------------------------------------------
 	// https://andersriggelsen.dk/glblendfunc.php
 
-	// allow blending for the classical scatter plot color-attachment (3) of the sphere frame-buffer
-	glEnablei(GL_BLEND, 3);
-	glBlendFunci(3, GL_ONE, GL_ONE);
-	glBlendEquationi(3, GL_FUNC_ADD);
+	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_MAX);
+
 	// -------------------------------------------------------------------------------------------------
 
-	m_programSphere->setUniform("modelViewMatrix", modelViewMatrix);
-	m_programSphere->setUniform("projectionMatrix", projectionMatrix);
-	m_programSphere->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	m_programSphere->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
+	m_programPoint->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	// GUI dependent color selection
-	m_programSphere->setUniform("samplePointColor", viewer()->samplePointColor());
-
-	// point radius is dependent on GUI variable "Scatter Plot Scale"
-	m_programSphere->setUniform("radiusScale", m_scatterScale);
-	m_programSphere->setUniform("clipRadiusScale", m_scatterScale);
-	m_programSphere->setUniform("nearPlaneZ", nearPlane.z);
+	m_programPoint->setUniform("pointColor", viewer()->samplePointColor());
 
 	m_vao->bind();
+	m_programPoint->use();
 
-	m_programSphere->use();
 	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-	m_programSphere->release();
 
+	m_programPoint->release();
 	m_vao->unbind();
 
-	// disable blending for draw buffer 3 (classical scatter plot)
-	glDisablei(GL_BLEND, 3);
+	// disable blending for draw buffer 0 (classical scatter plot)
+	glDisablei(GL_BLEND, 0);
 
-
-	
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-	glDepthFunc(GL_ALWAYS);
-	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-	glDepthMask(GL_FALSE);
-
-	if (m_adaptiveKDE)
-	{
-		// allow writing to the pilot density estimation texture/ draw buffer (4) of the sphere frame-buffer
-		glColorMaski(4, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-		// test different blending options interactively: ------------------------------------
-		// https://andersriggelsen.dk/glblendfunc.php
-
-		// allow blending for the pilot KDE estimation color-attachment (4)
-		glEnablei(GL_BLEND, 4);
-		glBlendFunci(4, GL_ONE, GL_ONE);
-		glBlendEquationi(4, GL_FUNC_ADD);
-		// -----------------------------------------------------------------------------------
-
-		m_programDensityEstimation->setUniform("modelViewMatrix", modelViewMatrix);
-		m_programDensityEstimation->setUniform("projectionMatrix", projectionMatrix);
-		m_programDensityEstimation->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-
-		// sphere of influence radius is dependent on GUI variable "Radius-Scale"
-		m_programDensityEstimation->setUniform("radiusScale", m_radiusMultiplier);
-		m_programDensityEstimation->setUniform("clipRadiusScale", m_radiusMultiplier);
-		m_programDensityEstimation->setUniform("nearPlaneZ", nearPlane.z);
-
-		// KDE parameters
-		m_programDensityEstimation->setUniform("sigma2", m_sigma);
-		m_programDensityEstimation->setUniform("gaussScale", m_gaussScale);
-
-		m_vao->bind();
-
-		m_programDensityEstimation->use();
-		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-		m_programDensityEstimation->release();
-
-		m_vao->unbind();
-
-		// disable blending for pilot density estimation (4)
-		glDisablei(GL_BLEND, 4);
-
-
-		// Additional render pass to estimate the geometric mean -----------------------------
-		m_geomMeanBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-
-		const int clearValue = 0;
-		m_geomMeanBuffer->clearSubData(GL_R32UI, 0, sizeof(int), GL_RED_INTEGER, GL_UNSIGNED_INT, &clearValue);
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-		// bind texture containing density from initial pilot density estimation
-		m_pilotKernelDensityTexture->bindActive(0);
-
-		// pilot estimation
-		m_programGeomMean->setUniform("pilotDensityTexture", 0);
-		m_programGeomMean->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-		m_vao->bind();
-
-		m_programGeomMean->use();
-		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-		m_programGeomMean->release();
-
-		m_vao->unbind();
-		// -----------------------------------------------------------------------------------
-
-	}
-
-	// allow writing to the kernel density texture/ draw buffer (2) of the sphere frame-buffer
-	glColorMaski(2, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	m_pointFramebuffer->unbind();
+	m_pointFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	// test different blending options interactively: ------------------------------------
-	// https://andersriggelsen.dk/glblendfunc.php
-
-	// allow blending for the KDE color-attachment (2)
-	glEnablei(GL_BLEND, 2);
-	glBlendFunci(2, GL_ONE, GL_ONE);
-	glBlendEquationi(2, GL_FUNC_ADD);
-	// -----------------------------------------------------------------------------------
-
-	if (m_adaptiveKDE)
-	{
-		// pilot estimation
-		m_programSpawn->setUniform("pilotDensityTexture", 0);
-
-		// window properties
-		m_programSpawn->setUniform("windowWidth", viewer()->m_windowWidth);
-		m_programSpawn->setUniform("windowHeight", viewer()->m_windowHeight);
-
-		//pass number of sample points
-		m_programSpawn->setUniform("samplesCount", (float)vertexCount);
-		m_programSpawn->setUniform("alpha", m_alpha);
-	}
-
-	m_programSpawn->setUniform("modelViewMatrix", modelViewMatrix);
-	m_programSpawn->setUniform("projectionMatrix", projectionMatrix);
-	m_programSpawn->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	m_programSpawn->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-
-	// sphere of influence radius is dependent on GUI variable "Radius-Scale"
-	m_programSpawn->setUniform("radiusScale", m_radiusMultiplier);
-	m_programSpawn->setUniform("clipRadiusScale", m_radiusMultiplier);
-	m_programSpawn->setUniform("nearPlaneZ", nearPlane.z);
-
-	// KDE parameters
-	m_programSpawn->setUniform("sigma2", m_sigma);
-	m_programSpawn->setUniform("gaussScale", m_gaussScale);
-
-	// Focus and Context (mouse position for lens)
-	m_programSpawn->setUniform("focusPosition", focusPosition);
-	m_programSpawn->setUniform("lensSize", m_lensSize);
-	m_programSpawn->setUniform("lensSigma", viewer()->m_scrollWheelSigma);
-
-	// pass aspect ratio to the shader to make sure lens is always a circle and does not degenerate to an ellipse
-	m_programSpawn->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
-
-	m_vao->bind();
-
-	m_programSpawn->use();
-	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-	m_programSpawn->release();
-
-	m_vao->unbind();
-
-	// disable blending for (adaptive) KDE draw buffer (2)
-	glDisablei(GL_BLEND, 2);
-
-	//m_intersectionBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-	if (m_adaptiveKDE)
-	{
-		m_pilotKernelDensityTexture->unbindActive(0);
-		m_geomMeanBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-	}
-
-	m_sphereFramebuffer->unbind();
-
-
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);// GL_TEXTURE_FETCH_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-	m_surfaceFramebuffer->bind();
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glDepthMask(GL_TRUE);
-
-	glClearDepth(1.0f);
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	m_kernelDensityTexture->bindActive(7);
-	m_scatterPlotTexture->bindActive(8);
-
-	// SSBO
-	//m_intersectionBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-	//m_statisticsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
-	m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
-
-	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-	const uint minClearValue = UINT_MAX;
-	const uint maxClearValue = 0;
-
-	// min/ max depth range
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &minClearValue);
-	m_depthRangeBuffer->clearSubData(GL_R32UI, 1 * sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxClearValue);
-	// -------------------------------------------------------------------------------------------------------------------------------------------------------
-
-	m_programSurface->setUniform("modelViewMatrix", modelViewMatrix);
-	m_programSurface->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	m_programSurface->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-
-	m_programSurface->setUniform("kernelDensityTexture", 7);
-	m_programSurface->setUniform("scatterPlotTexture", 8);
-
-	m_vaoQuad->bind();
-
-	m_programSurface->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_programSurface->release();
-
-	m_vaoQuad->unbind();
-
-	//m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-	m_scatterPlotTexture->unbindActive(8);
-	m_kernelDensityTexture->unbindActive(7);
-
-	m_surfaceFramebuffer->unbind();
-
-	if (m_ambientOcclusion)
-	{
-		//performAmbientOcclusion(projectionInfo, viewportSize, projectionScale, modelViewMatrix, worldLightPosition);
-	}
-	
-	performShade(modelViewMatrix, modelViewProjectionMatrix, inverseModelViewProjectionMatrix, normalMatrix, inverseNormalMatrix, worldLightPosition, focusPosition);
-
-	currentState->apply();
-}
-
-/*
-Ambient Occlusion Rendering Pass
-*/
-void HexTileRenderer::performAmbientOcclusion(vec4 projectionInfo, const ivec2 viewportSize, float projectionScale, const mat4 modelViewMatrix, vec4 worldLightPosition) {
-	//glMemoryBarrier(GL_ALL_BARRIER_BITS);
-	m_aoFramebuffer->bind();
-
-	m_programAOSample->setUniform("projectionInfo", projectionInfo);
-	m_programAOSample->setUniform("projectionScale", projectionScale);
-	m_programAOSample->setUniform("viewLightPosition", modelViewMatrix*worldLightPosition);
-	m_programAOSample->setUniform("surfaceNormalTexture", 0);
-	m_programAOSample->setUniform("occlusionIntensity", m_occlusionIntensity);
-	m_programAOSample->setUniform("occlusionRadius", m_occlusionRadius);
-
-	m_surfaceNormalTexture->bindActive(0);
-
-	m_vaoQuad->bind();
-
-	m_programAOSample->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_programAOSample->release();
-
-	m_vaoQuad->unbind();
-
-	m_aoFramebuffer->unbind();
-	//glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-	m_aoBlurFramebuffer->bind();
-	m_programAOBlur->setUniform("normalTexture", 0);
-	m_programAOBlur->setUniform("ambientTexture", 1);
-	m_programAOBlur->setUniform("offset", vec2(1.0f / float(viewportSize.x), 0.0f));
-
-	m_ambientTexture->bindActive(1);
-
-	m_vaoQuad->bind();
-
-	m_programAOBlur->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_programAOBlur->release();
-
-	m_vaoQuad->unbind();
-
-	m_ambientTexture->unbindActive(1);
-	m_aoBlurFramebuffer->unbind();
-	//glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-	m_aoFramebuffer->bind();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	m_programAOBlur->setUniform("offset", vec2(0.0f, 1.0f / float(viewportSize.y)));
-
-	m_blurTexture->bindActive(1);
-
-	m_vaoQuad->bind();
-
-	m_programAOBlur->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_programAOBlur->release();
-
-	m_vaoQuad->unbind();
-
-	m_blurTexture->unbindActive(1);
-	m_surfaceNormalTexture->unbindActive(0);
-
-	m_aoFramebuffer->unbind();
-	//glMemoryBarrier(GL_ALL_BARRIER_BITS);
-}
-
-
-/*
-Shade Rendering Pass
-*/
-void HexTileRenderer::performShade(const mat4 modelViewMatrix, const mat4 modelViewProjectionMatrix, const mat4 inverseModelViewProjectionMatrix, const mat4 normalMatrix,
-	const mat4 inverseNormalMatrix, vec4 worldLightPosition, vec2 focusPosition) {
-
-
-	//glEnable(GL_BLEND);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	// ====================================================================================== SECOND RENDER PASS ======================================================================================
 	m_shadeFramebuffer->bind();
-	glDepthMask(GL_FALSE);
 
-	m_surfacePositionTexture->bindActive(0);
-	m_surfaceNormalTexture->bindActive(1);
-	m_depthTexture->bindActive(2);
-	m_ambientTexture->bindActive(3);
-	m_scatterPlotTexture->bindActive(4);
+	m_pointChartTexture->bindActive(0);
 
-	//m_depthRangeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
-
-	m_programShade->setUniform("modelViewMatrix", modelViewMatrix);
-	m_programShade->setUniform("modelViewProjection", modelViewProjectionMatrix);
-	m_programShade->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
-	m_programShade->setUniform("normalMatrix", normalMatrix);
-	m_programShade->setUniform("inverseNormalMatrix", inverseNormalMatrix);
-
-	// GUI dependent color selection
-	m_programShade->setUniform("samplePointColor", viewer()->samplePointColor());
-	m_programShade->setUniform("backgroundColor", viewer()->backgroundColor());
-	m_programShade->setUniform("contourLineColor", viewer()->contourLineColor());
-	m_programShade->setUniform("lensBorderColor", viewer()->lensBorderColor());
-
-	m_programShade->setUniform("lightPosition", vec3(worldLightPosition));
-	m_programShade->setUniform("ambientMaterial", ambientMaterial);
-	m_programShade->setUniform("diffuseMaterial", diffuseMaterial);
-	m_programShade->setUniform("specularMaterial", specularMaterial);
-	m_programShade->setUniform("shininess", shininess);
-	m_programShade->setUniform("focusPosition", focusPosition);
-	m_programShade->setUniform("opacityScale", m_opacityScale);
-
-
-	m_programShade->setUniform("surfacePositionTexture", 0);
-	m_programShade->setUniform("surfaceNormalTexture", 1);
-	m_programShade->setUniform("depthTexture", 2);
-	m_programShade->setUniform("ambientTexture", 3);
-	m_programShade->setUniform("scatterPlotTexture", 4);
-
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->bindActive(5);
-		m_programShade->setUniform("colorMapTexture", 5);
-		m_programShade->setUniform("textureWidth", m_ColorMapWidth);
-	}
-
-	if (m_blendingFunction == 2)	// DISTANCEBLENDING
-	{
-		m_kernelDensityTexture->bindActive(6);
-		m_programShade->setUniform("kernelDensityTexture", 6);
-	}
-
-	if (m_countourLines)
-	{
-		m_programShade->setUniform("contourCount", m_contourLinesCount);
-		m_programShade->setUniform("contourThickness", m_contourThickness);
-	}
-
-	// focus and context -> draw lens border
-	m_programShade->setUniform("focusPosition", focusPosition);
-	m_programShade->setUniform("lensSize", m_lensSize);
-
-	// pass aspect ratio to the shader to make sure lens is always a circle and does not degenerate to an ellipse
-	m_programShade->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
-	m_programShade->setUniform("windowHeight", viewer()->m_windowHeight);
-	m_programShade->setUniform("windowWidth", viewer()->m_windowWidth);
+	m_programShade->setUniform("pointChartTexture", 0);
 
 	m_vaoQuad->bind();
 
@@ -770,28 +251,13 @@ void HexTileRenderer::performShade(const mat4 modelViewMatrix, const mat4 modelV
 
 	m_vaoQuad->unbind();
 
-	m_depthRangeBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+	m_pointChartTexture->unbindActive(0);
 
-	if (m_blendingFunction == 2)	// DISTANCEBLENDING
-	{
-		m_kernelDensityTexture->unbindActive(6);
-	}
-
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->unbindActive(5);
-	}
-
-	m_scatterPlotTexture->unbindActive(4);
-	m_ambientTexture->unbindActive(3);
-	m_depthTexture->unbindActive(2);
-	m_surfaceNormalTexture->unbindActive(1);
-	m_surfacePositionTexture->unbindActive(0);
-
-	//glDisable(GL_BLEND);
 	m_shadeFramebuffer->unbind();
 
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	
+	currentState->apply();
 }
 
 /*
@@ -801,7 +267,6 @@ void HexTileRenderer::renderGUI() {
 
 	// boolean variable used to automatically update the data
 	static bool dataChanged = false;
-
 	ImGui::Begin("Illuminated Point Plots");
 
 	if (ImGui::CollapsingHeader("CSV-Files"), ImGuiTreeNodeFlags_DefaultOpen)
@@ -860,25 +325,16 @@ void HexTileRenderer::renderGUI() {
 
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
-
+			vertexBinding->setAttribute(0);
 			vertexBinding->setBuffer(m_xColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(0);
 
 			vertexBinding = m_vao->binding(1);
+			vertexBinding->setAttribute(1);
 			vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
-
-			vertexBinding = m_vao->binding(2);
-			vertexBinding->setBuffer(m_radiusColumnBuffer.get(), 0, sizeof(float));
-			vertexBinding->setFormat(1, GL_FLOAT);
-			m_vao->enable(2);
-
-			vertexBinding = m_vao->binding(3);
-			vertexBinding->setBuffer(m_colorColumnBuffer.get(), 0, sizeof(float));
-			vertexBinding->setFormat(1, GL_FLOAT);
-			m_vao->enable(3);
 			// -------------------------------------------------------------------------------
 
 
@@ -900,115 +356,14 @@ void HexTileRenderer::renderGUI() {
 			//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		}
 
+		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
+		{
+			ImGui::SliderFloat("Hexagon Size", &m_hexSize, 1.0f, 512.0f);	
+		}
+
 		// update status
 		dataChanged = false;
 	}
-
-	if (ImGui::CollapsingHeader("Kernel Density Estimation"))
-	{
-		ImGui::SliderFloat("Radius-Scale", &m_radiusMultiplier, 0.001f, 256.0f);
-		ImGui::SliderFloat("Gauss-Scale", &m_gaussScale, 0.01f, 1.0f);
-		ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 500.0f);
-		ImGui::SliderFloat("Alpha", &m_alpha, 0.01f, 1.0f);
-
-		// section for adaptive kernels
-		ImGui::Checkbox("Zoom-Dependent Kernel", &m_adaptKernel);
-		ImGui::Checkbox("Adaptive Density Estimation", &m_adaptiveKDE);
-	}
-
-	if (ImGui::CollapsingHeader("Lighting"), ImGuiTreeNodeFlags_DefaultOpen)
-	{
-		ImGui::ColorEdit3("Ambient", (float*)&ambientMaterial);
-		ImGui::ColorEdit3("Diffuse", (float*)&diffuseMaterial);
-		ImGui::ColorEdit3("Specular", (float*)&specularMaterial);
-		ImGui::SliderFloat("Shininess", &shininess, 1.0f, 256.0f);
-		ImGui::SliderFloat("SSAO Intensity", &m_occlusionIntensity, 0.01f, 128.0f);
-		ImGui::SliderFloat("SSAO Radius", &m_occlusionRadius, 0.01f, 1.0f);
-		ImGui::Checkbox("Surface Illumination", &m_surfaceIllumination);
-		ImGui::Checkbox("Ambient Occlusion Enabled", &m_ambientOcclusion);
-	}
-
-	if (ImGui::CollapsingHeader("Color Maps"), ImGuiTreeNodeFlags_DefaultOpen)
-	{
-		// show all available color-maps
-		ImGui::Combo("Maps", &m_colorMap, "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
-
-		// allow the user to load a discrete version of the color map
-		ImGui::Checkbox("GUI Heatmap", &m_heatMapGUI);
-		ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap);
-
-		// load new texture if either the texture has changed or the type has changed from discrete to continuous or vice versa
-		if (m_colorMap != m_oldColorMap || m_discreteMap != m_oldDiscreteMap)
-		{
-			if (m_colorMap > 0) {
-				std::vector<std::string> colorMapFilenames = { "./dat/colormaps/bone_1D.png", "./dat/colormaps/cubehelix_1D.png", "./dat/colormaps/gist_earth_1D.png",  "./dat/colormaps/gnuplot2_1D.png" ,
-					"./dat/colormaps/grey_1D.png", "./dat/colormaps/inferno_1D.png", "./dat/colormaps/magma_1D.png", "./dat/colormaps/plasma_1D.png", "./dat/colormaps/PuBuGn_1D.png",
-					"./dat/colormaps/rainbow_1D.png", "./dat/colormaps/summer_1D.png", "./dat/colormaps/virdis_1D.png", "./dat/colormaps/winter_1D.png", "./dat/colormaps/wista_1D.png", "./dat/colormaps/YlGnBu_1D.png",
-					"./dat/colormaps/YlOrRd_1D.png" };
-
-				uint colorMapWidth, colorMapHeight;
-				std::vector<unsigned char> colorMapImage;
-
-				std::string textureName = colorMapFilenames[m_colorMap - 1];
-
-				if (m_discreteMap)
-				{
-					std::string fileExtension = "_discrete7";
-
-					// insert the discrete identifier "_discrete7" before the file extension ".png"
-					textureName.insert(textureName.length() - 4, fileExtension);
-				}
-
-				uint error = lodepng::decode(colorMapImage, colorMapWidth, colorMapHeight, textureName);
-
-				if (error)
-					globjects::debug() << "Could not load " << colorMapFilenames[m_colorMap - 1] << "!";
-				else
-				{
-					m_colorMapTexture->image1D(0, GL_RGBA, colorMapWidth, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&colorMapImage.front());
-					m_colorMapTexture->generateMipmap();
-
-					// store width of texture and mark as loaded
-					m_ColorMapWidth = colorMapWidth;
-					m_colorMapLoaded = true;
-				}
-			}
-			else
-			{
-				// disable color map
-				m_colorMapLoaded = false;
-			}
-
-			// update status
-			m_oldColorMap = m_colorMap;
-			m_oldDiscreteMap = m_discreteMap;
-		}
-	}
-
-	if (ImGui::CollapsingHeader("Blending Function"), ImGuiTreeNodeFlags_DefaultOpen)
-	{
-		ImGui::Combo("Blending", &m_blendingFunction, "None\0CurvatureBased\0DistanceBased\0NormalBased\0ScatterPlot\0");
-		ImGui::Combo("Color Scheme", &m_colorScheme, "None\0Scheme1\0Scheme2\0");
-
-		ImGui::SliderFloat("Scatter Plot Scale", &m_scatterScale, 0.001f, 10.0f);
-		ImGui::SliderFloat("Opacity Scale", &m_opacityScale, 0.001f, 1.0f);
-		ImGui::Checkbox("Invert Function", &m_invertFunction);
-	}
-
-	if (ImGui::CollapsingHeader("Contour Lines"))
-	{
-		ImGui::Checkbox("Iso-Contours", &m_countourLines);
-		ImGui::SliderInt("Number of Contours", &m_contourLinesCount, 1, 25);
-		ImGui::SliderFloat("Contour Thickness", &m_contourThickness, 0.001f, 0.1f);
-	}
-
-	if (ImGui::CollapsingHeader("Magic Lens"))
-	{
-		ImGui::Checkbox("Enable Lens", &m_lenseEnabled);
-		ImGui::SliderFloat("Lens Size", &m_lensSize, 0.1f, 0.5f);
-		ImGui::SliderFloat("Lens Sigma", &viewer()->m_scrollWheelSigma, 0.1f, 1.0f);
-	}
-
 	ImGui::End();
 }
 
@@ -1019,43 +374,10 @@ Gathers all #define, sets them in the shaders an reloads them
 void HexTileRenderer::setShaderDefines() {
 	std::string defines = "";
 
-	if (m_lenseEnabled)
-		defines += "#define LENSING\n";
-
-	if (m_ambientOcclusion)
-		defines += "#define AMBIENT\n";
 
 	if (m_colorMapLoaded)
 		defines += "#define COLORMAP\n";
 
-	if (m_surfaceIllumination)
-		defines += "#define ILLUMINATION\n";
-
-	if (m_colorScheme == 1)
-		defines += "#define COLORSCHEME1\n";
-	else if (m_colorScheme == 2)
-		defines += "#define COLORSCHEME2\n";
-
-	if (m_blendingFunction == 1)
-		defines += "#define CURVEBLENDING\n";
-	else if (m_blendingFunction == 2)
-		defines += "#define DISTANCEBLENDING\n";
-	else if (m_blendingFunction == 3)
-		defines += "#define NORMALBLENDING\n";
-	else if (m_blendingFunction == 4)
-		defines += "#define SCATTERPLOT\n";
-
-	if (m_invertFunction)
-		defines += "#define INVERTFUNCTION\n";
-
-	if (m_adaptKernel)
-		defines += "#define ADAPTIVEKERNEL\n";
-
-	if (m_adaptiveKDE)
-		defines += "#define ADAPTIVEKDE\n";
-
-	if (m_countourLines)
-		defines += "#define CONTOURLINES\n";
 
 	if (m_colorMapLoaded && m_heatMapGUI)
 		defines += "#define HEATMAP_GUI\n";
