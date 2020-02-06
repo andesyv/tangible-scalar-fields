@@ -33,17 +33,25 @@ namespace molumes
 		virtual std::list<globjects::File*> shaderFiles() const;
 
 	private:
+
+		
+		// INITIAL POINT DATA ----------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vao = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_xColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_yColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_radiusColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_colorColumnBuffer = std::make_unique<globjects::Buffer>();
+		//---------------------------------------------------------------------------------------
 
+		// QUAD VERTEX DATA -------------------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vaoQuad = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
+		//---------------------------------------------------------------------------------------
 
+		// SHADER PROGRAMS -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Program> m_programPoint = std::make_unique<globjects::Program>();
 		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
+		//---------------------------------------------------------------------------------------
 
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
@@ -87,7 +95,7 @@ namespace molumes
 
 		glm::ivec2 m_framebufferSize;
 
-		
+
 		// LIGHTING -----------------------------------------------------------------------
 		glm::vec3 ambientMaterial;
 		glm::vec3 diffuseMaterial;
@@ -95,6 +103,14 @@ namespace molumes
 		float shininess;
 		// --------------------------------------------------------------------------------
 
+		// HEXAGON CALC -------------------------------------------------------------------
+
+		int m_hexRows = 0;
+		int m_hexCols = 0;
+
+		void calculateNumberOfHexagons();
+
+		// ------------------------------------------------------------------------------------------
 
 		// GUI ----------------------------------------------------------------------------
 

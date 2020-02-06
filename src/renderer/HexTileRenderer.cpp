@@ -197,6 +197,7 @@ void HexTileRenderer::display()
 	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
 
 	// ====================================================================================== FIRST RENDER PASS =======================================================================================
+
 	m_pointFramebuffer->bind();
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -235,8 +236,21 @@ void HexTileRenderer::display()
 	m_pointFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
 	// ====================================================================================== SECOND RENDER PASS ======================================================================================
+	// RENDER EMPTY HEXAGONS
+	calculateNumberOfHexagons();
+
+	// TODO STEP1:
+	// create Hexagon Shader pipeline with empty shaders
+	// create rows*cols vertices with coordinates (row,col,0) and send them to vertex shader
+	// in vertex shader caluclate correct position for each hexagon center
+	// render those points
+
+	//TODO STEP2:
+	// implement geometry shader and render hexagon lines
+	// think about, if we can maybe omit duplicate line rendering
+
+	// ====================================================================================== THIRD RENDER PASS ======================================================================================
 	m_shadeFramebuffer->bind();
 
 	m_pointChartTexture->bindActive(0);
@@ -256,10 +270,39 @@ void HexTileRenderer::display()
 	m_shadeFramebuffer->unbind();
 
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-	
+
 	currentState->apply();
 }
 
+// --------------------------------------------------------------------------------------
+// ###########################  HEXAGON CALC ############################################
+// --------------------------------------------------------------------------------------
+
+void HexTileRenderer::calculateNumberOfHexagons() {
+
+	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
+	// we assume flat topped hexagons
+	// we use "Doubled Coordinates" and count the vertical space per index => height/2 instead of height
+	ivec2 viewportSize = viewer()->viewportSize();
+	float horizontal_space = m_hexSize * 1.5f;
+	float vertical_space = (sqrt(3)*m_hexSize) / 2.0f;
+
+	float cols_tmp = viewportSize.x / horizontal_space;
+	m_hexCols = floor(cols_tmp);
+	if ((cols_tmp - m_hexCols) * horizontal_space > m_hexSize / 2.0f) {
+		m_hexCols += 1;
+	}
+
+	float rows_tmp = viewportSize.y / vertical_space;
+	m_hexRows = floor(rows_tmp);
+	if ((rows_tmp - m_hexRows) > 0) {
+		m_hexRows += 1;
+	}
+}
+
+// --------------------------------------------------------------------------------------
+// ###########################  GUI ##################################################### 
+// --------------------------------------------------------------------------------------
 /*
 Renders the User interface
 */
@@ -358,7 +401,7 @@ void HexTileRenderer::renderGUI() {
 
 		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
-			ImGui::SliderFloat("Hexagon Size", &m_hexSize, 1.0f, 512.0f);	
+			ImGui::SliderFloat("Hexagon Size", &m_hexSize, 1.0f, 512.0f);
 		}
 
 		// update status
