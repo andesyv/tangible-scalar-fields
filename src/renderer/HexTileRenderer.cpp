@@ -55,35 +55,64 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shaderSourceGlobals = File::create("./res/hexagon/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
 
+	//load source files
 	m_vertexShaderSourcePoint = Shader::sourceFromFile("./res/hexagon/point-vs.glsl");
 	m_fragmentShaderSourcePoint = Shader::sourceFromFile("./res/hexagon/point-fs.glsl");
+	//
+	m_vertexShaderSourceHex = Shader::sourceFromFile("./res/hexagon/hexagon-vs.glsl");
+	m_geometryShaderSourceHex = Shader::sourceFromFile("./res/hexagon/hexagon-gs.glsl");
+	m_fragmentShaderSourceHex = Shader::sourceFromFile("./res/hexagon/hexagon-fs.glsl");
+	//
 	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/hexagon/image-vs.glsl");
 	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/hexagon/image-gs.glsl");
 	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/hexagon/shade-fs.glsl");
 
+	// create templates
 	m_vertexShaderTemplatePoint = Shader::applyGlobalReplacements(m_vertexShaderSourcePoint.get());
 	m_fragmentShaderTemplatePoint = Shader::applyGlobalReplacements(m_fragmentShaderSourcePoint.get());
+	//
+	m_vertexShaderTemplateHex = Shader::applyGlobalReplacements(m_vertexShaderSourceHex.get());
+	m_geometryShaderTemplateHex = Shader::applyGlobalReplacements(m_geometryShaderSourceHex.get());
+	m_fragmentShaderTemplateHex = Shader::applyGlobalReplacements(m_fragmentShaderSourceHex.get());
+	//
 	m_vertexShaderTemplateImage = Shader::applyGlobalReplacements(m_vertexShaderSourceImage.get());
 	m_geometryShaderTemplateImage = Shader::applyGlobalReplacements(m_geometryShaderSourceImage.get());
 	m_fragmentShaderTemplateShade = Shader::applyGlobalReplacements(m_fragmentShaderSourceShade.get());
 
+	// create Shader
 	m_vertexShaderPoint = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplatePoint.get());
 	m_fragmentShaderPoint = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplatePoint.get());
+	//
+	m_vertexShaderHex = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateHex.get());
+	m_geometryShaderHex = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateHex.get());
+	m_fragmentShaderHex = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateHex.get());
+	//
 	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateImage.get());
 	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateImage.get());
 	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateShade.get());
 
+	// attach shader to program
 	m_programPoint->attach(m_vertexShaderPoint.get(), m_fragmentShaderPoint.get());
+	m_programHex->attach(m_vertexShaderHex.get(), m_geometryShaderHex.get(), m_fragmentShaderHex.get());
+	//m_programHex->attach(m_vertexShaderHex.get(), m_fragmentShaderHex.get());
 	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
 
 	m_framebufferSize = viewer->viewportSize();
 
+	// init textures
 	m_pointChartTexture = Texture::create(GL_TEXTURE_2D);
 	m_pointChartTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	m_pointChartTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	m_pointChartTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_pointChartTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_hexTilesTexture = Texture::create(GL_TEXTURE_2D);
+	m_hexTilesTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_hexTilesTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_hexTilesTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_hexTilesTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_colorTexture = Texture::create(GL_TEXTURE_2D);
 	m_colorTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -108,10 +137,16 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		}
 	}
 
+	// create Framebuffer
 	m_pointFramebuffer = Framebuffer::create();
 	m_pointFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_pointChartTexture.get());
 	m_pointFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_pointFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 });
+	m_pointFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+
+	m_hexFramebuffer = Framebuffer::create();
+	m_hexFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_hexTilesTexture.get());
+	m_hexFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_hexFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
@@ -233,13 +268,10 @@ void HexTileRenderer::display()
 	glDisablei(GL_BLEND, 0);
 
 	m_pointFramebuffer->unbind();
-	m_pointFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== SECOND RENDER PASS ======================================================================================
 	// RENDER EMPTY HEXAGONS
-	calculateNumberOfHexagons();
-
 	// TODO STEP1:
 	// create Hexagon Shader pipeline with empty shaders
 	// create rows*cols vertices with coordinates (row,col,0) and send them to vertex shader
@@ -250,12 +282,59 @@ void HexTileRenderer::display()
 	// implement geometry shader and render hexagon lines
 	// think about, if we can maybe omit duplicate line rendering
 
+
+	calculateNumberOfHexagons();
+
+	//TMP
+	int numberOfHex = 20;
+	std::vector<float> m_HexCenters(numberOfHex, 0.0f);
+
+	m_verticesHex->setData(m_HexCenters, GL_STATIC_DRAW);
+	auto vertexBinding = m_vaoHex->binding(0);
+	vertexBinding->setAttribute(0);
+	vertexBinding->setBuffer(m_verticesHex.get(), 0, sizeof(float));
+	vertexBinding->setFormat(1, GL_FLOAT);
+	m_vaoHex->enable(0);
+	//TMP-END
+
+	m_hexFramebuffer->bind();
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_MAX);
+
+	m_programHex->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	m_programHex->setUniform("pointColor", vec3(1.0f, 1.0f, 1.0f));
+
+	m_programHex->setUniform("horizontal_space", horizontal_space);
+	m_programHex->setUniform("vertical_space", vertical_space);
+	m_programHex->setUniform("hexSize", m_hexSize);
+
+	m_vaoHex->bind();
+
+	m_programHex->use();
+
+	m_vaoHex->drawArrays(GL_POINTS, 0, numberOfHex);
+
+	m_programHex->release();
+	m_vaoHex->unbind();
+
+	// disable blending for draw buffer 0 (classical scatter plot)
+	glDisablei(GL_BLEND, 0);
+
+	m_hexFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
 	// ====================================================================================== THIRD RENDER PASS ======================================================================================
 	m_shadeFramebuffer->bind();
 
-	m_pointChartTexture->bindActive(0);
+	m_hexTilesTexture->bindActive(0);
 
-	m_programShade->setUniform("pointChartTexture", 0);
+	m_programShade->setUniform("hexTilesTexture", 0);
 
 	m_vaoQuad->bind();
 
@@ -265,7 +344,7 @@ void HexTileRenderer::display()
 
 	m_vaoQuad->unbind();
 
-	m_pointChartTexture->unbindActive(0);
+	m_hexTilesTexture->unbindActive(0);
 
 	m_shadeFramebuffer->unbind();
 
@@ -284,8 +363,8 @@ void HexTileRenderer::calculateNumberOfHexagons() {
 	// we assume flat topped hexagons
 	// we use "Doubled Coordinates" and count the vertical space per index => height/2 instead of height
 	ivec2 viewportSize = viewer()->viewportSize();
-	float horizontal_space = m_hexSize * 1.5f;
-	float vertical_space = (sqrt(3)*m_hexSize) / 2.0f;
+	horizontal_space = m_hexSize * 1.5f;
+	vertical_space = (sqrt(3)*m_hexSize) / 2.0f;
 
 	float cols_tmp = viewportSize.x / horizontal_space;
 	m_hexCols = floor(cols_tmp);
@@ -352,8 +431,6 @@ void HexTileRenderer::renderGUI() {
 		ImGui::Text("Selected Columns:");
 		ImGui::Combo("X-axis", &m_xAxisDataID, m_guiColumnNames.c_str());
 		ImGui::Combo("Y-axis", &m_yAxisDataID, m_guiColumnNames.c_str());
-		ImGui::Combo("Radius", &m_radiusDataID, m_guiColumnNames.c_str());
-		ImGui::Combo("Color", &m_colorDataID, m_guiColumnNames.c_str());
 
 		if (ImGui::Button("Update") || dataChanged)
 		{
@@ -401,7 +478,7 @@ void HexTileRenderer::renderGUI() {
 
 		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
-			ImGui::SliderFloat("Hexagon Size", &m_hexSize, 1.0f, 512.0f);
+			ImGui::SliderFloat("Hexagon Size", &m_hexSize, 1.0f, 50.0f);
 		}
 
 		// update status
