@@ -7,6 +7,7 @@ layout(points) in;
 layout(line_strip, max_vertices = N+1) out;
 
 uniform float hexSize;
+uniform mat4 rotation;
 uniform mat4 modelViewProjectionMatrix;
 
 const float PI = 3.1415926;
@@ -20,7 +21,8 @@ void main()
 	    for (int i = 0; i <= N; i++) {
 		
 			//flat-topped
-			angle_rad = PI * 2.0 / N * i;
+			float angle_deg = 60 * i;
+   			float angle_rad = PI / 180 * angle_deg;
 
 			// Offset from center of point
         	offset = vec4(hexSize * cos(angle_rad), hexSize*sin(angle_rad), 0.0, 0.0);

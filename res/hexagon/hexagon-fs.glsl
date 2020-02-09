@@ -3,9 +3,9 @@
 
 layout (location = 0) out vec4 hexTilesTexture;
 
-uniform vec3 pointColor;
+uniform vec3 hexBorderColor;
 
 void main()
 {
-	hexTilesTexture = vec4(pointColor, 1.0f);
+	hexTilesTexture = vec4(hexBorderColor, 1.0f);
 }

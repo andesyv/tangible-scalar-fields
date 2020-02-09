@@ -272,19 +272,12 @@ void HexTileRenderer::display()
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== SECOND RENDER PASS ======================================================================================
 	// RENDER EMPTY HEXAGONS
-	// TODO STEP1:
-	// create Hexagon Shader pipeline with empty shaders
-	// create rows*cols vertices with coordinates (row,col,0) and send them to vertex shader
-	// in vertex shader caluclate correct position for each hexagon center
-	// render those points
-
-	//TODO STEP2:
-	// implement geometry shader and render hexagon lines
+	// TODO
 	// think about, if we can maybe omit duplicate line rendering
+	// fix bug with wrong line starts
 
 	m_hexFramebuffer->bind();
 	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnablei(GL_BLEND, 0);
@@ -295,14 +288,19 @@ void HexTileRenderer::display()
 		calculateNumberOfHexagons();
 	}
 
+	// create rotation matrix
+
 	m_programHex->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	m_programHex->setUniform("pointColor", vec3(1.0f, 1.0f, 1.0f));
+	m_programHex->setUniform("hexBorderColor", vec3(1.0f, 1.0f, 1.0f));
 
 	m_programHex->setUniform("horizontal_space", horizontal_space);
 	// divide by 2 because we use double-height coordinates in vertex shader
-	m_programHex->setUniform("vertical_space", vertical_space/2.0f);
+	m_programHex->setUniform("vertical_space", vertical_space / 2.0f);
 	m_programHex->setUniform("num_cols", m_hexCols);
+	m_programHex->setUniform("data_offset", vec2(viewer()->scene()->table()->minimumBounds()));
+	
 	m_programHex->setUniform("hexSize", m_hexSize);
+	//m_programHex->setUniform("rotation", m_hexRot);
 
 	m_vaoHex->bind();
 
@@ -323,9 +321,11 @@ void HexTileRenderer::display()
 	// ====================================================================================== THIRD RENDER PASS ======================================================================================
 	m_shadeFramebuffer->bind();
 
-	m_hexTilesTexture->bindActive(0);
+	m_pointChartTexture->bindActive(0);
+	m_hexTilesTexture->bindActive(1);
 
-	m_programShade->setUniform("hexTilesTexture", 0);
+	m_programShade->setUniform("pointChartTexture", 0);
+	m_programShade->setUniform("hexTilesTexture", 1);
 
 	m_vaoQuad->bind();
 
@@ -335,7 +335,8 @@ void HexTileRenderer::display()
 
 	m_vaoQuad->unbind();
 
-	m_hexTilesTexture->unbindActive(0);
+	m_pointChartTexture->unbindActive(1);
+	m_hexTilesTexture->unbindActive(1);
 
 	m_shadeFramebuffer->unbind();
 
@@ -356,19 +357,20 @@ void HexTileRenderer::calculateNumberOfHexagons() {
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
-	ivec2 viewportSize = viewer()->viewportSize();
+	vec3 boundingBoxSize = viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
 	horizontal_space = m_hexSize * 1.5f;
 	vertical_space = sqrt(3)*m_hexSize;
 
-	float cols_tmp = viewportSize.x / horizontal_space;
+	//+1 because else the floor operation could return 0
+	float cols_tmp = 1 + (boundingBoxSize.x / horizontal_space);
 	m_hexCols = floor(cols_tmp);
-	if ((cols_tmp - m_hexCols) * horizontal_space > m_hexSize / 2.0f) {
+	if ((cols_tmp - m_hexCols) * horizontal_space >= m_hexSize / 2.0f) {
 		m_hexCols += 1;
 	}
 
-	float rows_tmp = viewportSize.y / vertical_space;
+	float rows_tmp = 1 + (boundingBoxSize.y / vertical_space);
 	m_hexRows = floor(rows_tmp);
-	if ((rows_tmp - m_hexRows) > 0) {
+	if ((rows_tmp - m_hexRows) * vertical_space >= vertical_space / 2) {
 		m_hexRows += 1;
 	}
 
@@ -461,6 +463,8 @@ void HexTileRenderer::renderGUI() {
 			vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
+
+			calculateNumberOfHexagons();
 			// -------------------------------------------------------------------------------
 
 
@@ -484,7 +488,8 @@ void HexTileRenderer::renderGUI() {
 
 		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
-			ImGui::SliderFloat("Hexagon Size", &m_hexSize_tmp, 1.0f, 50.0f);
+			ImGui::SliderFloat("Size", &m_hexSize_tmp, 5.0f, 200.0f);
+			ImGui::SliderFloat("Rotation", &m_hexRot, 0.0f, 60.0f);
 		}
 
 		// update status

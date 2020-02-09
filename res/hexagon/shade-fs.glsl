@@ -7,11 +7,16 @@ in vec4 gFragmentPosition;
 out vec4 fragColor;
 
 // texture for blending surface and classical line chart
+uniform sampler2D pointChartTexture;
 uniform sampler2D hexTilesTexture;
 
 void main()
 {
-    fragColor = texelFetch(hexTilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+
+    vec4 hexCol = texelFetch(hexTilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+    vec4 pointCol = texelFetch(pointChartTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+
+    fragColor = max(hexCol, pointCol);
 }
 
 

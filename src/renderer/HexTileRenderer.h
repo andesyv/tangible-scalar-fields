@@ -170,8 +170,10 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Hexagon Parameters
-		float m_hexSize = 0.0f;
-		float m_hexSize_tmp = 20.0f;
+		float m_hexSize = 20.0f;
+		float m_hexSize_tmp = m_hexSize;
+
+		float m_hexRot = 0.0f;
 		// ------------------------------------------------------------------------------------------
 	};
 

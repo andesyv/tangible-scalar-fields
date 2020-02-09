@@ -7,18 +7,20 @@ layout(location = 0) in float xValue;
 uniform float horizontal_space;
 uniform float vertical_space;
 uniform int num_cols;
+uniform vec2 data_offset;
 
 void main()
 {
-	float col;
-	float row = mod(gl_VertexID,num_cols);
+	//calculate position of hexagon center
+	float row;
+	float col = mod(gl_VertexID,num_cols);
 
-	if(mod(row,2) == 0){
-		col = floor(gl_VertexID/num_cols) * 2;
+	if(mod(col,2) == 0){
+		row = floor(gl_VertexID/num_cols) * 2;
 	}
 	else{
-		col = (floor(gl_VertexID/num_cols) * 2) + 1;
+		row = (floor(gl_VertexID/num_cols) * 2) + 1;
 	}
 
-	gl_Position = vec4(col * horizontal_space, row * vertical_space, 0.0f, 1.0f);
+	gl_Position =  vec4(col * horizontal_space + data_offset.x, row * vertical_space + data_offset.y, 0.0f, 1.0f);
 }
