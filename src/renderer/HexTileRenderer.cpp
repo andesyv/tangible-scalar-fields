@@ -284,11 +284,12 @@ void HexTileRenderer::display()
 	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquationi(0, GL_MAX);
 
-	if (m_hexSize != m_hexSize_tmp) {
+	if (hexSize != m_hexSize_tmp) {
 		calculateNumberOfHexagons();
 	}
-
-	// create rotation matrix
+	if (hexRot != m_hexRot_tmp) {
+		setRotationMatrix();
+	}
 
 	m_programHex->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programHex->setUniform("hexBorderColor", vec3(1.0f, 1.0f, 1.0f));
@@ -298,9 +299,9 @@ void HexTileRenderer::display()
 	m_programHex->setUniform("vertical_space", vertical_space / 2.0f);
 	m_programHex->setUniform("num_cols", m_hexCols);
 	m_programHex->setUniform("data_offset", vec2(viewer()->scene()->table()->minimumBounds()));
-	
-	m_programHex->setUniform("hexSize", m_hexSize);
-	//m_programHex->setUniform("rotation", m_hexRot);
+
+	m_programHex->setUniform("hexSize", hexSize);
+	m_programHex->setUniform("rotation", hexRotMat);
 
 	m_vaoHex->bind();
 
@@ -352,19 +353,19 @@ void HexTileRenderer::display()
 void HexTileRenderer::calculateNumberOfHexagons() {
 
 	// set new size
-	m_hexSize = m_hexSize_tmp;
+	hexSize = m_hexSize_tmp;
 
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
 	vec3 boundingBoxSize = viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
-	horizontal_space = m_hexSize * 1.5f;
-	vertical_space = sqrt(3)*m_hexSize;
+	horizontal_space = hexSize * 1.5f;
+	vertical_space = sqrt(3)*hexSize;
 
 	//+1 because else the floor operation could return 0
 	float cols_tmp = 1 + (boundingBoxSize.x / horizontal_space);
 	m_hexCols = floor(cols_tmp);
-	if ((cols_tmp - m_hexCols) * horizontal_space >= m_hexSize / 2.0f) {
+	if ((cols_tmp - m_hexCols) * horizontal_space >= hexSize / 2.0f) {
 		m_hexCols += 1;
 	}
 
@@ -385,6 +386,19 @@ void HexTileRenderer::calculateNumberOfHexagons() {
 	vertexBinding->setBuffer(m_verticesHex.get(), 0, sizeof(float));
 	vertexBinding->setFormat(1, GL_FLOAT);
 	m_vaoHex->enable(0);
+}
+
+void HexTileRenderer::setRotationMatrix() {
+	// TODO: rotation
+	// when rotating, we cannot longer use a rectangular grid, because points will fall outside
+	// talk with thomas about possible solution
+	hexRot = m_hexRot_tmp;
+
+	vec3 minPos = viewer()->scene()->table()->minimumBounds();
+	hexRotMat = glm::mat4(1);
+	hexRotMat = glm::translate(hexRotMat, minPos);
+	hexRotMat = glm::rotate(hexRotMat, glm::pi<float>() / 180 * hexRot, glm::vec3(0.0f, 0.0f, 1.0f));
+	hexRotMat = glm::translate(hexRotMat, -minPos);
 }
 
 // --------------------------------------------------------------------------------------
@@ -465,6 +479,7 @@ void HexTileRenderer::renderGUI() {
 			m_vao->enable(1);
 
 			calculateNumberOfHexagons();
+			setRotationMatrix();
 			// -------------------------------------------------------------------------------
 
 
@@ -489,7 +504,7 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::SliderFloat("Size", &m_hexSize_tmp, 5.0f, 200.0f);
-			ImGui::SliderFloat("Rotation", &m_hexRot, 0.0f, 60.0f);
+			ImGui::SliderFloat("Rotation", &m_hexRot_tmp, 0.0f, 60.0f);
 		}
 
 		// update status

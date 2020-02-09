@@ -137,8 +137,12 @@ namespace molumes
 		int m_hexCount = 0;
 		float horizontal_space = 0.0f;
 		float vertical_space = 0.0f;
+		float hexSize = 20.0f;
+		float hexRot = 0.0f;
+		glm::mat4 hexRotMat = glm::mat4(1.0f);
 
 		void calculateNumberOfHexagons();
+		void setRotationMatrix();
 
 		// ------------------------------------------------------------------------------------------
 
@@ -170,10 +174,9 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Hexagon Parameters
-		float m_hexSize = 20.0f;
-		float m_hexSize_tmp = m_hexSize;
+		float m_hexSize_tmp = hexSize;
 
-		float m_hexRot = 0.0f;
+		float m_hexRot_tmp = hexRot;
 		// ------------------------------------------------------------------------------------------
 	};
 
