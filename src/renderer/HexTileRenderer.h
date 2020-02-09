@@ -134,6 +134,7 @@ namespace molumes
 
 		int m_hexRows = 0;
 		int m_hexCols = 0;
+		int m_hexCount = 0;
 		float horizontal_space = 0.0f;
 		float vertical_space = 0.0f;
 
@@ -169,7 +170,8 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Hexagon Parameters
-		float m_hexSize = 20.0f;
+		float m_hexSize = 0.0f;
+		float m_hexSize_tmp = 20.0f;
 		// ------------------------------------------------------------------------------------------
 	};
 

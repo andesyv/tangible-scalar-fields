@@ -282,21 +282,6 @@ void HexTileRenderer::display()
 	// implement geometry shader and render hexagon lines
 	// think about, if we can maybe omit duplicate line rendering
 
-
-	calculateNumberOfHexagons();
-
-	//TMP
-	int numberOfHex = 20;
-	std::vector<float> m_HexCenters(numberOfHex, 0.0f);
-
-	m_verticesHex->setData(m_HexCenters, GL_STATIC_DRAW);
-	auto vertexBinding = m_vaoHex->binding(0);
-	vertexBinding->setAttribute(0);
-	vertexBinding->setBuffer(m_verticesHex.get(), 0, sizeof(float));
-	vertexBinding->setFormat(1, GL_FLOAT);
-	m_vaoHex->enable(0);
-	//TMP-END
-
 	m_hexFramebuffer->bind();
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -306,18 +291,24 @@ void HexTileRenderer::display()
 	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquationi(0, GL_MAX);
 
+	if (m_hexSize != m_hexSize_tmp) {
+		calculateNumberOfHexagons();
+	}
+
 	m_programHex->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	m_programHex->setUniform("pointColor", vec3(1.0f, 1.0f, 1.0f));
 
 	m_programHex->setUniform("horizontal_space", horizontal_space);
-	m_programHex->setUniform("vertical_space", vertical_space);
+	// divide by 2 because we use double-height coordinates in vertex shader
+	m_programHex->setUniform("vertical_space", vertical_space/2.0f);
+	m_programHex->setUniform("num_cols", m_hexCols);
 	m_programHex->setUniform("hexSize", m_hexSize);
 
 	m_vaoHex->bind();
 
 	m_programHex->use();
 
-	m_vaoHex->drawArrays(GL_POINTS, 0, numberOfHex);
+	m_vaoHex->drawArrays(GL_POINTS, 0, m_hexCount);
 
 	m_programHex->release();
 	m_vaoHex->unbind();
@@ -359,12 +350,15 @@ void HexTileRenderer::display()
 
 void HexTileRenderer::calculateNumberOfHexagons() {
 
+	// set new size
+	m_hexSize = m_hexSize_tmp;
+
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
-	// we use "Doubled Coordinates" and count the vertical space per index => height/2 instead of height
+	// we use "Offset Coordinates"
 	ivec2 viewportSize = viewer()->viewportSize();
 	horizontal_space = m_hexSize * 1.5f;
-	vertical_space = (sqrt(3)*m_hexSize) / 2.0f;
+	vertical_space = sqrt(3)*m_hexSize;
 
 	float cols_tmp = viewportSize.x / horizontal_space;
 	m_hexCols = floor(cols_tmp);
@@ -377,6 +371,18 @@ void HexTileRenderer::calculateNumberOfHexagons() {
 	if ((rows_tmp - m_hexRows) > 0) {
 		m_hexRows += 1;
 	}
+
+	m_hexCount = m_hexRows * m_hexCols;
+
+	// create m_hexCount vertices with position = 0.0f
+	// we generate the correct position in the vertex shader
+	m_verticesHex->setData(std::vector<float>(m_hexCount, 0.0f), GL_STATIC_DRAW);
+
+	auto vertexBinding = m_vaoHex->binding(0);
+	vertexBinding->setAttribute(0);
+	vertexBinding->setBuffer(m_verticesHex.get(), 0, sizeof(float));
+	vertexBinding->setFormat(1, GL_FLOAT);
+	m_vaoHex->enable(0);
 }
 
 // --------------------------------------------------------------------------------------
@@ -478,7 +484,7 @@ void HexTileRenderer::renderGUI() {
 
 		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
-			ImGui::SliderFloat("Hexagon Size", &m_hexSize, 1.0f, 50.0f);
+			ImGui::SliderFloat("Hexagon Size", &m_hexSize_tmp, 1.0f, 50.0f);
 		}
 
 		// update status
