@@ -49,53 +49,30 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
+	
 	m_shaderSourceDefines = StaticStringSource::create("");
 	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
 
 	m_shaderSourceGlobals = File::create("./res/hexagon/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
+	
+	// create shader programs
+	createShaderProgram("points", {
+		{GL_VERTEX_SHADER,"./res/hexagon/point-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/point-fs.glsl"}
+		});
 
-	//load source files
-	m_vertexShaderSourcePoint = Shader::sourceFromFile("./res/hexagon/point-vs.glsl");
-	m_fragmentShaderSourcePoint = Shader::sourceFromFile("./res/hexagon/point-fs.glsl");
-	//
-	m_vertexShaderSourceHex = Shader::sourceFromFile("./res/hexagon/hexagon-vs.glsl");
-	m_geometryShaderSourceHex = Shader::sourceFromFile("./res/hexagon/hexagon-gs.glsl");
-	m_fragmentShaderSourceHex = Shader::sourceFromFile("./res/hexagon/hexagon-fs.glsl");
-	//
-	m_vertexShaderSourceImage = Shader::sourceFromFile("./res/hexagon/image-vs.glsl");
-	m_geometryShaderSourceImage = Shader::sourceFromFile("./res/hexagon/image-gs.glsl");
-	m_fragmentShaderSourceShade = Shader::sourceFromFile("./res/hexagon/shade-fs.glsl");
+	createShaderProgram("hexagon-grid", { 
+		{GL_VERTEX_SHADER,"./res/hexagon/hexagon-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/hexagon/hexagon-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/hexagon-fs.glsl"} 
+		});
 
-	// create templates
-	m_vertexShaderTemplatePoint = Shader::applyGlobalReplacements(m_vertexShaderSourcePoint.get());
-	m_fragmentShaderTemplatePoint = Shader::applyGlobalReplacements(m_fragmentShaderSourcePoint.get());
-	//
-	m_vertexShaderTemplateHex = Shader::applyGlobalReplacements(m_vertexShaderSourceHex.get());
-	m_geometryShaderTemplateHex = Shader::applyGlobalReplacements(m_geometryShaderSourceHex.get());
-	m_fragmentShaderTemplateHex = Shader::applyGlobalReplacements(m_fragmentShaderSourceHex.get());
-	//
-	m_vertexShaderTemplateImage = Shader::applyGlobalReplacements(m_vertexShaderSourceImage.get());
-	m_geometryShaderTemplateImage = Shader::applyGlobalReplacements(m_geometryShaderSourceImage.get());
-	m_fragmentShaderTemplateShade = Shader::applyGlobalReplacements(m_fragmentShaderSourceShade.get());
-
-	// create Shader
-	m_vertexShaderPoint = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplatePoint.get());
-	m_fragmentShaderPoint = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplatePoint.get());
-	//
-	m_vertexShaderHex = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateHex.get());
-	m_geometryShaderHex = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateHex.get());
-	m_fragmentShaderHex = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateHex.get());
-	//
-	m_vertexShaderImage = Shader::create(GL_VERTEX_SHADER, m_vertexShaderTemplateImage.get());
-	m_geometryShaderImage = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderTemplateImage.get());
-	m_fragmentShaderShade = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderTemplateShade.get());
-
-	// attach shader to program
-	m_programPoint->attach(m_vertexShaderPoint.get(), m_fragmentShaderPoint.get());
-	m_programHex->attach(m_vertexShaderHex.get(), m_geometryShaderHex.get(), m_fragmentShaderHex.get());
-	//m_programHex->attach(m_vertexShaderHex.get(), m_fragmentShaderHex.get());
-	m_programShade->attach(m_vertexShaderImage.get(), m_geometryShaderImage.get(), m_fragmentShaderShade.get());
+	createShaderProgram("shade", {
+		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/hexagon/image-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/shade-fs.glsl"}
+		});
 
 	m_framebufferSize = viewer->viewportSize();
 
@@ -154,22 +131,9 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 }
 
-std::list<globjects::File*> HexTileRenderer::shaderFiles() const
-{
-	return std::list<globjects::File*>({
-		m_shaderSourceGlobals.get(),
-		m_vertexShaderSourcePoint.get(),
-		m_fragmentShaderSourcePoint.get(),
-		m_vertexShaderSourceImage.get(),
-		m_geometryShaderSourceImage.get(),
-		m_fragmentShaderSourceShade.get()
-		});
-}
-
 
 void HexTileRenderer::display()
 {
-	//TODO: ask thomas what that does
 	auto currentState = State::currentState();
 
 	if (viewer()->viewportSize() != m_framebufferSize)
@@ -252,16 +216,17 @@ void HexTileRenderer::display()
 
 	// -------------------------------------------------------------------------------------------------
 
-	m_programPoint->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	auto shaderProgram_points = shaderProgram("points");
+	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	m_programPoint->setUniform("pointColor", viewer()->samplePointColor());
+	shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
 
 	m_vao->bind();
-	m_programPoint->use();
+	shaderProgram_points->use();
 
 	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
-	m_programPoint->release();
+	shaderProgram_points->release();
 	m_vao->unbind();
 
 	// disable blending for draw buffer 0 (classical scatter plot)
@@ -291,25 +256,26 @@ void HexTileRenderer::display()
 		setRotationMatrix();
 	}
 
-	m_programHex->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	m_programHex->setUniform("hexBorderColor", vec3(1.0f, 1.0f, 1.0f));
+	auto shaderProgram_hexagonGrid = shaderProgram("hexagon-grid");
+	shaderProgram_hexagonGrid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_hexagonGrid->setUniform("hexBorderColor", vec3(1.0f, 1.0f, 1.0f));
 
-	m_programHex->setUniform("horizontal_space", horizontal_space);
+	shaderProgram_hexagonGrid->setUniform("horizontal_space", horizontal_space);
 	// divide by 2 because we use double-height coordinates in vertex shader
-	m_programHex->setUniform("vertical_space", vertical_space / 2.0f);
-	m_programHex->setUniform("num_cols", m_hexCols);
-	m_programHex->setUniform("data_offset", vec2(viewer()->scene()->table()->minimumBounds()));
+	shaderProgram_hexagonGrid->setUniform("vertical_space", vertical_space / 2.0f);
+	shaderProgram_hexagonGrid->setUniform("num_cols", m_hexCols);
+	shaderProgram_hexagonGrid->setUniform("data_offset", vec2(viewer()->scene()->table()->minimumBounds()));
 
-	m_programHex->setUniform("hexSize", hexSize);
-	m_programHex->setUniform("rotation", hexRotMat);
+	shaderProgram_hexagonGrid->setUniform("hexSize", hexSize);
+	shaderProgram_hexagonGrid->setUniform("rotation", hexRotMat);
 
 	m_vaoHex->bind();
 
-	m_programHex->use();
+	shaderProgram_hexagonGrid->use();
 
 	m_vaoHex->drawArrays(GL_POINTS, 0, m_hexCount);
 
-	m_programHex->release();
+	shaderProgram_hexagonGrid->release();
 	m_vaoHex->unbind();
 
 	// disable blending for draw buffer 0 (classical scatter plot)
@@ -325,14 +291,15 @@ void HexTileRenderer::display()
 	m_pointChartTexture->bindActive(0);
 	m_hexTilesTexture->bindActive(1);
 
-	m_programShade->setUniform("pointChartTexture", 0);
-	m_programShade->setUniform("hexTilesTexture", 1);
+	auto shaderProgram_shade = shaderProgram("shade");
+	shaderProgram_shade->setUniform("pointChartTexture", 0);
+	shaderProgram_shade->setUniform("hexTilesTexture", 1);
 
 	m_vaoQuad->bind();
 
-	m_programShade->use();
+	shaderProgram_shade->use();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	m_programShade->release();
+	shaderProgram_shade->release();
 
 	m_vaoQuad->unbind();
 
@@ -532,7 +499,6 @@ void HexTileRenderer::setShaderDefines() {
 	{
 		m_shaderSourceDefines->setString(defines);
 
-		for (auto& s : shaderFiles())
-			s->reload();
+		reloadShaders();
 	}
 }

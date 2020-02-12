@@ -30,7 +30,7 @@ namespace molumes
 	public:
 		HexTileRenderer(Viewer *viewer);
 		virtual void display();
-		virtual std::list<globjects::File*> shaderFiles() const;
+		//virtual std::list<globjects::File*> shaderFiles() const;
 
 	private:
 
@@ -53,57 +53,11 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
 		//---------------------------------------------------------------------------------------
 
-		// SHADER PROGRAMS -------------------------------------------------------------------------
-		std::unique_ptr<globjects::Program> m_programPoint = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programHex = std::make_unique<globjects::Program>();
-		std::unique_ptr<globjects::Program> m_programShade = std::make_unique<globjects::Program>();
-		//---------------------------------------------------------------------------------------
-
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
 
 		std::unique_ptr<globjects::File> m_shaderSourceGlobals = nullptr;
-		std::unique_ptr<globjects::NamedString> m_shaderGlobals = nullptr;
-
-		// POINT SHADER -------------------------------------------------------------------------
-		std::unique_ptr<globjects::File> m_vertexShaderSourcePoint = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_vertexShaderTemplatePoint = nullptr;
-		std::unique_ptr<globjects::Shader> m_vertexShaderPoint = nullptr;
-
-		std::unique_ptr<globjects::File> m_fragmentShaderSourcePoint = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplatePoint = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderPoint = nullptr;
-		//---------------------------------------------------------------------------------------
-
-		// POINT SHADER -------------------------------------------------------------------------
-		std::unique_ptr<globjects::File> m_vertexShaderSourceHex = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_vertexShaderTemplateHex = nullptr;
-		std::unique_ptr<globjects::Shader> m_vertexShaderHex = nullptr;
-
-		std::unique_ptr<globjects::File> m_geometryShaderSourceHex = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_geometryShaderTemplateHex = nullptr;
-		std::unique_ptr<globjects::Shader> m_geometryShaderHex = nullptr;
-
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceHex = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateHex = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderHex = nullptr;
-		//---------------------------------------------------------------------------------------
-
-		// QUAD SHADER --------------------------------------------------------------------------
-		std::unique_ptr<globjects::File> m_vertexShaderSourceImage = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_vertexShaderTemplateImage = nullptr;
-		std::unique_ptr<globjects::Shader> m_vertexShaderImage = nullptr;
-
-		std::unique_ptr<globjects::File> m_geometryShaderSourceImage = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_geometryShaderTemplateImage = nullptr;
-		std::unique_ptr<globjects::Shader> m_geometryShaderImage = nullptr;
-		//---------------------------------------------------------------------------------------
-
-		// SHADE SHADER -------------------------------------------------------------------------
-		std::unique_ptr<globjects::File> m_fragmentShaderSourceShade = nullptr;
-		std::unique_ptr<globjects::AbstractStringSource> m_fragmentShaderTemplateShade = nullptr;
-		std::unique_ptr<globjects::Shader> m_fragmentShaderShade = nullptr;
-		//---------------------------------------------------------------------------------------
+		std::unique_ptr<globjects::NamedString> m_shaderGlobals = nullptr;	
 
 		// TEXTURES -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
