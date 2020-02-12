@@ -66,6 +66,8 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
 
+		int m_ColorMapWidth = 0;
+		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
 		//---------------------------------------------------------------------------------------
 
 		// FRAMEBUFFER -------------------------------------------------------------------------
@@ -121,7 +123,6 @@ namespace molumes
 		// selection of color maps
 		int m_colorMap = 8;						// use "plasma" as default heatmap
 		bool m_colorMapLoaded = false;
-		bool m_heatMapGUI = false;
 		bool m_discreteMap = false;
 		// ---------------------------------
 		int m_oldColorMap = 0;
