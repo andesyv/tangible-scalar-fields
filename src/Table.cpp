@@ -44,7 +44,7 @@ Table::Table(const std::string& filename)
 	load(m_filename);
 }
 
-const std::vector<std::string> Table::getColumnNames() 
+const std::vector<std::string> Table::getColumnNames()
 {
 	return m_columnNames;
 }
@@ -57,9 +57,15 @@ void Table::load(const std::string& filename)
 	rapidcsv::Document loadedDocument(m_filename, rapidcsv::LabelParams(0, -1));
 	m_csvDocument = loadedDocument;
 
+
 	// get titles of all columns
 	m_columnNames = m_csvDocument.GetColumnNames();
-	
+
+	// clear buffers if they already contain data ----------
+	m_activeXColumn.clear();
+	m_activeYColumn.clear();
+	//------------------------------------------------------
+
 	// clear table if it already contains data
 	m_tableData.clear();
 
@@ -73,7 +79,7 @@ void Table::load(const std::string& filename)
 
 const void  Table::updateBuffers(int xID, int yID, int radiusID, int colorID)
 {
-	
+
 	m_minimumBounds = vec3(std::numeric_limits<float>::max());
 	m_maximumBounds = vec3(-std::numeric_limits<float>::max());
 
@@ -94,7 +100,7 @@ const void  Table::updateBuffers(int xID, int yID, int radiusID, int colorID)
 	std::vector<vec4> tableEntries;
 
 	// update bounding volume 
-	for (int i = 0; i < m_tableData[0].size(); i++) 
+	for (int i = 0; i < m_tableData[0].size(); i++)
 	{
 
 		// fill atom vector
