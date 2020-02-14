@@ -65,6 +65,7 @@ namespace molumes
 
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -73,6 +74,7 @@ namespace molumes
 		// FRAMEBUFFER -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_squareFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;

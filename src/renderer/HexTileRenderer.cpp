@@ -91,6 +91,14 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_hexTilesTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
+	m_squareTilesTexture = Texture::create(GL_TEXTURE_2D);
+	m_squareTilesTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_squareTilesTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_squareTilesTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_squareTilesTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//TODO: set dynamic size
+	m_squareTilesTexture->image2D(0, GL_R16, ivec2(4, 4), 0, GL_R, GL_UNSIGNED_BYTE, nullptr);
+
 	m_colorTexture = Texture::create(GL_TEXTURE_2D);
 	m_colorTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	m_colorTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -132,6 +140,11 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_hexFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_hexFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
+	m_squareFramebuffer = Framebuffer::create();
+	m_squareFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_hexTilesTexture.get());
+	m_squareFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_squareFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
 	m_shadeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
@@ -148,6 +161,8 @@ void HexTileRenderer::display()
 		m_framebufferSize = viewer()->viewportSize();
 		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		//TODO: set dynamic size
+		m_squareTilesTexture->image2D(0, GL_R16, ivec2(4,4), 0, GL_R, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
