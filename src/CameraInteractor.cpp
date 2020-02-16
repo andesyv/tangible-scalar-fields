@@ -296,7 +296,7 @@ void CameraInteractor::resetProjectionTransform()
 
 void CameraInteractor::resetViewTransform()
 {
-	viewer()->setViewTransform(lookAt(vec3(0.0f, 0.0f, -m_distance), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
+	viewer()->setViewTransform(lookAt(vec3(0.0f, 0.0f, m_distance), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
 
 	// necessary to perform the bounding-box dependent adaption-------------------------------------------------------
 	// --> making sure the resulting visualization has the same dimensions as the screenshot used in the user study

@@ -65,6 +65,7 @@ namespace molumes
 
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
@@ -74,7 +75,8 @@ namespace molumes
 		// FRAMEBUFFER -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_squareFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_squareAccumulateFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
@@ -88,6 +90,9 @@ namespace molumes
 		float shininess;
 		// --------------------------------------------------------------------------------
 
+		// SQUARE CALC -------------------------------------------------------------------
+		int squareTexSize = 4;
+
 		// HEXAGON CALC -------------------------------------------------------------------
 
 		int m_hexRows = 0;
@@ -99,6 +104,7 @@ namespace molumes
 		float hexRot = 0.0f;
 		glm::mat4 hexRotMat = glm::mat4(1.0f);
 
+		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix);
 		void calculateNumberOfHexagons();
 		void setRotationMatrix();
 
@@ -134,6 +140,9 @@ namespace molumes
 		float m_hexSize_tmp = hexSize;
 
 		float m_hexRot_tmp = hexRot;
+
+		//test
+		bool m_renderSquares = false;
 		// ------------------------------------------------------------------------------------------
 	};
 

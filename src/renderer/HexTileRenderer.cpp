@@ -49,23 +49,34 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
-	
+
 	m_shaderSourceDefines = StaticStringSource::create("");
 	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
 
 	m_shaderSourceGlobals = File::create("./res/hexagon/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
-	
+
 	// create shader programs
 	createShaderProgram("points", {
 		{GL_VERTEX_SHADER,"./res/hexagon/point-vs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/hexagon/point-fs.glsl"}
 		});
 
-	createShaderProgram("hexagon-grid", { 
+	createShaderProgram("square-acc", {
+		{GL_VERTEX_SHADER,"./res/hexagon/square-acc-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/square-acc-fs.glsl"}
+		});
+
+	createShaderProgram("square-tiles", {
+		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/hexagon/image-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/square-tiles-fs.glsl"}
+		});
+
+	createShaderProgram("hexagon-grid", {
 		{GL_VERTEX_SHADER,"./res/hexagon/hexagon-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/hexagon/hexagon-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/hexagon-fs.glsl"} 
+		{GL_FRAGMENT_SHADER,"./res/hexagon/hexagon-fs.glsl"}
 		});
 
 	createShaderProgram("shade", {
@@ -91,13 +102,23 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_hexTilesTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
+	m_squareAccumulateTexture = Texture::create(GL_TEXTURE_2D);
+	//Integer color formats and stencil index formats do not support linear filtering.
+	//As such, the GL_TEXTURE_MAG_FILTER sampling parameter must be GL_NEAREST, and GL_TEXTURE_MIN_FILTER must be either GL_NEAREST or GL_NEAREST_MIPMAP_NEAREST.
+	//TODO: when using Integer format I get FRAMEBUFFER_INCOMPLETE
+	m_squareAccumulateTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_squareAccumulateTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//TODO: set dynamic size
+	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareTexSize, squareTexSize), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
 	m_squareTilesTexture = Texture::create(GL_TEXTURE_2D);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//TODO: set dynamic size
-	m_squareTilesTexture->image2D(0, GL_R16, ivec2(4, 4), 0, GL_R, GL_UNSIGNED_BYTE, nullptr);
+	m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_colorTexture = Texture::create(GL_TEXTURE_2D);
 	m_colorTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -140,10 +161,15 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_hexFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_hexFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
-	m_squareFramebuffer = Framebuffer::create();
-	m_squareFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_hexTilesTexture.get());
-	m_squareFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_squareFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_squareAccumulateFramebuffer = Framebuffer::create();
+	m_squareAccumulateFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareAccumulateTexture.get());
+	m_squareAccumulateFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_squareAccumulateFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+
+	m_squareTilesFramebuffer = Framebuffer::create();
+	m_squareTilesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareTilesTexture.get());
+	m_squareTilesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_squareTilesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
@@ -162,7 +188,8 @@ void HexTileRenderer::display()
 		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		//TODO: set dynamic size
-		m_squareTilesTexture->image2D(0, GL_R16, ivec2(4,4), 0, GL_R, GL_UNSIGNED_BYTE, nullptr);
+		//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareTexSize, squareTexSize), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
@@ -240,9 +267,10 @@ void HexTileRenderer::display()
 	// -------------------------------------------------------------------------------------------------
 
 	auto shaderProgram_points = shaderProgram("points");
-	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 	shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
+
+	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 	if (m_colorMapLoaded)
 	{
@@ -272,6 +300,157 @@ void HexTileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== SECOND RENDER PASS ======================================================================================
+	// Accumulate Points into squares
+
+	m_squareAccumulateFramebuffer->bind();
+
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// make sure points are drawn on top of each other
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	//ADDITIVE Blending GL_COLOR_ATTACHMENT0
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_ONE, GL_ONE);
+	glBlendEquationi(0, GL_FUNC_ADD);
+
+	// -------------------------------------------------------------------------------------------------
+
+	auto shaderProgram_squares = shaderProgram("square-acc");
+
+	shaderProgram_squares->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+	shaderProgram_squares->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
+	shaderProgram_squares->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
+
+	shaderProgram_squares->setUniform("maxTexCoord", squareTexSize - 1);
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->bindActive(5);
+		shaderProgram_squares->setUniform("colorMapTexture", 5);
+		shaderProgram_squares->setUniform("textureWidth", m_ColorMapWidth);
+		shaderProgram_squares->setUniform("viewportX", float(viewportSize.x));
+	}
+
+	m_vao->bind();
+	shaderProgram_squares->use();
+
+	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+	shaderProgram_squares->release();
+	m_vao->unbind();
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->unbindActive(5);
+	}
+
+	// disable blending
+	glDisablei(GL_BLEND, 0);
+
+	m_squareAccumulateFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	// ====================================================================================== THIRD RENDER PASS ======================================================================================
+	// Render squares
+	m_squareTilesFramebuffer->bind();
+	
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// make sure points are drawn on top of each other
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	//Blending GL_COLOR_ATTACHMENT0
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_MAX);
+
+	// -------------------------------------------------------------------------------------------------
+
+	m_squareAccumulateTexture->bindActive(0);
+
+	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
+
+	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 0);
+	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
+
+	shaderProgram_square_tiles->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
+	shaderProgram_square_tiles->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
+
+	shaderProgram_square_tiles->setUniform("maxTexCoord", squareTexSize - 1);
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->bindActive(5);
+		shaderProgram_square_tiles->setUniform("colorMapTexture", 5);
+		shaderProgram_square_tiles->setUniform("textureWidth", m_ColorMapWidth);
+	}
+
+	m_vaoQuad->bind();
+
+	shaderProgram_square_tiles->use();
+	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	shaderProgram_square_tiles->release();
+
+	m_vaoQuad->unbind();
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->unbindActive(5);
+	}
+
+	m_squareAccumulateTexture->unbindActive(0);
+
+	// disable blending
+	glDisablei(GL_BLEND, 0);
+
+	m_squareTilesFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
+	m_shadeFramebuffer->bind();
+
+	m_pointChartTexture->bindActive(0);
+	m_squareTilesTexture->bindActive(1);
+
+	auto shaderProgram_shade = shaderProgram("shade");
+	if (m_renderSquares) {
+		shaderProgram_shade->setUniform("pointChartTexture", 1);
+	}
+	else {
+		shaderProgram_shade->setUniform("pointChartTexture", 0);
+	}
+	m_vaoQuad->bind();
+
+	shaderProgram_shade->use();
+	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	shaderProgram_shade->release();
+
+	m_vaoQuad->unbind();
+
+	m_pointChartTexture->unbindActive(0);
+	m_squareTilesTexture->unbindActive(1);
+
+	m_shadeFramebuffer->unbind();
+
+	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+	currentState->apply();
+}
+
+// --------------------------------------------------------------------------------------
+// ###########################  HEXAGON CALC ############################################
+// --------------------------------------------------------------------------------------
+
+void HexTileRenderer::renderHexagonGrid(mat4 modelViewProjectionMatrix) {
 	// RENDER EMPTY HEXAGONS
 	// TODO
 	// think about, if we can maybe omit duplicate line rendering
@@ -321,38 +500,7 @@ void HexTileRenderer::display()
 	m_hexFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-	// ====================================================================================== THIRD RENDER PASS ======================================================================================
-	m_shadeFramebuffer->bind();
-
-	m_pointChartTexture->bindActive(0);
-	m_hexTilesTexture->bindActive(1);
-
-	auto shaderProgram_shade = shaderProgram("shade");
-	shaderProgram_shade->setUniform("pointChartTexture", 0);
-	shaderProgram_shade->setUniform("hexTilesTexture", 1);
-
-	m_vaoQuad->bind();
-
-	shaderProgram_shade->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	shaderProgram_shade->release();
-
-	m_vaoQuad->unbind();
-
-	m_pointChartTexture->unbindActive(0);
-	m_hexTilesTexture->unbindActive(1);
-
-	m_shadeFramebuffer->unbind();
-
-	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
-	currentState->apply();
 }
-
-// --------------------------------------------------------------------------------------
-// ###########################  HEXAGON CALC ############################################
-// --------------------------------------------------------------------------------------
 
 void HexTileRenderer::calculateNumberOfHexagons() {
 
@@ -566,6 +714,9 @@ void HexTileRenderer::renderGUI() {
 				m_oldDiscreteMap = m_discreteMap;
 			}
 		}
+
+		ImGui::Checkbox("Render Squares", &m_renderSquares);
+
 
 		// update status
 		dataChanged = false;

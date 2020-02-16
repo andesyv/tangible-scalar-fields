@@ -22,8 +22,8 @@ void main()
 	#ifdef COLORMAP
 		
 		//simple 1D texel fetch by mapping the viewport.x to the colormap
-		int texelCoord = int((gl_FragCoord.x * textureWidth)/viewportX);
-		pointChartTexture.rgb = texelFetch(colorMapTexture, texelCoord, 0).rgb;
+		int colorTexelCoord = int((gl_FragCoord.x * textureWidth)/viewportX);
+		pointChartTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
 
 }
