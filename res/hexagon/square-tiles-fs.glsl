@@ -39,26 +39,34 @@ int mapInterval(float x, float a, float b, int c){
 void main()
 {
     // get bounding box coordinates in Screen Space
-    float maxBoundX = windowWidth/2*maxBoundNDC[0]+(windowWidth/2+maxBoundNDC[0]);
-    float maxBoundY = windowHeight/2*maxBoundNDC[1]+(windowHeight/2+maxBoundNDC[1]);
-    float minBoundX = windowWidth/2*minBoundNDC[0]+(windowWidth/2+minBoundNDC[0]);
-    float minBoundY = windowHeight/2*minBoundNDC[1]+(windowHeight/2+minBoundNDC[1]);
+    float maxBoundX = windowWidth/2*maxBoundNDC[0]+windowWidth/2;
+    float maxBoundY = windowHeight/2*maxBoundNDC[1]+windowHeight/2;
+    float minBoundX = windowWidth/2*minBoundNDC[0]+windowWidth/2;
+    float minBoundY = windowHeight/2*minBoundNDC[1]+windowHeight/2;
 
     // to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
     // If the current value = maxValue, we take the maxTexCoord instead
     int squareX = min(maxTexCoord, mapInterval(gl_FragCoord.x, minBoundX, maxBoundX, maxTexCoord+1));
     int squareY = min(maxTexCoord, mapInterval(gl_FragCoord.y, minBoundY, maxBoundY, maxTexCoord+1));
 
-
     // convert square pos to screen space
+    //WS
     vec4 accPos = vec4(squareX, squareY, 0.0, 1.0);
+    //CS
     accPos = modelViewProjectionMatrix * accPos;
+    //NDC
     accPos /= accPos.w;
-    float squareXScreen = windowWidth/2*accPos[0]+(windowWidth/2+accPos[0]);
-    float squareYScreen = windowHeight/2*accPos[1]+(windowHeight/2+accPos[1]);
+    //Screen Space
+    float squareXScreen = windowWidth/2 * accPos[0] + windowWidth/2;
+    float squareYScreen = windowHeight/2 * accPos[1] + windowHeight/2;
 
     // get value from accumulate texture
     float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareXScreen, squareYScreen), 0).r;
+
+    // we don't want to render empty squares
+    if(squareValue < 0.00000001){
+        discard;
+    }
 
     //debug: color squares according to index
     squareTilesTexture = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);

@@ -738,7 +738,7 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
-			ImGui::SliderInt("Number of Squares ", &m_squareCount_tmp, 2.0f, 30.0f);
+			ImGui::SliderInt("Number of Squares ", &m_squareCount_tmp, 2.0f, 100.0f);
 		}
 
 
