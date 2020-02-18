@@ -5,6 +5,8 @@
 layout(location = 0) in float xValue;
 layout(location = 1) in float yValue;
 
+uniform mat4 modelViewProjectionMatrix;
+
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
 uniform int textureWidth;
@@ -36,6 +38,8 @@ void main()
 	//vertexColor = vec4(texelFetch(colorMapTexture, colorTexelCoord, 0).rgb, 1.0f);
 
     vertexColor = vec4(1.0f,1.0f,1.0f,1.0f);
+    //vertexColor = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
-	gl_Position = vec4(squareX, squareY, 0.0f, 1.0f);
+	//gl_Position = vec4(0.5,0.5, 0.0, 1.0);
+    gl_Position = modelViewProjectionMatrix * vec4(squareX, squareY, 0.0f, 1.0f);
 }

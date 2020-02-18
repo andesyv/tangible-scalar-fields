@@ -111,8 +111,8 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	//TODO: set dynamic size
-	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareTexSize, squareTexSize), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareCount, squareCount), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_squareTilesTexture = Texture::create(GL_TEXTURE_2D);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -189,9 +189,13 @@ void HexTileRenderer::display()
 		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		//TODO: set dynamic size
-		//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareTexSize, squareTexSize), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareCount, squareCount), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	}
+
+	if (squareCount != m_squareCount_tmp) {
+		squareCount = m_squareCount_tmp;
 	}
 
 	// retrieve/compute all necessary matrices and related properties
@@ -317,20 +321,22 @@ void HexTileRenderer::display()
 	glEnablei(GL_BLEND, 0);
 	glBlendFunci(0, GL_ONE, GL_ONE);
 	glBlendEquationi(0, GL_FUNC_ADD);
-
+	
 	//Blending GL_COLOR_ATTACHMENT0
 	/*glEnablei(GL_BLEND, 0);
 	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
-	*/
+	glBlendEquationi(0, GL_MAX);*/
+	
 	// -------------------------------------------------------------------------------------------------
 
 	auto shaderProgram_squares = shaderProgram("square-acc");
 
+	shaderProgram_squares->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
 	shaderProgram_squares->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
 	shaderProgram_squares->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
 
-	shaderProgram_squares->setUniform("maxTexCoord", squareTexSize - 1);
+	shaderProgram_squares->setUniform("maxTexCoord", squareCount - 1);
 
 	if (m_colorMapLoaded)
 	{
@@ -364,6 +370,8 @@ void HexTileRenderer::display()
 	// Render squares
 	m_squareTilesFramebuffer->bind();
 
+	//glViewport(0, 0, squareTexSize, squareTexSize);
+
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -383,15 +391,17 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
+	//geometry shader
 	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
-	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
 
 	shaderProgram_square_tiles->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
 	shaderProgram_square_tiles->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
 
-	shaderProgram_square_tiles->setUniform("maxTexCoord", squareTexSize - 1);
+	//fragment shader
+	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
+	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
+
+	shaderProgram_square_tiles->setUniform("maxTexCoord", squareCount - 1);
 	shaderProgram_square_tiles->setUniform("windowWidth", viewer()->viewportSize()[0]);
 	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
@@ -422,7 +432,7 @@ void HexTileRenderer::display()
 
 	m_squareTilesFramebuffer->unbind();
 
-	//m_squareTilesFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+	//glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
@@ -725,7 +735,11 @@ void HexTileRenderer::renderGUI() {
 			}
 		}
 
-		ImGui::Checkbox("Render Squares", &m_renderSquares);
+		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
+		{
+			ImGui::Checkbox("Render Squares", &m_renderSquares);
+			ImGui::SliderInt("Number of Squares ", &m_squareCount_tmp, 2.0f, 30.0f);
+		}
 
 
 		// update status

@@ -91,7 +91,7 @@ namespace molumes
 		// --------------------------------------------------------------------------------
 
 		// SQUARE CALC -------------------------------------------------------------------
-		int squareTexSize = 4;
+		int squareCount = 4;
 
 		// HEXAGON CALC -------------------------------------------------------------------
 
@@ -135,6 +135,9 @@ namespace molumes
 		// ---------------------------------
 		int m_oldColorMap = 0;
 		bool m_oldDiscreteMap = false;
+
+		// Square Parameters
+		int m_squareCount_tmp = squareCount;
 
 		// Hexagon Parameters
 		float m_hexSize_tmp = hexSize;

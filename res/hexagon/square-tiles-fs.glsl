@@ -12,6 +12,8 @@ in vec2 maxBoundNDC;
 in vec2 minBoundNDC;
 
 //--uniform
+uniform mat4 modelViewProjectionMatrix;
+
 uniform sampler2D squareAccumulateTexture;
 
 // 1D color map parameters
@@ -20,9 +22,6 @@ uniform int textureWidth;
 
 uniform int numberOfSamples;
 
-//[x,y]
-uniform vec2 maxBounds;
-uniform vec2 minBounds;
 //for now we assume texture is square maxX=maxY
 //min = 0
 uniform int maxTexCoord;
@@ -39,7 +38,7 @@ int mapInterval(float x, float a, float b, int c){
 
 void main()
 {
-
+    // get bounding box coordinates in Screen Space
     float maxBoundX = windowWidth/2*maxBoundNDC[0]+(windowWidth/2+maxBoundNDC[0]);
     float maxBoundY = windowHeight/2*maxBoundNDC[1]+(windowHeight/2+maxBoundNDC[1]);
     float minBoundX = windowWidth/2*minBoundNDC[0]+(windowWidth/2+minBoundNDC[0]);
@@ -50,14 +49,23 @@ void main()
     int squareX = min(maxTexCoord, mapInterval(gl_FragCoord.x, minBoundX, maxBoundX, maxTexCoord+1));
     int squareY = min(maxTexCoord, mapInterval(gl_FragCoord.y, minBoundY, maxBoundY, maxTexCoord+1));
 
-    float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareX, squareY), 0).r;
 
-    //default color is all red
+    // convert square pos to screen space
+    vec4 accPos = vec4(squareX, squareY, 0.0, 1.0);
+    accPos = modelViewProjectionMatrix * accPos;
+    accPos /= accPos.w;
+    float squareXScreen = windowWidth/2*accPos[0]+(windowWidth/2+accPos[0]);
+    float squareYScreen = windowHeight/2*accPos[1]+(windowHeight/2+accPos[1]);
+
+    // get value from accumulate texture
+    float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareXScreen, squareYScreen), 0).r;
+
+    //debug: color squares according to index
     squareTilesTexture = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
 	#ifdef COLORMAP
 
-		//int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
-		//squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
+		int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
+		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
 }
