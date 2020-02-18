@@ -10,8 +10,6 @@ uniform sampler1D colorMapTexture;
 uniform int textureWidth;
 uniform float viewportX;
 
-
-uniform mat4 modelViewProjectionMatrix;
 //[x,y]
 uniform vec2 maxBounds;
 uniform vec2 minBounds;
@@ -20,7 +18,6 @@ uniform vec2 minBounds;
 uniform int maxTexCoord;
 
 out vec4 vertexColor;
-
 
 //maps value x from [a,b] --> [0,c]
 int mapInterval(float x, float a, float b, int c){
@@ -40,5 +37,5 @@ void main()
 
     vertexColor = vec4(1.0f,1.0f,1.0f,1.0f);
 
-	gl_Position = modelViewProjectionMatrix * vec4(squareX, squareY, 0.0f, 1.0f);
+	gl_Position = vec4(squareX, squareY, 0.0f, 1.0f);
 }

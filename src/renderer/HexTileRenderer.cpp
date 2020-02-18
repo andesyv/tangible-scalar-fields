@@ -69,7 +69,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	createShaderProgram("square-tiles", {
 		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/image-gs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/hexagon/bounding-quad-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/hexagon/square-tiles-fs.glsl"}
 		});
 
@@ -112,6 +112,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	//TODO: set dynamic size
 	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareTexSize, squareTexSize), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_squareTilesTexture = Texture::create(GL_TEXTURE_2D);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -317,11 +318,14 @@ void HexTileRenderer::display()
 	glBlendFunci(0, GL_ONE, GL_ONE);
 	glBlendEquationi(0, GL_FUNC_ADD);
 
+	//Blending GL_COLOR_ATTACHMENT0
+	/*glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_MAX);
+	*/
 	// -------------------------------------------------------------------------------------------------
 
 	auto shaderProgram_squares = shaderProgram("square-acc");
-
-	shaderProgram_squares->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 	shaderProgram_squares->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
 	shaderProgram_squares->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
@@ -359,7 +363,7 @@ void HexTileRenderer::display()
 	// ====================================================================================== THIRD RENDER PASS ======================================================================================
 	// Render squares
 	m_squareTilesFramebuffer->bind();
-	
+
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -375,17 +379,21 @@ void HexTileRenderer::display()
 
 	// -------------------------------------------------------------------------------------------------
 
-	m_squareAccumulateTexture->bindActive(0);
+	m_squareAccumulateTexture->bindActive(1);
 
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
-	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 0);
+	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
 	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
 
 	shaderProgram_square_tiles->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
 	shaderProgram_square_tiles->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
 
 	shaderProgram_square_tiles->setUniform("maxTexCoord", squareTexSize - 1);
+	shaderProgram_square_tiles->setUniform("windowWidth", viewer()->viewportSize()[0]);
+	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 	if (m_colorMapLoaded)
 	{
@@ -407,12 +415,14 @@ void HexTileRenderer::display()
 		m_colorMapTexture->unbindActive(5);
 	}
 
-	m_squareAccumulateTexture->unbindActive(0);
+	m_squareAccumulateTexture->unbindActive(1);
 
 	// disable blending
 	glDisablei(GL_BLEND, 0);
 
 	m_squareTilesFramebuffer->unbind();
+
+	//m_squareTilesFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
@@ -442,7 +452,7 @@ void HexTileRenderer::display()
 	m_shadeFramebuffer->unbind();
 
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
+	
 	currentState->apply();
 }
 

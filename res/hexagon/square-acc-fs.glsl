@@ -9,5 +9,5 @@ in vec4 vertexColor;
 
 void main(){
 
-	squareAccumulateTexture = vec4(1.0f,1.0f,1.0f,1.0f);//vertexColor;
+	squareAccumulateTexture = vertexColor;
 }
