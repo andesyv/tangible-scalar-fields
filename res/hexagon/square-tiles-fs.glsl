@@ -8,8 +8,7 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-in vec2 maxBoundNDC;
-in vec2 minBoundNDC;
+in vec4 boundsScreenSpace;
 
 //--uniform
 uniform mat4 modelViewProjectionMatrix;
@@ -36,32 +35,28 @@ int mapInterval(float x, float a, float b, int c){
     return int((x-a)*c/(b-a));
 }
 
-void main()
-{
-    // get bounding box coordinates in Screen Space
-    float maxBoundX = windowWidth/2*maxBoundNDC[0]+windowWidth/2;
-    float maxBoundY = windowHeight/2*maxBoundNDC[1]+windowHeight/2;
-    float minBoundX = windowWidth/2*minBoundNDC[0]+windowWidth/2;
-    float minBoundY = windowHeight/2*minBoundNDC[1]+windowHeight/2;
-
-    // to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
-    // If the current value = maxValue, we take the maxTexCoord instead
-    int squareX = min(maxTexCoord, mapInterval(gl_FragCoord.x, minBoundX, maxBoundX, maxTexCoord+1));
-    int squareY = min(maxTexCoord, mapInterval(gl_FragCoord.y, minBoundY, maxBoundY, maxTexCoord+1));
-
-    // convert square pos to screen space
-    //WS
+// convert square pos to screen space
+ivec2 getScreenSpaceTextureCoords(int squareX, int squareY){
+    //LocalS
     vec4 accPos = vec4(squareX, squareY, 0.0, 1.0);
-    //CS
+    //ClipS
     accPos = modelViewProjectionMatrix * accPos;
     //NDC
     accPos /= accPos.w;
     //Screen Space
-    float squareXScreen = windowWidth/2 * accPos[0] + windowWidth/2;
-    float squareYScreen = windowHeight/2 * accPos[1] + windowHeight/2;
+    return ivec2(windowWidth/2 * accPos[0] + windowWidth/2, windowHeight/2 * accPos[1] + windowHeight/2);
+}
+
+void main()
+{
+    
+    // to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
+    // If the current value = maxValue, we take the maxTexCoord instead
+    int squareX = min(maxTexCoord, mapInterval(gl_FragCoord.x, boundsScreenSpace[2], boundsScreenSpace[0], maxTexCoord+1));
+    int squareY = min(maxTexCoord, mapInterval(gl_FragCoord.y, boundsScreenSpace[3], boundsScreenSpace[1], maxTexCoord+1));
 
     // get value from accumulate texture
-    float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareXScreen, squareYScreen), 0).r;
+    float squareValue = texelFetch(squareAccumulateTexture, getScreenSpaceTextureCoords(squareX, squareY), 0).r;
 
     // we don't want to render empty squares
     if(squareValue < 0.00000001){
@@ -72,7 +67,6 @@ void main()
     squareTilesTexture = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
 	#ifdef COLORMAP
-
 		int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
 		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif

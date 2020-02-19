@@ -309,6 +309,9 @@ void HexTileRenderer::display()
 
 	m_squareAccumulateFramebuffer->bind();
 
+	// set new viewport to write into correct texture coords
+	//glViewport(0, 0, squareCount, squareCount);
+
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -321,11 +324,6 @@ void HexTileRenderer::display()
 	glEnablei(GL_BLEND, 0);
 	glBlendFunci(0, GL_ONE, GL_ONE);
 	glBlendEquationi(0, GL_FUNC_ADD);
-	
-	//Blending GL_COLOR_ATTACHMENT0
-	/*glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);*/
 	
 	// -------------------------------------------------------------------------------------------------
 
@@ -361,6 +359,9 @@ void HexTileRenderer::display()
 
 	// disable blending
 	glDisablei(GL_BLEND, 0);
+	
+	//reset Viewport
+	//glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
 	m_squareAccumulateFramebuffer->unbind();
 
@@ -369,8 +370,6 @@ void HexTileRenderer::display()
 	// ====================================================================================== THIRD RENDER PASS ======================================================================================
 	// Render squares
 	m_squareTilesFramebuffer->bind();
-
-	//glViewport(0, 0, squareTexSize, squareTexSize);
 
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -391,19 +390,22 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
-	//geometry shader
-	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
+	//geometry shader
 	shaderProgram_square_tiles->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
 	shaderProgram_square_tiles->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
 
-	//fragment shader
-	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
-	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
+	//geometry & fragment shader
+	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	shaderProgram_square_tiles->setUniform("maxTexCoord", squareCount - 1);
 	shaderProgram_square_tiles->setUniform("windowWidth", viewer()->viewportSize()[0]);
 	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
+
+	//fragment Shader
+	shaderProgram_square_tiles->setUniform("maxTexCoord", squareCount - 1);
+
+	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
+	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
 
 	if (m_colorMapLoaded)
 	{
@@ -431,8 +433,6 @@ void HexTileRenderer::display()
 	glDisablei(GL_BLEND, 0);
 
 	m_squareTilesFramebuffer->unbind();
-
-	//glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
@@ -738,7 +738,7 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
-			ImGui::SliderInt("Number of Squares ", &m_squareCount_tmp, 2.0f, 100.0f);
+			ImGui::SliderInt("Number of Squares ", &m_squareCount_tmp, 2.0f, 300.0f);
 		}
 
 

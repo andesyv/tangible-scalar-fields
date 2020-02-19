@@ -37,7 +37,7 @@ void main()
 	//int colorTexelCoord = int(((squareX+squareY) * textureWidth)/(2*maxTexCoord+1));
 	//vertexColor = vec4(texelFetch(colorMapTexture, colorTexelCoord, 0).rgb, 1.0f);
 
-    vertexColor = vec4(1.0f,1.0f,1.0f,1.0f);
+    vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
     //vertexColor = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
 	//gl_Position = vec4(0.5,0.5, 0.0, 1.0);
