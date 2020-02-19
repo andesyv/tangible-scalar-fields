@@ -91,7 +91,11 @@ namespace molumes
 		// --------------------------------------------------------------------------------
 
 		// SQUARE CALC -------------------------------------------------------------------
-		int squareCount = 4;
+		int m_squareRows = 0;
+		int m_squareCols = 0;
+		float squareSize = 20.0f;
+
+		void calculateNumberOfSquares();
 
 		// HEXAGON CALC -------------------------------------------------------------------
 
@@ -137,7 +141,7 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Square Parameters
-		int m_squareCount_tmp = squareCount;
+		float m_squareSize_tmp = squareSize;
 
 		// Hexagon Parameters
 		float m_hexSize_tmp = hexSize;
@@ -146,6 +150,7 @@ namespace molumes
 
 		//test
 		bool m_renderSquares = false;
+		bool m_renderAccumulatePoints = false;
 		// ------------------------------------------------------------------------------------------
 	};
 

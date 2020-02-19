@@ -21,10 +21,9 @@ uniform int textureWidth;
 
 uniform int numberOfSamples;
 
-//for now we assume texture is square maxX=maxY
 //min = 0
-uniform int maxTexCoord;
-
+uniform int maxTexCoordX;
+uniform int maxTexCoordY;
 uniform int windowHeight;
 uniform int windowWidth;
 //--out
@@ -52,8 +51,8 @@ void main()
     
     // to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
     // If the current value = maxValue, we take the maxTexCoord instead
-    int squareX = min(maxTexCoord, mapInterval(gl_FragCoord.x, boundsScreenSpace[2], boundsScreenSpace[0], maxTexCoord+1));
-    int squareY = min(maxTexCoord, mapInterval(gl_FragCoord.y, boundsScreenSpace[3], boundsScreenSpace[1], maxTexCoord+1));
+    int squareX = min(maxTexCoordX, mapInterval(gl_FragCoord.x, boundsScreenSpace[2], boundsScreenSpace[0], maxTexCoordX+1));
+    int squareY = min(maxTexCoordY, mapInterval(gl_FragCoord.y, boundsScreenSpace[3], boundsScreenSpace[1], maxTexCoordY+1));
 
     // get value from accumulate texture
     float squareValue = texelFetch(squareAccumulateTexture, getScreenSpaceTextureCoords(squareX, squareY), 0).r;
@@ -64,10 +63,10 @@ void main()
     }
 
     //debug: color squares according to index
-    squareTilesTexture = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
+    squareTilesTexture = vec4(float(squareX/float(maxTexCoordX)),float(squareY/float(maxTexCoordY)),0.0f,1.0f);
 
 	#ifdef COLORMAP
-		int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
-		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
+		//int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
+		//squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
 }

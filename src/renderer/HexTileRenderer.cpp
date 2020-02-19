@@ -194,8 +194,8 @@ void HexTileRenderer::display()
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
-	if (squareCount != m_squareCount_tmp) {
-		squareCount = m_squareCount_tmp;
+	if (squareSize != m_squareSize_tmp) {
+		calculateNumberOfSquares();
 	}
 
 	// retrieve/compute all necessary matrices and related properties
@@ -324,7 +324,7 @@ void HexTileRenderer::display()
 	glEnablei(GL_BLEND, 0);
 	glBlendFunci(0, GL_ONE, GL_ONE);
 	glBlendEquationi(0, GL_FUNC_ADD);
-	
+
 	// -------------------------------------------------------------------------------------------------
 
 	auto shaderProgram_squares = shaderProgram("square-acc");
@@ -334,7 +334,9 @@ void HexTileRenderer::display()
 	shaderProgram_squares->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
 	shaderProgram_squares->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
 
-	shaderProgram_squares->setUniform("maxTexCoord", squareCount - 1);
+	shaderProgram_squares->setUniform("maxTexCoordX", m_squareCols - 1);
+	shaderProgram_squares->setUniform("maxTexCoordY", m_squareRows - 1);
+
 
 	if (m_colorMapLoaded)
 	{
@@ -359,7 +361,7 @@ void HexTileRenderer::display()
 
 	// disable blending
 	glDisablei(GL_BLEND, 0);
-	
+
 	//reset Viewport
 	//glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
@@ -402,7 +404,8 @@ void HexTileRenderer::display()
 	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 	//fragment Shader
-	shaderProgram_square_tiles->setUniform("maxTexCoord", squareCount - 1);
+	shaderProgram_squares->setUniform("maxTexCoordX", m_squareCols - 1);
+	shaderProgram_squares->setUniform("maxTexCoordY", m_squareRows - 1);
 
 	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
 	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
@@ -440,12 +443,17 @@ void HexTileRenderer::display()
 
 	m_pointChartTexture->bindActive(0);
 	m_squareTilesTexture->bindActive(1);
+	m_squareAccumulateTexture->bindActive(2);
 
 	auto shaderProgram_shade = shaderProgram("shade");
 	if (m_renderSquares) {
 		shaderProgram_shade->setUniform("pointChartTexture", 1);
 	}
-	else {
+	else if (m_renderAccumulatePoints) {
+		shaderProgram_shade->setUniform("pointChartTexture", 2);
+	}
+	else
+	{
 		shaderProgram_shade->setUniform("pointChartTexture", 0);
 	}
 	m_vaoQuad->bind();
@@ -458,12 +466,32 @@ void HexTileRenderer::display()
 
 	m_pointChartTexture->unbindActive(0);
 	m_squareTilesTexture->unbindActive(1);
+	m_squareAccumulateTexture->unbindActive(2);
 
 	m_shadeFramebuffer->unbind();
 
 	m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, Framebuffer::defaultFBO().get(), GL_BACK, { 0,0,viewer()->viewportSize().x, viewer()->viewportSize().y }, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-	
+
 	currentState->apply();
+}
+
+// --------------------------------------------------------------------------------------
+// ###########################  SQUARE CALC ############################################
+// --------------------------------------------------------------------------------------
+
+void HexTileRenderer::calculateNumberOfSquares() {
+
+	// set new size
+	squareSize = m_squareSize_tmp;
+
+	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
+	// we assume flat topped hexagons
+	// we use "Offset Coordinates"
+	vec3 boundingBoxSize = viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
+
+	m_squareCols = ceil(boundingBoxSize.x / squareSize);
+	m_squareRows = ceil(boundingBoxSize.y / squareSize);
+
 }
 
 // --------------------------------------------------------------------------------------
@@ -521,6 +549,7 @@ void HexTileRenderer::renderHexagonGrid(mat4 modelViewProjectionMatrix) {
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 }
+
 
 void HexTileRenderer::calculateNumberOfHexagons() {
 
@@ -650,6 +679,7 @@ void HexTileRenderer::renderGUI() {
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
 
+			calculateNumberOfSquares();
 			calculateNumberOfHexagons();
 			setRotationMatrix();
 			// -------------------------------------------------------------------------------
@@ -738,7 +768,8 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
-			ImGui::SliderInt("Number of Squares ", &m_squareCount_tmp, 2.0f, 300.0f);
+			ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
+			ImGui::SliderFloat("Number of Squares ", &m_squareSize_tmp, 5.0f, 300.0f);
 		}
 
 
