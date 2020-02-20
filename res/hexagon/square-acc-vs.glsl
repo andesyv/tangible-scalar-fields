@@ -40,5 +40,5 @@ void main()
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
     //vertexColor = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
-    gl_Position = modelViewProjectionMatrix * vec4(squareX, squareY, 0.0f, 1.0f);
+    gl_Position =  vec4(squareX, squareY, 0.0f, 1.0f);
 }

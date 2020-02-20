@@ -72,6 +72,9 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
 		//---------------------------------------------------------------------------------------
 
+		//SSBO
+		std::unique_ptr<globjects::Buffer> m_valueMaxBuffer = std::make_unique<globjects::Buffer>();
+
 		// FRAMEBUFFER -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
@@ -90,12 +93,16 @@ namespace molumes
 		float shininess;
 		// --------------------------------------------------------------------------------
 
+		// VIEWPORT -------------------------------------------------------------------
+		//glm::vec4 boundingBoxScreenSpace;
+		// --------------------------------------------------------------------------------
+
 		// SQUARE CALC -------------------------------------------------------------------
 		int m_squareRows = 0;
 		int m_squareCols = 0;
 		float squareSize = 20.0f;
 
-		void calculateNumberOfSquares();
+		void calculateSquareTextureSize();
 
 		// HEXAGON CALC -------------------------------------------------------------------
 

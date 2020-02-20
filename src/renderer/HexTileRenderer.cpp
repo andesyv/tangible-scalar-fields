@@ -49,6 +49,8 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
+	// shader storage buffer object for current maximum accumulated value
+	m_valueMaxBuffer->setStorage(sizeof(uint), nullptr, gl::GL_NONE_BIT);
 
 	m_shaderSourceDefines = StaticStringSource::create("");
 	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
@@ -195,7 +197,7 @@ void HexTileRenderer::display()
 	}
 
 	if (squareSize != m_squareSize_tmp) {
-		calculateNumberOfSquares();
+		calculateSquareTextureSize();
 	}
 
 	// retrieve/compute all necessary matrices and related properties
@@ -317,8 +319,9 @@ void HexTileRenderer::display()
 
 	m_squareAccumulateFramebuffer->bind();
 
-	// set new viewport to write into correct texture coords
-	//glViewport(0, 0, squareCount, squareCount);
+	// set a neutral viewport -> does not change the value of the coordinates
+	// proof-> insert into this formula http://www.songho.ca/opengl/gl_transform.html
+	//glViewport(-1,-1,2,2);
 
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -371,13 +374,25 @@ void HexTileRenderer::display()
 	glDisablei(GL_BLEND, 0);
 
 	//reset Viewport
-	//glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
+	glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
 	m_squareAccumulateFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 	// ====================================================================================== THIRD RENDER PASS ======================================================================================
+	// TODO: Get maximum accumulated value
+
+	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+
+	// max accumulated Value
+	const uint maxValue = 0;
+	m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxValue);
+
+	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
 	// Render squares
 	m_squareTilesFramebuffer->bind();
 
@@ -446,7 +461,7 @@ void HexTileRenderer::display()
 	m_squareTilesFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
+	// ====================================================================================== FIFTH RENDER PASS ======================================================================================
 	m_shadeFramebuffer->bind();
 
 	m_pointChartTexture->bindActive(0);
@@ -487,19 +502,102 @@ void HexTileRenderer::display()
 // ###########################  SQUARE CALC ############################################
 // --------------------------------------------------------------------------------------
 
-void HexTileRenderer::calculateNumberOfSquares() {
+void HexTileRenderer::calculateSquareTextureSize() {
 
 	// set new size
 	squareSize = m_squareSize_tmp;
 
+	vec3 maxBounds = viewer()->scene()->table()->maximumBounds();
+	vec3 minBounds = viewer()->scene()->table()->minimumBounds();
+	mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
+	vec2 viewportSize = viewer()->viewportSize();
+
+
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
-	vec3 boundingBoxSize = viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
+	vec3 boundingBoxSize = maxBounds - minBounds;
 
 	m_squareCols = ceil(boundingBoxSize.x / squareSize);
 	m_squareRows = ceil(boundingBoxSize.y / squareSize);
 
+	//calculate viewport settings
+	//NDC space
+	vec4 maxBoundNDC = modelViewProjectionMatrix * vec4(vec3(4.0f,4.0f,0.0f), 1.0f);
+	vec4 minBoundNDC = modelViewProjectionMatrix * vec4(vec3(0.0f, 0.0f, 0.0f), 1.0f);
+
+	vec4 testPoint = vec4(1.0f, 2.0f, 1.0f, 1.0f);
+	vec4 testPointNDC = modelViewProjectionMatrix * testPoint;
+
+	// get bounding box coordinates in Screen Space
+	vec4 boundingBoxScreenSpace_2 = vec4(viewportSize[0] / 2* maxBoundNDC[0] + viewportSize[0] / 2, //maxX
+		viewportSize[1] / 2 * maxBoundNDC[1] + viewportSize[1] / 2, //maxY
+		viewportSize[0] / 2 * minBoundNDC[0] + viewportSize[0] / 2, //minX
+		viewportSize[1] / 2 * minBoundNDC[1] + viewportSize[1] / 2); //minY
+		
+
+	vec4 boundingBoxScreenSpace = vec4(viewportSize[0] * maxBoundNDC[0], //maxX
+		viewportSize[1] * maxBoundNDC[1], //maxY
+		viewportSize[0] * minBoundNDC[0], //minX
+		viewportSize[1] * minBoundNDC[1]); //minY
+
+	vec2 viewportXY = vec2(boundingBoxScreenSpace[0] - boundingBoxScreenSpace[2], boundingBoxScreenSpace[1] - boundingBoxScreenSpace[3]);
+	vec2 viewportXY_2 = vec2(boundingBoxScreenSpace_2[0] - boundingBoxScreenSpace_2[2], boundingBoxScreenSpace_2[1] - boundingBoxScreenSpace_2[3]);
+
+	vec2 testPointSS = vec2(viewportXY_2[0] / 2 * testPointNDC[0] + (boundingBoxScreenSpace_2[1] + viewportXY_2[0] / 2),
+		viewportXY_2[1] / 2 * testPointNDC[1] + (boundingBoxScreenSpace_2[3] + viewportXY_2[1] / 2));
+
+	vec2 testPointSS_2 = vec2(viewportXY_2[0] / 2 * testPoint[0] + (boundingBoxScreenSpace_2[1] + viewportXY_2[0] / 2),
+		viewportXY_2[1] / 2 * testPoint[1] + (boundingBoxScreenSpace_2[3] + viewportXY_2[1] / 2));
+
+	/*vec2 testPointSS = vec2(viewportSize[0] / 2 * testPointNDC[0] + (boundingBoxScreenSpace[1] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPointNDC[1] + (boundingBoxScreenSpace[3] + viewportSize[0] / 2));
+
+	vec2 testPointSS_2 = vec2(viewportSize[0] / 2 * testPointNDC[0] + (viewportXY[0] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPointNDC[1] + (viewportXY[1] + viewportSize[0] / 2));
+
+	vec2 testPointSS_3 = vec2(4 / 2 * testPointNDC[0] + (boundingBoxScreenSpace[1] + 4 / 2),
+		4 / 2 * testPointNDC[1] + (boundingBoxScreenSpace[3] + 4 / 2));
+
+	vec2 testPointSS_4 = vec2(4 / 2 * testPointNDC[0] + (viewportXY[0] + 4 / 2),
+		4 / 2 * testPointNDC[1] + (viewportXY[1] + 4 / 2));
+
+	vec2 testPointSS_5 = vec2(viewportSize[0] / 2 * testPointNDC[0] + (boundingBoxScreenSpace_2[1] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPointNDC[1] + (boundingBoxScreenSpace_2[3] + viewportSize[0] / 2));
+
+	vec2 testPointSS_6 = vec2(viewportSize[0] / 2 * testPointNDC[0] + (viewportXY_2[0] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPointNDC[1] + (viewportXY_2[1] + viewportSize[0] / 2));
+
+	vec2 testPointSS_7 = vec2(4 / 2 * testPointNDC[0] + (boundingBoxScreenSpace_2[1] + 4 / 2),
+		4 / 2 * testPointNDC[1] + (boundingBoxScreenSpace_2[3] + 4 / 2));
+
+	vec2 testPointSS_8 = vec2(4 / 2 * testPointNDC[0] + (viewportXY_2[0] + 4 / 2),
+		4 / 2 * testPointNDC[1] + (viewportXY_2[1] + 4 / 2));
+
+
+	vec2 testPointSS_9 = vec2(viewportSize[0] / 2 * testPoint[0] + (boundingBoxScreenSpace[1] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPoint[1] + (boundingBoxScreenSpace[3] + viewportSize[0] / 2));
+
+	vec2 testPointSS_10 = vec2(viewportSize[0] / 2 * testPoint[0] + (viewportXY[0] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPoint[1] + (viewportXY[1] + viewportSize[0] / 2));
+
+	vec2 testPointSS_11 = vec2(4 / 2 * testPoint[0] + (boundingBoxScreenSpace[1] + 4 / 2),
+		4 / 2 * testPoint[1] + (boundingBoxScreenSpace[3] + 4 / 2));
+
+	vec2 testPointSS_12 = vec2(4 / 2 * testPoint[0] + (viewportXY[0] + 4 / 2),
+		4 / 2 * testPoint[1] + (viewportXY[1] + 4 / 2));
+
+	vec2 testPointSS_13 = vec2(viewportSize[0] / 2 * testPoint[0] + (boundingBoxScreenSpace_2[1] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPoint[1] + (boundingBoxScreenSpace_2[3] + viewportSize[0] / 2));
+
+	vec2 testPointSS_14 = vec2(viewportSize[0] / 2 * testPoint[0] + (viewportXY_2[0] + viewportSize[0] / 2),
+		viewportSize[1] / 2 * testPoint[1] + (viewportXY_2[1] + viewportSize[0] / 2));
+
+	vec2 testPointSS_15 = vec2(4 / 2 * testPoint[0] + (boundingBoxScreenSpace_2[1] + 4 / 2),
+		4 / 2 * testPoint[1] + (boundingBoxScreenSpace_2[3] + 4 / 2));
+
+	vec2 testPointSS_16 = vec2(4 / 2 * testPoint[0] + (viewportXY_2[0] + 4 / 2),
+		4 / 2 * testPoint[1] + (viewportXY_2[1] + 4 / 2));*/
 }
 
 // --------------------------------------------------------------------------------------
@@ -687,11 +785,7 @@ void HexTileRenderer::renderGUI() {
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
 
-			calculateNumberOfSquares();
-			calculateNumberOfHexagons();
-			setRotationMatrix();
 			// -------------------------------------------------------------------------------
-
 
 			// Scaling the model's bounding box to the canonical view volume
 			vec3 boundingBoxSize = viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
@@ -703,12 +797,19 @@ void HexTileRenderer::renderGUI() {
 			// store diameter of current scatter plot and initialize light position
 			viewer()->m_scatterPlotDiameter = sqrt(pow(boundingBoxSize.x, 2) + pow(boundingBoxSize.y, 2));
 
-			// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------------------------------------------------------
+			// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------
 			glm::mat4 viewTransform = viewer()->viewTransform();
 			glm::vec3 initLightDir = normalize(glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 			glm::mat4 newLightTransform = glm::inverse(viewTransform)*glm::translate(mat4(1.0f), (-5 * viewer()->m_scatterPlotDiameter*initLightDir))*viewTransform;
 			viewer()->setLightTransform(newLightTransform);
-			//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+			//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+			// calculate accumulate texture settings - needs to be last step here ------------------------------
+			calculateSquareTextureSize();
+			calculateNumberOfHexagons();
+			setRotationMatrix();
+			// -------------------------------------------------------------------------------
+
 		}
 
 		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
