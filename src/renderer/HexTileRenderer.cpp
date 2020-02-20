@@ -212,6 +212,14 @@ void HexTileRenderer::display()
 	const mat3 normalMatrix = mat3(transpose(inverseModelViewMatrix));
 	const mat3 inverseNormalMatrix = inverse(normalMatrix);
 	const ivec2 viewportSize = viewer()->viewportSize();
+	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
+	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
+
+	//The squares on the maximum sides of the bounding box, will not fit into the box perfectly most of the time
+	//therefore we calculate new maximum bounds that fit them perfectly
+	//this way we can perform a mapping using the set square size
+	// needs to be calculated AFTER calculateNumberOfSquares();
+	const vec2 maxBound_Offset = vec2(m_squareCols * squareSize + minBounds.x, m_squareRows * squareSize + minBounds.y);
 
 	double mouseX, mouseY;
 	glfwGetCursorPos(viewer()->window(), &mouseX, &mouseY);
@@ -331,8 +339,8 @@ void HexTileRenderer::display()
 
 	shaderProgram_squares->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	shaderProgram_squares->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
-	shaderProgram_squares->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
+	shaderProgram_squares->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_squares->setUniform("minBounds", minBounds);
 
 	shaderProgram_squares->setUniform("maxTexCoordX", m_squareCols - 1);
 	shaderProgram_squares->setUniform("maxTexCoordY", m_squareRows - 1);
@@ -392,10 +400,10 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
-
 	//geometry shader
-	shaderProgram_square_tiles->setUniform("maxBounds", vec2(viewer()->scene()->table()->maximumBounds()));
-	shaderProgram_square_tiles->setUniform("minBounds", vec2(viewer()->scene()->table()->minimumBounds()));
+	shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_square_tiles->setUniform("maxBounds", maxBounds);
+	shaderProgram_square_tiles->setUniform("minBounds", minBounds);
 
 	//geometry & fragment shader
 	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -404,8 +412,8 @@ void HexTileRenderer::display()
 	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 	//fragment Shader
-	shaderProgram_squares->setUniform("maxTexCoordX", m_squareCols - 1);
-	shaderProgram_squares->setUniform("maxTexCoordY", m_squareRows - 1);
+	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_squareCols - 1);
+	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareRows - 1);
 
 	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
 	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
@@ -769,7 +777,7 @@ void HexTileRenderer::renderGUI() {
 		{
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
 			ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
-			ImGui::SliderFloat("Number of Squares ", &m_squareSize_tmp, 5.0f, 300.0f);
+			ImGui::SliderFloat("Square Size ", &m_squareSize_tmp, 5.0f, 200.0f);
 		}
 
 

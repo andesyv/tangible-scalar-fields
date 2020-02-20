@@ -13,7 +13,7 @@ uniform int textureWidth;
 uniform float viewportX;
 
 //[x,y]
-uniform vec2 maxBounds;
+uniform vec2 maxBounds_Off;
 uniform vec2 minBounds;
 //min = 0
 uniform int maxTexCoordX;
@@ -31,8 +31,8 @@ void main()
 
     // to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
     // If the current value = maxValue, we take the maxTexCoord instead
-    int squareX = min(maxTexCoordX, mapInterval(xValue, minBounds[0], maxBounds[0], maxTexCoordX+1));
-    int squareY = min(maxTexCoordY, mapInterval(yValue, minBounds[1], maxBounds[1], maxTexCoordY+1));
+    int squareX = min(maxTexCoordX, mapInterval(xValue, minBounds[0], maxBounds_Off[0], maxTexCoordX+1));
+    int squareY = min(maxTexCoordY, mapInterval(yValue, minBounds[1], maxBounds_Off[1], maxTexCoordY+1));
 
 	//int colorTexelCoord = int(((squareX+squareY) * textureWidth)/(2*maxTexCoord+1));
 	//vertexColor = vec4(texelFetch(colorMapTexture, colorTexelCoord, 0).rgb, 1.0f);

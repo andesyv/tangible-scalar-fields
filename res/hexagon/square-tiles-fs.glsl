@@ -9,6 +9,7 @@
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 in vec4 boundsScreenSpace;
+in vec2 origMaxBoundScreenSpace;
 
 //--uniform
 uniform mat4 modelViewProjectionMatrix;
@@ -58,7 +59,8 @@ void main()
     float squareValue = texelFetch(squareAccumulateTexture, getScreenSpaceTextureCoords(squareX, squareY), 0).r;
 
     // we don't want to render empty squares
-    if(squareValue < 0.00000001){
+    // we don't render pixels outisde the original bounding box
+    if(squareValue < 0.00000001|| gl_FragCoord.x > origMaxBoundScreenSpace[0] || gl_FragCoord.y > origMaxBoundScreenSpace[1]){
         discard;
     }
 
@@ -66,7 +68,7 @@ void main()
     squareTilesTexture = vec4(float(squareX/float(maxTexCoordX)),float(squareY/float(maxTexCoordY)),0.0f,1.0f);
 
 	#ifdef COLORMAP
-		//int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
-		//squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
+		int colorTexelCoord = mapInterval(squareValue, 0, numberOfSamples, textureWidth);
+		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
 }
