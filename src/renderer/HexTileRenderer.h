@@ -98,8 +98,8 @@ namespace molumes
 		// --------------------------------------------------------------------------------
 
 		// SQUARE CALC -------------------------------------------------------------------
-		int m_squareRows = 0;
-		int m_squareCols = 0;
+		int m_squareMaxY = 0;
+		int m_squareMaxX = 0;
 		float squareSize = 20.0f;
 
 		void calculateSquareTextureSize();

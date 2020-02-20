@@ -221,7 +221,7 @@ void HexTileRenderer::display()
 	//therefore we calculate new maximum bounds that fit them perfectly
 	//this way we can perform a mapping using the set square size
 	// needs to be calculated AFTER calculateNumberOfSquares();
-	const vec2 maxBound_Offset = vec2(m_squareCols * squareSize + minBounds.x, m_squareRows * squareSize + minBounds.y);
+	const vec2 maxBound_Offset = vec2((m_squareMaxX + 1) * squareSize + minBounds.x, (m_squareMaxY + 1) * squareSize + minBounds.y);
 
 	double mouseX, mouseY;
 	glfwGetCursorPos(viewer()->window(), &mouseX, &mouseY);
@@ -319,9 +319,8 @@ void HexTileRenderer::display()
 
 	m_squareAccumulateFramebuffer->bind();
 
-	// set a neutral viewport -> does not change the value of the coordinates
-	// proof-> insert into this formula http://www.songho.ca/opengl/gl_transform.html
-	//glViewport(-1,-1,2,2);
+	// set viewport to size of accumulation texture
+	glViewport(0, 0, m_squareMaxX, m_squareMaxY);
 
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -345,8 +344,8 @@ void HexTileRenderer::display()
 	shaderProgram_squares->setUniform("maxBounds_Off", maxBound_Offset);
 	shaderProgram_squares->setUniform("minBounds", minBounds);
 
-	shaderProgram_squares->setUniform("maxTexCoordX", m_squareCols - 1);
-	shaderProgram_squares->setUniform("maxTexCoordY", m_squareRows - 1);
+	shaderProgram_squares->setUniform("maxTexCoordX", m_squareMaxX);
+	shaderProgram_squares->setUniform("maxTexCoordY", m_squareMaxY);
 
 
 	if (m_colorMapLoaded)
@@ -427,8 +426,8 @@ void HexTileRenderer::display()
 	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 	//fragment Shader
-	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_squareCols - 1);
-	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareRows - 1);
+	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_squareMaxX);
+	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareMaxY);
 
 	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
 	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
@@ -507,9 +506,13 @@ void HexTileRenderer::calculateSquareTextureSize() {
 	// set new size
 	squareSize = m_squareSize_tmp;
 
+
+	//mat4 modelTransform_tmp = viewer()->modelTransform();
+	//viewer()->setModelTransform(mat4(1.0f));
 	vec3 maxBounds = viewer()->scene()->table()->maximumBounds();
 	vec3 minBounds = viewer()->scene()->table()->minimumBounds();
 	mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
+	//viewer()->setModelTransform(modelTransform_tmp);
 	vec2 viewportSize = viewer()->viewportSize();
 
 
@@ -518,86 +521,19 @@ void HexTileRenderer::calculateSquareTextureSize() {
 	// we use "Offset Coordinates"
 	vec3 boundingBoxSize = maxBounds - minBounds;
 
-	m_squareCols = ceil(boundingBoxSize.x / squareSize);
-	m_squareRows = ceil(boundingBoxSize.y / squareSize);
+	//TODO: test if this leads to mapping errors
+	m_squareMaxX = ceil(boundingBoxSize.x / squareSize) - 1;
+	m_squareMaxY = ceil(boundingBoxSize.y / squareSize) - 1;
+
+	if (m_squareMaxX % 2 != 0) m_squareMaxX++;
+	if (m_squareMaxY % 2 != 0) m_squareMaxY++;
 
 	//calculate viewport settings
-	//NDC space
-	vec4 maxBoundNDC = modelViewProjectionMatrix * vec4(vec3(4.0f,4.0f,0.0f), 1.0f);
-	vec4 minBoundNDC = modelViewProjectionMatrix * vec4(vec3(0.0f, 0.0f, 0.0f), 1.0f);
+	vec4 testPoint = vec4(1.0f, 2.0f, 0.0f, 1.0f);
 
-	vec4 testPoint = vec4(1.0f, 2.0f, 1.0f, 1.0f);
-	vec4 testPointNDC = modelViewProjectionMatrix * testPoint;
+	vec2 testPointNDC = vec2((testPoint.x * 2 / m_squareMaxX) - 1, (testPoint.y * 2 / m_squareMaxY) - 1);
+	vec2 testPointSS = vec2((testPointNDC.x + 1) * (m_squareMaxX / 2), (testPointNDC.y + 1) * (m_squareMaxY / 2));
 
-	// get bounding box coordinates in Screen Space
-	vec4 boundingBoxScreenSpace_2 = vec4(viewportSize[0] / 2* maxBoundNDC[0] + viewportSize[0] / 2, //maxX
-		viewportSize[1] / 2 * maxBoundNDC[1] + viewportSize[1] / 2, //maxY
-		viewportSize[0] / 2 * minBoundNDC[0] + viewportSize[0] / 2, //minX
-		viewportSize[1] / 2 * minBoundNDC[1] + viewportSize[1] / 2); //minY
-		
-
-	vec4 boundingBoxScreenSpace = vec4(viewportSize[0] * maxBoundNDC[0], //maxX
-		viewportSize[1] * maxBoundNDC[1], //maxY
-		viewportSize[0] * minBoundNDC[0], //minX
-		viewportSize[1] * minBoundNDC[1]); //minY
-
-	vec2 viewportXY = vec2(boundingBoxScreenSpace[0] - boundingBoxScreenSpace[2], boundingBoxScreenSpace[1] - boundingBoxScreenSpace[3]);
-	vec2 viewportXY_2 = vec2(boundingBoxScreenSpace_2[0] - boundingBoxScreenSpace_2[2], boundingBoxScreenSpace_2[1] - boundingBoxScreenSpace_2[3]);
-
-	vec2 testPointSS = vec2(viewportXY_2[0] / 2 * testPointNDC[0] + (boundingBoxScreenSpace_2[1] + viewportXY_2[0] / 2),
-		viewportXY_2[1] / 2 * testPointNDC[1] + (boundingBoxScreenSpace_2[3] + viewportXY_2[1] / 2));
-
-	vec2 testPointSS_2 = vec2(viewportXY_2[0] / 2 * testPoint[0] + (boundingBoxScreenSpace_2[1] + viewportXY_2[0] / 2),
-		viewportXY_2[1] / 2 * testPoint[1] + (boundingBoxScreenSpace_2[3] + viewportXY_2[1] / 2));
-
-	/*vec2 testPointSS = vec2(viewportSize[0] / 2 * testPointNDC[0] + (boundingBoxScreenSpace[1] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPointNDC[1] + (boundingBoxScreenSpace[3] + viewportSize[0] / 2));
-
-	vec2 testPointSS_2 = vec2(viewportSize[0] / 2 * testPointNDC[0] + (viewportXY[0] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPointNDC[1] + (viewportXY[1] + viewportSize[0] / 2));
-
-	vec2 testPointSS_3 = vec2(4 / 2 * testPointNDC[0] + (boundingBoxScreenSpace[1] + 4 / 2),
-		4 / 2 * testPointNDC[1] + (boundingBoxScreenSpace[3] + 4 / 2));
-
-	vec2 testPointSS_4 = vec2(4 / 2 * testPointNDC[0] + (viewportXY[0] + 4 / 2),
-		4 / 2 * testPointNDC[1] + (viewportXY[1] + 4 / 2));
-
-	vec2 testPointSS_5 = vec2(viewportSize[0] / 2 * testPointNDC[0] + (boundingBoxScreenSpace_2[1] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPointNDC[1] + (boundingBoxScreenSpace_2[3] + viewportSize[0] / 2));
-
-	vec2 testPointSS_6 = vec2(viewportSize[0] / 2 * testPointNDC[0] + (viewportXY_2[0] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPointNDC[1] + (viewportXY_2[1] + viewportSize[0] / 2));
-
-	vec2 testPointSS_7 = vec2(4 / 2 * testPointNDC[0] + (boundingBoxScreenSpace_2[1] + 4 / 2),
-		4 / 2 * testPointNDC[1] + (boundingBoxScreenSpace_2[3] + 4 / 2));
-
-	vec2 testPointSS_8 = vec2(4 / 2 * testPointNDC[0] + (viewportXY_2[0] + 4 / 2),
-		4 / 2 * testPointNDC[1] + (viewportXY_2[1] + 4 / 2));
-
-
-	vec2 testPointSS_9 = vec2(viewportSize[0] / 2 * testPoint[0] + (boundingBoxScreenSpace[1] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPoint[1] + (boundingBoxScreenSpace[3] + viewportSize[0] / 2));
-
-	vec2 testPointSS_10 = vec2(viewportSize[0] / 2 * testPoint[0] + (viewportXY[0] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPoint[1] + (viewportXY[1] + viewportSize[0] / 2));
-
-	vec2 testPointSS_11 = vec2(4 / 2 * testPoint[0] + (boundingBoxScreenSpace[1] + 4 / 2),
-		4 / 2 * testPoint[1] + (boundingBoxScreenSpace[3] + 4 / 2));
-
-	vec2 testPointSS_12 = vec2(4 / 2 * testPoint[0] + (viewportXY[0] + 4 / 2),
-		4 / 2 * testPoint[1] + (viewportXY[1] + 4 / 2));
-
-	vec2 testPointSS_13 = vec2(viewportSize[0] / 2 * testPoint[0] + (boundingBoxScreenSpace_2[1] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPoint[1] + (boundingBoxScreenSpace_2[3] + viewportSize[0] / 2));
-
-	vec2 testPointSS_14 = vec2(viewportSize[0] / 2 * testPoint[0] + (viewportXY_2[0] + viewportSize[0] / 2),
-		viewportSize[1] / 2 * testPoint[1] + (viewportXY_2[1] + viewportSize[0] / 2));
-
-	vec2 testPointSS_15 = vec2(4 / 2 * testPoint[0] + (boundingBoxScreenSpace_2[1] + 4 / 2),
-		4 / 2 * testPoint[1] + (boundingBoxScreenSpace_2[3] + 4 / 2));
-
-	vec2 testPointSS_16 = vec2(4 / 2 * testPoint[0] + (viewportXY_2[0] + 4 / 2),
-		4 / 2 * testPoint[1] + (viewportXY_2[1] + 4 / 2));*/
 }
 
 // --------------------------------------------------------------------------------------
