@@ -40,7 +40,7 @@ void main()
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
     //vertexColor = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
-    // map square coordinates to [-1,1] (first [0,2] than -1)
+    // NDC - map square coordinates to [-1,1] (first [0,2] than -1)
 	vec2 squareNDC = vec2(((squareX * 2) / float(maxTexCoordX)) - 1, ((squareY * 2) / float(maxTexCoordY)) - 1);
 
     gl_Position = vec4(squareNDC, 0.0f, 1.0f);

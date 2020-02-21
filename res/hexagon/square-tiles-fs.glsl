@@ -22,8 +22,7 @@ uniform int numberOfSamples;
 //min = 0
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
-uniform int windowHeight;
-uniform int windowWidth;
+
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
 

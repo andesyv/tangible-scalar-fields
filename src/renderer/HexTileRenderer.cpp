@@ -112,9 +112,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_squareAccumulateTexture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_squareAccumulateTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	//TODO: set dynamic size
-	//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareCount, squareCount), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(0, 0), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr); // the size of this texture is set dynamicly depending on the grid granularity
 
 	m_squareTilesTexture = Texture::create(GL_TEXTURE_2D);
 	m_squareTilesTexture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -190,8 +188,6 @@ void HexTileRenderer::display()
 		m_framebufferSize = viewer()->viewportSize();
 		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		//TODO: set dynamic size
-		//m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(squareCount, squareCount), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
@@ -506,34 +502,24 @@ void HexTileRenderer::calculateSquareTextureSize() {
 	// set new size
 	squareSize = m_squareSize_tmp;
 
-
-	//mat4 modelTransform_tmp = viewer()->modelTransform();
-	//viewer()->setModelTransform(mat4(1.0f));
 	vec3 maxBounds = viewer()->scene()->table()->maximumBounds();
 	vec3 minBounds = viewer()->scene()->table()->minimumBounds();
-	mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
-	//viewer()->setModelTransform(modelTransform_tmp);
-	vec2 viewportSize = viewer()->viewportSize();
 
-
-	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
-	// we assume flat topped hexagons
-	// we use "Offset Coordinates"
 	vec3 boundingBoxSize = maxBounds - minBounds;
 
-	//TODO: test if this leads to mapping errors
+	// get maximum value of X,Y in accumulateTexture-Space
 	m_squareMaxX = ceil(boundingBoxSize.x / squareSize) - 1;
 	m_squareMaxY = ceil(boundingBoxSize.y / squareSize) - 1;
 
-	if (m_squareMaxX % 2 != 0) m_squareMaxX++;
-	if (m_squareMaxY % 2 != 0) m_squareMaxY++;
+	//set texture size
+	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(m_squareMaxX + 1, m_squareMaxY + 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	//calculate viewport settings
-	vec4 testPoint = vec4(1.0f, 2.0f, 0.0f, 1.0f);
+	/*vec4 testPoint = vec4(1.0f, 2.0f, 0.0f, 1.0f);
 
-	vec2 testPointNDC = vec2((testPoint.x * 2 / m_squareMaxX) - 1, (testPoint.y * 2 / m_squareMaxY) - 1);
+	vec2 testPointNDC = vec2((testPoint.x * 2 / float(m_squareMaxX)) - 1, (testPoint.y * 2 / float(m_squareMaxY)) - 1);
 	vec2 testPointSS = vec2((testPointNDC.x + 1) * (m_squareMaxX / 2), (testPointNDC.y + 1) * (m_squareMaxY / 2));
-
+	*/
 }
 
 // --------------------------------------------------------------------------------------
