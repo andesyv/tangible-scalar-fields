@@ -34,10 +34,10 @@ void main()
     int squareX = min(maxTexCoordX, mapInterval(xValue, minBounds[0], maxBounds_Off[0], maxTexCoordX+1));
     int squareY = min(maxTexCoordY, mapInterval(yValue, minBounds[1], maxBounds_Off[1], maxTexCoordY+1));
 
-	//int colorTexelCoord = int(((squareX+squareY) * textureWidth)/(2*maxTexCoord+1));
-	//vertexColor = vec4(texelFetch(colorMapTexture, colorTexelCoord, 0).rgb, 1.0f);
-
+    // we only set the red channel, because we only use the color for additive blending
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
+
+    // debug: color point according to square
     //vertexColor = vec4(float(squareX/float(maxTexCoord)),float(squareY/float(maxTexCoord)),0.0f,1.0f);
 
     // NDC - map square coordinates to [-1,1] (first [0,2] than -1)

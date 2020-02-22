@@ -7,7 +7,6 @@ layout(triangle_strip, max_vertices = 4) out;
 uniform vec2 maxBounds_Off;
 uniform vec2 maxBounds;
 uniform vec2 minBounds;
-uniform int squareSize;
 
 uniform int windowHeight;
 uniform int windowWidth;

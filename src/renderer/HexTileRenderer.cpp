@@ -69,6 +69,12 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/hexagon/square-acc-fs.glsl"}
 		});
 
+	createShaderProgram("square-acc-count", {
+		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/hexagon/bounding-quad-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/max-acc-val-fs.glsl"}
+		});
+
 	createShaderProgram("square-tiles", {
 		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/hexagon/bounding-quad-gs.glsl"},
@@ -267,9 +273,6 @@ void HexTileRenderer::display()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_ALWAYS);
 
-	// test different blending options interactively: --------------------------------------------------
-	// https://andersriggelsen.dk/glblendfunc.php
-
 	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
 	glEnablei(GL_BLEND, 0);
 	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -375,19 +378,52 @@ void HexTileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	// ====================================================================================== THIRD RENDER PASS ======================================================================================
-	// TODO: Get maximum accumulated value
-
+	// ====================================================================================== THIRD & FOURTH RENDER PASS ======================================================================================
+	// THIRD: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
+	// FOURTH: Render Squares
+	
 	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
 	// max accumulated Value
 	const uint maxValue = 0;
 	m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxValue);
+	// -------------------------------------------------------------------------------------------------
 
-	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+	m_squareAccumulateTexture->bindActive(1);
 
-	// ====================================================================================== FOURTH RENDER PASS ======================================================================================
+	auto shaderProgram_accumulate_count = shaderProgram("square-acc-count");
+
+	//geometry shader
+	shaderProgram_accumulate_count->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_accumulate_count->setUniform("maxBounds", maxBounds);
+	shaderProgram_accumulate_count->setUniform("minBounds", minBounds);
+
+	//geometry & fragment shader
+	shaderProgram_accumulate_count->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+	shaderProgram_accumulate_count->setUniform("windowWidth", viewer()->viewportSize()[0]);
+	shaderProgram_accumulate_count->setUniform("windowHeight", viewer()->viewportSize()[1]);
+
+	//fragment Shader
+	shaderProgram_accumulate_count->setUniform("maxTexCoordX", m_squareMaxX);
+	shaderProgram_accumulate_count->setUniform("maxTexCoordY", m_squareMaxY);
+
+	shaderProgram_accumulate_count->setUniform("squareAccumulateTexture", 1);
+
+	m_vaoQuad->bind();
+
+	shaderProgram_accumulate_count->use();
+	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	shaderProgram_accumulate_count->release();
+
+	m_vaoQuad->unbind();
+
+	m_squareAccumulateTexture->unbindActive(1);
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	// -------------------------------------------------------------------------------------------------
 	// Render squares
 	m_squareTilesFramebuffer->bind();
 
@@ -426,7 +462,6 @@ void HexTileRenderer::display()
 	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareMaxY);
 
 	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
-	shaderProgram_square_tiles->setUniform("numberOfSamples", vertexCount);
 
 	if (m_colorMapLoaded)
 	{
@@ -455,8 +490,12 @@ void HexTileRenderer::display()
 
 	m_squareTilesFramebuffer->unbind();
 
+	//unbind shader storage buffer
+	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== FIFTH RENDER PASS ======================================================================================
+	// blend everything together and draw to screen
 	m_shadeFramebuffer->bind();
 
 	m_pointChartTexture->bindActive(0);
