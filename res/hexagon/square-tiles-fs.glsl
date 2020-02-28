@@ -2,9 +2,6 @@
 #include "/defines.glsl"
 #include "/globals.glsl"
 
-//TODO: make changeable - ask thomas how
-#define COLORMAP
-
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
@@ -29,11 +26,6 @@ uniform int maxTexCoordY;
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
 
-//maps value x from [a,b] --> [0,c]
-int mapInterval(float x, float a, float b, int c){
-    return int((x-a)*c/(b-a));
-}
-
 void main()
 {
     
@@ -56,9 +48,10 @@ void main()
     // +1 because else we cannot map the maximum value itself
     float maxSquareValue = uintBitsToFloat(maxValue) + 1;
 
-    //debug: color squares according to index
+    //color squares according to index
     squareTilesTexture = vec4(float(squareX/float(maxTexCoordX)),float(squareY/float(maxTexCoordY)),0.0f,1.0f);
 
+    // color square according to value
 	#ifdef COLORMAP
 		int colorTexelCoord = mapInterval(squareValue, 0, maxSquareValue, textureWidth);
 		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;

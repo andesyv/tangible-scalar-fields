@@ -1,9 +1,6 @@
 #version 450
 #include "/defines.glsl"
 
-//TODO: make changeable - ask thomas how
-#define COLORMAP
-
 layout (location = 0) out vec4 pointChartTexture;
 
 uniform vec3 pointColor;

@@ -338,22 +338,11 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_squares = shaderProgram("square-acc");
 
-	shaderProgram_squares->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
 	shaderProgram_squares->setUniform("maxBounds_Off", maxBound_Offset);
 	shaderProgram_squares->setUniform("minBounds", minBounds);
 
 	shaderProgram_squares->setUniform("maxTexCoordX", m_squareMaxX);
 	shaderProgram_squares->setUniform("maxTexCoordY", m_squareMaxY);
-
-
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->bindActive(5);
-		shaderProgram_squares->setUniform("colorMapTexture", 5);
-		shaderProgram_squares->setUniform("textureWidth", m_ColorMapWidth);
-		shaderProgram_squares->setUniform("viewportX", float(viewportSize.x));
-	}
 
 	m_vao->bind();
 	shaderProgram_squares->use();
@@ -851,7 +840,7 @@ void HexTileRenderer::renderGUI() {
 
 
 /*
-Gathers all #define, sets them in the shaders an reloads them
+Gathers all #define, reset the defines files and reload the shaders
 */
 void HexTileRenderer::setShaderDefines() {
 	std::string defines = "";
