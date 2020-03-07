@@ -83,6 +83,19 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
 	return false;
 }
 
+std::unique_ptr<globjects::Texture> Renderer::create2DTexture(GLenum tex, GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT,
+	gl::GLint level, gl::GLenum internalFormat, const glm::ivec2 & size, gl::GLint border, gl::GLenum format, gl::GLenum type, const gl::GLvoid * data) {
+
+	std::unique_ptr<globjects::Texture> texture = Texture::create(tex);
+	texture->setParameter(GL_TEXTURE_MIN_FILTER, minFilter);
+	texture->setParameter(GL_TEXTURE_MAG_FILTER, magFilter);
+	texture->setParameter(GL_TEXTURE_WRAP_S, wrapS);
+	texture->setParameter(GL_TEXTURE_WRAP_T, wrapT);
+	texture->image2D(level, internalFormat, size, border, format, type, data);
+
+	return texture;
+}
+
 globjects::Program * Renderer::shaderProgram(const std::string & name)
 {
 	return m_shaderPrograms[name].m_program.get();

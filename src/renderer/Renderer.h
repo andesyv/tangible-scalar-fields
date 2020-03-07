@@ -16,6 +16,7 @@
 #include <globjects/Buffer.h>
 #include <globjects/Program.h>
 #include <globjects/Shader.h>
+#include <globjects/Texture.h>
 #include <globjects/base/File.h>
 #include <globjects/NamedString.h>
 #include <globjects/base/StaticStringSource.h>
@@ -46,6 +47,7 @@ namespace molumes
 		virtual void display() = 0;
 
 		bool createShaderProgram(const std::string & name, std::initializer_list< std::pair<gl::GLenum, std::string> > shaders, std::initializer_list < std::string> shaderIncludes = {});
+		std::unique_ptr<globjects::Texture> create2DTexture(gl::GLenum tex, gl::GLenum minFilter, gl::GLenum magFilter, gl::GLenum wrapS, gl::GLenum wrapT, gl::GLint level, gl::GLenum internalFormat, const glm::ivec2 & size, gl::GLint border, gl::GLenum format, gl::GLenum type, const gl::GLvoid * data);
 		globjects::Program* shaderProgram(const std::string & name);
 
 	private:

@@ -43,6 +43,12 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_colorColumnBuffer = std::make_unique<globjects::Buffer>();
 		//---------------------------------------------------------------------------------------
 
+		// SQUARE GRID VERTEX DATA------------------------------------------------------------
+		std::unique_ptr<globjects::VertexArray> m_vaoSquareGrid = std::make_unique<globjects::VertexArray>();
+		std::unique_ptr<globjects::Buffer> m_verticesSquareGrid = std::make_unique<globjects::Buffer>();
+
+		//---------------------------------------------------------------------------------------
+
 		// HEX VERTEX DATA -------------------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vaoHex = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesHex = std::make_unique<globjects::Buffer>();
@@ -57,7 +63,7 @@ namespace molumes
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
 
 		std::unique_ptr<globjects::File> m_shaderSourceGlobals = nullptr;
-		std::unique_ptr<globjects::NamedString> m_shaderGlobals = nullptr;	
+		std::unique_ptr<globjects::NamedString> m_shaderGlobals = nullptr;
 
 		// TEXTURES -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
@@ -67,6 +73,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_squareGridTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -80,6 +87,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_squareGridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
@@ -100,6 +108,8 @@ namespace molumes
 		// SQUARE CALC -------------------------------------------------------------------
 		int m_squareMaxY = 0;
 		int m_squareMaxX = 0;
+		int m_squareNumRows = 0; //Y
+		int m_squareNumCols = 0; //X
 		float squareSize = 20.0f;
 
 		void calculateSquareTextureSize();
