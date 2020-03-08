@@ -64,6 +64,12 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/hexagon/point-fs.glsl"}
 		});
 
+	createShaderProgram("point-circle", {
+		{GL_VERTEX_SHADER,"./res/hexagon/point-circle-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/hexagon/point-circle-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/point-circle-fs.glsl"}
+		});
+
 	createShaderProgram("square-acc", {
 		{GL_VERTEX_SHADER,"./res/hexagon/square/square-acc-vs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/hexagon/square/square-acc-fs.glsl"}
@@ -104,6 +110,8 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	// init textures
 	m_pointChartTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
+	m_pointCircleTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
 	m_hexTilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	// the size of this texture is set dynamicly depending on the grid granularity
@@ -143,6 +151,11 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_pointFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_pointChartTexture.get());
 	m_pointFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_pointFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+
+	m_pointCircleFramebuffer = Framebuffer::create();
+	m_pointCircleFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_pointCircleTexture.get());
+	m_pointCircleFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_pointCircleFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_hexFramebuffer = Framebuffer::create();
 	m_hexFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_hexTilesTexture.get());
@@ -248,7 +261,7 @@ void HexTileRenderer::display()
 
 	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
 
-	// ====================================================================================== FIRST RENDER PASS =======================================================================================
+	// ====================================================================================== POINTS RENDER PASS =======================================================================================
 
 	m_pointFramebuffer->bind();
 	glClearDepth(1.0f);
@@ -299,7 +312,51 @@ void HexTileRenderer::display()
 	m_pointFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-	// ====================================================================================== SECOND RENDER PASS ======================================================================================
+
+	// ====================================================================================== POINT CIRCLES RENDER PASS =======================================================================================
+
+	m_pointCircleFramebuffer->bind();
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// make sure points are drawn on top of each other
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_MAX);
+
+	// -------------------------------------------------------------------------------------------------
+
+	auto shaderProgram_pointCircles = shaderProgram("point-circle");
+
+	//geometry shader
+	shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_pointCircles->setUniform("radius", m_pointCircleRadius);
+	shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+
+	//fragment shader
+	shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
+
+	m_vao->bind();
+	shaderProgram_pointCircles->use();
+
+	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+	shaderProgram_pointCircles->release();
+	m_vao->unbind();
+
+	// disable blending for draw buffer 0 (classical scatter plot)
+	glDisablei(GL_BLEND, 0);
+
+	m_pointCircleFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	// ====================================================================================== ACCUMULATE RENDER PASS ======================================================================================
 	// Accumulate Points into squares
 
 	m_squareAccumulateFramebuffer->bind();
@@ -353,7 +410,7 @@ void HexTileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	// ====================================================================================== THIRD & FOURTH RENDER PASS ======================================================================================
+	// ====================================================================================== MAX VAL & TILES RENDER PASS ======================================================================================
 	// THIRD: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
 	// FOURTH: Render Squares
 
@@ -469,10 +526,8 @@ void HexTileRenderer::display()
 	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-	// ====================================================================================== FIFTH RENDER PASS ======================================================================================
+	// ====================================================================================== GRID RENDER PASS ======================================================================================
 	// render square grid into texture
-	//TODO: maybe somewhere cols and rows wrong...
-	//TODO: make grid optional
 
 	m_squareGridFramebuffer->bind();
 
@@ -492,6 +547,7 @@ void HexTileRenderer::display()
 	// -------------------------------------------------------------------------------------------------
 
 	m_squareGridTexture->bindActive(0);
+	//used to check if we actually need to draw the grid for a given square
 	m_squareAccumulateTexture->bindActive(1);
 
 	auto shaderProgram_square_grid = shaderProgram("square-grid");
@@ -535,7 +591,7 @@ void HexTileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	// ====================================================================================== SIXTH RENDER PASS ======================================================================================
+	// ====================================================================================== SHADE/BLEND RENDER PASS ======================================================================================
 	// blend everything together and draw to screen
 	m_shadeFramebuffer->bind();
 
@@ -543,16 +599,22 @@ void HexTileRenderer::display()
 	m_squareTilesTexture->bindActive(1);
 	m_squareAccumulateTexture->bindActive(2);
 	m_squareGridTexture->bindActive(3);
+	m_pointCircleTexture->bindActive(4);
 
 	auto shaderProgram_shade = shaderProgram("shade");
 
 	shaderProgram_shade->setUniform("pointChartTexture", 0);
 	
+	if (m_renderPointCircles) {
+		shaderProgram_shade->setUniform("pointCircleTexture", 4);
+	}
+
 	if (m_renderSquares) {
 		shaderProgram_shade->setUniform("tilesTexture", 1);
 		shaderProgram_shade->setUniform("gridTexture", 3);
 	}
-	else if (m_renderAccumulatePoints) {
+	
+	if (m_renderAccumulatePoints) {
 		shaderProgram_shade->setUniform("accPointTexture", 2);
 	}
 	
@@ -568,6 +630,7 @@ void HexTileRenderer::display()
 	m_squareTilesTexture->unbindActive(1);
 	m_squareAccumulateTexture->unbindActive(2);
 	m_squareGridTexture->unbindActive(3);
+	m_pointCircleTexture->unbindActive(4);
 
 	m_shadeFramebuffer->unbind();
 
@@ -891,6 +954,12 @@ void HexTileRenderer::renderGUI() {
 			}
 		}
 
+		if (ImGui::CollapsingHeader("Point Circles"), ImGuiTreeNodeFlags_DefaultOpen)
+		{
+			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
+			ImGui::SliderFloat("Point Circle Radius ", &m_pointCircleRadius, 0.001f, 0.02f);
+		}
+
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
@@ -916,6 +985,11 @@ void HexTileRenderer::setShaderDefines() {
 
 	if (m_colorMapLoaded)
 		defines += "#define COLORMAP\n";
+
+	if (m_renderPointCircles) {
+		defines += "#define RENDER_POINT_CIRCLES\n";
+	}
+
 	if (m_renderSquares)
 	{
 		defines += "#define RENDER_SQUARES\n";

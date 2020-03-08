@@ -6,6 +6,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 layout (location = 0) out vec4 colorTexture;
 
 uniform sampler2D pointChartTexture;
+uniform sampler2D pointCircleTexture;
 uniform sampler2D tilesTexture;
 uniform sampler2D gridTexture;
 uniform sampler2D accPointTexture;
@@ -14,6 +15,10 @@ void main()
 {
 
     vec4 col = texelFetch(pointChartTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+
+    #ifdef RENDER_POINT_CIRCLES
+        col = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+    #endif 
 
     #ifdef RENDER_SQUARES
         col = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;

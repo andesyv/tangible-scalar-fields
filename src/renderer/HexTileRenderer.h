@@ -70,6 +70,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;
 
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
@@ -84,6 +85,7 @@ namespace molumes
 
 		// FRAMEBUFFER -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_pointCircleFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
@@ -164,6 +166,10 @@ namespace molumes
 		float m_hexSize_tmp = hexSize;
 
 		float m_hexRot_tmp = hexRot;
+
+		//point circle parameters
+		bool m_renderPointCircles = false;
+		float m_pointCircleRadius = 0.001f;
 
 		// define booleans
 		bool m_renderSquares = false;
