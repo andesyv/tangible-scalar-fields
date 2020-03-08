@@ -165,8 +165,9 @@ namespace molumes
 
 		float m_hexRot_tmp = hexRot;
 
-		//test
+		// define booleans
 		bool m_renderSquares = false;
+		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;
 		// ------------------------------------------------------------------------------------------
 	};

@@ -1,5 +1,6 @@
 #version 450
 #include "/defines.glsl"
+#include "/globals.glsl"
 
 layout (location = 0) out vec4 squareGridTexture;
 

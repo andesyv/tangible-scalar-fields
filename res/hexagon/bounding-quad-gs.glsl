@@ -1,4 +1,6 @@
 #version 450
+#include "/defines.glsl"
+#include "/globals.glsl"
 
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
@@ -19,15 +21,7 @@ out vec2 origMaxBoundScreenSpace;
 void main()
 {
 
-    //calc bounding box coordinates in NDC Space
-    vec4 maxBoundNDC_Off = modelViewProjectionMatrix * vec4(maxBounds_Off,0.0,1.0);
-    vec4 minBoundNDC = modelViewProjectionMatrix * vec4(minBounds,0.0,1.0);
-
-	// get bounding box coordinates in Screen Space
-    boundsScreenSpace = vec4(windowWidth/2*maxBoundNDC_Off[0]+windowWidth/2, //maxX
-	windowHeight/2*maxBoundNDC_Off[1]+windowHeight/2, //maxY
-	windowWidth/2*minBoundNDC[0]+windowWidth/2, //minX
-	windowHeight/2*minBoundNDC[1]+windowHeight/2); //minY
+    boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_Off, minBounds, windowWidth, windowHeight);
 
 	// we also convert the original bounding box maximum bounds
 	// this way we can discard pixels, that are not inside the original bound

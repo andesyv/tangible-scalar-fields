@@ -16,8 +16,14 @@ void main()
     vec4 col = texelFetch(pointChartTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
     #ifdef RENDER_SQUARES
-        col = texelFetch(gridTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-        col = max(col, texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba);
+        col = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+    #endif
+
+    #ifdef RENDER_SQUARE_GRID
+        vec4 gridCol = texelFetch(gridTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+        if(gridCol.r > 0 || gridCol.g > 0 || gridCol.b > 0){
+            col = gridCol;
+        }
     #endif
 
     #ifdef RENDER_ACC_POINTS

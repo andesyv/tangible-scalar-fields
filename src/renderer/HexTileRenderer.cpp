@@ -492,6 +492,7 @@ void HexTileRenderer::display()
 	// -------------------------------------------------------------------------------------------------
 
 	m_squareGridTexture->bindActive(0);
+	m_squareAccumulateTexture->bindActive(1);
 
 	auto shaderProgram_square_grid = shaderProgram("square-grid");
 
@@ -500,12 +501,13 @@ void HexTileRenderer::display()
 	//vertex shader
 	shaderProgram_square_grid->setUniform("numCols", m_squareNumCols);
 	shaderProgram_square_grid->setUniform("numRows", m_squareNumRows);
-	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBound_Offset);
-	shaderProgram_square_grid->setUniform("minBounds", minBounds);
 
 	//geometry shader
 	shaderProgram_square_grid->setUniform("squareSize", squareSize);
 	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_square_grid->setUniform("minBounds", minBounds);
+	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
 
 	//fragment Shader
 	shaderProgram_square_grid->setUniform("squareBorderColor", vec3(1.0f, 1.0f, 1.0f));
@@ -520,6 +522,8 @@ void HexTileRenderer::display()
 	m_vaoSquareGrid->unbind();
 
 	m_squareGridTexture->unbindActive(0);
+	m_squareAccumulateTexture->unbindActive(1);
+
 
 	// disable blending
 	glDisablei(GL_BLEND, 0);
@@ -887,6 +891,7 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
+			ImGui::Checkbox("Render Grid", &m_renderGrid);
 			ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
 			ImGui::SliderFloat("Square Size ", &m_squareSize_tmp, 5.0f, 200.0f);
 		}
@@ -911,6 +916,8 @@ void HexTileRenderer::setShaderDefines() {
 	if (m_renderSquares)
 	{
 		defines += "#define RENDER_SQUARES\n";
+	}
+	if (m_renderGrid) {
 		defines += "#define RENDER_SQUARE_GRID\n";
 	}
 	if (m_renderAccumulatePoints)
