@@ -209,7 +209,7 @@ void HexTileRenderer::display()
 	//therefore we calculate new maximum bounds that fit them perfectly
 	//this way we can perform a mapping using the set square size
 	// needs to be calculated AFTER calculateNumberOfSquares();
-	const vec2 maxBound_Offset = vec2((m_squareMaxX + 1) * squareSize + minBounds.x, (m_squareMaxY + 1) * squareSize + minBounds.y);
+	const vec2 maxBound_Offset = vec2(m_squareNumCols * squareSize + minBounds.x, m_squareNumRows * squareSize + minBounds.y);
 
 	double mouseX, mouseY;
 	glfwGetCursorPos(viewer()->window(), &mouseX, &mouseY);
