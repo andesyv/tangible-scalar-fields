@@ -38,7 +38,7 @@ void main()
     float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareX,squareY), 0).r;
 
     // we don't want to render empty squares
-    // we don't render pixels outisde the original bounding box
+    // we don't render pixels outside the original bounding box
     if(squareValue < 0.00000001 || gl_FragCoord.x > origMaxBoundScreenSpace[0] || gl_FragCoord.y > origMaxBoundScreenSpace[1]){
         discard;
     }

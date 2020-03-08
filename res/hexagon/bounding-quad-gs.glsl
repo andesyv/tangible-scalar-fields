@@ -27,9 +27,7 @@ void main()
 	// this way we can discard pixels, that are not inside the original bound
 	// leads to cut of squares, but is more accurate and looks smoother,
 	// than rendering the full squares, which leeds to popping
-    vec4 maxBoundNDC = modelViewProjectionMatrix * vec4(maxBounds,0.0,1.0);
-	origMaxBoundScreenSpace = vec2(windowWidth/2*maxBoundNDC[0]+windowWidth/2, //maxX
-	windowHeight/2*maxBoundNDC[1]+windowHeight/2);//maxY
+	origMaxBoundScreenSpace = getScreenSpacePosOfPoint(modelViewProjectionMatrix, maxBounds, windowWidth, windowHeight);
 
     // create bounding box geometry
 	vec4 pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(maxBounds_Off[0],maxBounds_Off[1],0.0,0.0));

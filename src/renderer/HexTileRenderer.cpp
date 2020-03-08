@@ -305,7 +305,7 @@ void HexTileRenderer::display()
 	m_squareAccumulateFramebuffer->bind();
 
 	// set viewport to size of accumulation texture
-	glViewport(0, 0, m_squareMaxX, m_squareMaxY);
+	glViewport(0, 0, m_squareNumCols, m_squareNumRows);
 
 	glClearDepth(1.0f);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -505,7 +505,10 @@ void HexTileRenderer::display()
 	//geometry shader
 	shaderProgram_square_grid->setUniform("squareSize", squareSize);
 	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_square_grid->setUniform("windowWidth", viewer()->viewportSize()[0]);
+	shaderProgram_square_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
 	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_square_grid->setUniform("maxBounds", maxBounds);
 	shaderProgram_square_grid->setUniform("minBounds", minBounds);
 	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
 
