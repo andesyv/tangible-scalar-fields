@@ -41,6 +41,8 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_yColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_radiusColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_colorColumnBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_discrepanciesBuffer = std::make_unique<globjects::Buffer>();
+
 		//---------------------------------------------------------------------------------------
 
 		// SQUARE GRID VERTEX DATA------------------------------------------------------------
@@ -176,6 +178,8 @@ namespace molumes
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;
 		// ------------------------------------------------------------------------------------------
+
+		std::vector<float> CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
 	};
 
 }

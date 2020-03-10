@@ -604,7 +604,7 @@ void HexTileRenderer::display()
 	auto shaderProgram_shade = shaderProgram("shade");
 
 	shaderProgram_shade->setUniform("pointChartTexture", 0);
-	
+
 	if (m_renderPointCircles) {
 		shaderProgram_shade->setUniform("pointCircleTexture", 4);
 	}
@@ -613,11 +613,11 @@ void HexTileRenderer::display()
 		shaderProgram_shade->setUniform("tilesTexture", 1);
 		shaderProgram_shade->setUniform("gridTexture", 3);
 	}
-	
+
 	if (m_renderAccumulatePoints) {
 		shaderProgram_shade->setUniform("accPointTexture", 2);
 	}
-	
+
 	m_vaoQuad->bind();
 
 	shaderProgram_shade->use();
@@ -852,6 +852,12 @@ void HexTileRenderer::renderGUI() {
 			m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
 			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
+			//calc2D discrepancy
+			std::vector<float> pointDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
+				viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
+
+			m_discrepanciesBuffer->setData(pointDiscrepancies, GL_STATIC_DRAW);
+
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
 			vertexBinding->setAttribute(0);
@@ -864,6 +870,12 @@ void HexTileRenderer::renderGUI() {
 			vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
+
+			vertexBinding = m_vao->binding(2);
+			vertexBinding->setAttribute(2);
+			vertexBinding->setBuffer(m_discrepanciesBuffer.get(), 0, sizeof(float));
+			vertexBinding->setFormat(2, GL_FLOAT);
+			m_vao->enable(2);
 
 			// -------------------------------------------------------------------------------
 
@@ -1007,4 +1019,246 @@ void HexTileRenderer::setShaderDefines() {
 
 		reloadShaders();
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//DISCREPANCY
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds)
+{
+
+	//TODO: show thomas and discuss
+	//TODO: if algo stays like this, we can omit the first looop and do the normalization in the main algorithm
+
+	std::vector<float> discrepancies;
+
+	// some info about calculating discrepancy
+	// https://math.stackexchange.com/questions/1681562/how-to-calculate-discrepancy-of-a-sequence
+
+	// Calculates the discrepancy of this data.
+	// Assumes the data is [0,1) for valid sample range.
+	// Assmues samplesX.size() == samplesY.size()
+	int numSamples = samplesX.size();
+
+	discrepancies.reserve(numSamples);
+
+	// Get the normalized [0,1) sorted list of unique values on each axis
+	// Get the noramlized [0,1) list of the values
+	std::set<float> setSamplesX;
+	std::set<float> setSamplesY;
+	std::vector<float> normSamplesX;
+	std::vector<float> normSamplesY;
+	normSamplesX.reserve(numSamples);
+	normSamplesY.reserve(numSamples);
+
+	for (int i = 0; i < numSamples; i++) {
+
+		float sampleX = samplesX[i];
+		sampleX = (sampleX - minBounds[0]) / ((maxBounds[0] + 1) - minBounds[0]);
+
+
+		float sampleY = samplesY[i];
+		sampleY = (sampleY - minBounds[1]) / ((maxBounds[1] + 1) - minBounds[1]);
+
+		setSamplesX.insert(sampleX);
+		setSamplesY.insert(sampleY);
+
+		normSamplesX.push_back(sampleX);
+		normSamplesY.push_back(sampleY);
+	}
+
+	std::vector<float> sortedXSamples;
+	std::vector<float> sortedYSamples;
+	sortedXSamples.reserve(setSamplesX.size());
+	sortedYSamples.reserve(setSamplesY.size());
+	for (float f : setSamplesX)
+		sortedXSamples.push_back(f);
+	for (float f : setSamplesY)
+		sortedYSamples.push_back(f);
+
+	// Get the sorted list of samples on the X axis, for faster interval testing
+	/*std::array<std::array<float, 2>, NUM_SAMPLES> sortedSamplesX = samples;
+	std::sort(sortedSamplesX.begin(), sortedSamplesX.end(),
+		[](const std::array<float, 2>& itemA, const std::array<float, 2>& itemB)
+	{
+		return itemA[0] < itemB[0];
+	}
+	);*/
+
+	// calculate discrepancy
+	float maxDifference = 0.0f;
+	int iterations = 0;
+
+	for (int i = 0; i < numSamples; i++) {
+
+		iterations++;
+
+		float stopValueX = normSamplesX[i];
+		float stopValueY = normSamplesY[i];
+
+		// calculate area
+		float area = stopValueX * stopValueY;
+
+		// closed interval [startValue, stopValue]
+		size_t countInside = 0;
+		for (int i = 0; i < numSamples; i++)
+		{
+			float sampleX = normSamplesX[i];
+			float sampleY = normSamplesY[i];
+
+			if (sampleX <= stopValueX &&
+				sampleY <= stopValueY)
+			{
+				++countInside;
+			}
+		}
+		float density = float(countInside) / float(numSamples);
+		float difference = std::abs(density - area);
+
+		discrepancies.push_back(difference);
+
+		if (difference > maxDifference)
+			maxDifference = difference;
+	}
+
+	//set relative discrepancy
+	for (int i = 0; i < numSamples; i++) {
+		discrepancies[i] = discrepancies[i]/maxDifference;
+	}
+
+	/*for (size_t startIndexY = 0; startIndexY < sortedYSamples.size(); startIndexY++)
+	{
+		float startValueY = sortedYSamples[startIndexY];
+
+		for (size_t startIndexX = 0; startIndexX < sortedXSamples.size(); startIndexX++)
+		{
+			float startValueX = sortedXSamples[startIndexX];
+
+			for (size_t stopIndexY = startIndexY; stopIndexY < sortedYSamples.size(); stopIndexY++)
+			{
+				float stopValueY = sortedYSamples[stopIndexY];
+
+				for (size_t stopIndexX = startIndexX; stopIndexX < sortedXSamples.size(); stopIndexX++)
+				{
+
+					std::cout << "Start: " << startIndexX << "," << startIndexY << " Stop: " << stopIndexX << "," << stopIndexY << "\n" << std::endl;
+
+					iterations++;
+
+					float stopValueX = sortedXSamples[stopIndexX];
+
+					// calculate area
+					float length = stopValueX - startValueX;
+					float height = stopValueY - startValueY;
+					float area = length * height;
+
+					// closed interval [startValue, stopValue]
+					size_t countInside = 0;
+					for (int i = 0; i < numSamples; i++)
+					{
+						float sampleX = normSamplesX[i];
+						float sampleY = normSamplesY[i];
+
+						if (sampleX >= startValueX &&
+							sampleY >= startValueY &&
+							sampleX <= stopValueX &&
+							sampleY <= stopValueY)
+						{
+							++countInside;
+						}
+					}
+					float density = float(countInside) / float(numSamples);
+					float difference = std::abs(density - area);
+					if (difference > maxDifference)
+						maxDifference = difference;
+				}
+			}
+		}
+	}*/
+
+
+
+	/*for (size_t startIndexY = 0; startIndexY <= sortedYSamples.size(); ++startIndexY)
+	{
+		float startValueY = 0.0f;
+		if (startIndexY > 0)
+			startValueY = *(sortedYSamples.begin() + startIndexY - 1);
+
+		for (size_t startIndexX = 0; startIndexX <= sortedXSamples.size(); ++startIndexX)
+		{
+			float startValueX = 0.0f;
+			if (startIndexX > 0)
+				startValueX = *(sortedXSamples.begin() + startIndexX - 1);
+
+			for (size_t stopIndexY = startIndexY; stopIndexY <= sortedYSamples.size(); ++stopIndexY)
+			{
+				float stopValueY = 1.0f;
+				if (stopIndexY < sortedYSamples.size())
+					stopValueY = sortedYSamples[stopIndexY];
+
+				for (size_t stopIndexX = startIndexX; stopIndexX <= sortedXSamples.size(); ++stopIndexX)
+				{
+
+
+					iterations++;
+
+					float stopValueX = 1.0f;
+					if (stopIndexX < sortedXSamples.size())
+						stopValueX = sortedXSamples[stopIndexX];
+
+
+					std::cout << "Start: " << startValueX << "," << startValueY << " Stop: " << stopValueX << "," << stopValueY << "\n" << std::endl;
+
+
+					// calculate area
+					float length = stopValueX - startValueX;
+					float height = stopValueY - startValueY;
+					float area = length * height;
+
+					// open interval (startValue, stopValue)
+					size_t countInside = 0;
+					for (int i = 0; i < numSamples; i++)
+					{
+						float sampleX = normSamplesX[i];
+						float sampleY = normSamplesY[i];
+
+						if (sampleX > startValueX &&
+							sampleY > startValueY &&
+							sampleX < stopValueX &&
+							sampleY < stopValueY)
+						{
+							++countInside;
+						}
+					}
+					float density = float(countInside) / float(numSamples);
+					float difference = std::abs(density - area);
+					if (difference > maxDifference)
+						maxDifference = difference;
+
+					// closed interval [startValue, stopValue]
+					countInside = 0;
+					for (int i = 0; i < numSamples; i++)
+					{
+						float sampleX = normSamplesX[i];
+						float sampleY = normSamplesY[i];
+
+						if (sampleX >= startValueX &&
+							sampleY >= startValueY &&
+							sampleX <= stopValueX &&
+							sampleY <= stopValueY)
+						{
+							++countInside;
+						}
+					}
+					density = float(countInside) / float(numSamples);
+					difference = std::abs(density - area);
+					if (difference > maxDifference)
+						maxDifference = difference;
+				}
+			}
+		}
+	}*/
+
+	return discrepancies;
 }
