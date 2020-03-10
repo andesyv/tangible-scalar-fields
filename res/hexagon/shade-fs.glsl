@@ -15,13 +15,27 @@ void main()
 {
 
     vec4 col = texelFetch(pointChartTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+    float alpha;
+    bool blendPointCircles=false;
 
     #ifdef RENDER_POINT_CIRCLES
         col = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+        alpha = col.a;
+        blendPointCircles = true;
     #endif 
 
     #ifdef RENDER_SQUARES
-        col = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+        vec4 tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+
+        //TODO: maybe make #define
+        if(blendPointCircles)
+        {
+            col = col + (tilesCol * (1-alpha));
+        }
+        else
+        {
+            col = tilesCol;
+        }
     #endif
 
     #ifdef RENDER_SQUARE_GRID

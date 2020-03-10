@@ -327,7 +327,7 @@ void HexTileRenderer::display()
 	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
 	glEnablei(GL_BLEND, 0);
 	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
+	glBlendEquationi(0, GL_FUNC_ADD);
 
 	// -------------------------------------------------------------------------------------------------
 
@@ -957,7 +957,7 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Point Circles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
-			ImGui::SliderFloat("Point Circle Radius ", &m_pointCircleRadius, 0.001f, 0.02f);
+			ImGui::SliderFloat("Point Circle Radius ", &m_pointCircleRadius, 0.001f, 10.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)

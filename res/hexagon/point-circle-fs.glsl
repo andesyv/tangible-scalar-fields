@@ -19,5 +19,5 @@ void main()
 		discard;
 	}
 
-    pointCircleTexture = vec4(pointColor, 0.1);//1.0f-fragPosInCircle);
+    pointCircleTexture = vec4(pointColor, 1.0f-fragPosInCircle);
 }
