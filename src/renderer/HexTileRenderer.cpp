@@ -197,7 +197,7 @@ void HexTileRenderer::display()
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
-	
+
 	// retrieve/compute all necessary matrices and related properties
 	const mat4 viewMatrix = viewer()->viewTransform();
 	const mat4 inverseViewMatrix = inverse(viewMatrix);
@@ -215,15 +215,10 @@ void HexTileRenderer::display()
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 
-	if (squareSize != m_squareSize_tmp) {
+	if (m_squareSize != m_squareSize_tmp) {
 		calculateSquareTextureSize(inverseModelViewProjectionMatrix);
 	}
 
-	//The squares on the maximum sides of the bounding box, will not fit into the box perfectly most of the time
-	//therefore we calculate new maximum bounds that fit them perfectly
-	//this way we can perform a mapping using the set square size
-	// needs to be calculated AFTER calculateNumberOfSquares();
-	const vec2 maxBound_Offset = vec2(m_squareNumCols * squareSize + minBounds.x, m_squareNumRows * squareSize + minBounds.y);
 
 	double mouseX, mouseY;
 	glfwGetCursorPos(viewer()->window(), &mouseX, &mouseY);
@@ -335,7 +330,7 @@ void HexTileRenderer::display()
 	auto shaderProgram_pointCircles = shaderProgram("point-circle");
 
 	//set correct radius
-	float scaleAdjustedRadius = m_pointCircleRadius/pointCircleRadiusDiv * viewer()->scaleFactor();;
+	float scaleAdjustedRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();;
 
 	//geometry shader
 	shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -385,7 +380,7 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_squares = shaderProgram("square-acc");
 
-	shaderProgram_squares->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_squares->setUniform("maxBounds_Off", maxBounds_Offset);
 	shaderProgram_squares->setUniform("minBounds", minBounds);
 
 	shaderProgram_squares->setUniform("maxTexCoordX", m_squareMaxX);
@@ -431,7 +426,7 @@ void HexTileRenderer::display()
 	auto shaderProgram_accumulate_count = shaderProgram("square-acc-count");
 
 	//geometry shader
-	shaderProgram_accumulate_count->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_accumulate_count->setUniform("maxBounds_Off", maxBounds_Offset);
 	shaderProgram_accumulate_count->setUniform("maxBounds", maxBounds);
 	shaderProgram_accumulate_count->setUniform("minBounds", minBounds);
 
@@ -483,7 +478,7 @@ void HexTileRenderer::display()
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
 	//geometry shader
-	shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBounds_Offset);
 	shaderProgram_square_tiles->setUniform("maxBounds", maxBounds);
 	shaderProgram_square_tiles->setUniform("minBounds", minBounds);
 
@@ -563,11 +558,11 @@ void HexTileRenderer::display()
 	shaderProgram_square_grid->setUniform("numRows", m_squareNumRows);
 
 	//geometry shader
-	shaderProgram_square_grid->setUniform("squareSize", squareSize);
+	shaderProgram_square_grid->setUniform("squareSize", squareSizeWS);
 	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgram_square_grid->setUniform("windowWidth", viewer()->viewportSize()[0]);
 	shaderProgram_square_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
-	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBound_Offset);
+	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
 	shaderProgram_square_grid->setUniform("maxBounds", maxBounds);
 	shaderProgram_square_grid->setUniform("minBounds", minBounds);
 	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
@@ -650,8 +645,10 @@ void HexTileRenderer::display()
 void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProjectionMatrix) {
 
 	// set new size
-	squareSize = (inverseModelViewProjectionMatrix * vec4(m_squareSize_tmp / squareSizeDiv, 0, 0, 0)).x;
-	squareSize *= viewer()->scaleFactor();
+	m_squareSize = m_squareSize_tmp;
+
+	squareSizeWS = (inverseModelViewProjectionMatrix * vec4(m_squareSize_tmp / squareSizeDiv, 0, 0, 0)).x;
+	squareSizeWS *= viewer()->scaleFactor();
 
 	vec3 maxBounds = viewer()->scene()->table()->maximumBounds();
 	vec3 minBounds = viewer()->scene()->table()->minimumBounds();
@@ -659,10 +656,17 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 	vec3 boundingBoxSize = maxBounds - minBounds;
 
 	// get maximum value of X,Y in accumulateTexture-Space
-	m_squareNumCols = ceil(boundingBoxSize.x / squareSize);
-	m_squareNumRows = ceil(boundingBoxSize.y / squareSize);
+	m_squareNumCols = ceil(boundingBoxSize.x / squareSizeWS);
+	m_squareNumRows = ceil(boundingBoxSize.y / squareSizeWS);
+	numSquares = m_squareNumRows * m_squareNumCols;
 	m_squareMaxX = m_squareNumCols - 1;
 	m_squareMaxY = m_squareNumRows - 1;
+
+	//The squares on the maximum sides of the bounding box, will not fit into the box perfectly most of the time
+	//therefore we calculate new maximum bounds that fit them perfectly
+	//this way we can perform a mapping using the set square size
+	maxBounds_Offset = vec2(m_squareNumCols * squareSizeWS + minBounds.x, m_squareNumRows * squareSizeWS + minBounds.y);
+
 
 	//set texture size
 	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(m_squareNumCols, m_squareNumRows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -674,7 +678,9 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 	vec2 testPointSS = vec2((testPointNDC.x + 1) * (m_squareMaxX / 2), (testPointNDC.y + 1) * (m_squareMaxY / 2));
 	*/
 
-	// create m_hexCount vertices with position = 0.0f
+
+	//setup grid vertices
+	// create m_squareNumCols*m_squareNumRows vertices with position = 0.0f
 	// we generate the correct position in the vertex shader
 	m_verticesSquareGrid->setData(std::vector<float>(m_squareNumCols*m_squareNumRows, 0.0f), GL_STATIC_DRAW);
 
@@ -683,6 +689,22 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 	vertexBinding->setBuffer(m_verticesSquareGrid.get(), 0, sizeof(float));
 	vertexBinding->setFormat(1, GL_FLOAT);
 	m_vaoSquareGrid->enable(0);
+
+
+	//calc2D discrepancy and setup discrepancy buffer
+	std::vector<float> pointDiscrepancies;
+	pointDiscrepancies.reserve(viewer()->scene()->table()->activeXColumn().size());
+
+	pointDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
+		viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
+
+	m_discrepanciesBuffer->setData(pointDiscrepancies, GL_STATIC_DRAW);
+
+	vertexBinding = m_vao->binding(2);
+	vertexBinding->setAttribute(2);
+	vertexBinding->setBuffer(m_discrepanciesBuffer.get(), 0, sizeof(float));
+	vertexBinding->setFormat(2, GL_FLOAT);
+	m_vao->enable(2);
 }
 
 // --------------------------------------------------------------------------------------
@@ -857,14 +879,6 @@ void HexTileRenderer::renderGUI() {
 			m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
 			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
-			//calc2D discrepancy
-			std::vector<float> pointDiscrepancies;
-			pointDiscrepancies.reserve(viewer()->scene()->table()->activeXColumn().size());
-
-			//pointDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
-				//viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
-
-			m_discrepanciesBuffer->setData(pointDiscrepancies, GL_STATIC_DRAW);
 
 			// update VAO for all buffers ----------------------------------------------------
 			auto vertexBinding = m_vao->binding(0);
@@ -878,12 +892,6 @@ void HexTileRenderer::renderGUI() {
 			vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
 			vertexBinding->setFormat(1, GL_FLOAT);
 			m_vao->enable(1);
-
-			vertexBinding = m_vao->binding(2);
-			vertexBinding->setAttribute(2);
-			vertexBinding->setBuffer(m_discrepanciesBuffer.get(), 0, sizeof(float));
-			vertexBinding->setFormat(2, GL_FLOAT);
-			m_vao->enable(2);
 
 			// -------------------------------------------------------------------------------
 
@@ -1031,16 +1039,20 @@ void HexTileRenderer::setShaderDefines() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//INTERVAL MAPPING
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
+{
+	return int((x - a)*c / (b - a));
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //DISCREPANCY
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds)
 {
-
-	//TODO: show thomas and discuss
-	//TODO: if algo stays like this, we can omit the first looop and do the normalization in the main algorithm
-
-	std::vector<float> discrepancies;
 
 	// some info about calculating discrepancy
 	// https://math.stackexchange.com/questions/1681562/how-to-calculate-discrepancy-of-a-sequence
@@ -1050,53 +1062,67 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	// Assmues samplesX.size() == samplesY.size()
 	int numSamples = samplesX.size();
 
-	discrepancies.reserve(numSamples);
+	std::vector<float> sortedX(numSamples, 0.0f);
+	std::vector<float> sortedY(numSamples, 0.0f);
 
-	// Get the normalized [0,1) sorted list of unique values on each axis
-	// Get the noramlized [0,1) list of the values
-	std::set<float> setSamplesX;
-	std::set<float> setSamplesY;
-	std::vector<float> normSamplesX;
-	std::vector<float> normSamplesY;
-	normSamplesX.reserve(numSamples);
-	normSamplesY.reserve(numSamples);
+	std::vector<float> pointsInTilesCount(numSquares, 0.0f);
+	std::vector<float> tilesMaxBound(numSquares, -INFINITY);
+	std::vector<float> tilesMinBound(numSquares, INFINITY);
 
+	std::vector<float> discrepancies(numSquares, 0.0f);
+
+	//Step 1: Count how many elements belong to each square
 	for (int i = 0; i < numSamples; i++) {
 
 		float sampleX = samplesX[i];
-		sampleX = (sampleX - minBounds[0]) / ((maxBounds[0] + 1) - minBounds[0]);
-
-
 		float sampleY = samplesY[i];
-		sampleY = (sampleY - minBounds[1]) / ((maxBounds[1] + 1) - minBounds[1]);
 
-		setSamplesX.insert(sampleX);
-		setSamplesY.insert(sampleY);
+		// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
+		// If the current value = maxValue, we take the maxTexCoord instead
+		int squareX = min(m_squareMaxX, mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_squareMaxX + 1));
+		int squareY = min(m_squareMaxY, mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_squareMaxY + 1));
 
-		normSamplesX.push_back(sampleX);
-		normSamplesY.push_back(sampleY);
+		pointsInTilesCount[squareX + m_squareNumCols * squareY]++;
 	}
 
-	std::vector<float> sortedXSamples;
-	std::vector<float> sortedYSamples;
-	sortedXSamples.reserve(setSamplesX.size());
-	sortedYSamples.reserve(setSamplesY.size());
-	for (float f : setSamplesX)
-		sortedXSamples.push_back(f);
-	for (float f : setSamplesY)
-		sortedYSamples.push_back(f);
-
-	// Get the sorted list of samples on the X axis, for faster interval testing
-	/*std::array<std::array<float, 2>, NUM_SAMPLES> sortedSamplesX = samples;
-	std::sort(sortedSamplesX.begin(), sortedSamplesX.end(),
-		[](const std::array<float, 2>& itemA, const std::array<float, 2>& itemB)
-	{
-		return itemA[0] < itemB[0];
+	//Step 2: calc prefix Sum
+	int prefixSum = 0;
+	for (int i = 0; i < numSquares; i++) {
+		int sCount = pointsInTilesCount[i];
+		pointsInTilesCount[i] = prefixSum;
+		prefixSum += sCount;
 	}
-	);*/
+
+	//Step 3: sort points according to squares
+	// 1D array with "buckets" according to prefix Sum of squares
+	// also set the bounding box of points inside tile
+	for (int i = 0; i < numSamples; i++) {
+
+		float sampleX = samplesX[i];
+		float sampleY = samplesY[i];
+
+		// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
+		// If the current value = maxValue, we take the maxTexCoord instead
+		int squareX = min(m_squareMaxX, mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_squareMaxX + 1));
+		int squareY = min(m_squareMaxY, mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_squareMaxY + 1));
+
+		int squareIndex1D = squareX + m_squareNumCols * squareY;
+
+		// put sample in correct position and increment prefix sum
+		int sampleIndex = pointsInTilesCount[squareIndex1D]++;
+		sortedX[sampleIndex] = sampleX;
+		sortedY[sampleIndex] = sampleY;
+
+		//set bounding box of samples inside tile
+		tilesMaxBound[squareIndex1D] = max(tilesMaxBound[squareIndex1D], sampleX);
+		tilesMinBound[squareIndex1D] = min(tilesMinBound[squareIndex1D], sampleX);
+	}
+
+
+	//Step 4: calculate discrepancy of for each tile
 
 	// calculate discrepancy
-	float maxDifference = 0.0f;
+	/*float maxDifference = 0.0f;
 	int iterations = 0;
 
 	for (int i = 0; i < numSamples; i++) {
@@ -1125,7 +1151,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 		float density = float(countInside) / float(numSamples);
 		float difference = std::abs(density - area);
 
-		discrepancies.push_back(difference);
+		discrepancies[i] = difference;
 
 		if (difference > maxDifference)
 			maxDifference = difference;
@@ -1134,140 +1160,6 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	//set relative discrepancy
 	for (int i = 0; i < numSamples; i++) {
 		discrepancies[i] = discrepancies[i] / maxDifference;
-	}
-
-	/*for (size_t startIndexY = 0; startIndexY < sortedYSamples.size(); startIndexY++)
-	{
-		float startValueY = sortedYSamples[startIndexY];
-
-		for (size_t startIndexX = 0; startIndexX < sortedXSamples.size(); startIndexX++)
-		{
-			float startValueX = sortedXSamples[startIndexX];
-
-			for (size_t stopIndexY = startIndexY; stopIndexY < sortedYSamples.size(); stopIndexY++)
-			{
-				float stopValueY = sortedYSamples[stopIndexY];
-
-				for (size_t stopIndexX = startIndexX; stopIndexX < sortedXSamples.size(); stopIndexX++)
-				{
-
-					std::cout << "Start: " << startIndexX << "," << startIndexY << " Stop: " << stopIndexX << "," << stopIndexY << "\n" << std::endl;
-
-					iterations++;
-
-					float stopValueX = sortedXSamples[stopIndexX];
-
-					// calculate area
-					float length = stopValueX - startValueX;
-					float height = stopValueY - startValueY;
-					float area = length * height;
-
-					// closed interval [startValue, stopValue]
-					size_t countInside = 0;
-					for (int i = 0; i < numSamples; i++)
-					{
-						float sampleX = normSamplesX[i];
-						float sampleY = normSamplesY[i];
-
-						if (sampleX >= startValueX &&
-							sampleY >= startValueY &&
-							sampleX <= stopValueX &&
-							sampleY <= stopValueY)
-						{
-							++countInside;
-						}
-					}
-					float density = float(countInside) / float(numSamples);
-					float difference = std::abs(density - area);
-					if (difference > maxDifference)
-						maxDifference = difference;
-				}
-			}
-		}
 	}*/
-
-
-
-	/*for (size_t startIndexY = 0; startIndexY <= sortedYSamples.size(); ++startIndexY)
-	{
-		float startValueY = 0.0f;
-		if (startIndexY > 0)
-			startValueY = *(sortedYSamples.begin() + startIndexY - 1);
-
-		for (size_t startIndexX = 0; startIndexX <= sortedXSamples.size(); ++startIndexX)
-		{
-			float startValueX = 0.0f;
-			if (startIndexX > 0)
-				startValueX = *(sortedXSamples.begin() + startIndexX - 1);
-
-			for (size_t stopIndexY = startIndexY; stopIndexY <= sortedYSamples.size(); ++stopIndexY)
-			{
-				float stopValueY = 1.0f;
-				if (stopIndexY < sortedYSamples.size())
-					stopValueY = sortedYSamples[stopIndexY];
-
-				for (size_t stopIndexX = startIndexX; stopIndexX <= sortedXSamples.size(); ++stopIndexX)
-				{
-
-
-					iterations++;
-
-					float stopValueX = 1.0f;
-					if (stopIndexX < sortedXSamples.size())
-						stopValueX = sortedXSamples[stopIndexX];
-
-
-					std::cout << "Start: " << startValueX << "," << startValueY << " Stop: " << stopValueX << "," << stopValueY << "\n" << std::endl;
-
-
-					// calculate area
-					float length = stopValueX - startValueX;
-					float height = stopValueY - startValueY;
-					float area = length * height;
-
-					// open interval (startValue, stopValue)
-					size_t countInside = 0;
-					for (int i = 0; i < numSamples; i++)
-					{
-						float sampleX = normSamplesX[i];
-						float sampleY = normSamplesY[i];
-
-						if (sampleX > startValueX &&
-							sampleY > startValueY &&
-							sampleX < stopValueX &&
-							sampleY < stopValueY)
-						{
-							++countInside;
-						}
-					}
-					float density = float(countInside) / float(numSamples);
-					float difference = std::abs(density - area);
-					if (difference > maxDifference)
-						maxDifference = difference;
-
-					// closed interval [startValue, stopValue]
-					countInside = 0;
-					for (int i = 0; i < numSamples; i++)
-					{
-						float sampleX = normSamplesX[i];
-						float sampleY = normSamplesY[i];
-
-						if (sampleX >= startValueX &&
-							sampleY >= startValueY &&
-							sampleX <= stopValueX &&
-							sampleY <= stopValueY)
-						{
-							++countInside;
-						}
-					}
-					density = float(countInside) / float(numSamples);
-					difference = std::abs(density - area);
-					if (difference > maxDifference)
-						maxDifference = difference;
-				}
-			}
-		}
-	}*/
-
 	return discrepancies;
 }

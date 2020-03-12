@@ -114,8 +114,11 @@ namespace molumes
 		int m_squareMaxX = 0;
 		int m_squareNumRows = 0; //Y
 		int m_squareNumCols = 0; //X
-		float squareSize = 20.0f;
+		int numSquares = 0;
+		float squareSizeWS = 0.0f;
 		const float squareSizeDiv = 500.0f;
+
+		glm::vec2 maxBounds_Offset;
 
 		void calculateSquareTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
 
@@ -163,7 +166,8 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Square Parameters
-		float m_squareSize_tmp = squareSize;
+		float m_squareSize = 20.0f;
+		float m_squareSize_tmp = m_squareSize;
 
 		// Hexagon Parameters
 		float m_hexSize_tmp = hexSize;
@@ -180,6 +184,12 @@ namespace molumes
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;
 		// ------------------------------------------------------------------------------------------
+
+		// INTERVAL MAPPING--------------------------------------------------------------------------
+		//maps value x from [a,b] --> [0,c]
+		int mapInterval(float x, float a, float b, int c);
+
+		// DISCREPANCY------------------------------------------------------------------------------
 
 		std::vector<float> CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
 	};
