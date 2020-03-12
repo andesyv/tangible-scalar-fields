@@ -27,22 +27,22 @@ void main()
 	gs_out.pointDiscrepancy = gs_in[0].pointDiscrepancy;
 
     // create bounding box geometry
-	vec4 pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(radius, radius,0.0,0.0));
+	vec4 pos = modelViewProjectionMatrix * gl_in[0].gl_Position + vec4(radius, radius/aspectRatio,0.0,0.0);
     isCoords = vec2(1, 1);
 	gl_Position = pos;
 	EmitVertex();
 
-	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(-radius,radius,0.0,0.0));
+	pos = modelViewProjectionMatrix * gl_in[0].gl_Position + vec4(-radius,radius/aspectRatio,0.0,0.0);
     isCoords = vec2(-1, 1);
 	gl_Position = pos;
 	EmitVertex();
 
-	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(radius, -radius,0.0,0.0));
+	pos = modelViewProjectionMatrix * gl_in[0].gl_Position + vec4(radius, -radius/aspectRatio,0.0,0.0);
     isCoords = vec2(1, -1);
 	gl_Position = pos;
 	EmitVertex();
 
-	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(-radius, -radius,0.0,0.0));
+	pos = modelViewProjectionMatrix * gl_in[0].gl_Position + vec4(-radius, -radius/aspectRatio,0.0,0.0);
 	isCoords = vec2(-1, -1);
     gl_Position = pos;
 	EmitVertex();

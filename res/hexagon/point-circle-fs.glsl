@@ -23,5 +23,8 @@ void main()
 		discard;
 	}
 
-    pointCircleTexture = vec4(pointColor, (1.0f-fragPosInCircle) * fs_in.pointDiscrepancy);
+    pointCircleTexture = vec4(pointColor, (1.0f-fragPosInCircle));// * fs_in.pointDiscrepancy);
+	//OpenGL expects premultiplied alpha values
+	pointCircleTexture.rgb *= pointCircleTexture.a;
+	
 }

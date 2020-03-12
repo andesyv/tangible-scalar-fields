@@ -115,8 +115,9 @@ namespace molumes
 		int m_squareNumRows = 0; //Y
 		int m_squareNumCols = 0; //X
 		float squareSize = 20.0f;
+		const float squareSizeDiv = 500.0f;
 
-		void calculateSquareTextureSize();
+		void calculateSquareTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
 
 		// HEXAGON CALC -------------------------------------------------------------------
 
@@ -171,7 +172,8 @@ namespace molumes
 
 		//point circle parameters
 		bool m_renderPointCircles = false;
-		float m_pointCircleRadius = 0.001f;
+		float m_pointCircleRadius = 50.0f;
+		const float pointCircleRadiusDiv = 10000.0f;
 
 		// define booleans
 		bool m_renderSquares = false;

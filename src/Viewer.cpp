@@ -240,6 +240,11 @@ glm::vec3 Viewer::lensBorderColor() const
 	return m_lensBorderColor;
 }
 
+float Viewer::scaleFactor() const
+{
+	return m_scaleFactor;
+}
+
 mat4 Viewer::modelTransform() const
 {
 	return m_modelTransform;
@@ -273,6 +278,11 @@ void molumes::Viewer::setContourLineColor(const glm::vec3 & c)
 void molumes::Viewer::setLensBorderColor(const glm::vec3 & c)
 {
 	m_lensBorderColor = c;
+}
+
+void molumes::Viewer::setScaleFactor(const float s)
+{
+	m_scaleFactor = s;
 }
 
 void Viewer::setViewTransform(const glm::mat4& m)

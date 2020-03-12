@@ -197,10 +197,7 @@ void HexTileRenderer::display()
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
-	if (squareSize != m_squareSize_tmp) {
-		calculateSquareTextureSize();
-	}
-
+	
 	// retrieve/compute all necessary matrices and related properties
 	const mat4 viewMatrix = viewer()->viewTransform();
 	const mat4 inverseViewMatrix = inverse(viewMatrix);
@@ -217,6 +214,10 @@ void HexTileRenderer::display()
 	const ivec2 viewportSize = viewer()->viewportSize();
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
+
+	if (squareSize != m_squareSize_tmp) {
+		calculateSquareTextureSize(inverseModelViewProjectionMatrix);
+	}
 
 	//The squares on the maximum sides of the bounding box, will not fit into the box perfectly most of the time
 	//therefore we calculate new maximum bounds that fit them perfectly
@@ -333,9 +334,12 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_pointCircles = shaderProgram("point-circle");
 
+	//set correct radius
+	float scaleAdjustedRadius = m_pointCircleRadius/pointCircleRadiusDiv * viewer()->scaleFactor();;
+
 	//geometry shader
 	shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_pointCircles->setUniform("radius", m_pointCircleRadius);
+	shaderProgram_pointCircles->setUniform("radius", scaleAdjustedRadius);
 	shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
 	//fragment shader
@@ -643,10 +647,11 @@ void HexTileRenderer::display()
 // ###########################  SQUARE CALC ############################################
 // --------------------------------------------------------------------------------------
 
-void HexTileRenderer::calculateSquareTextureSize() {
+void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProjectionMatrix) {
 
 	// set new size
-	squareSize = m_squareSize_tmp;
+	squareSize = (inverseModelViewProjectionMatrix * vec4(m_squareSize_tmp / squareSizeDiv, 0, 0, 0)).x;
+	squareSize *= viewer()->scaleFactor();
 
 	vec3 maxBounds = viewer()->scene()->table()->maximumBounds();
 	vec3 minBounds = viewer()->scene()->table()->minimumBounds();
@@ -853,8 +858,11 @@ void HexTileRenderer::renderGUI() {
 			m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
 
 			//calc2D discrepancy
-			std::vector<float> pointDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
-				viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
+			std::vector<float> pointDiscrepancies;
+			pointDiscrepancies.reserve(viewer()->scene()->table()->activeXColumn().size());
+
+			//pointDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
+				//viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
 
 			m_discrepanciesBuffer->setData(pointDiscrepancies, GL_STATIC_DRAW);
 
@@ -897,7 +905,7 @@ void HexTileRenderer::renderGUI() {
 			//------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 			// calculate accumulate texture settings - needs to be last step here ------------------------------
-			calculateSquareTextureSize();
+			calculateSquareTextureSize(inverse(viewer()->modelViewProjectionTransform()));
 			calculateNumberOfHexagons();
 			setRotationMatrix();
 			// -------------------------------------------------------------------------------
@@ -969,7 +977,7 @@ void HexTileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Point Circles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
-			ImGui::SliderFloat("Point Circle Radius ", &m_pointCircleRadius, 0.001f, 10.0f);
+			ImGui::SliderFloat("Point Circle Radius ", &m_pointCircleRadius, 1.0f, 100.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
@@ -977,7 +985,8 @@ void HexTileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Squares", &m_renderSquares);
 			ImGui::Checkbox("Render Grid", &m_renderGrid);
 			ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
-			ImGui::SliderFloat("Square Size ", &m_squareSize_tmp, 5.0f, 200.0f);
+			ImGui::SliderFloat("Square Size ", &m_squareSize_tmp, 1.0f, 100.0f);
+
 		}
 
 
@@ -1124,7 +1133,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 	//set relative discrepancy
 	for (int i = 0; i < numSamples; i++) {
-		discrepancies[i] = discrepancies[i]/maxDifference;
+		discrepancies[i] = discrepancies[i] / maxDifference;
 	}
 
 	/*for (size_t startIndexY = 0; startIndexY < sortedYSamples.size(); startIndexY++)

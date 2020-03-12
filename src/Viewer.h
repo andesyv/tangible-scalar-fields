@@ -38,6 +38,8 @@ namespace molumes
 		glm::vec3 contourLineColor() const;
 		glm::vec3 lensBorderColor() const;
 
+		float scaleFactor() const;
+
 		glm::mat4 modelTransform() const;
 		glm::mat4 viewTransform() const;
 		glm::mat4 lightTransform() const;
@@ -56,6 +58,8 @@ namespace molumes
 		void setSamplePointColor(const glm::vec3& c);
 		void setContourLineColor(const glm::vec3& c);
 		void setLensBorderColor(const glm::vec3& c);
+
+		void setScaleFactor(const float s);
 
 		void setViewTransform(const glm::mat4& m);
 		void setModelTransform(const glm::mat4& m);
@@ -108,6 +112,8 @@ namespace molumes
 		glm::vec3 m_samplePointColor = glm::vec3(1.0f, 0.0f, 0.0f);			// red
 		glm::vec3 m_contourLineColor = glm::vec3(0.9f, 0.09f, 0.05f);		// red
 		glm::vec3 m_lensBorderColor = glm::vec3(0.9f, 0.09f, 0.05f);		// red
+
+		float m_scaleFactor = 1.0f; //used to calculate correct size of elements whose size is set by the user
 
 		glm::mat4 m_modelTransform = glm::mat4(1.0f);
 		glm::mat4 m_viewTransform = glm::mat4(1.0f);

@@ -70,7 +70,7 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	{
 		mat4 viewTransform = viewer()->viewTransform();
 		mat4 inverseViewTransform = inverse(viewTransform);
-		vec4 transformedAxis = inverseViewTransform * vec4(0.0,1.0,0.0,0.0);
+		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 1.0, 0.0, 0.0);
 
 		mat4 newViewTransform = rotate(viewTransform, -0.5f*quarter_pi<float>(), vec3(transformedAxis));
 		viewer()->setViewTransform(newViewTransform);
@@ -191,6 +191,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			float l = std::abs(d.x) > std::abs(d.y) ? d.x : d.y;
 			float s = 1.0;
 
+			//set the local and global scale factor
 			if (l > 0.0f)
 			{
 				s += std::min(0.5f, length(d));
@@ -200,6 +201,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 				s -= std::min(0.5f, length(d));
 			}
 
+			viewer()->setScaleFactor(viewer()->scaleFactor()*s);
 			mat4 viewTransform = viewer()->viewTransform();
 			mat4 newViewTransform = scale(viewTransform, vec3(s, s, s));
 			viewer()->setViewTransform(newViewTransform);
@@ -217,7 +219,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			vec2 d = vb - va;
 
 			mat4 viewTransform = viewer()->viewTransform();
-			mat4 newViewTransform = translate(mat4(1.0),vec3(aspect*d.x,d.y,0.0f))*viewTransform;
+			mat4 newViewTransform = translate(mat4(1.0), vec3(aspect*d.x, d.y, 0.0f))*viewTransform;
 			viewer()->setViewTransform(newViewTransform);
 		}
 	}
@@ -315,7 +317,7 @@ void CameraInteractor::resetViewTransform()
 vec3 CameraInteractor::arcballVector(double x, double y)
 {
 	ivec2 viewportSize = viewer()->viewportSize();
-	vec3 p = vec3(2.0f*float(x) / float(viewportSize.x)-1.0f, -2.0f*float(y) / float(viewportSize.y)+1.0f, 0.0);
+	vec3 p = vec3(2.0f*float(x) / float(viewportSize.x) - 1.0f, -2.0f*float(y) / float(viewportSize.y) + 1.0f, 0.0);
 
 	float length2 = p.x*p.x + p.y*p.y;
 
