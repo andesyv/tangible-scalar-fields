@@ -70,6 +70,11 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/hexagon/point-circle-fs.glsl"}
 		});
 
+	createShaderProgram("tiles-disc", {
+		{GL_VERTEX_SHADER,"./res/hexagon/discrepancy-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/hexagon/discrepancy-fs.glsl"}
+		});
+
 	createShaderProgram("square-acc", {
 		{GL_VERTEX_SHADER,"./res/hexagon/square/square-acc-vs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/hexagon/square/square-acc-fs.glsl"}
@@ -114,7 +119,8 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_hexTilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	// the size of this texture is set dynamicly depending on the grid granularity
+	// the size of this textures is set dynamicly depending on the grid granularity
+	m_tilesDiscrepanciesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(0, 0), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	m_squareAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(0, 0), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_squareTilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -161,6 +167,11 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_hexFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_hexTilesTexture.get());
 	m_hexFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_hexFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+
+	m_tilesDiscrepanciesFramebuffer = Framebuffer::create();
+	m_tilesDiscrepanciesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_tilesDiscrepanciesTexture.get());
+	m_tilesDiscrepanciesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_tilesDiscrepanciesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_squareAccumulateFramebuffer = Framebuffer::create();
 	m_squareAccumulateFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareAccumulateTexture.get());
@@ -352,6 +363,52 @@ void HexTileRenderer::display()
 	glDisablei(GL_BLEND, 0);
 
 	m_pointCircleFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+	// ====================================================================================== DISCREPANCIES RENDER PASS ======================================================================================
+	// Accumulate Points into squares
+
+	m_tilesDiscrepanciesFramebuffer->bind();
+
+	// set viewport to size of accumulation texture
+	glViewport(0, 0, m_squareNumCols, m_squareNumRows);
+
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// make sure points are drawn on top of each other
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_FUNC_ADD);
+
+	// -------------------------------------------------------------------------------------------------
+
+	auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
+
+	shaderProgram_discrepancies->setUniform("numCols", m_squareNumCols);
+	shaderProgram_discrepancies->setUniform("numRows", m_squareNumRows);
+
+	m_vaoTiles->bind();
+	shaderProgram_discrepancies->use();
+
+	m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
+
+	shaderProgram_discrepancies->release();
+	m_vaoTiles->unbind();
+
+	// disable blending
+	glDisablei(GL_BLEND, 0);
+
+	//reset Viewport
+	glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
+
+	m_tilesDiscrepanciesFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -571,13 +628,13 @@ void HexTileRenderer::display()
 	shaderProgram_square_grid->setUniform("squareBorderColor", vec3(1.0f, 1.0f, 1.0f));
 	shaderProgram_square_grid->setUniform("squareGridTexture", 0);
 
-	m_vaoSquareGrid->bind();
+	m_vaoTiles->bind();
 
 	shaderProgram_square_grid->use();
-	m_vaoSquareGrid->drawArrays(GL_POINTS, 0, m_squareNumCols * m_squareNumRows);
+	m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
 	shaderProgram_square_grid->release();
 
-	m_vaoSquareGrid->unbind();
+	m_vaoTiles->unbind();
 
 	m_squareGridTexture->unbindActive(0);
 	m_squareAccumulateTexture->unbindActive(1);
@@ -599,6 +656,7 @@ void HexTileRenderer::display()
 	m_squareAccumulateTexture->bindActive(2);
 	m_squareGridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
+	m_tilesDiscrepanciesTexture->bindActive(5);
 
 	auto shaderProgram_shade = shaderProgram("shade");
 
@@ -611,6 +669,7 @@ void HexTileRenderer::display()
 	if (m_renderSquares) {
 		shaderProgram_shade->setUniform("tilesTexture", 1);
 		shaderProgram_shade->setUniform("gridTexture", 3);
+		shaderProgram_shade->setUniform("tilesDiscrepancyTexture", 5);
 	}
 
 	if (m_renderAccumulatePoints) {
@@ -630,6 +689,8 @@ void HexTileRenderer::display()
 	m_squareAccumulateTexture->unbindActive(2);
 	m_squareGridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
+	m_tilesDiscrepanciesTexture->bindActive(5);
+
 
 	m_shadeFramebuffer->unbind();
 
@@ -669,6 +730,7 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 
 
 	//set texture size
+	m_tilesDiscrepanciesTexture->image2D(0, GL_RGBA32F, ivec2(m_squareNumCols, m_squareNumRows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(m_squareNumCols, m_squareNumRows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	//calculate viewport settings
@@ -682,29 +744,28 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 	//setup grid vertices
 	// create m_squareNumCols*m_squareNumRows vertices with position = 0.0f
 	// we generate the correct position in the vertex shader
-	m_verticesSquareGrid->setData(std::vector<float>(m_squareNumCols*m_squareNumRows, 0.0f), GL_STATIC_DRAW);
+	m_verticesTiles->setData(std::vector<float>(m_squareNumCols*m_squareNumRows, 0.0f), GL_STATIC_DRAW);
 
-	auto vertexBinding = m_vaoSquareGrid->binding(0);
+	auto vertexBinding = m_vaoTiles->binding(0);
 	vertexBinding->setAttribute(0);
-	vertexBinding->setBuffer(m_verticesSquareGrid.get(), 0, sizeof(float));
+	vertexBinding->setBuffer(m_verticesTiles.get(), 0, sizeof(float));
 	vertexBinding->setFormat(1, GL_FLOAT);
-	m_vaoSquareGrid->enable(0);
+	m_vaoTiles->enable(0);
 
 
 	//calc2D discrepancy and setup discrepancy buffer
-	std::vector<float> pointDiscrepancies;
-	pointDiscrepancies.reserve(viewer()->scene()->table()->activeXColumn().size());
+	std::vector<float> tilesDiscrepancies;
 
-	pointDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
+	tilesDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
 		viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
 
-	m_discrepanciesBuffer->setData(pointDiscrepancies, GL_STATIC_DRAW);
+	m_discrepanciesBuffer->setData(tilesDiscrepancies, GL_STATIC_DRAW);
 
-	vertexBinding = m_vao->binding(2);
-	vertexBinding->setAttribute(2);
+	vertexBinding = m_vaoTiles->binding(1);
+	vertexBinding->setAttribute(1);
 	vertexBinding->setBuffer(m_discrepanciesBuffer.get(), 0, sizeof(float));
-	vertexBinding->setFormat(2, GL_FLOAT);
-	m_vao->enable(2);
+	vertexBinding->setFormat(1, GL_FLOAT);
+	m_vaoTiles->enable(1);
 }
 
 // --------------------------------------------------------------------------------------
@@ -1042,9 +1103,10 @@ void HexTileRenderer::setShaderDefines() {
 //INTERVAL MAPPING
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
+//maps value x from [a,b] --> [0,c]
+float molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
 {
-	return int((x - a)*c / (b - a));
+	return (x - a)*c / (b - a);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1053,9 +1115,6 @@ int molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
 
 std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds)
 {
-
-	// some info about calculating discrepancy
-	// https://math.stackexchange.com/questions/1681562/how-to-calculate-discrepancy-of-a-sequence
 
 	// Calculates the discrepancy of this data.
 	// Assumes the data is [0,1) for valid sample range.
@@ -1066,8 +1125,10 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	std::vector<float> sortedY(numSamples, 0.0f);
 
 	std::vector<float> pointsInTilesCount(numSquares, 0.0f);
-	std::vector<float> tilesMaxBound(numSquares, -INFINITY);
-	std::vector<float> tilesMinBound(numSquares, INFINITY);
+	std::vector<float> tilesMaxBoundX(numSquares, -INFINITY);
+	std::vector<float> tilesMaxBoundY(numSquares, -INFINITY);
+	std::vector<float> tilesMinBoundX(numSquares, INFINITY);
+	std::vector<float> tilesMinBoundY(numSquares, INFINITY);
 
 	std::vector<float> discrepancies(numSquares, 0.0f);
 
@@ -1079,23 +1140,25 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 		// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
 		// If the current value = maxValue, we take the maxTexCoord instead
-		int squareX = min(m_squareMaxX, mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_squareMaxX + 1));
-		int squareY = min(m_squareMaxY, mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_squareMaxY + 1));
+		int squareX = min(m_squareMaxX, int(mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_squareMaxX + 1)));
+		int squareY = min(m_squareMaxY, int(mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_squareMaxY + 1)));
 
 		pointsInTilesCount[squareX + m_squareNumCols * squareY]++;
 	}
 
 	//Step 2: calc prefix Sum
+	std::vector<float> pointsInTilesPrefixSum(pointsInTilesCount);
 	int prefixSum = 0;
 	for (int i = 0; i < numSquares; i++) {
-		int sCount = pointsInTilesCount[i];
-		pointsInTilesCount[i] = prefixSum;
+		int sCount = pointsInTilesPrefixSum[i];
+		pointsInTilesPrefixSum[i] = prefixSum;
 		prefixSum += sCount;
 	}
 
 	//Step 3: sort points according to squares
 	// 1D array with "buckets" according to prefix Sum of squares
 	// also set the bounding box of points inside tile
+	std::vector<float> pointsInTilesRunningPrefixSum(pointsInTilesPrefixSum);
 	for (int i = 0; i < numSamples; i++) {
 
 		float sampleX = samplesX[i];
@@ -1103,63 +1166,67 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 		// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
 		// If the current value = maxValue, we take the maxTexCoord instead
-		int squareX = min(m_squareMaxX, mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_squareMaxX + 1));
-		int squareY = min(m_squareMaxY, mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_squareMaxY + 1));
+		int squareX = min(m_squareMaxX, int(mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_squareMaxX + 1)));
+		int squareY = min(m_squareMaxY, int(mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_squareMaxY + 1)));
 
 		int squareIndex1D = squareX + m_squareNumCols * squareY;
 
 		// put sample in correct position and increment prefix sum
-		int sampleIndex = pointsInTilesCount[squareIndex1D]++;
+		int sampleIndex = pointsInTilesRunningPrefixSum[squareIndex1D]++;
 		sortedX[sampleIndex] = sampleX;
 		sortedY[sampleIndex] = sampleY;
 
 		//set bounding box of samples inside tile
-		tilesMaxBound[squareIndex1D] = max(tilesMaxBound[squareIndex1D], sampleX);
-		tilesMinBound[squareIndex1D] = min(tilesMinBound[squareIndex1D], sampleX);
+		tilesMaxBoundX[squareIndex1D] = max(tilesMaxBoundX[squareIndex1D], sampleX);
+		tilesMaxBoundY[squareIndex1D] = max(tilesMaxBoundY[squareIndex1D], sampleY);
+
+		tilesMinBoundX[squareIndex1D] = min(tilesMinBoundX[squareIndex1D], sampleX);
+		tilesMinBoundY[squareIndex1D] = min(tilesMinBoundY[squareIndex1D], sampleY);
 	}
 
 
-	//Step 4: calculate discrepancy of for each tile
+	//Step 4: calculate discrepancy for each tile
+	for (int i = 0; i < numSquares; i++) {
 
-	// calculate discrepancy
-	/*float maxDifference = 0.0f;
-	int iterations = 0;
-
-	for (int i = 0; i < numSamples; i++) {
-
-		iterations++;
-
-		float stopValueX = normSamplesX[i];
-		float stopValueY = normSamplesY[i];
-
-		// calculate area
-		float area = stopValueX * stopValueY;
-
-		// closed interval [startValue, stopValue]
-		size_t countInside = 0;
-		for (int i = 0; i < numSamples; i++)
+		float maxDifference = 0.0f;
+		//use the addition and not PrefixSum[i+1] so we can easily get the last boundary
+		for (int j = pointsInTilesPrefixSum[i]; j < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; j++)
 		{
-			float sampleX = normSamplesX[i];
-			float sampleY = normSamplesY[i];
+			//normalize sample inside its square
+			float stopValueXNorm = mapInterval(sortedX[j], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
+			float stopValueYNorm = mapInterval(sortedY[j], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
 
-			if (sampleX <= stopValueX &&
-				sampleY <= stopValueY)
+			// calculate area
+			float area = stopValueXNorm * stopValueYNorm;
+
+			// closed interval [startValue, stopValue]
+			float countInside = 0.0f;
+			for (int k = pointsInTilesPrefixSum[i]; k < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; k++)
 			{
-				++countInside;
+				//normalize sample inside its square
+				float sampleXNorm = mapInterval(sortedX[k], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
+				float sampleYNorm = mapInterval(sortedY[k], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
+
+
+				if (sampleXNorm <= stopValueXNorm &&
+					sampleYNorm <= stopValueYNorm)
+				{
+					countInside++;
+				}
 			}
+			float density = countInside / float(numSamples);
+			float difference = std::abs(density - area);
+
+			if (difference > maxDifference)
+			{
+				maxDifference = difference;
+			}
+
 		}
-		float density = float(countInside) / float(numSamples);
-		float difference = std::abs(density - area);
 
-		discrepancies[i] = difference;
-
-		if (difference > maxDifference)
-			maxDifference = difference;
+		// set tile discrepancy
+		discrepancies[i] = maxDifference;
 	}
 
-	//set relative discrepancy
-	for (int i = 0; i < numSamples; i++) {
-		discrepancies[i] = discrepancies[i] / maxDifference;
-	}*/
 	return discrepancies;
 }

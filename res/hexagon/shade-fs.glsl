@@ -7,6 +7,7 @@ layout (location = 0) out vec4 colorTexture;
 
 uniform sampler2D pointChartTexture;
 uniform sampler2D pointCircleTexture;
+uniform sampler2D tilesDiscrepancyTexture;
 uniform sampler2D tilesTexture;
 uniform sampler2D gridTexture;
 uniform sampler2D accPointTexture;
@@ -26,6 +27,10 @@ void main()
 
     #ifdef RENDER_SQUARES
         vec4 tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+
+        //discrepancy is set as opacity
+        float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(gl_FragCoord.xy), 0).r;
+        tilesCol *= tilesDiscrepancy;
 
         //TODO: maybe make #define
         if(blendPointCircles)

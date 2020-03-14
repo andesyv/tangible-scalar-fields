@@ -41,13 +41,13 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_yColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_radiusColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_colorColumnBuffer = std::make_unique<globjects::Buffer>();
-		std::unique_ptr<globjects::Buffer> m_discrepanciesBuffer = std::make_unique<globjects::Buffer>();
 
 		//---------------------------------------------------------------------------------------
 
-		// SQUARE GRID VERTEX DATA------------------------------------------------------------
-		std::unique_ptr<globjects::VertexArray> m_vaoSquareGrid = std::make_unique<globjects::VertexArray>();
-		std::unique_ptr<globjects::Buffer> m_verticesSquareGrid = std::make_unique<globjects::Buffer>();
+		// TILES GRID VERTEX DATA------------------------------------------------------------
+		std::unique_ptr<globjects::VertexArray> m_vaoTiles = std::make_unique<globjects::VertexArray>();
+		std::unique_ptr<globjects::Buffer> m_verticesTiles = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_discrepanciesBuffer = std::make_unique<globjects::Buffer>();
 
 		//---------------------------------------------------------------------------------------
 
@@ -74,6 +74,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr; //TODO: could also use free channel of AccumulateTexture
 		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareGridTexture = nullptr;
@@ -89,6 +90,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_pointCircleFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_tilesDiscrepanciesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareGridFramebuffer = nullptr;
@@ -187,7 +189,7 @@ namespace molumes
 
 		// INTERVAL MAPPING--------------------------------------------------------------------------
 		//maps value x from [a,b] --> [0,c]
-		int mapInterval(float x, float a, float b, int c);
+		float mapInterval(float x, float a, float b, int c);
 
 		// DISCREPANCY------------------------------------------------------------------------------
 
