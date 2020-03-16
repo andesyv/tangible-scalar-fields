@@ -7,7 +7,6 @@ layout (location = 0) out vec4 colorTexture;
 
 uniform sampler2D pointChartTexture;
 uniform sampler2D pointCircleTexture;
-uniform sampler2D tilesDiscrepancyTexture;
 uniform sampler2D tilesTexture;
 uniform sampler2D gridTexture;
 uniform sampler2D accPointTexture;
@@ -17,25 +16,28 @@ void main()
 
     vec4 col = texelFetch(pointChartTexture, ivec2(gl_FragCoord.xy), 0).rgba;
     float alpha;
+
+    vec4 tilesCol;
+    vec4 poinCircleCol;
     bool blendPointCircles=false;
 
     #ifdef RENDER_POINT_CIRCLES
-        col = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+        poinCircleCol = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
         alpha = col.a;
         blendPointCircles = true;
     #endif 
 
     #ifdef RENDER_SQUARES
-        vec4 tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-
-        //discrepancy is set as opacity
-        float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(gl_FragCoord.xy), 0).r;
-        tilesCol *= tilesDiscrepancy;
+        tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
         //TODO: maybe make #define
         if(blendPointCircles)
         {
-            col = col + (tilesCol * (1-alpha));
+            if(tilesCol.r > 0 || tilesCol.g > 0 || tilesCol.b > 0){
+                float alphaBlend = tilesCol.a + (1-tilesCol.a) * poinCircleCol.a;
+                col = 1/alphaBlend * (tilesCol.a*tilesCol + (1-tilesCol.a)*poinCircleCol);
+                //col = col + (tilesCol * (1-alpha));
+            }
         }
         else
         {

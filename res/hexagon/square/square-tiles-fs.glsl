@@ -14,6 +14,7 @@ in vec4 boundsScreenSpace;
 in vec2 origMaxBoundScreenSpace;
 
 uniform sampler2D squareAccumulateTexture;
+uniform sampler2D tilesDiscrepancyTexture;
 
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
@@ -56,4 +57,10 @@ void main()
 		int colorTexelCoord = mapInterval(squareValue, 0, maxSquareValue, textureWidth);
 		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
+
+    #ifdef RENDER_POINT_CIRCLES
+        //discrepancy is set as opacity
+        float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(squareX,squareY), 0).r;
+        squareTilesTexture *= tilesDiscrepancy; //= vec4(tilesDiscrepancy,0.0,0.0,1.0);
+    #endif
 }

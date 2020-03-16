@@ -393,6 +393,7 @@ void HexTileRenderer::display()
 
 	shaderProgram_discrepancies->setUniform("numCols", m_squareNumCols);
 	shaderProgram_discrepancies->setUniform("numRows", m_squareNumRows);
+	shaderProgram_discrepancies->setUniform("discrepancyDiv", 1.5f);
 
 	m_vaoTiles->bind();
 	shaderProgram_discrepancies->use();
@@ -531,6 +532,7 @@ void HexTileRenderer::display()
 	// -------------------------------------------------------------------------------------------------
 
 	m_squareAccumulateTexture->bindActive(1);
+	m_tilesDiscrepanciesTexture->bindActive(2);
 
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
@@ -550,6 +552,7 @@ void HexTileRenderer::display()
 	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareMaxY);
 
 	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
+	shaderProgram_square_tiles->setUniform("tilesDiscrepancyTexture", 2);
 
 	if (m_colorMapLoaded)
 	{
@@ -572,6 +575,7 @@ void HexTileRenderer::display()
 	}
 
 	m_squareAccumulateTexture->unbindActive(1);
+	m_tilesDiscrepanciesTexture->unbindActive(2);
 
 	// disable blending
 	glDisablei(GL_BLEND, 0);
@@ -656,7 +660,6 @@ void HexTileRenderer::display()
 	m_squareAccumulateTexture->bindActive(2);
 	m_squareGridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
-	m_tilesDiscrepanciesTexture->bindActive(5);
 
 	auto shaderProgram_shade = shaderProgram("shade");
 
@@ -669,7 +672,6 @@ void HexTileRenderer::display()
 	if (m_renderSquares) {
 		shaderProgram_shade->setUniform("tilesTexture", 1);
 		shaderProgram_shade->setUniform("gridTexture", 3);
-		shaderProgram_shade->setUniform("tilesDiscrepancyTexture", 5);
 	}
 
 	if (m_renderAccumulatePoints) {
@@ -689,8 +691,6 @@ void HexTileRenderer::display()
 	m_squareAccumulateTexture->unbindActive(2);
 	m_squareGridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
-	m_tilesDiscrepanciesTexture->bindActive(5);
-
 
 	m_shadeFramebuffer->unbind();
 
