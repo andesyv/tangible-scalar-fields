@@ -4,6 +4,7 @@
 #include <iostream>
 #include <filesystem>
 #include <imgui.h>
+#include <omp.h>
 #include "../Viewer.h"
 #include "../Scene.h"
 #include "../Table.h"
@@ -12,6 +13,9 @@
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <cstdio>
+#include <ctime>
 
 
 #ifndef GLM_ENABLE_EXPERIMENTAL
@@ -1133,6 +1137,14 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 	std::vector<float> discrepancies(numSquares, 0.0f);
 
+	std::cout << "Discrepancy: " << numSamples << " Samples; " << numSquares << " Tiles" << '\n';
+
+	//timing
+	std::clock_t start;
+	double duration;
+
+	start = std::clock();
+
 	//Step 1: Count how many elements belong to each square
 	for (int i = 0; i < numSamples; i++) {
 
@@ -1147,6 +1159,11 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 		pointsInTilesCount[squareX + m_squareNumCols * squareY]++;
 	}
 
+	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+	std::cout << "Step1: " << duration << '\n';
+
+	start = clock();
+
 	//Step 2: calc prefix Sum
 	std::vector<float> pointsInTilesPrefixSum(pointsInTilesCount);
 	int prefixSum = 0;
@@ -1155,6 +1172,11 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 		pointsInTilesPrefixSum[i] = prefixSum;
 		prefixSum += sCount;
 	}
+
+	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+	std::cout << "Step2: " << duration << '\n';
+
+	start = clock();
 
 	//Step 3: sort points according to squares
 	// 1D array with "buckets" according to prefix Sum of squares
@@ -1185,49 +1207,60 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 		tilesMinBoundY[squareIndex1D] = min(tilesMinBoundY[squareIndex1D], sampleY);
 	}
 
+	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+	std::cout << "Step3: " << duration << '\n';
+
+	start = clock();
 
 	//Step 4: calculate discrepancy for each tile
-	for (int i = 0; i < numSquares; i++) {
+#pragma omp parallel
+	{
+#pragma omp for
+		for (int i = 0; i < numSquares; i++) {
 
-		float maxDifference = 0.0f;
-		//use the addition and not PrefixSum[i+1] so we can easily get the last boundary
-		for (int j = pointsInTilesPrefixSum[i]; j < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; j++)
-		{
-			//normalize sample inside its square
-			float stopValueXNorm = mapInterval(sortedX[j], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
-			float stopValueYNorm = mapInterval(sortedY[j], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
-
-			// calculate area
-			float area = stopValueXNorm * stopValueYNorm;
-
-			// closed interval [startValue, stopValue]
-			float countInside = 0.0f;
-			for (int k = pointsInTilesPrefixSum[i]; k < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; k++)
+			float maxDifference = 0.0f;
+			//use the addition and not PrefixSum[i+1] so we can easily get the last boundary
+			for (int j = pointsInTilesPrefixSum[i]; j < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; j++)
 			{
 				//normalize sample inside its square
-				float sampleXNorm = mapInterval(sortedX[k], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
-				float sampleYNorm = mapInterval(sortedY[k], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
+				float stopValueXNorm = mapInterval(sortedX[j], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
+				float stopValueYNorm = mapInterval(sortedY[j], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
 
+				// calculate area
+				float area = stopValueXNorm * stopValueYNorm;
 
-				if (sampleXNorm <= stopValueXNorm &&
-					sampleYNorm <= stopValueYNorm)
+				// closed interval [startValue, stopValue]
+				float countInside = 0.0f;
+				for (int k = pointsInTilesPrefixSum[i]; k < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; k++)
 				{
-					countInside++;
+					//normalize sample inside its square
+					float sampleXNorm = mapInterval(sortedX[k], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
+					float sampleYNorm = mapInterval(sortedY[k], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
+
+
+					if (sampleXNorm <= stopValueXNorm &&
+						sampleYNorm <= stopValueYNorm)
+					{
+						countInside++;
+					}
 				}
-			}
-			float density = countInside / float(numSamples);
-			float difference = std::abs(density - area);
+				float density = countInside / float(numSamples);
+				float difference = std::abs(density - area);
 
-			if (difference > maxDifference)
-			{
-				maxDifference = difference;
+				if (difference > maxDifference)
+				{
+					maxDifference = difference;
+				}
+
 			}
 
+			// set tile discrepancy
+			discrepancies[i] = maxDifference;
 		}
-
-		// set tile discrepancy
-		discrepancies[i] = maxDifference;
 	}
+
+	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+	std::cout << "Step4: " << duration << '\n' << '\n';
 
 	return discrepancies;
 }
