@@ -173,15 +173,17 @@ namespace molumes
 
 		// Hexagon Parameters
 		float m_hexSize_tmp = hexSize;
-
 		float m_hexRot_tmp = hexRot;
 
 		//point circle parameters
-		bool m_renderPointCircles = false;
 		float m_pointCircleRadius = 50.0f;
 		const float pointCircleRadiusDiv = 10000.0f;
 
+		//discrepancy parameters
+		float m_discrepancyDiv = 1.5f;
+
 		// define booleans
+		bool m_renderPointCircles = false;
 		bool m_renderSquares = false;
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;

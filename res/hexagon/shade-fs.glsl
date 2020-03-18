@@ -23,8 +23,10 @@ void main()
 
     #ifdef RENDER_POINT_CIRCLES
         poinCircleCol = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-        alpha = col.a;
         blendPointCircles = true;
+
+        // debug only
+        col = poinCircleCol;
     #endif 
 
     #ifdef RENDER_SQUARES
@@ -36,7 +38,6 @@ void main()
             if(tilesCol.r > 0 || tilesCol.g > 0 || tilesCol.b > 0){
                 float alphaBlend = tilesCol.a + (1-tilesCol.a) * poinCircleCol.a;
                 col = 1/alphaBlend * (tilesCol.a*tilesCol + (1-tilesCol.a)*poinCircleCol);
-                //col = col + (tilesCol * (1-alpha));
             }
         }
         else

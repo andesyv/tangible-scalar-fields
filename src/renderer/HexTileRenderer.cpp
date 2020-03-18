@@ -393,7 +393,7 @@ void HexTileRenderer::display()
 
 	shaderProgram_discrepancies->setUniform("numCols", m_squareNumCols);
 	shaderProgram_discrepancies->setUniform("numRows", m_squareNumRows);
-	shaderProgram_discrepancies->setUniform("discrepancyDiv", 1.5f);
+	shaderProgram_discrepancies->setUniform("discrepancyDiv", m_discrepancyDiv);
 
 	m_vaoTiles->bind();
 	shaderProgram_discrepancies->use();
@@ -1043,10 +1043,11 @@ void HexTileRenderer::renderGUI() {
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Point Circles"), ImGuiTreeNodeFlags_DefaultOpen)
+		if (ImGui::CollapsingHeader("Discrepancy"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
-			ImGui::SliderFloat("Point Circle Radius ", &m_pointCircleRadius, 1.0f, 100.0f);
+			ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
+			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
