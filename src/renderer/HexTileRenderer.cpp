@@ -335,9 +335,9 @@ void HexTileRenderer::display()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_ALWAYS);
 
-	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+	// additive blending
 	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunci(0, GL_ONE, GL_ONE);
 	glBlendEquationi(0, GL_FUNC_ADD);
 
 	// -------------------------------------------------------------------------------------------------
@@ -1137,6 +1137,8 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 	std::vector<float> discrepancies(numSquares, 0.0f);
 
+	float eps = 0.05;
+
 	std::cout << "Discrepancy: " << numSamples << " Samples; " << numSquares << " Tiles" << '\n';
 
 	//timing
@@ -1213,8 +1215,11 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	start = clock();
 
 	//Step 4: calculate discrepancy for each tile
+	omp_set_num_threads(4);
+	std::cout << "NumThreads: " << omp_get_num_threads() << '\n';
 #pragma omp parallel
 	{
+		std::cout << "Thread: " << omp_get_thread_num() << '\n';
 #pragma omp for
 		for (int i = 0; i < numSquares; i++) {
 
@@ -1252,6 +1257,12 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 					maxDifference = difference;
 				}
 
+			}
+
+			//we want to avoid discrepancies of 0
+			if (maxDifference < eps)
+			{
+				maxDifference += eps;
 			}
 
 			// set tile discrepancy

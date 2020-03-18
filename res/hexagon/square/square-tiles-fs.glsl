@@ -61,6 +61,6 @@ void main()
     #ifdef RENDER_POINT_CIRCLES
         //discrepancy is set as opacity
         float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(squareX,squareY), 0).r;
-        squareTilesTexture *= tilesDiscrepancy; //= vec4(tilesDiscrepancy,0.0,0.0,1.0);
+        squareTilesTexture *= tilesDiscrepancy;
     #endif
 }
