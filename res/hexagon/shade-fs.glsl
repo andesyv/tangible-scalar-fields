@@ -5,6 +5,13 @@
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 layout (location = 0) out vec4 colorTexture;
 
+layout(std430, binding = 6) buffer valueMaxBuffer
+{
+    uint maxAccumulate;
+    uint maxPointAlpha;
+};
+
+
 uniform sampler2D pointChartTexture;
 uniform sampler2D pointCircleTexture;
 uniform sampler2D tilesTexture;
@@ -22,9 +29,16 @@ void main()
     bool blendPointCircles=false;
 
     #ifdef RENDER_POINT_CIRCLES
+
+        // read from SSBO and convert back to float: --------------------------------------------------------------------
+        // - https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/intBitsToFloat.xhtml
+        float floatMaxPointAlpha = uintBitsToFloat(maxPointAlpha);
+
         poinCircleCol = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
         //TODO: use alpha/maxAlpha
-        poinCircleCol.a = max(1, poinCircleCol.a);
+        poinCircleCol /= floatMaxPointAlpha;
+        //poinCircleCol.a = poinCircleCol.a/floatMaxPointAlpha;
+        //poinCircleCol.a = max(1, poinCircleCol.a);
         blendPointCircles = true;
 
         // debug only
@@ -41,7 +55,6 @@ void main()
 
                 float alphaBlend = tilesCol.a + (1-tilesCol.a) * poinCircleCol.a;
                 col = 1/alphaBlend * (tilesCol.a*tilesCol + (1-tilesCol.a)*poinCircleCol.a*poinCircleCol);
-
             }
         }
         else

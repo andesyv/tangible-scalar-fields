@@ -7,11 +7,11 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 layout(std430, binding = 2) buffer valueMaxBuffer
 {
-	uint maxValue;
+    uint maxAccumulate;
+    uint maxPointAlpha;
 };
 
 in vec4 boundsScreenSpace;
-in vec2 origMaxBoundScreenSpace;
 
 uniform sampler2D squareAccumulateTexture;
 uniform sampler2D tilesDiscrepancyTexture;
@@ -39,22 +39,21 @@ void main()
     float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareX,squareY), 0).r;
 
     // we don't want to render empty squares
-    // we don't render pixels outside the original bounding box
-    if(squareValue < 0.00000001 || gl_FragCoord.x > origMaxBoundScreenSpace[0] || gl_FragCoord.y > origMaxBoundScreenSpace[1]){
+    if(squareValue < 0.00000001){
         discard;
     }
 
 	// read from SSBO and convert back to float: --------------------------------------------------------------------
 	// - https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/intBitsToFloat.xhtml
     // +1 because else we cannot map the maximum value itself
-    float maxSquareValue = uintBitsToFloat(maxValue) + 1;
+    float floatMaxAccumulate = uintBitsToFloat(maxAccumulate) + 1;
 
     //color squares according to index
     squareTilesTexture = vec4(float(squareX/float(maxTexCoordX)),float(squareY/float(maxTexCoordY)),0.0f,1.0f);
 
     // color square according to value
 	#ifdef COLORMAP
-		int colorTexelCoord = mapInterval(squareValue, 0, maxSquareValue, textureWidth);
+		int colorTexelCoord = mapInterval(squareValue, 0, floatMaxAccumulate, textureWidth);
 		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
 

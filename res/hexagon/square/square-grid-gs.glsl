@@ -11,11 +11,7 @@ uniform sampler2D squareAccumulateTexture;
 
 //[x,y]
 uniform vec2 maxBounds_Off;
-uniform vec2 maxBounds;
 uniform vec2 minBounds;
-
-uniform int windowHeight;
-uniform int windowWidth;
 
 uniform float squareSize;
 uniform mat4 modelViewProjectionMatrix;
@@ -25,16 +21,9 @@ uniform int numRows;
 
 const float PI = 3.1415926;
 
-out vec2 origMaxBoundScreenSpace;
 
 void main()
 {
-
-    // we convert the original bounding box maximum bounds
-	// this way we can discard pixels, that are not inside the original bound
-	// leads to cut of squares, but is more accurate and looks smoother,
-	// than rendering the full squares, which leeds to popping
-	origMaxBoundScreenSpace = getScreenSpacePosOfPoint(modelViewProjectionMatrix, maxBounds, windowWidth, windowHeight);
 
     // get value from accumulate texture
     float squareValue = texelFetch(squareAccumulateTexture, ivec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y), 0).r;

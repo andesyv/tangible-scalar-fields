@@ -53,8 +53,8 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
-	// shader storage buffer object for current maximum accumulated value
-	m_valueMaxBuffer->setStorage(sizeof(uint), nullptr, gl::GL_NONE_BIT);
+	// shader storage buffer object for current maximum accumulated value and maximum discrepancy
+	m_valueMaxBuffer->setStorage(sizeof(uint)*2, nullptr, gl::GL_NONE_BIT);
 
 	m_shaderSourceDefines = StaticStringSource::create("");
 	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
@@ -84,10 +84,10 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/hexagon/square/square-acc-fs.glsl"}
 		});
 
-	createShaderProgram("square-acc-count", {
+	createShaderProgram("bounding-box-buffer", {
 		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/hexagon/bounding-quad-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/square/max-acc-val-fs.glsl"}
+		{GL_FRAGMENT_SHADER,"./res/hexagon/square/max-val-fs.glsl"}
 		});
 
 	createShaderProgram("square-tiles", {
@@ -207,9 +207,12 @@ void HexTileRenderer::display()
 	{
 		m_framebufferSize = viewer()->viewportSize();
 		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_squareGridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
 	}
 
 
@@ -481,34 +484,35 @@ void HexTileRenderer::display()
 	// max accumulated Value
 	const uint maxValue = 0;
 	m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxValue);
+	m_valueMaxBuffer->clearSubData(GL_R32UI, sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &maxValue);
 	// -------------------------------------------------------------------------------------------------
 
 	m_squareAccumulateTexture->bindActive(1);
 
-	auto shaderProgram_accumulate_count = shaderProgram("square-acc-count");
+	auto shaderProgram_bounding_box_buffer = shaderProgram("bounding-box-buffer");
 
 	//geometry shader
-	shaderProgram_accumulate_count->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_accumulate_count->setUniform("maxBounds", maxBounds);
-	shaderProgram_accumulate_count->setUniform("minBounds", minBounds);
+	shaderProgram_bounding_box_buffer->setUniform("maxBounds_Off", maxBounds_Offset);
+	shaderProgram_bounding_box_buffer->setUniform("maxBounds", maxBounds);
+	shaderProgram_bounding_box_buffer->setUniform("minBounds", minBounds);
 
 	//geometry & fragment shader
-	shaderProgram_accumulate_count->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_bounding_box_buffer->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	shaderProgram_accumulate_count->setUniform("windowWidth", viewer()->viewportSize()[0]);
-	shaderProgram_accumulate_count->setUniform("windowHeight", viewer()->viewportSize()[1]);
+	shaderProgram_bounding_box_buffer->setUniform("windowWidth", viewer()->viewportSize()[0]);
+	shaderProgram_bounding_box_buffer->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 	//fragment Shader
-	shaderProgram_accumulate_count->setUniform("maxTexCoordX", m_squareMaxX);
-	shaderProgram_accumulate_count->setUniform("maxTexCoordY", m_squareMaxY);
+	shaderProgram_bounding_box_buffer->setUniform("maxTexCoordX", m_squareMaxX);
+	shaderProgram_bounding_box_buffer->setUniform("maxTexCoordY", m_squareMaxY);
 
-	shaderProgram_accumulate_count->setUniform("squareAccumulateTexture", 1);
+	shaderProgram_bounding_box_buffer->setUniform("squareAccumulateTexture", 1);
 
 	m_vaoQuad->bind();
 
-	shaderProgram_accumulate_count->use();
+	shaderProgram_bounding_box_buffer->use();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	shaderProgram_accumulate_count->release();
+	shaderProgram_bounding_box_buffer->release();
 
 	m_vaoQuad->unbind();
 
@@ -542,7 +546,6 @@ void HexTileRenderer::display()
 
 	//geometry shader
 	shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_square_tiles->setUniform("maxBounds", maxBounds);
 	shaderProgram_square_tiles->setUniform("minBounds", minBounds);
 
 	//geometry & fragment shader
@@ -625,10 +628,7 @@ void HexTileRenderer::display()
 	//geometry shader
 	shaderProgram_square_grid->setUniform("squareSize", squareSizeWS);
 	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_square_grid->setUniform("windowWidth", viewer()->viewportSize()[0]);
-	shaderProgram_square_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
 	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_square_grid->setUniform("maxBounds", maxBounds);
 	shaderProgram_square_grid->setUniform("minBounds", minBounds);
 	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
 
@@ -665,6 +665,9 @@ void HexTileRenderer::display()
 	m_squareGridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
 
+	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 6);
+
+
 	auto shaderProgram_shade = shaderProgram("shade");
 
 	shaderProgram_shade->setUniform("pointChartTexture", 0);
@@ -695,6 +698,9 @@ void HexTileRenderer::display()
 	m_squareAccumulateTexture->unbindActive(2);
 	m_squareGridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
+
+	//unbind shader storage buffer
+	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 	m_shadeFramebuffer->unbind();
 
