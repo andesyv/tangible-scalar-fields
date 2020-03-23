@@ -1221,35 +1221,25 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	start = clock();
 
 	//Step 4: calculate discrepancy for each tile
-	omp_set_num_threads(2);
-	int tilesPerThread = 0;
+	omp_set_num_threads(4);
 #pragma omp parallel
 	{
 #pragma omp master
 		{
 			std::cout << "NumThreads: " << omp_get_num_threads() << '\n';
-			tilesPerThread = ceil(numSquares / (float)omp_get_num_threads());
-			std::cout << "TilesPerThread: " << tilesPerThread << '\n';
-
 		}
 #pragma omp barrier
 
-		int myId = omp_get_thread_num();
-		int myStartingPoint = tilesPerThread * myId;
-		int myStopPoint = min(tilesPerThread * (myId + 1), numSquares);
-
-		std::cout << "Thread: " << omp_get_thread_num() << " from " << myStartingPoint << " til " << myStopPoint << '\n';
+		std::cout << "Thread: " << omp_get_thread_num() << '\n';
 #pragma omp barrier
-
-		for (int i = myStartingPoint; i < myStopPoint; i++) {
+#pragma omp for
+		for (int i = 0; i < numSquares; i++) {
 
 			float maxDifference = 0.0f;
 			int startPoint = pointsInTilesPrefixSum[i];
 			int stopPoint = pointsInTilesPrefixSum[i] + pointsInTilesCount[i];
-			//std::vector<float> differences(stopPoint - startPoint, 0.0f);
 
 			//use the addition and not PrefixSum[i+1] so we can easily get the last boundary
-#pragma omp for private(startPoint, stopPoint) reduction(max:maxDifference)
 			for (int j = startPoint; j < stopPoint; j++) {
 				//normalize sample inside its square
 				float stopValueXNorm = mapInterval(sortedX[j], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
@@ -1275,18 +1265,11 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 				}
 				float density = countInside / float(numSamples);
 				float difference = std::abs(density - area);
-				maxDifference = difference;
 
-				/*if (difference > maxDifference)
+				if (difference > maxDifference)
 				{
 					maxDifference = difference;
-				}*/
-			}
-
-			//we want to avoid discrepancies of 0
-			if (maxDifference < eps)
-			{
-				maxDifference += eps;
+				}
 			}
 
 			// set tile discrepancy

@@ -168,7 +168,7 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Square Parameters
-		float m_squareSize = 20.0f;
+		float m_squareSize = 5.0f;
 		float m_squareSize_tmp = m_squareSize;
 
 		// Hexagon Parameters
