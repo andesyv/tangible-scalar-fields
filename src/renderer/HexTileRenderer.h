@@ -168,7 +168,7 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		// Square Parameters
-		float m_squareSize = 5.0f;
+		float m_squareSize = 20.0f;
 		float m_squareSize_tmp = m_squareSize;
 
 		// Hexagon Parameters
@@ -184,6 +184,8 @@ namespace molumes
 
 		// define booleans
 		bool m_renderPointCircles = false;
+		bool m_renderDiscrepancy = false;
+		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderSquares = false;
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;

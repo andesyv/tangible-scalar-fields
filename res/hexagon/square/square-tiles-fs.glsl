@@ -57,7 +57,7 @@ void main()
 		squareTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 	#endif
 
-    #ifdef RENDER_POINT_CIRCLES
+    #ifdef RENDER_DISCREPANCY
         //discrepancy is set as opacity
         float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(squareX,squareY), 0).r;
         squareTilesTexture *= tilesDiscrepancy;

@@ -25,8 +25,7 @@ void main()
     float alpha;
 
     vec4 tilesCol;
-    vec4 poinCircleCol;
-    bool blendPointCircles=false;
+    vec4 pointCircleCol;
 
     #ifdef RENDER_POINT_CIRCLES
 
@@ -34,33 +33,30 @@ void main()
         // - https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/intBitsToFloat.xhtml
         float floatMaxPointAlpha = uintBitsToFloat(maxPointAlpha);
 
-        poinCircleCol = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+        pointCircleCol = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
         //TODO: use alpha/maxAlpha
-        poinCircleCol /= floatMaxPointAlpha;
-        //poinCircleCol.a = poinCircleCol.a/floatMaxPointAlpha;
-        //poinCircleCol.a = max(1, poinCircleCol.a);
-        blendPointCircles = true;
+        pointCircleCol /= floatMaxPointAlpha;
+        //pointCircleCol.a = pointCircleCol.a/floatMaxPointAlpha;
+        //pointCircleCol.a = max(1, pointCircleCol.a);
 
         // debug only
-        col = poinCircleCol;
+        col = pointCircleCol;
     #endif 
 
     #ifdef RENDER_SQUARES
         tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
-        //TODO: maybe make #define
-        if(blendPointCircles)
-        {
+        #ifdef RENDER_POINT_CIRCLES
             if(tilesCol.r > 0 || tilesCol.g > 0 || tilesCol.b > 0){
-
-                float alphaBlend = tilesCol.a + (1-tilesCol.a) * poinCircleCol.a;
-                col = 1/alphaBlend * (tilesCol.a*tilesCol + (1-tilesCol.a)*poinCircleCol.a*poinCircleCol);
-            }
-        }
-        else
-        {
+                #ifdef RENDER_DISCREPANCY
+                    col = over(tilesCol, pointCircleCol);
+                #else
+                    col = over(pointCircleCol, tilesCol);
+                #endif
+            }    
+        #else
             col = tilesCol;
-        }
+        #endif
     #endif
 
     #ifdef RENDER_SQUARE_GRID

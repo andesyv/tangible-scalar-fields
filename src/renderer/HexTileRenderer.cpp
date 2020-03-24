@@ -203,6 +203,21 @@ void HexTileRenderer::display()
 {
 	auto currentState = State::currentState();
 
+	// Scatterplot GUI -----------------------------------------------------------------------------------------------------------
+	renderGUI();
+
+	setShaderDefines();
+	// ---------------------------------------------------------------------------------------------------------------------------
+
+	// do not render if either the dataset was not loaded or the window is minimized 
+	if (viewer()->scene()->table()->activeTableData().size() == 0 || viewer()->viewportSize().x == 0 || viewer()->viewportSize().y == 0)
+	{
+		return;
+	}
+
+	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
+
+
 	if (viewer()->viewportSize() != m_framebufferSize)
 	{
 		m_framebufferSize = viewer()->viewportSize();
@@ -233,7 +248,7 @@ void HexTileRenderer::display()
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 
-	if (m_squareSize != m_squareSize_tmp) {
+	if (m_squareSize != m_squareSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp) {
 		calculateSquareTextureSize(inverseModelViewProjectionMatrix);
 	}
 
@@ -261,164 +276,157 @@ void HexTileRenderer::display()
 	vec4 nearPlane = inverseProjectionMatrix * vec4(0.0, 0.0, -1.0, 1.0);
 	nearPlane /= nearPlane.w;
 
-	// Scatterplot GUI -----------------------------------------------------------------------------------------------------------
-	renderGUI();
-
-	setShaderDefines();
-	// ---------------------------------------------------------------------------------------------------------------------------
-
-	// do not render if either the dataset was not loaded or the window is minimized 
-	if (viewer()->scene()->table()->activeTableData().size() == 0 || viewer()->viewportSize().x == 0 || viewer()->viewportSize().y == 0)
-	{
-		return;
-	}
-
-	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
-
 	// ====================================================================================== POINTS RENDER PASS =======================================================================================
 
-	m_pointFramebuffer->bind();
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if (!(m_renderSquares || m_renderPointCircles)) {
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		m_pointFramebuffer->bind();
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	// -------------------------------------------------------------------------------------------------
+		// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquationi(0, GL_MAX);
 
-	auto shaderProgram_points = shaderProgram("points");
+		// -------------------------------------------------------------------------------------------------
 
-	shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
+		auto shaderProgram_points = shaderProgram("points");
 
-	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
 
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->bindActive(5);
-		shaderProgram_points->setUniform("colorMapTexture", 5);
-		shaderProgram_points->setUniform("textureWidth", m_ColorMapWidth);
-		shaderProgram_points->setUniform("viewportX", float(viewportSize.x));
+		shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+		if (m_colorMapLoaded)
+		{
+			m_colorMapTexture->bindActive(5);
+			shaderProgram_points->setUniform("colorMapTexture", 5);
+			shaderProgram_points->setUniform("textureWidth", m_ColorMapWidth);
+			shaderProgram_points->setUniform("viewportX", float(viewportSize.x));
+		}
+
+		m_vao->bind();
+		shaderProgram_points->use();
+
+		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+		shaderProgram_points->release();
+		m_vao->unbind();
+
+		if (m_colorMapLoaded)
+		{
+			m_colorMapTexture->unbindActive(5);
+		}
+
+		// disable blending for draw buffer 0 (classical scatter plot)
+		glDisablei(GL_BLEND, 0);
+
+		m_pointFramebuffer->unbind();
+
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
-
-	m_vao->bind();
-	shaderProgram_points->use();
-
-	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-	shaderProgram_points->release();
-	m_vao->unbind();
-
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->unbindActive(5);
-	}
-
-	// disable blending for draw buffer 0 (classical scatter plot)
-	glDisablei(GL_BLEND, 0);
-
-	m_pointFramebuffer->unbind();
-
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 	// ====================================================================================== POINT CIRCLES RENDER PASS =======================================================================================
 
-	m_pointCircleFramebuffer->bind();
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if (m_renderPointCircles) {
+		m_pointCircleFramebuffer->bind();
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	// additive blending
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_ONE, GL_ONE);
-	glBlendEquationi(0, GL_FUNC_ADD);
+		// additive blending
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_ONE, GL_ONE);
+		glBlendEquationi(0, GL_FUNC_ADD);
 
-	// -------------------------------------------------------------------------------------------------
+		// -------------------------------------------------------------------------------------------------
 
-	auto shaderProgram_pointCircles = shaderProgram("point-circle");
+		auto shaderProgram_pointCircles = shaderProgram("point-circle");
 
-	//set correct radius
-	float scaleAdjustedRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();;
+		//set correct radius
+		float scaleAdjustedRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();;
 
-	//geometry shader
-	shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_pointCircles->setUniform("radius", scaleAdjustedRadius);
-	shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+		//geometry shader
+		shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_pointCircles->setUniform("radius", scaleAdjustedRadius);
+		shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
-	//fragment shader
-	shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
+		//fragment shader
+		shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
 
-	m_vao->bind();
-	shaderProgram_pointCircles->use();
+		m_vao->bind();
+		shaderProgram_pointCircles->use();
 
-	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
-	shaderProgram_pointCircles->release();
-	m_vao->unbind();
+		shaderProgram_pointCircles->release();
+		m_vao->unbind();
 
-	// disable blending for draw buffer 0 (classical scatter plot)
-	glDisablei(GL_BLEND, 0);
+		// disable blending for draw buffer 0 (classical scatter plot)
+		glDisablei(GL_BLEND, 0);
 
-	m_pointCircleFramebuffer->unbind();
+		m_pointCircleFramebuffer->unbind();
 
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
 
 	// ====================================================================================== DISCREPANCIES RENDER PASS ======================================================================================
 	// Accumulate Points into squares
 
-	m_tilesDiscrepanciesFramebuffer->bind();
+	if (m_renderDiscrepancy) {
+		m_tilesDiscrepanciesFramebuffer->bind();
 
-	// set viewport to size of accumulation texture
-	glViewport(0, 0, m_squareNumCols, m_squareNumRows);
+		// set viewport to size of accumulation texture
+		glViewport(0, 0, m_squareNumCols, m_squareNumRows);
 
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_FUNC_ADD);
+		// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquationi(0, GL_FUNC_ADD);
 
-	// -------------------------------------------------------------------------------------------------
+		// -------------------------------------------------------------------------------------------------
 
-	auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
+		auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
 
-	shaderProgram_discrepancies->setUniform("numCols", m_squareNumCols);
-	shaderProgram_discrepancies->setUniform("numRows", m_squareNumRows);
-	shaderProgram_discrepancies->setUniform("discrepancyDiv", m_discrepancyDiv);
+		shaderProgram_discrepancies->setUniform("numCols", m_squareNumCols);
+		shaderProgram_discrepancies->setUniform("numRows", m_squareNumRows);
+		shaderProgram_discrepancies->setUniform("discrepancyDiv", m_discrepancyDiv);
 
-	m_vaoTiles->bind();
-	shaderProgram_discrepancies->use();
+		m_vaoTiles->bind();
+		shaderProgram_discrepancies->use();
 
-	m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
+		m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
 
-	shaderProgram_discrepancies->release();
-	m_vaoTiles->unbind();
+		shaderProgram_discrepancies->release();
+		m_vaoTiles->unbind();
 
-	// disable blending
-	glDisablei(GL_BLEND, 0);
+		// disable blending
+		glDisablei(GL_BLEND, 0);
 
-	//reset Viewport
-	glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
+		//reset Viewport
+		glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
-	m_tilesDiscrepanciesFramebuffer->unbind();
+		m_tilesDiscrepanciesFramebuffer->unbind();
 
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
 
 	// ====================================================================================== ACCUMULATE RENDER PASS ======================================================================================
 	// Accumulate Points into squares
@@ -474,6 +482,7 @@ void HexTileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
+
 	// ====================================================================================== MAX VAL & TILES RENDER PASS ======================================================================================
 	// THIRD: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
 	// FOURTH: Render Squares
@@ -520,141 +529,145 @@ void HexTileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
+
 	// -------------------------------------------------------------------------------------------------
 	// Render squares
-	m_squareTilesFramebuffer->bind();
+	if (m_renderSquares) {
+		m_squareTilesFramebuffer->bind();
 
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	//Blending GL_COLOR_ATTACHMENT0
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
+		//Blending GL_COLOR_ATTACHMENT0
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquationi(0, GL_MAX);
 
-	// -------------------------------------------------------------------------------------------------
+		// -------------------------------------------------------------------------------------------------
 
-	m_squareAccumulateTexture->bindActive(1);
-	m_tilesDiscrepanciesTexture->bindActive(2);
+		m_squareAccumulateTexture->bindActive(1);
+		m_tilesDiscrepanciesTexture->bindActive(2);
 
-	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
+		auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
-	//geometry shader
-	shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_square_tiles->setUniform("minBounds", minBounds);
+		//geometry shader
+		shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBounds_Offset);
+		shaderProgram_square_tiles->setUniform("minBounds", minBounds);
 
-	//geometry & fragment shader
-	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		//geometry & fragment shader
+		shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	shaderProgram_square_tiles->setUniform("windowWidth", viewer()->viewportSize()[0]);
-	shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
+		shaderProgram_square_tiles->setUniform("windowWidth", viewer()->viewportSize()[0]);
+		shaderProgram_square_tiles->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
-	//fragment Shader
-	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_squareMaxX);
-	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareMaxY);
+		//fragment Shader
+		shaderProgram_square_tiles->setUniform("maxTexCoordX", m_squareMaxX);
+		shaderProgram_square_tiles->setUniform("maxTexCoordY", m_squareMaxY);
 
-	shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
-	shaderProgram_square_tiles->setUniform("tilesDiscrepancyTexture", 2);
+		shaderProgram_square_tiles->setUniform("squareAccumulateTexture", 1);
+		shaderProgram_square_tiles->setUniform("tilesDiscrepancyTexture", 2);
 
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->bindActive(5);
-		shaderProgram_square_tiles->setUniform("colorMapTexture", 5);
-		shaderProgram_square_tiles->setUniform("textureWidth", m_ColorMapWidth);
+		if (m_colorMapLoaded)
+		{
+			m_colorMapTexture->bindActive(5);
+			shaderProgram_square_tiles->setUniform("colorMapTexture", 5);
+			shaderProgram_square_tiles->setUniform("textureWidth", m_ColorMapWidth);
+		}
+
+		m_vaoQuad->bind();
+
+		shaderProgram_square_tiles->use();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+		shaderProgram_square_tiles->release();
+
+		m_vaoQuad->unbind();
+
+		if (m_colorMapLoaded)
+		{
+			m_colorMapTexture->unbindActive(5);
+		}
+
+		m_squareAccumulateTexture->unbindActive(1);
+		m_tilesDiscrepanciesTexture->unbindActive(2);
+
+		// disable blending
+		glDisablei(GL_BLEND, 0);
+
+		m_squareTilesFramebuffer->unbind();
+
+		//unbind shader storage buffer
+		m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
-
-	m_vaoQuad->bind();
-
-	shaderProgram_square_tiles->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	shaderProgram_square_tiles->release();
-
-	m_vaoQuad->unbind();
-
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->unbindActive(5);
-	}
-
-	m_squareAccumulateTexture->unbindActive(1);
-	m_tilesDiscrepanciesTexture->unbindActive(2);
-
-	// disable blending
-	glDisablei(GL_BLEND, 0);
-
-	m_squareTilesFramebuffer->unbind();
-
-	//unbind shader storage buffer
-	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	// ====================================================================================== GRID RENDER PASS ======================================================================================
 	// render square grid into texture
 
-	m_squareGridFramebuffer->bind();
+	if (m_renderGrid) {
+		m_squareGridFramebuffer->bind();
 
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	//Blending GL_COLOR_ATTACHMENT0
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
+		//Blending GL_COLOR_ATTACHMENT0
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquationi(0, GL_MAX);
 
-	// -------------------------------------------------------------------------------------------------
+		// -------------------------------------------------------------------------------------------------
 
-	m_squareGridTexture->bindActive(0);
-	//used to check if we actually need to draw the grid for a given square
-	m_squareAccumulateTexture->bindActive(1);
+		m_squareGridTexture->bindActive(0);
+		//used to check if we actually need to draw the grid for a given square
+		m_squareAccumulateTexture->bindActive(1);
 
-	auto shaderProgram_square_grid = shaderProgram("square-grid");
+		auto shaderProgram_square_grid = shaderProgram("square-grid");
 
-	//set uniforms
+		//set uniforms
 
-	//vertex shader
-	shaderProgram_square_grid->setUniform("numCols", m_squareNumCols);
-	shaderProgram_square_grid->setUniform("numRows", m_squareNumRows);
+		//vertex shader
+		shaderProgram_square_grid->setUniform("numCols", m_squareNumCols);
+		shaderProgram_square_grid->setUniform("numRows", m_squareNumRows);
 
-	//geometry shader
-	shaderProgram_square_grid->setUniform("squareSize", squareSizeWS);
-	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_square_grid->setUniform("minBounds", minBounds);
-	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
+		//geometry shader
+		shaderProgram_square_grid->setUniform("squareSize", squareSizeWS);
+		shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
+		shaderProgram_square_grid->setUniform("minBounds", minBounds);
+		shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
 
-	//fragment Shader
-	shaderProgram_square_grid->setUniform("squareBorderColor", vec3(1.0f, 1.0f, 1.0f));
-	shaderProgram_square_grid->setUniform("squareGridTexture", 0);
+		//fragment Shader
+		shaderProgram_square_grid->setUniform("squareBorderColor", vec3(1.0f, 1.0f, 1.0f));
+		shaderProgram_square_grid->setUniform("squareGridTexture", 0);
 
-	m_vaoTiles->bind();
+		m_vaoTiles->bind();
 
-	shaderProgram_square_grid->use();
-	m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
-	shaderProgram_square_grid->release();
+		shaderProgram_square_grid->use();
+		m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
+		shaderProgram_square_grid->release();
 
-	m_vaoTiles->unbind();
+		m_vaoTiles->unbind();
 
-	m_squareGridTexture->unbindActive(0);
-	m_squareAccumulateTexture->unbindActive(1);
+		m_squareGridTexture->unbindActive(0);
+		m_squareAccumulateTexture->unbindActive(1);
 
 
-	// disable blending
-	glDisablei(GL_BLEND, 0);
+		// disable blending
+		glDisablei(GL_BLEND, 0);
 
-	m_squareGridFramebuffer->unbind();
+		m_squareGridFramebuffer->unbind();
 
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
 	// ====================================================================================== SHADE/BLEND RENDER PASS ======================================================================================
 	// blend everything together and draw to screen
 	m_shadeFramebuffer->bind();
@@ -670,7 +683,9 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_shade = shaderProgram("shade");
 
-	shaderProgram_shade->setUniform("pointChartTexture", 0);
+	if (!(m_renderPointCircles || m_renderSquares)) {
+		shaderProgram_shade->setUniform("pointChartTexture", 0);
+	}
 
 	if (m_renderPointCircles) {
 		shaderProgram_shade->setUniform("pointCircleTexture", 4);
@@ -678,6 +693,9 @@ void HexTileRenderer::display()
 
 	if (m_renderSquares) {
 		shaderProgram_shade->setUniform("tilesTexture", 1);
+	}
+
+	if (m_renderGrid) {
 		shaderProgram_shade->setUniform("gridTexture", 3);
 	}
 
@@ -717,6 +735,7 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 
 	// set new size
 	m_squareSize = m_squareSize_tmp;
+	m_renderDiscrepancy = m_renderDiscrepancy_tmp;
 
 	squareSizeWS = (inverseModelViewProjectionMatrix * vec4(m_squareSize_tmp / squareSizeDiv, 0, 0, 0)).x;
 	squareSizeWS *= viewer()->scaleFactor();
@@ -764,10 +783,12 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 
 
 	//calc2D discrepancy and setup discrepancy buffer
-	std::vector<float> tilesDiscrepancies;
+	std::vector<float> tilesDiscrepancies(numSquares, 0.0f);
 
-	tilesDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
-		viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
+	if (m_renderDiscrepancy) {
+		tilesDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
+			viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
+	}
 
 	m_discrepanciesBuffer->setData(tilesDiscrepancies, GL_STATIC_DRAW);
 
@@ -1057,6 +1078,7 @@ void HexTileRenderer::renderGUI() {
 		{
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
 			ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
+			ImGui::Checkbox("Show Discrepancy", &m_renderDiscrepancy_tmp);
 			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
 
@@ -1089,6 +1111,10 @@ void HexTileRenderer::setShaderDefines() {
 
 	if (m_renderPointCircles) {
 		defines += "#define RENDER_POINT_CIRCLES\n";
+	}
+
+	if (m_renderDiscrepancy) {
+		defines += "#define RENDER_DISCREPANCY\n";
 	}
 
 	if (m_renderSquares)
@@ -1224,6 +1250,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	omp_set_num_threads(4);
 #pragma omp parallel
 	{
+		/*
 #pragma omp master
 		{
 			std::cout << "NumThreads: " << omp_get_num_threads() << '\n';
@@ -1232,6 +1259,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 		std::cout << "Thread: " << omp_get_thread_num() << '\n';
 #pragma omp barrier
+*/
 #pragma omp for
 		for (int i = 0; i < numSquares; i++) {
 

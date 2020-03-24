@@ -14,7 +14,7 @@ find_package(glbinding REQUIRED)
 find_package(globjects REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(Matlab COMPONENTS ENG_LIBRARY)
-find_package(OpenMP 5.0)
+find_package(OpenMP)
 
 include_directories(${CMAKE_SOURCE_DIR}/lib/HBAOPlus/include)
 include_directories(${CMAKE_SOURCE_DIR}/lib/imgui/)

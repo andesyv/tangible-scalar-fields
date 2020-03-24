@@ -29,3 +29,11 @@ vec4 getScreenSpacePosOfRect(mat4 modelViewProjectionMatrix, vec2 maxCoords, vec
 
     return boundsScreenSpace;
 }
+
+// blends A over B
+// https://de.wikipedia.org/wiki/Alpha_Blending
+vec4 over(vec4 colA, vec4 colB){
+
+    float alphaBlend = colA.a + (1-colA.a) * colB.a;
+    return 1/alphaBlend * (colA.a*colA + (1-colA.a)*colB.a*colB);
+}
