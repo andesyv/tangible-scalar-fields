@@ -248,7 +248,7 @@ void HexTileRenderer::display()
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 
-	if (m_squareSize != m_squareSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp) {
+	if (m_squareSize != m_squareSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp || m_discrepancy_easeIn != m_discrepancy_easeIn_tmp) {
 		calculateSquareTextureSize(inverseModelViewProjectionMatrix);
 	}
 
@@ -738,6 +738,7 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 	// set new size
 	m_squareSize = m_squareSize_tmp;
 	m_renderDiscrepancy = m_renderDiscrepancy_tmp;
+	m_discrepancy_easeIn = m_discrepancy_easeIn_tmp;
 
 	squareSizeWS = (inverseModelViewProjectionMatrix * vec4(m_squareSize_tmp / squareSizeDiv, 0, 0, 0)).x;
 	squareSizeWS *= viewer()->scaleFactor();
@@ -1081,6 +1082,7 @@ void HexTileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
 			ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
 			ImGui::Checkbox("Show Discrepancy", &m_renderDiscrepancy_tmp);
+			ImGui::Checkbox("Ease In", &m_discrepancy_easeIn_tmp);
 			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
 
@@ -1173,7 +1175,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 
 	float eps = 0.05;
 
-	std::cout << "Discrepancy: " << numSamples << " Samples; " << numSquares << " Tiles" << '\n';
+	//std::cout << "Discrepancy: " << numSamples << " Samples; " << numSquares << " Tiles" << '\n';
 
 	//timing
 	std::clock_t start;
@@ -1196,7 +1198,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-	std::cout << "Step1: " << duration << '\n';
+	//std::cout << "Step1: " << duration << '\n';
 
 	start = clock();
 
@@ -1210,7 +1212,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-	std::cout << "Step2: " << duration << '\n';
+	//std::cout << "Step2: " << duration << '\n';
 
 	start = clock();
 
@@ -1244,7 +1246,7 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-	std::cout << "Step3: " << duration << '\n';
+	//std::cout << "Step3: " << duration << '\n';
 
 	start = clock();
 
@@ -1305,13 +1307,23 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 			maxDifference = max(eps, maxDifference);
 
 			// set tile discrepancy
-			discrepancies[i] = maxDifference;
+			if (m_discrepancy_easeIn) {
+				discrepancies[i] = quadricEaseIn(maxDifference, 0, 1, 1);
+			}
+			else {
+				discrepancies[i] = maxDifference;
+			}
 		}
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-	std::cout << "Step4: " << duration << '\n' << '\n';
+	//std::cout << "Step4: " << duration << '\n' << '\n';
 
 
 	return discrepancies;
 }
+
+double HexTileRenderer::quadricEaseIn(double t, int b, int c, int d) {
+	t /= d;
+	return c * t*t + b;
+} 
