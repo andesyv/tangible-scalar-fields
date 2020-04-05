@@ -7,7 +7,6 @@ layout(points) in;
 layout(line_strip, max_vertices = N+1) out;
 
 uniform float hexSize;
-uniform mat4 rotation;
 uniform mat4 modelViewProjectionMatrix;
 
 const float PI = 3.1415926;
@@ -26,7 +25,7 @@ void main()
 
 			// Offset from center of point
         	offset = vec4(hexSize * cos(angle_rad), hexSize*sin(angle_rad), 0.0, 0.0);
-			gl_Position = modelViewProjectionMatrix * rotation * (gl_in[0].gl_Position + offset);
+			gl_Position = modelViewProjectionMatrix * (gl_in[0].gl_Position + offset);
 
 			EmitVertex();
 		}

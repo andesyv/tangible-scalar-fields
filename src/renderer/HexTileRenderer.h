@@ -51,11 +51,6 @@ namespace molumes
 
 		//---------------------------------------------------------------------------------------
 
-		// HEX VERTEX DATA -------------------------------------------------------------------------------
-		std::unique_ptr<globjects::VertexArray> m_vaoHex = std::make_unique<globjects::VertexArray>();
-		std::unique_ptr<globjects::Buffer> m_verticesHex = std::make_unique<globjects::Buffer>();
-		//---------------------------------------------------------------------------------------
-
 		// QUAD VERTEX DATA -------------------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vaoQuad = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
@@ -73,7 +68,6 @@ namespace molumes
 
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_hexTilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr; //TODO: could also use free channel of AccumulateTexture
 		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
@@ -107,37 +101,34 @@ namespace molumes
 		float shininess;
 		// --------------------------------------------------------------------------------
 
-		// VIEWPORT -------------------------------------------------------------------
-		//glm::vec4 boundingBoxScreenSpace;
-		// --------------------------------------------------------------------------------
+		// TILES CALC----------------------------------------------------------------
+		const float tileSizeDiv = 500.0f;
+		float m_tileSize = 20.0f;
+		float tileSizeWS = 0.0f;
 
-		// SQUARE CALC -------------------------------------------------------------------
-		int m_squareMaxY = 0;
-		int m_squareMaxX = 0;
-		int m_squareNumRows = 0; //Y
-		int m_squareNumCols = 0; //X
-		float m_squareSize = 20.0f;
-		int numSquares = 0;
-		float squareSizeWS = 0.0f;
-		const float squareSizeDiv = 500.0f;
+		int m_tileMaxY = 0;
+		int m_tileMaxX = 0;
+		int m_tileNumRows = 0; //Y
+		int m_tileNumCols = 0; //X
+		int numTiles = 0;
 
 		glm::vec2 maxBounds_Offset;
+		glm::vec2 minBounds_Offset;
+
+		void calculateTileTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
+
+		// SQUARE CALC -------------------------------------------------------------------
 
 		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const glm::vec2 minBounds);
-		void calculateSquareTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
+		void calculateNumberOfSquares(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
 		// HEXAGON CALC -------------------------------------------------------------------
 
-		int m_hexRows = 0;
-		int m_hexCols = 0;
-		int m_hexCount = 0;
 		float horizontal_space = 0.0f;
 		float vertical_space = 0.0f;
-		float hexSize = 20.0f;
-		glm::mat4 hexRotMat = glm::mat4(1.0f);
 
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix);
-		void calculateNumberOfHexagons();
+		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize);
 
 		// ------------------------------------------------------------------------------------------
 
@@ -170,12 +161,10 @@ namespace molumes
 		// Tiles Parameters
 		// [none=0, square=1, hexagon=2]
 		int m_selected_tile_style = 0;
+		int m_selected_tile_style_tmp = m_selected_tile_style;
 
-		// Square Parameters
-		float m_squareSize_tmp = m_squareSize;
-
-		// Hexagon Parameters
-		float m_hexSize_tmp = hexSize;
+		// Tile Parameters
+		float m_tileSize_tmp = m_tileSize;
 
 		//point circle parameters
 		float m_pointCircleRadius = 50.0f;
@@ -200,7 +189,7 @@ namespace molumes
 
 		// DISCREPANCY------------------------------------------------------------------------------
 
-		std::vector<float> CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
+		std::vector<float> calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
 		double quadricEaseIn(double t, int b, int c, int d);
 	};
 
