@@ -786,13 +786,8 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 	std::vector<float> tilesDiscrepancies(numSquares, 0.0f);
 
 	if (m_renderDiscrepancy) {
-		CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
-			viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds(), tilesDiscrepancies);
-
-		/*std::thread t1(&HexTileRenderer::CalculateDiscrepancy2D, viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
-			viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds(), tilesDiscrepancies);
-
-		t1.join();*/
+		tilesDiscrepancies = CalculateDiscrepancy2D(viewer()->scene()->table()->activeXColumn(), viewer()->scene()->table()->activeYColumn(),
+			viewer()->scene()->table()->maximumBounds(), viewer()->scene()->table()->minimumBounds());
 	}
 
 	m_discrepanciesBuffer->setData(tilesDiscrepancies, GL_STATIC_DRAW);
@@ -1155,7 +1150,7 @@ float molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
 //DISCREPANCY
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds, std::vector<float>& discrepancies)
+std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds)
 {
 
 	// Calculates the discrepancy of this data.
@@ -1171,6 +1166,8 @@ void HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX,
 	std::vector<float> tilesMaxBoundY(numSquares, -INFINITY);
 	std::vector<float> tilesMinBoundX(numSquares, INFINITY);
 	std::vector<float> tilesMinBoundY(numSquares, INFINITY);
+
+	std::vector<float> discrepancies(numSquares, 0.0f);
 
 	float eps = 0.05;
 
@@ -1310,4 +1307,7 @@ void HexTileRenderer::CalculateDiscrepancy2D(const std::vector<float>& samplesX,
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
 	std::cout << "Step4: " << duration << '\n' << '\n';
+
+
+	return discrepancies;
 }

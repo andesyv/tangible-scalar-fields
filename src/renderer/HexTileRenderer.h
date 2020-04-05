@@ -20,7 +20,6 @@
 #include <globjects/NamedString.h>
 #include <globjects/base/StaticStringSource.h>
 #include <globjects/Query.h>
-//#include <thread>
 
 namespace molumes
 {
@@ -198,7 +197,7 @@ namespace molumes
 
 		// DISCREPANCY------------------------------------------------------------------------------
 
-		void CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds, std::vector<float>&);
+		std::vector<float> CalculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
 	};
 
 }
