@@ -58,7 +58,7 @@ void main()
         #endif
     #endif
 
-    #ifdef RENDER_SQUARE_GRID
+    #ifdef RENDER_GRID
         vec4 gridCol = texelFetch(gridTexture, ivec2(gl_FragCoord.xy), 0).rgba;
         if(gridCol.r > 0 || gridCol.g > 0 || gridCol.b > 0){
             col = gridCol;

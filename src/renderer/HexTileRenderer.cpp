@@ -74,7 +74,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/point-circle-fs.glsl"}
 		});
 
-	createShaderProgram("tiles-disc", {
+	createShaderProgram("square-tiles-disc", {
 		{GL_VERTEX_SHADER,"./res/tiles/square/square-discrepancy-vs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/discrepancy-fs.glsl"}
 		});
@@ -129,7 +129,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_squareTilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	m_squareGridTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_gridTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -187,10 +187,10 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_squareTilesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_squareTilesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
-	m_squareGridFramebuffer = Framebuffer::create();
-	m_squareGridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareGridTexture.get());
-	m_squareGridFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_squareGridFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_gridFramebuffer = Framebuffer::create();
+	m_gridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_gridTexture.get());
+	m_gridFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_gridFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
@@ -225,7 +225,7 @@ void HexTileRenderer::display()
 		m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_hexTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_squareGridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_gridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	}
@@ -278,7 +278,7 @@ void HexTileRenderer::display()
 
 	// ====================================================================================== POINTS RENDER PASS =======================================================================================
 
-	if (!(m_renderSquares || m_renderPointCircles)) {
+	if (m_selected_tile_style == 0 && !m_renderPointCircles) {
 
 		m_pointFramebuffer->bind();
 		glClearDepth(1.0f);
@@ -403,7 +403,7 @@ void HexTileRenderer::display()
 
 		// -------------------------------------------------------------------------------------------------
 
-		auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
+		auto shaderProgram_discrepancies = shaderProgram("square-tiles-disc");
 
 		shaderProgram_discrepancies->setUniform("numCols", m_squareNumCols);
 		shaderProgram_discrepancies->setUniform("numRows", m_squareNumRows);
@@ -534,7 +534,7 @@ void HexTileRenderer::display()
 
 	// -------------------------------------------------------------------------------------------------
 	// Render squares
-	if (m_renderSquares) {
+	if (m_selected_tile_style == 1) {
 		m_squareTilesFramebuffer->bind();
 
 		glClearDepth(1.0f);
@@ -611,7 +611,7 @@ void HexTileRenderer::display()
 	// render square grid into texture
 
 	if (m_renderGrid) {
-		m_squareGridFramebuffer->bind();
+		m_gridFramebuffer->bind();
 
 		glClearDepth(1.0f);
 		glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -628,45 +628,23 @@ void HexTileRenderer::display()
 
 		// -------------------------------------------------------------------------------------------------
 
-		m_squareGridTexture->bindActive(0);
+		m_gridTexture->bindActive(0);
 		//used to check if we actually need to draw the grid for a given square
 		m_squareAccumulateTexture->bindActive(1);
 
-		auto shaderProgram_square_grid = shaderProgram("square-grid");
+		if (m_selected_tile_style == 1) {
+			renderSquareGrid(modelViewProjectionMatrix, minBounds);
+		}
+		else if (m_selected_tile_style == 2) {
+			renderHexagonGrid(modelViewProjectionMatrix);
+		}
 
-		//set uniforms
-
-		//vertex shader
-		shaderProgram_square_grid->setUniform("numCols", m_squareNumCols);
-		shaderProgram_square_grid->setUniform("numRows", m_squareNumRows);
-
-		//geometry shader
-		shaderProgram_square_grid->setUniform("squareSize", squareSizeWS);
-		shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-		shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
-		shaderProgram_square_grid->setUniform("minBounds", minBounds);
-		shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
-
-		//fragment Shader
-		shaderProgram_square_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
-		shaderProgram_square_grid->setUniform("gridTexture", 0);
-
-		m_vaoTiles->bind();
-
-		shaderProgram_square_grid->use();
-		m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
-		shaderProgram_square_grid->release();
-
-		m_vaoTiles->unbind();
-
-		m_squareGridTexture->unbindActive(0);
-		m_squareAccumulateTexture->unbindActive(1);
-
+		m_gridTexture->unbindActive(0);
 
 		// disable blending
 		glDisablei(GL_BLEND, 0);
 
-		m_squareGridFramebuffer->unbind();
+		m_gridFramebuffer->unbind();
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
@@ -677,7 +655,7 @@ void HexTileRenderer::display()
 	m_pointChartTexture->bindActive(0);
 	m_squareTilesTexture->bindActive(1);
 	m_squareAccumulateTexture->bindActive(2);
-	m_squareGridTexture->bindActive(3);
+	m_gridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
 
 	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 6);
@@ -685,7 +663,7 @@ void HexTileRenderer::display()
 
 	auto shaderProgram_shade = shaderProgram("shade");
 
-	if (!(m_renderPointCircles || m_renderSquares)) {
+	if (!m_renderPointCircles && m_selected_tile_style == 0) {
 		shaderProgram_shade->setUniform("pointChartTexture", 0);
 	}
 
@@ -693,7 +671,7 @@ void HexTileRenderer::display()
 		shaderProgram_shade->setUniform("pointCircleTexture", 4);
 	}
 
-	if (m_renderSquares) {
+	if (m_selected_tile_style == 1) {
 		shaderProgram_shade->setUniform("tilesTexture", 1);
 	}
 
@@ -716,7 +694,7 @@ void HexTileRenderer::display()
 	m_pointChartTexture->unbindActive(0);
 	m_squareTilesTexture->unbindActive(1);
 	m_squareAccumulateTexture->unbindActive(2);
-	m_squareGridTexture->unbindActive(3);
+	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
 
 	//unbind shader storage buffer
@@ -732,6 +710,39 @@ void HexTileRenderer::display()
 // --------------------------------------------------------------------------------------
 // ###########################  SQUARE CALC ############################################
 // --------------------------------------------------------------------------------------
+
+void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const vec2 minBounds)
+{
+	auto shaderProgram_square_grid = shaderProgram("square-grid");
+
+	//set uniforms
+
+	//vertex shader
+	shaderProgram_square_grid->setUniform("numCols", m_squareNumCols);
+	shaderProgram_square_grid->setUniform("numRows", m_squareNumRows);
+
+	//geometry shader
+	shaderProgram_square_grid->setUniform("squareSize", squareSizeWS);
+	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
+	shaderProgram_square_grid->setUniform("minBounds", minBounds);
+	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
+
+	//fragment Shader
+	shaderProgram_square_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
+	shaderProgram_square_grid->setUniform("gridTexture", 0);
+
+	//draw call
+	m_vaoTiles->bind();
+
+	shaderProgram_square_grid->use();
+	m_vaoTiles->drawArrays(GL_POINTS, 0, numSquares);
+	shaderProgram_square_grid->release();
+
+	m_vaoTiles->unbind();
+
+	m_squareAccumulateTexture->unbindActive(1);
+}
 
 void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProjectionMatrix) {
 
@@ -808,28 +819,14 @@ void HexTileRenderer::calculateSquareTextureSize(const mat4 inverseModelViewProj
 
 void HexTileRenderer::renderHexagonGrid(mat4 modelViewProjectionMatrix) {
 	// RENDER EMPTY HEXAGONS
-	// TODO
-	// think about, if we can maybe omit duplicate line rendering
-	// fix bug with wrong line starts
 
-	m_hexFramebuffer->bind();
-	glClearDepth(1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
-
-	if (hexSize != m_hexSize_tmp) {
+	//if (hexSize != m_hexSize_tmp) {
 		calculateNumberOfHexagons();
-	}
-	if (hexRot != m_hexRot_tmp) {
-		setRotationMatrix();
-	}
+//	}
 
 	auto shaderProgram_hexagonGrid = shaderProgram("hexagon-grid");
 	shaderProgram_hexagonGrid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_hexagonGrid->setUniform("hexBorderColor", vec3(1.0f, 1.0f, 1.0f));
+	shaderProgram_hexagonGrid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
 
 	shaderProgram_hexagonGrid->setUniform("horizontal_space", horizontal_space);
 	// divide by 2 because we use double-height coordinates in vertex shader
@@ -840,22 +837,14 @@ void HexTileRenderer::renderHexagonGrid(mat4 modelViewProjectionMatrix) {
 	shaderProgram_hexagonGrid->setUniform("hexSize", hexSize);
 	shaderProgram_hexagonGrid->setUniform("rotation", hexRotMat);
 
+	//draw call
 	m_vaoHex->bind();
 
 	shaderProgram_hexagonGrid->use();
-
 	m_vaoHex->drawArrays(GL_POINTS, 0, m_hexCount);
-
 	shaderProgram_hexagonGrid->release();
+
 	m_vaoHex->unbind();
-
-
-	// disable blending for draw buffer 0 (classical scatter plot)
-	glDisablei(GL_BLEND, 0);
-
-	m_hexFramebuffer->unbind();
-
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 }
 
 
@@ -895,19 +884,6 @@ void HexTileRenderer::calculateNumberOfHexagons() {
 	vertexBinding->setBuffer(m_verticesHex.get(), 0, sizeof(float));
 	vertexBinding->setFormat(1, GL_FLOAT);
 	m_vaoHex->enable(0);
-}
-
-void HexTileRenderer::setRotationMatrix() {
-	// TODO: rotation
-	// when rotating, we cannot longer use a rectangular grid, because points will fall outside
-	// talk with thomas about possible solution
-	hexRot = m_hexRot_tmp;
-
-	vec3 minPos = viewer()->scene()->table()->minimumBounds();
-	hexRotMat = glm::mat4(1);
-	hexRotMat = glm::translate(hexRotMat, minPos);
-	hexRotMat = glm::rotate(hexRotMat, glm::pi<float>() / 180 * hexRot, glm::vec3(0.0f, 0.0f, 1.0f));
-	hexRotMat = glm::translate(hexRotMat, -minPos);
 }
 
 // --------------------------------------------------------------------------------------
@@ -1010,15 +986,8 @@ void HexTileRenderer::renderGUI() {
 			// calculate accumulate texture settings - needs to be last step here ------------------------------
 			calculateSquareTextureSize(inverse(viewer()->modelViewProjectionTransform()));
 			calculateNumberOfHexagons();
-			setRotationMatrix();
 			// -------------------------------------------------------------------------------
 
-		}
-
-		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
-		{
-			ImGui::SliderFloat("Size", &m_hexSize_tmp, 5.0f, 200.0f);
-			ImGui::SliderFloat("Rotation", &m_hexRot_tmp, 0.0f, 60.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Color Maps"), ImGuiTreeNodeFlags_DefaultOpen)
@@ -1085,11 +1054,18 @@ void HexTileRenderer::renderGUI() {
 			ImGui::Checkbox("Ease In", &m_discrepancy_easeIn_tmp);
 			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
-
+		if (ImGui::CollapsingHeader("Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
+		{
+			const char* tile_styles[]{ "none", "square", "hexagon" };
+			ImGui::Combo("Tile Rendering", &m_selected_tile_style, tile_styles, IM_ARRAYSIZE(tile_styles));
+			ImGui::Checkbox("Render Grid", &m_renderGrid);
+		}
+		if (ImGui::CollapsingHeader("Hexagonal Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
+		{
+			ImGui::SliderFloat("Size", &m_hexSize_tmp, 1.0f, 100.0f);
+		}
 		if (ImGui::CollapsingHeader("Square Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
-			ImGui::Checkbox("Render Squares", &m_renderSquares);
-			ImGui::Checkbox("Render Grid", &m_renderGrid);
 			ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
 			ImGui::SliderFloat("Square Size ", &m_squareSize_tmp, 1.0f, 100.0f);
 
@@ -1121,12 +1097,18 @@ void HexTileRenderer::setShaderDefines() {
 		defines += "#define RENDER_DISCREPANCY\n";
 	}
 
-	if (m_renderSquares)
+	if (m_selected_tile_style == 1)
 	{
 		defines += "#define RENDER_SQUARES\n";
 	}
+
+	if (m_selected_tile_style == 2)
+	{
+		defines += "#define RENDER_HEXAGONS\n";
+	}
+
 	if (m_renderGrid) {
-		defines += "#define RENDER_SQUARE_GRID\n";
+		defines += "#define RENDER_GRID\n";
 	}
 	if (m_renderAccumulatePoints)
 		defines += "#define RENDER_ACC_POINTS\n";
@@ -1326,4 +1308,4 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 double HexTileRenderer::quadricEaseIn(double t, int b, int c, int d) {
 	t /= d;
 	return c * t*t + b;
-} 
+}

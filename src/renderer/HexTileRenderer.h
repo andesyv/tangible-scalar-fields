@@ -77,7 +77,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr; //TODO: could also use free channel of AccumulateTexture
 		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_squareGridTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -93,7 +93,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_tilesDiscrepanciesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_squareGridFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
@@ -116,12 +116,14 @@ namespace molumes
 		int m_squareMaxX = 0;
 		int m_squareNumRows = 0; //Y
 		int m_squareNumCols = 0; //X
+		float m_squareSize = 20.0f;
 		int numSquares = 0;
 		float squareSizeWS = 0.0f;
 		const float squareSizeDiv = 500.0f;
 
 		glm::vec2 maxBounds_Offset;
 
+		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const glm::vec2 minBounds);
 		void calculateSquareTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
 
 		// HEXAGON CALC -------------------------------------------------------------------
@@ -132,12 +134,10 @@ namespace molumes
 		float horizontal_space = 0.0f;
 		float vertical_space = 0.0f;
 		float hexSize = 20.0f;
-		float hexRot = 0.0f;
 		glm::mat4 hexRotMat = glm::mat4(1.0f);
 
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix);
 		void calculateNumberOfHexagons();
-		void setRotationMatrix();
 
 		// ------------------------------------------------------------------------------------------
 
@@ -167,13 +167,15 @@ namespace molumes
 		int m_oldColorMap = 0;
 		bool m_oldDiscreteMap = false;
 
+		// Tiles Parameters
+		// [none=0, square=1, hexagon=2]
+		int m_selected_tile_style = 0;
+
 		// Square Parameters
-		float m_squareSize = 20.0f;
 		float m_squareSize_tmp = m_squareSize;
 
 		// Hexagon Parameters
 		float m_hexSize_tmp = hexSize;
-		float m_hexRot_tmp = hexRot;
 
 		//point circle parameters
 		float m_pointCircleRadius = 50.0f;
@@ -187,7 +189,6 @@ namespace molumes
 		bool m_renderPointCircles = false;
 		bool m_renderDiscrepancy = false;
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
-		bool m_renderSquares = false;
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;
 		bool m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
