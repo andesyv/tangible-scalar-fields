@@ -21,7 +21,7 @@ void main()
 
 	float blendRadius = smoothstep(0.5, 1.0, fragPosInCircle);
 
-    pointCircleTexture = vec4(pointColor, 1.0) * (1.0f-blendRadius);
+    pointCircleTexture = vec4(pointColor, 1.0f-blendRadius);
 	//OpenGL expects premultiplied alpha values
 	pointCircleTexture.rgb *= pointCircleTexture.a;
 

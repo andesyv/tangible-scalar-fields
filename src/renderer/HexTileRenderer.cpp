@@ -497,6 +497,7 @@ void HexTileRenderer::display()
 	// -------------------------------------------------------------------------------------------------
 
 	m_squareAccumulateTexture->bindActive(1);
+	m_pointCircleTexture->bindActive(2);
 
 	auto shaderProgram_bounding_box_buffer = shaderProgram("bounding-box-buffer");
 
@@ -516,6 +517,7 @@ void HexTileRenderer::display()
 	shaderProgram_bounding_box_buffer->setUniform("maxTexCoordY", m_squareMaxY);
 
 	shaderProgram_bounding_box_buffer->setUniform("squareAccumulateTexture", 1);
+	shaderProgram_bounding_box_buffer->setUniform("pointCircleTexture", 2);
 
 	m_vaoQuad->bind();
 
@@ -1299,6 +1301,8 @@ std::vector<float> HexTileRenderer::CalculateDiscrepancy2D(const std::vector<flo
 					maxDifference = difference;
 				}
 			}
+
+			maxDifference = max(eps, maxDifference);
 
 			// set tile discrepancy
 			discrepancies[i] = maxDifference;

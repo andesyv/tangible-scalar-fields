@@ -17,7 +17,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 in vec4 boundsScreenSpace;
 
 uniform sampler2D squareAccumulateTexture;
-uniform sampler2D tileDiscrepancyTexture;
+uniform sampler2D pointCircleTexture;
 
 //min = 0
 uniform int maxTexCoordX;
@@ -34,9 +34,11 @@ void main()
     // get value from accumulate texture
     float squareAccValue = texelFetch(squareAccumulateTexture, ivec2(squareX,squareY), 0).r;
 
+    float pointAlpha = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.x, gl_FragCoord.y),0).a;
+
     //// floatBitsToUint: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/floatBitsToInt.xhtml
 	uint uintSquareAccValue = floatBitsToUint(squareAccValue);
-	uint uintPointAlphaValue = floatBitsToUint(gl_FragCoord.a);
+	uint uintPointAlphaValue = floatBitsToUint(pointAlpha);
 
 	// identify max value
 	atomicMax(maxAccumulate, uintSquareAccValue);

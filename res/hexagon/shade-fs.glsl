@@ -34,13 +34,12 @@ void main()
         float floatMaxPointAlpha = uintBitsToFloat(maxPointAlpha);
 
         pointCircleCol = texelFetch(pointCircleTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-        //TODO: use alpha/maxAlpha
+        //normaliize color with maximum alpha
         pointCircleCol /= floatMaxPointAlpha;
-        //pointCircleCol.a = pointCircleCol.a/floatMaxPointAlpha;
-        //pointCircleCol.a = max(1, pointCircleCol.a);
 
         // debug only
         col = pointCircleCol;
+        
     #endif 
 
     #ifdef RENDER_SQUARES
