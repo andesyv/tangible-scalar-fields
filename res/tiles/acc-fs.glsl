@@ -3,11 +3,11 @@
 #include "/globals.glsl"
 
 //out
-layout (location = 0) out vec4 squareAccumulateTexture;
+layout (location = 0) out vec4 accumulateTexture;
 
 in vec4 vertexColor;
 
 void main(){
 
-	squareAccumulateTexture = vertexColor;
+	accumulateTexture = vertexColor;
 }

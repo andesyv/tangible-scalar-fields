@@ -59,59 +59,59 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shaderSourceDefines = StaticStringSource::create("");
 	m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
 
-	m_shaderSourceGlobals = File::create("./res/hexagon/globals.glsl");
+	m_shaderSourceGlobals = File::create("./res/tiles/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
 
 	// create shader programs
 	createShaderProgram("points", {
-		{GL_VERTEX_SHADER,"./res/hexagon/point-vs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/point-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/point-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/point-fs.glsl"}
 		});
 
 	createShaderProgram("point-circle", {
-		{GL_VERTEX_SHADER,"./res/hexagon/point-circle-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/point-circle-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/point-circle-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/point-circle-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/point-circle-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/point-circle-fs.glsl"}
 		});
 
 	createShaderProgram("tiles-disc", {
-		{GL_VERTEX_SHADER,"./res/hexagon/discrepancy-vs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/discrepancy-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/square/square-discrepancy-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/discrepancy-fs.glsl"}
 		});
 
 	createShaderProgram("square-acc", {
-		{GL_VERTEX_SHADER,"./res/hexagon/square/square-acc-vs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/square/square-acc-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/square/square-acc-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/acc-fs.glsl"}
 		});
 
-	createShaderProgram("bounding-box-buffer", {
-		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/bounding-quad-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/square/max-val-fs.glsl"}
+	createShaderProgram("square-max-val", {
+		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/square/square-max-val-fs.glsl"}
 		});
 
 	createShaderProgram("square-tiles", {
-		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/bounding-quad-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/square/square-tiles-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/square/square-tiles-fs.glsl"}
 		});
 
 	createShaderProgram("square-grid", {
-		{GL_VERTEX_SHADER,"./res/hexagon/square/square-grid-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/square/square-grid-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/square/square-grid-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/square/square-grid-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/square/square-grid-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
 		});
 
-	/*createShaderProgram("hexagon-grid", {
-		{GL_VERTEX_SHADER,"./res/hexagon/hexagon-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/hexagon-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/hexagon-fs.glsl"}
-		});*/
+	createShaderProgram("hexagon-grid", {
+		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-grid-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/hexagon/hexagon-grid-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
+		});
 
 	createShaderProgram("shade", {
-		{GL_VERTEX_SHADER,"./res/hexagon/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/hexagon/image-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/hexagon/shade-fs.glsl"}
+		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/shade-fs.glsl"}
 		});
 
 	m_framebufferSize = viewer->viewportSize();
@@ -499,31 +499,31 @@ void HexTileRenderer::display()
 	m_squareAccumulateTexture->bindActive(1);
 	m_pointCircleTexture->bindActive(2);
 
-	auto shaderProgram_bounding_box_buffer = shaderProgram("bounding-box-buffer");
+	auto shaderProgram_square_max_val = shaderProgram("square-max-val");
 
 	//geometry shader
-	shaderProgram_bounding_box_buffer->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_bounding_box_buffer->setUniform("maxBounds", maxBounds);
-	shaderProgram_bounding_box_buffer->setUniform("minBounds", minBounds);
+	shaderProgram_square_max_val->setUniform("maxBounds_Off", maxBounds_Offset);
+	shaderProgram_square_max_val->setUniform("maxBounds", maxBounds);
+	shaderProgram_square_max_val->setUniform("minBounds", minBounds);
 
 	//geometry & fragment shader
-	shaderProgram_bounding_box_buffer->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_square_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	shaderProgram_bounding_box_buffer->setUniform("windowWidth", viewer()->viewportSize()[0]);
-	shaderProgram_bounding_box_buffer->setUniform("windowHeight", viewer()->viewportSize()[1]);
+	shaderProgram_square_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
+	shaderProgram_square_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 	//fragment Shader
-	shaderProgram_bounding_box_buffer->setUniform("maxTexCoordX", m_squareMaxX);
-	shaderProgram_bounding_box_buffer->setUniform("maxTexCoordY", m_squareMaxY);
+	shaderProgram_square_max_val->setUniform("maxTexCoordX", m_squareMaxX);
+	shaderProgram_square_max_val->setUniform("maxTexCoordY", m_squareMaxY);
 
-	shaderProgram_bounding_box_buffer->setUniform("squareAccumulateTexture", 1);
-	shaderProgram_bounding_box_buffer->setUniform("pointCircleTexture", 2);
+	shaderProgram_square_max_val->setUniform("squareAccumulateTexture", 1);
+	shaderProgram_square_max_val->setUniform("pointCircleTexture", 2);
 
 	m_vaoQuad->bind();
 
-	shaderProgram_bounding_box_buffer->use();
+	shaderProgram_square_max_val->use();
 	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	shaderProgram_bounding_box_buffer->release();
+	shaderProgram_square_max_val->release();
 
 	m_vaoQuad->unbind();
 
@@ -648,8 +648,8 @@ void HexTileRenderer::display()
 		shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
 
 		//fragment Shader
-		shaderProgram_square_grid->setUniform("squareBorderColor", vec3(1.0f, 1.0f, 1.0f));
-		shaderProgram_square_grid->setUniform("squareGridTexture", 0);
+		shaderProgram_square_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
+		shaderProgram_square_grid->setUniform("gridTexture", 0);
 
 		m_vaoTiles->bind();
 
