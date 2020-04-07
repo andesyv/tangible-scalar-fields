@@ -8,7 +8,7 @@ layout(location = 1) in float yValue;
 
 //[x,y]
 uniform vec2 maxBounds_Off;
-uniform vec2 minBounds;
+uniform vec2 minBounds_Off;
 //min = 0
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
@@ -20,8 +20,8 @@ void main()
 
     // to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
     // If the current value = maxValue, we take the maxTexCoord instead
-    int squareX = min(maxTexCoordX, mapInterval(xValue, minBounds[0], maxBounds_Off[0], maxTexCoordX+1));
-    int squareY = min(maxTexCoordY, mapInterval(yValue, minBounds[1], maxBounds_Off[1], maxTexCoordY+1));
+    int squareX = min(maxTexCoordX, mapInterval(xValue, minBounds_Off[0], maxBounds_Off[0], maxTexCoordX+1));
+    int squareY = min(maxTexCoordY, mapInterval(yValue, minBounds_Off[1], maxBounds_Off[1], maxTexCoordY+1));
 
     // we only set the red channel, because we only use the color for additive blending
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);

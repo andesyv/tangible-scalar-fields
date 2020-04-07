@@ -128,7 +128,7 @@ namespace molumes
 		float vertical_space = 0.0f;
 
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix);
-		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize);
+		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
 		// ------------------------------------------------------------------------------------------
 

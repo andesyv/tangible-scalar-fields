@@ -450,7 +450,7 @@ void HexTileRenderer::display()
 	auto shaderProgram_squares = shaderProgram("square-acc");
 
 	shaderProgram_squares->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_squares->setUniform("minBounds", minBounds);
+	shaderProgram_squares->setUniform("minBounds_Off", minBounds_Offset);
 
 	shaderProgram_squares->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_squares->setUniform("maxTexCoordY", m_tileMaxY);
@@ -493,7 +493,7 @@ void HexTileRenderer::display()
 
 	//geometry shader
 	shaderProgram_square_max_val->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_square_max_val->setUniform("minBounds", minBounds);
+	shaderProgram_square_max_val->setUniform("minBounds_Off", minBounds_Offset);
 
 	//geometry & fragment shader
 	shaderProgram_square_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -548,7 +548,7 @@ void HexTileRenderer::display()
 
 		//geometry shader
 		shaderProgram_square_tiles->setUniform("maxBounds_Off", maxBounds_Offset);
-		shaderProgram_square_tiles->setUniform("minBounds", minBounds);
+		shaderProgram_square_tiles->setUniform("minBounds_Off", minBounds_Offset);
 
 		//geometry & fragment shader
 		shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -719,7 +719,7 @@ void HexTileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjec
 			calculateNumberOfSquares(boundingBoxSize, minBounds);
 		}
 		else if (m_selected_tile_style == 2) {
-			calculateNumberOfHexagons(boundingBoxSize);
+			calculateNumberOfHexagons(boundingBoxSize, minBounds);
 		}
 
 		//set texture size
@@ -849,15 +849,17 @@ void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix) {
 }
 
 
-void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize) {
+void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBounds) {
 
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
 	horizontal_space = tileSizeWS * 1.5f;
 	vertical_space = sqrt(3)*tileSizeWS;
+	float hexWidth = 2 * tileSizeWS;
+	float hexHeight = vertical_space;
 
-	//+1 because else the floor operation could return 0
+	//+1 because else the floor operation could return 0 
 	float cols_tmp = 1 + (boundingBoxSize.x / horizontal_space);
 	m_tileNumCols = floor(cols_tmp);
 	if ((cols_tmp - m_tileNumCols) * horizontal_space >= tileSizeWS / 2.0f) {
@@ -871,6 +873,9 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize) {
 	}
 
 	numTiles = m_tileNumRows * m_tileNumCols;
+
+	minBounds_Offset = vec2(minBounds.x - tileSizeWS, minBounds.y - vertical_space / 2.0f);
+	maxBounds_Offset = vec2(m_tileNumCols * hexWidth + minBounds_Offset.x, m_tileNumRows * hexHeight + minBounds_Offset.y);
 }
 
 // --------------------------------------------------------------------------------------

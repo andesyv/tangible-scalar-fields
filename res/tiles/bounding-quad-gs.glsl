@@ -7,7 +7,7 @@ layout(triangle_strip, max_vertices = 4) out;
 
 //[x,y]
 uniform vec2 maxBounds_Off;
-uniform vec2 minBounds;
+uniform vec2 minBounds_Off;
 
 uniform int windowHeight;
 uniform int windowWidth;
@@ -19,22 +19,22 @@ out vec4 boundsScreenSpace;
 void main()
 {
 
-    boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_Off, minBounds, windowWidth, windowHeight);
+    boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_Off, minBounds_Off, windowWidth, windowHeight);
 
     // create bounding box geometry
 	vec4 pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(maxBounds_Off[0],maxBounds_Off[1],0.0,0.0));
 	gl_Position = pos;
 	EmitVertex();
 
-	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(minBounds[0],maxBounds_Off[1],0.0,0.0));
+	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(minBounds_Off[0],maxBounds_Off[1],0.0,0.0));
 	gl_Position = pos;
 	EmitVertex();
 
-	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(maxBounds_Off[0],minBounds[1],0.0,0.0));
+	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(maxBounds_Off[0],minBounds_Off[1],0.0,0.0));
 	gl_Position = pos;
 	EmitVertex();
 
-	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(minBounds[0],minBounds[1],0.0,0.0));
+	pos = modelViewProjectionMatrix * (gl_in[0].gl_Position + vec4(minBounds_Off[0],minBounds_Off[1],0.0,0.0));
 	gl_Position = pos;
 	EmitVertex();
 
