@@ -69,7 +69,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr; //TODO: could also use free channel of AccumulateTexture
-		std::unique_ptr<globjects::Texture> m_squareAccumulateTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 
@@ -85,7 +85,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_pointCircleFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_tilesDiscrepanciesFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_squareAccumulateFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_tileAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
@@ -119,6 +119,7 @@ namespace molumes
 
 		// SQUARE CALC -------------------------------------------------------------------
 
+		globjects::Program * getSquareAccumulationProgram();
 		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const glm::vec2 minBounds);
 		void calculateNumberOfSquares(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
@@ -127,6 +128,7 @@ namespace molumes
 		float horizontal_space = 0.0f;
 		float vertical_space = 0.0f;
 
+		globjects::Program * getHexagonAccumulationProgram();
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix);
 		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 

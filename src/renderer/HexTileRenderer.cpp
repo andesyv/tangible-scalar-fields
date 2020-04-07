@@ -84,6 +84,11 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/acc-fs.glsl"}
 		});
 
+	createShaderProgram("hex-acc", {
+		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-acc-vs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/acc-fs.glsl"}
+		});
+
 	createShaderProgram("max-val", {
 		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
@@ -123,7 +128,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	// the size of this textures is set dynamicly depending on the grid granularity
 	m_tilesDiscrepanciesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	m_squareAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_tileAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_squareTilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -170,10 +175,10 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_tilesDiscrepanciesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_tilesDiscrepanciesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
-	m_squareAccumulateFramebuffer = Framebuffer::create();
-	m_squareAccumulateFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareAccumulateTexture.get());
-	m_squareAccumulateFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_squareAccumulateFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_tileAccumulateFramebuffer = Framebuffer::create();
+	m_tileAccumulateFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_tileAccumulateTexture.get());
+	m_tileAccumulateFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_tileAccumulateFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_squareTilesFramebuffer = Framebuffer::create();
 	m_squareTilesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareTilesTexture.get());
@@ -427,7 +432,7 @@ void HexTileRenderer::display()
 	// ====================================================================================== ACCUMULATE RENDER PASS ======================================================================================
 	// Accumulate Points into squares
 
-	m_squareAccumulateFramebuffer->bind();
+	m_tileAccumulateFramebuffer->bind();
 
 	// set viewport to size of accumulation texture
 	glViewport(0, 0, m_tileNumCols, m_tileNumRows);
@@ -447,21 +452,23 @@ void HexTileRenderer::display()
 
 	// -------------------------------------------------------------------------------------------------
 
-	auto shaderProgram_squares = shaderProgram("square-acc");
+	Program* shaderProgram_tile_acc = nullptr;
+	if (m_selected_tile_style == 1) {
+		shaderProgram_tile_acc = getSquareAccumulationProgram();
+	}
+	else if (m_selected_tile_style == 2) {
+		shaderProgram_tile_acc = getHexagonAccumulationProgram();
+	}
+	if (shaderProgram_tile_acc != nullptr) {
 
-	shaderProgram_squares->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_squares->setUniform("minBounds_Off", minBounds_Offset);
+		m_vao->bind();
+		shaderProgram_tile_acc->use();
 
-	shaderProgram_squares->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_squares->setUniform("maxTexCoordY", m_tileMaxY);
+		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
-	m_vao->bind();
-	shaderProgram_squares->use();
-
-	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-	shaderProgram_squares->release();
-	m_vao->unbind();
+		shaderProgram_tile_acc->release();
+		m_vao->unbind();
+	}
 
 	// disable blending
 	glDisablei(GL_BLEND, 0);
@@ -469,7 +476,7 @@ void HexTileRenderer::display()
 	//reset Viewport
 	glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
 
-	m_squareAccumulateFramebuffer->unbind();
+	m_tileAccumulateFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -486,7 +493,7 @@ void HexTileRenderer::display()
 	m_valueMaxBuffer->clearSubData(GL_R32UI, sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &initialMaxValue);
 	// -------------------------------------------------------------------------------------------------
 
-	m_squareAccumulateTexture->bindActive(1);
+	m_tileAccumulateTexture->bindActive(1);
 	m_pointCircleTexture->bindActive(2);
 
 	auto shaderProgram_square_max_val = shaderProgram("max-val");
@@ -516,7 +523,7 @@ void HexTileRenderer::display()
 
 	m_vaoQuad->unbind();
 
-	m_squareAccumulateTexture->unbindActive(1);
+	m_tileAccumulateTexture->unbindActive(1);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -541,7 +548,7 @@ void HexTileRenderer::display()
 
 		// -------------------------------------------------------------------------------------------------
 
-		m_squareAccumulateTexture->bindActive(1);
+		m_tileAccumulateTexture->bindActive(1);
 		m_tilesDiscrepanciesTexture->bindActive(2);
 
 		auto shaderProgram_square_tiles = shaderProgram("square-tiles");
@@ -583,7 +590,7 @@ void HexTileRenderer::display()
 			m_colorMapTexture->unbindActive(5);
 		}
 
-		m_squareAccumulateTexture->unbindActive(1);
+		m_tileAccumulateTexture->unbindActive(1);
 		m_tilesDiscrepanciesTexture->unbindActive(2);
 
 		// disable blending
@@ -641,7 +648,7 @@ void HexTileRenderer::display()
 
 	m_pointChartTexture->bindActive(0);
 	m_squareTilesTexture->bindActive(1);
-	m_squareAccumulateTexture->bindActive(2);
+	m_tileAccumulateTexture->bindActive(2);
 	m_gridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
 
@@ -680,7 +687,7 @@ void HexTileRenderer::display()
 
 	m_pointChartTexture->unbindActive(0);
 	m_squareTilesTexture->unbindActive(1);
-	m_squareAccumulateTexture->unbindActive(2);
+	m_tileAccumulateTexture->unbindActive(2);
 	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
 
@@ -724,7 +731,7 @@ void HexTileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjec
 
 		//set texture size
 		m_tilesDiscrepanciesTexture->image2D(0, GL_RGBA32F, ivec2(m_tileNumCols, m_tileNumRows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_squareAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(m_tileNumCols, m_tileNumRows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_tileAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(m_tileNumCols, m_tileNumRows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 		//calculate viewport settings
 		/*vec4 testPoint = vec4(1.0f, 2.0f, 0.0f, 1.0f);
@@ -767,10 +774,23 @@ void HexTileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjec
 // ###########################  SQUARE ############################################
 // --------------------------------------------------------------------------------------
 
+Program * molumes::HexTileRenderer::getSquareAccumulationProgram()
+{
+	auto shaderProgram_square_acc = shaderProgram("square-acc");
+
+	shaderProgram_square_acc->setUniform("maxBounds_Off", maxBounds_Offset);
+	shaderProgram_square_acc->setUniform("minBounds_Off", minBounds_Offset);
+
+	shaderProgram_square_acc->setUniform("maxTexCoordX", m_tileMaxX);
+	shaderProgram_square_acc->setUniform("maxTexCoordY", m_tileMaxY);
+
+	return shaderProgram_square_acc;
+}
+
 void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const vec2 minBounds)
 {
 	//used to check if we actually need to draw the grid for a given square
-	m_squareAccumulateTexture->bindActive(1);
+	m_tileAccumulateTexture->bindActive(1);
 
 	auto shaderProgram_square_grid = shaderProgram("square-grid");
 
@@ -784,7 +804,7 @@ void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProject
 	shaderProgram_square_grid->setUniform("squareSize", tileSizeWS);
 	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
-	shaderProgram_square_grid->setUniform("minBounds", minBounds);
+	shaderProgram_square_grid->setUniform("minBounds_Off", minBounds_Offset);
 	shaderProgram_square_grid->setUniform("squareAccumulateTexture", 1);
 
 	//fragment Shader
@@ -800,7 +820,7 @@ void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProject
 
 	m_vaoTiles->unbind();
 
-	m_squareAccumulateTexture->unbindActive(1);
+	m_tileAccumulateTexture->unbindActive(1);
 }
 
 void molumes::HexTileRenderer::calculateNumberOfSquares(vec3 boundingBoxSize, vec3 minBounds)
@@ -822,6 +842,19 @@ void molumes::HexTileRenderer::calculateNumberOfSquares(vec3 boundingBoxSize, ve
 // --------------------------------------------------------------------------------------
 // ###########################  HEXAGON ############################################
 // --------------------------------------------------------------------------------------
+
+globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram()
+{
+	auto shaderProgram_hex_acc = shaderProgram("hex-acc");
+
+	shaderProgram_hex_acc->setUniform("maxBounds_Off", maxBounds_Offset);
+	shaderProgram_hex_acc->setUniform("minBounds_Off", minBounds_Offset);
+
+	shaderProgram_hex_acc->setUniform("maxTexCoordX", m_tileMaxX);
+	shaderProgram_hex_acc->setUniform("maxTexCoordY", m_tileMaxY);
+
+	return shaderProgram_hex_acc;
+}
 
 void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix) {
 	// RENDER EMPTY HEXAGONS
@@ -872,6 +905,8 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 		m_tileNumRows += 1;
 	}
 
+	m_tileMaxX = m_tileNumCols - 1;
+	m_tileMaxY = m_tileNumRows - 1;
 	numTiles = m_tileNumRows * m_tileNumCols;
 
 	minBounds_Offset = vec2(minBounds.x - tileSizeWS, minBounds.y - vertical_space / 2.0f);

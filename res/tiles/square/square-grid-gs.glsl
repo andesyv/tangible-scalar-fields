@@ -11,7 +11,7 @@ uniform sampler2D squareAccumulateTexture;
 
 //[x,y]
 uniform vec2 maxBounds_Off;
-uniform vec2 minBounds;
+uniform vec2 minBounds_Off;
 
 uniform float squareSize;
 uniform mat4 modelViewProjectionMatrix;
@@ -32,8 +32,8 @@ void main()
     if(squareValue > 0.00000001){
 
         // map from square space to bounding box space
-        float bbX = mapInterval_O(gl_in[0].gl_Position.x, 0, numCols, minBounds[0], maxBounds_Off[0]);
-        float bbY = mapInterval_O(gl_in[0].gl_Position.y, 0, numRows, minBounds[1], maxBounds_Off[1]);
+        float bbX = mapInterval_O(gl_in[0].gl_Position.x, 0, numCols, minBounds_Off[0], maxBounds_Off[0]);
+        float bbY = mapInterval_O(gl_in[0].gl_Position.y, 0, numRows, minBounds_Off[1], maxBounds_Off[1]);
 
         vec4 bbPos = vec4(bbX, bbY, 0.0f, 1.0f);
 
