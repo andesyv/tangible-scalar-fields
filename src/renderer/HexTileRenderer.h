@@ -108,8 +108,8 @@ namespace molumes
 
 		int m_tileMaxY = 0;
 		int m_tileMaxX = 0;
-		int m_tileNumRows = 0; //Y
-		int m_tileNumCols = 0; //X
+		int m_tile_rows = 0; //Y
+		int m_tile_cols = 0; //X
 		int numTiles = 0;
 
 		glm::vec2 maxBounds_Offset;
@@ -120,6 +120,7 @@ namespace molumes
 		// SQUARE CALC -------------------------------------------------------------------
 
 		globjects::Program * getSquareAccumulationProgram();
+		globjects::Program * getSquareTileProgram(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix);
 		void calculateNumberOfSquares(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
@@ -128,9 +129,15 @@ namespace molumes
 		float hex_horizontal_space = 0.0f;
 		float hex_vertical_space = 0.0f;
 		float hex_width = 0.0f;
-		float hex_height = 0.0;
+		float hex_height = 0.0f;
+		float hex_rect_width = 0.0f;
+		float hex_rect_height = 0.0f;
+		int hex_max_rect_row = 0;
+		int hex_max_rect_col = 0;
+		glm::vec2 maxBounds_hex_rect;
 
-		globjects::Program * getHexagonAccumulationProgram();
+		globjects::Program * getHexagonAccumulationProgram(glm::vec2 minBounds);
+		globjects::Program * getHexagonTileProgram(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 

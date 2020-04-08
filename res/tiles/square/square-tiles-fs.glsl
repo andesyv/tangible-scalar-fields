@@ -13,7 +13,7 @@ layout(std430, binding = 2) buffer valueMaxBuffer
 
 in vec4 boundsScreenSpace;
 
-uniform sampler2D squareAccumulateTexture;
+uniform sampler2D accumulateTexture;
 uniform sampler2D tilesDiscrepancyTexture;
 
 // 1D color map parameters
@@ -36,7 +36,7 @@ void main()
     int squareY = min(maxTexCoordY, mapInterval(gl_FragCoord.y, boundsScreenSpace[3], boundsScreenSpace[1], maxTexCoordY+1));
 
     // get value from accumulate texture
-    float squareValue = texelFetch(squareAccumulateTexture, ivec2(squareX,squareY), 0).r;
+    float squareValue = texelFetch(accumulateTexture, ivec2(squareX,squareY), 0).r;
 
     // we don't want to render empty squares
     if(squareValue < 0.00000001){

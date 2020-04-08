@@ -42,7 +42,7 @@ void main()
         
     #endif 
 
-    #ifdef RENDER_SQUARES
+    #if defined(RENDER_SQUARES) || defined(RENDER_HEXAGONS)
         tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
         #ifdef RENDER_POINT_CIRCLES
