@@ -627,10 +627,10 @@ void HexTileRenderer::display()
 		m_gridTexture->bindActive(0);
 
 		if (m_selected_tile_style == 1) {
-			renderSquareGrid(modelViewProjectionMatrix, minBounds);
+			renderSquareGrid(modelViewProjectionMatrix);
 		}
 		else if (m_selected_tile_style == 2) {
-			renderHexagonGrid(modelViewProjectionMatrix);
+			renderHexagonGrid(modelViewProjectionMatrix, minBounds);
 		}
 
 		m_gridTexture->unbindActive(0);
@@ -787,7 +787,7 @@ Program * molumes::HexTileRenderer::getSquareAccumulationProgram()
 	return shaderProgram_square_acc;
 }
 
-void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const vec2 minBounds)
+void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProjectionMatrix)
 {
 	//used to check if we actually need to draw the grid for a given square
 	m_tileAccumulateTexture->bindActive(1);
@@ -856,18 +856,17 @@ globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram()
 	return shaderProgram_hex_acc;
 }
 
-void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix) {
+void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix, vec2 minBounds) {
 	// RENDER EMPTY HEXAGONS
 
 	auto shaderProgram_hexagonGrid = shaderProgram("hexagon-grid");
 	shaderProgram_hexagonGrid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgram_hexagonGrid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
 
-	shaderProgram_hexagonGrid->setUniform("horizontal_space", horizontal_space);
-	// divide by 2 because we use double-height coordinates in vertex shader
-	shaderProgram_hexagonGrid->setUniform("vertical_space", vertical_space / 2.0f);
+	shaderProgram_hexagonGrid->setUniform("horizontal_space", hex_horizontal_space);
+	shaderProgram_hexagonGrid->setUniform("vertical_space", hex_vertical_space);
 	shaderProgram_hexagonGrid->setUniform("num_cols", m_tileNumCols);
-	shaderProgram_hexagonGrid->setUniform("data_offset", vec2(viewer()->scene()->table()->minimumBounds()));
+	shaderProgram_hexagonGrid->setUniform("minBounds", minBounds);
 
 	shaderProgram_hexagonGrid->setUniform("hexSize", tileSizeWS);
 
@@ -887,21 +886,21 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
-	horizontal_space = tileSizeWS * 1.5f;
-	vertical_space = sqrt(3)*tileSizeWS;
-	float hexWidth = 2 * tileSizeWS;
-	float hexHeight = vertical_space;
+	hex_horizontal_space = tileSizeWS * 1.5f;
+	hex_vertical_space = sqrt(3)*tileSizeWS;
+	hex_width = 2 * tileSizeWS;
+	hex_height = hex_vertical_space;
 
 	//+1 because else the floor operation could return 0 
-	float cols_tmp = 1 + (boundingBoxSize.x / horizontal_space);
+	float cols_tmp = 1 + (boundingBoxSize.x / hex_horizontal_space);
 	m_tileNumCols = floor(cols_tmp);
-	if ((cols_tmp - m_tileNumCols) * horizontal_space >= tileSizeWS / 2.0f) {
+	if ((cols_tmp - m_tileNumCols) * hex_horizontal_space >= tileSizeWS) {
 		m_tileNumCols += 1;
 	}
 
-	float rows_tmp = 1 + (boundingBoxSize.y / vertical_space);
+	float rows_tmp = 1 + (boundingBoxSize.y / hex_vertical_space);
 	m_tileNumRows = floor(rows_tmp);
-	if ((rows_tmp - m_tileNumRows) * vertical_space >= vertical_space / 2) {
+	if ((rows_tmp - m_tileNumRows) * hex_vertical_space >= hex_vertical_space / 2) {
 		m_tileNumRows += 1;
 	}
 
@@ -909,8 +908,8 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 	m_tileMaxY = m_tileNumRows - 1;
 	numTiles = m_tileNumRows * m_tileNumCols;
 
-	minBounds_Offset = vec2(minBounds.x - tileSizeWS, minBounds.y - vertical_space / 2.0f);
-	maxBounds_Offset = vec2(m_tileNumCols * hexWidth + minBounds_Offset.x, m_tileNumRows * hexHeight + minBounds_Offset.y);
+	minBounds_Offset = vec2(minBounds.x - tileSizeWS/2.0f, minBounds.y - hex_height / 2.0f);
+	maxBounds_Offset = vec2(m_tileNumCols * hex_width + minBounds_Offset.x, m_tileNumRows * hex_height + minBounds_Offset.y);
 }
 
 // --------------------------------------------------------------------------------------

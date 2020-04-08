@@ -6,8 +6,9 @@ layout(location = 0) in float xValue;
 
 uniform float horizontal_space;
 uniform float vertical_space;
+uniform float hexSize;
 uniform int num_cols;
-uniform vec2 data_offset;
+uniform vec2 minBounds;
 
 void main()
 {
@@ -19,8 +20,8 @@ void main()
 		row = floor(gl_VertexID/num_cols) * 2;
 	}
 	else{
-		row = (floor(gl_VertexID/num_cols) * 2) + 1;
+		row = (floor(gl_VertexID/num_cols) * 2) - 1;
 	}
 
-	gl_Position =  vec4(col * horizontal_space + data_offset.x, row * vertical_space + data_offset.y, 0.0f, 1.0f);
+	gl_Position =  vec4(col * horizontal_space + minBounds.x + hexSize/2.0f, row * vertical_space/2.0f + minBounds.y + vertical_space/2.0f, 0.0f, 1.0f);
 }

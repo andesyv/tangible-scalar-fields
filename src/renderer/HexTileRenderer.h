@@ -120,16 +120,18 @@ namespace molumes
 		// SQUARE CALC -------------------------------------------------------------------
 
 		globjects::Program * getSquareAccumulationProgram();
-		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix, const glm::vec2 minBounds);
+		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix);
 		void calculateNumberOfSquares(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
 		// HEXAGON CALC -------------------------------------------------------------------
 
-		float horizontal_space = 0.0f;
-		float vertical_space = 0.0f;
+		float hex_horizontal_space = 0.0f;
+		float hex_vertical_space = 0.0f;
+		float hex_width = 0.0f;
+		float hex_height = 0.0;
 
 		globjects::Program * getHexagonAccumulationProgram();
-		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix);
+		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
 		// ------------------------------------------------------------------------------------------
@@ -177,7 +179,7 @@ namespace molumes
 		bool m_discrepancy_easeIn = false;
 
 		// define booleans
-		bool m_renderPointCircles = false;
+		bool m_renderPointCircles = true;
 		bool m_renderDiscrepancy = false;
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
