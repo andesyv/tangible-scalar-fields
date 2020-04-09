@@ -136,7 +136,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_tilesDiscrepanciesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	m_tileAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	m_squareTilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_tilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_gridTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -186,10 +186,10 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_tileAccumulateFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_tileAccumulateFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
-	m_squareTilesFramebuffer = Framebuffer::create();
-	m_squareTilesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_squareTilesTexture.get());
-	m_squareTilesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_squareTilesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_tilesFramebuffer = Framebuffer::create();
+	m_tilesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_tilesTexture.get());
+	m_tilesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_tilesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_gridFramebuffer = Framebuffer::create();
 	m_gridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_gridTexture.get());
@@ -227,7 +227,7 @@ void HexTileRenderer::display()
 		m_framebufferSize = viewer()->viewportSize();
 		m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		m_squareTilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_tilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_gridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
@@ -488,7 +488,7 @@ void HexTileRenderer::display()
 
 	// ====================================================================================== MAX VAL & TILES RENDER PASS ======================================================================================
 	// THIRD: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
-	// FOURTH: Render Squares
+	// FOURTH: Render Tiles
 
 	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
 	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
@@ -539,9 +539,9 @@ void HexTileRenderer::display()
 
 
 	// -------------------------------------------------------------------------------------------------
-	// Render squares
+	// Render tiles
 	if (m_selected_tile_style != 0) {
-		m_squareTilesFramebuffer->bind();
+		m_tilesFramebuffer->bind();
 
 		glClearDepth(1.0f);
 		glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -600,7 +600,7 @@ void HexTileRenderer::display()
 		// disable blending
 		glDisablei(GL_BLEND, 0);
 
-		m_squareTilesFramebuffer->unbind();
+		m_tilesFramebuffer->unbind();
 
 		//unbind shader storage buffer
 		m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -608,7 +608,7 @@ void HexTileRenderer::display()
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 	// ====================================================================================== GRID RENDER PASS ======================================================================================
-	// render square grid into texture
+	// render grid into texture
 
 	if (m_renderGrid) {
 		m_gridFramebuffer->bind();
@@ -651,7 +651,7 @@ void HexTileRenderer::display()
 	m_shadeFramebuffer->bind();
 
 	m_pointChartTexture->bindActive(0);
-	m_squareTilesTexture->bindActive(1);
+	m_tilesTexture->bindActive(1);
 	m_tileAccumulateTexture->bindActive(2);
 	m_gridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
@@ -690,7 +690,7 @@ void HexTileRenderer::display()
 	m_vaoQuad->unbind();
 
 	m_pointChartTexture->unbindActive(0);
-	m_squareTilesTexture->unbindActive(1);
+	m_tilesTexture->unbindActive(1);
 	m_tileAccumulateTexture->unbindActive(2);
 	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);

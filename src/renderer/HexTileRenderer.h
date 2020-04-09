@@ -70,7 +70,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr; //TODO: could also use free channel of AccumulateTexture
 		std::unique_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_squareTilesTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
@@ -86,7 +86,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_hexFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_tilesDiscrepanciesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_tileAccumulateFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_squareTilesFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_tilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
