@@ -149,6 +149,8 @@ namespace molumes
 		void renderGUI();
 		void setShaderDefines();
 
+		bool printDebug = false;
+
 		// items for ImGui Combo
 		std::string m_guiFileNames = { 'N', 'o', 'n', 'e', '\0' };
 		std::vector<std::string>  m_fileNames = { "None" };

@@ -87,19 +87,19 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
 
             if(modY == 0){
                 //Upper Right
-                a = vec2(ll.x + rectWidth, ll.y);
-                b = vec2(ll.x + rectWidth/2.0f, ll.y + rectHeight);
-                if(pointOutsideHex(a,b,p)){
-                    hexX++;
+                a = vec2(ll.x + rectWidth/2.0f, ll.y + rectHeight);
+                b = vec2(ll.x + rectWidth, ll.y);
+                if(!pointOutsideHex(a,b,p)){
+                    hexX--;
                 }
             }
             //modY = 1
             else{
                 //Lower Right
-                a = vec2(ll.x + rectWidth/2.0f, ll.y);
-                b = vec2(ll.x + rectWidth, ll.y + rectHeight);
-                if(pointOutsideHex(a,b,p)){
-                    hexX++;
+                a = vec2(ll.x + rectWidth, ll.y + rectHeight);
+                b = vec2(ll.x + rectWidth/2.0f, ll.y);
+                if(!pointOutsideHex(a,b,p)){
+                    hexX--;
                 }
             }
         }
