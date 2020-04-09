@@ -36,8 +36,8 @@ layout (location = 0) out vec4 hexTilesTexture;
 void main()
 {
 
-    vec2 hex = matchPointWithHexagon(vec2 (gl_FragCoord), max_rect_col, max_rect_row, rectWidth, rectHeight, 
-    vec2(boundsScreenSpace[2],boundsScreenSpace[3]), vec2(boundsScreenSpace[0], boundsScreenSpace[]));
+    vec2 hex = matchPointWithHexagon(vec2(gl_FragCoord), max_rect_col, max_rect_row, rectWidth, rectHeight, 
+    vec2(boundsScreenSpace[2],boundsScreenSpace[3]), vec2(boundsScreenSpace[0], boundsScreenSpace[1]));
 
 /*
     // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1

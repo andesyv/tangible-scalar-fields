@@ -669,7 +669,7 @@ void HexTileRenderer::display()
 		shaderProgram_shade->setUniform("pointCircleTexture", 4);
 	}
 
-	if (m_selected_tile_style == 1) {
+	if (m_selected_tile_style != 0) {
 		shaderProgram_shade->setUniform("tilesTexture", 1);
 	}
 
@@ -891,6 +891,16 @@ globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram(vec
 	return shaderProgram_hex_acc;
 }
 
+bool molumes::HexTileRenderer::pointOutsideHex(vec2 a, vec2 b, vec2 p) {
+
+	float d = ((p.x - a.x)*(b.y - a.y) - (p.y - a.y)*(b.x - a.x));
+
+	//std::cout << "d: " << d << '\n';
+
+	return d < 0;
+}
+
+
 globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelViewProjectionMatrix, vec2 minBounds)
 {
 	auto shaderProgram_hex_tiles = shaderProgram("square-tiles");
@@ -917,6 +927,91 @@ globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelV
 
 	shaderProgram_hex_tiles->setUniform("rectHeight", hex_rect_height);
 	shaderProgram_hex_tiles->setUniform("rectWidth", hex_rect_width);
+
+
+	std::vector xVals = viewer()->scene()->table()->activeXColumn();
+	std::vector yVals = viewer()->scene()->table()->activeYColumn();
+	int numPoints = xVals.size();
+
+	bool debug = false;
+
+	for (int k = 0; k < numPoints; k++) {
+
+		vec2 p = vec2(xVals[k], yVals[k]);
+		if(debug) std::cout << "P" << k << ": [" << p.x << "," << p.y << "]" << '\n';
+
+		// to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
+		// If the current value = maxValue, we take the maxCoord instead
+		int rectX = min(hex_max_rect_col, int(mapInterval(p.x, minBounds.x, maxBounds_hex_rect.x, hex_max_rect_col + 1)));
+		int rectY = min(hex_max_rect_row, int(mapInterval(p.y, minBounds.y, maxBounds_hex_rect.y, hex_max_rect_row + 1)));
+
+		if (debug) std::cout << "R" << k << ": [" << rectX << "," << rectY << "]" << '\n';
+
+		// rectangle left lower corner in space of points
+		vec2 ll = vec2(rectX * hex_rect_width + minBounds.x, rectY * hex_rect_height + minBounds.y);
+		vec2 a, b;
+
+		// calculate hexagon index from rectangle index
+		int hexX, hexY, modX, modY;
+
+		// get modulo values
+		modX = rectX % 3;
+		modY = rectY % 2;
+
+		//calculate X index
+		hexX = int(rectX / 3) * 2 + modX;
+		if (modX != 0) {
+			if (modX == 1) {
+				if (modY == 0) {
+					//Upper Left
+					a = ll;
+					b = vec2(ll.x + hex_rect_width / 2.0f, ll.y + hex_rect_height);
+					if (pointOutsideHex(a, b, p)) {
+						hexX--;
+					}
+				}
+				//modY = 1
+				else {
+					//Lower Left
+					a = vec2(ll.x + hex_rect_width / 2.0f, ll.y);
+					b = vec2(ll.x, ll.y + hex_rect_height);
+					if (pointOutsideHex(a, b, p)) {
+						hexX--;
+					}
+				}
+			}
+			//modX = 2
+			else {
+
+				if (modY == 0) {
+					//Upper Right
+					a = vec2(ll.x + hex_rect_width, ll.y);
+					b = vec2(ll.x + hex_rect_width / 2.0f, ll.y + hex_rect_height);
+					if (pointOutsideHex(a, b, p)) {
+						hexX++;
+					}
+				}
+				//modY = 1
+				else {
+					//Lower Right
+					a = vec2(ll.x + hex_rect_width / 2.0f, ll.y);
+					b = vec2(ll.x + hex_rect_width, ll.y + hex_rect_height);
+					if (pointOutsideHex(a, b, p)) {
+						hexX++;
+					}
+				}
+			}
+		}
+
+		if (hexX % 2 == 0) {
+			hexY = int(rectY / 2);
+		}
+		else {
+			hexY = int((rectY + 1) / 2);
+		}
+		if (debug) std::cout << "H" << k << ": [" << hexX << "," << hexY << "]" << '\n' << '\n';
+
+	}
 
 	return shaderProgram_hex_tiles;
 }

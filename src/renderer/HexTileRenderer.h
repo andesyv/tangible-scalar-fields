@@ -137,6 +137,7 @@ namespace molumes
 		glm::vec2 maxBounds_hex_rect;
 
 		globjects::Program * getHexagonAccumulationProgram(glm::vec2 minBounds);
+		bool pointOutsideHex(glm::vec2 a, glm::vec2 b, glm::vec2 p);
 		globjects::Program * getHexagonTileProgram(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);

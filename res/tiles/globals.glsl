@@ -30,10 +30,6 @@ vec4 getScreenSpacePosOfRect(mat4 modelViewProjectionMatrix, vec2 maxCoords, vec
     return boundsScreenSpace;
 }
 
-bool pointOutsideHex(vec2 a, vec2 b, vec2 p){
-    return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) > 0;
-}
-
 // blends A over B
 // https://de.wikipedia.org/wiki/Alpha_Blending
 vec4 over(vec4 colA, vec4 colB){
@@ -42,8 +38,13 @@ vec4 over(vec4 colA, vec4 colB){
     return 1/alphaBlend * (colA.a*colA + (1-colA.a)*colB.a*colB);
 }
 
+bool pointOutsideHex(vec2 a, vec2 b, vec2 p){
+    return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) < 0;
+}
+
 vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rectWidth, float rectHeight, vec2 minBounds, vec2 maxBounds){
-     // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
+    
+    // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
     // If the current value = maxValue, we take the maxCoord instead
     int rectX = min(max_rect_col, mapInterval(p.x, minBounds.x, maxBounds.x, max_rect_col+1));
     int rectY = min(max_rect_row, mapInterval(p.y, minBounds.y, maxBounds.y, max_rect_row+1));
@@ -58,8 +59,6 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
     // get modulo values
     modX = int(mod(rectX,3));
     modY = int(mod(rectY,2));
-
-    hexY = int(rectY/2);
 
     //calculate X index
     hexX = int(rectX/3) * 2 + modX;
@@ -104,6 +103,13 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
                 }
             }
         }
+    }
+
+    if(mod(hexX, 2) == 0){
+        hexY = int(rectY/2);
+    }
+    else{
+        hexY = int((rectY+1)/2);
     }
 
     return vec2(hexX, hexY);

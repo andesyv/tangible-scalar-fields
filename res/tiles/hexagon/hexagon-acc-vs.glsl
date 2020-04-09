@@ -27,10 +27,10 @@ void main()
 {
 
     vec2 hex = matchPointWithHexagon(vec2 (xValue, yValue), max_rect_col, max_rect_row, rectWidth, rectHeight, minBounds, maxBounds_rect);
-
+    /*vec2 hex;
     // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
     // If the current value = maxValue, we take the maxCoord instead
-    /*int rectX = min(max_rect_col, mapInterval(xValue, minBounds[0], maxBounds_rect[0], max_rect_col+1));
+    int rectX = min(max_rect_col, mapInterval(xValue, minBounds[0], maxBounds_rect[0], max_rect_col+1));
     int rectY = min(max_rect_row, mapInterval(yValue, minBounds[1], maxBounds_rect[1], max_rect_row+1));
 
     // rectangle left lower corner in space of points
@@ -45,8 +45,6 @@ void main()
     modX = int(mod(rectX,3));
     modY = int(mod(rectY,2));
 
-    hexY = int(rectY/2);
-
     //calculate X index
     hexX = int(rectX/3) * 2 + modX;
     if(modX != 0){
@@ -55,7 +53,7 @@ void main()
                 //Upper Left
                 a = ll;
                 b = vec2(ll.x + rectWidth/2.0f, ll.y + rectHeight);
-                if(pointOutsideHex(a,b,p)){
+                if(pointOutsideHex(b,a,p)){
                     hexX--;
                 }
             }
@@ -64,7 +62,7 @@ void main()
                 //Lower Left
                 a = vec2(ll.x + rectWidth/2.0f, ll.y);
                 b = vec2(ll.x, ll.y + rectHeight);
-                if(pointOutsideHex(a,b,p)){
+                if(pointOutsideHex(b,a,p)){
                     hexX--;
                 }
             }
@@ -90,13 +88,22 @@ void main()
                 }
             }
         }
-    }*/
+    }
+
+    if(mod(hexX, 2) == 0){
+        hexY = int(rectY/2);
+    }
+    else{
+        hexY = int((rectY+1)/2);
+    }
+
+    hex = vec2(hexX, hexY);*/
 
     // we only set the red channel, because we only use the color for additive blending
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
 
     // debug: color point according to square
-     //vertexColor = vec4(float(hexX/float(maxTexCoordX)),float(hexY/float(maxTexCoordY)),0.0f,1.0f);
+   // vertexColor = vec4(float(hex.x/float(maxTexCoordX)),float(hex.y/float(maxTexCoordY)),0.0f,1.0f);
 
     // NDC - map square coordinates to [-1,1] (first [0,2] than -1)
 	//vec2 rectNDC = vec2(((rectX * 2) / float(max_rect_col+1)) - 1, ((rectY * 2) / float(max_rect_row+1)) - 1);
