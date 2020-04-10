@@ -875,7 +875,6 @@ globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram(vec
 {
 	auto shaderProgram_hex_acc = shaderProgram("hex-acc");
 
-	shaderProgram_hex_acc->setUniform("maxBounds_Off", maxBounds_Offset);
 	shaderProgram_hex_acc->setUniform("maxBounds_rect", maxBounds_hex_rect);
 	shaderProgram_hex_acc->setUniform("minBounds", minBounds);
 
@@ -928,11 +927,10 @@ globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelV
 	shaderProgram_hex_tiles->setUniform("rectHeight", hex_rect_height);
 	shaderProgram_hex_tiles->setUniform("rectWidth", hex_rect_width);
 
-
+	/*
 	std::vector xVals = viewer()->scene()->table()->activeXColumn();
 	std::vector yVals = viewer()->scene()->table()->activeYColumn();
 	int numPoints = xVals.size();
-
 
 	for (int k = 0; k < numPoints; k++) {
 
@@ -992,7 +990,7 @@ globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelV
 				}
 				//modY = 1
 				else {
-					//Lower Right					
+					//Lower Right
 					a = vec2(ll.x + hex_rect_width, ll.y + hex_rect_height);
 					b = vec2(ll.x + hex_rect_width / 2.0f, ll.y);
 					if (!pointOutsideHex(a, b, p)) {
@@ -1010,7 +1008,7 @@ globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelV
 		}
 		if (printDebug) std::cout << "H" << k << ": [" << hexX << "," << hexY << "]" << '\n' << '\n';
 
-	}
+	}*/
 
 	return shaderProgram_hex_tiles;
 }
@@ -1046,6 +1044,7 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 	// we use "Offset Coordinates"
 	hex_horizontal_space = tileSizeWS * 1.5f;
 	hex_vertical_space = sqrt(3)*tileSizeWS;
+	//todo: maybe remove
 	hex_width = 2 * tileSizeWS;
 	hex_height = hex_vertical_space;
 
@@ -1073,7 +1072,7 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 	numTiles = m_tile_rows * m_tile_cols;
 
 	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - hex_height / 2.0f);
-	maxBounds_Offset = vec2(m_tile_cols * hex_width + minBounds_Offset.x, m_tile_rows * hex_height + minBounds_Offset.y);
+	maxBounds_Offset = vec2(m_tile_cols * hex_horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * hex_vertical_space + minBounds_Offset.y + hex_height / 2.0f);
 
 	maxBounds_hex_rect = vec2((hex_max_rect_col + 1) * hex_rect_width + minBounds.x, (hex_max_rect_row + 1)*hex_rect_height + minBounds.y);
 }

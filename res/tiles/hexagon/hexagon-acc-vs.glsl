@@ -7,8 +7,6 @@ layout(location = 0) in float xValue;
 layout(location = 1) in float yValue;
 
 //[x,y]
-uniform vec2 maxBounds_Off;
-
 uniform vec2 maxBounds_rect;
 uniform vec2 minBounds;
 //min = 0
