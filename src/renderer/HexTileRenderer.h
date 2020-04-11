@@ -137,6 +137,8 @@ namespace molumes
 		glm::vec2 maxBounds_hex_rect;
 
 		globjects::Program * getHexagonAccumulationProgram(glm::vec2 minBounds);
+		glm::vec2 getScreenSpacePosOfPoint(glm::mat4 modelViewProjectionMatrix, glm::vec2 coords, int windowWidth, int windowHeight);
+		glm::vec4 getScreenSpacePosOfRect(glm::mat4 modelViewProjectionMatrix, glm::vec2 maxCoords, glm::vec2 minCoords, int windowWidth, int windowHeight);
 		bool pointOutsideHex(glm::vec2 a, glm::vec2 b, glm::vec2 p);
 		globjects::Program * getHexagonTileProgram(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
@@ -208,3 +210,4 @@ namespace molumes
 	};
 
 }
+

@@ -7,7 +7,7 @@
 layout(points) in;
 layout(line_strip, max_vertices = N+1) out;
 
-uniform sampler2D squareAccumulateTexture;
+uniform sampler2D accumulateTexture;
 
 //[x,y]
 uniform vec2 maxBounds_Off;
@@ -26,7 +26,7 @@ void main()
 {
 
     // get value from accumulate texture
-    float squareValue = texelFetch(squareAccumulateTexture, ivec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y), 0).r;
+    float squareValue = texelFetch(accumulateTexture, ivec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y), 0).r;
 
     // we dont want to render the grid for empty squares
     if(squareValue > 0.00000001){

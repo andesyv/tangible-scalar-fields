@@ -11,7 +11,9 @@ layout(std430, binding = 2) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
+
 in vec4 boundsScreenSpace;
+in vec2 rectSizeScreenSpace;
 
 uniform sampler2D accumulateTexture;
 uniform sampler2D tilesDiscrepancyTexture;
@@ -27,16 +29,13 @@ uniform int maxTexCoordY;
 uniform int max_rect_col;
 uniform int max_rect_row;
 
-uniform float rectHeight;
-uniform float rectWidth;
-
 //--out
 layout (location = 0) out vec4 hexTilesTexture;
 
 void main()
 {
 
-    vec2 hex = matchPointWithHexagon(vec2(gl_FragCoord), max_rect_col, max_rect_row, rectWidth, rectHeight, 
+    vec2 hex = matchPointWithHexagon(vec2(gl_FragCoord), max_rect_col, max_rect_row, rectSizeScreenSpace.x, rectSizeScreenSpace.y, 
                                     vec2(boundsScreenSpace[2],boundsScreenSpace[3]), vec2(boundsScreenSpace[0], boundsScreenSpace[1]));
 
      // get value from accumulate texture
