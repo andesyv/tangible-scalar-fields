@@ -6,9 +6,6 @@ layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 
 //[x,y]
-uniform vec2 maxBounds_tiles;
-uniform vec2 minBounds_tiles;
-
 uniform vec2 maxBounds_acc;
 uniform vec2 minBounds_acc;
 

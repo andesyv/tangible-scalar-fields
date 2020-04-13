@@ -120,7 +120,7 @@ namespace molumes
 		// SQUARE CALC -------------------------------------------------------------------
 
 		globjects::Program * getSquareAccumulationProgram();
-		globjects::Program * getSquareTileProgram(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
+		globjects::Program * getSquareTileProgram(glm::mat4 modelViewProjectionMatrix);
 		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix);
 		void calculateNumberOfSquares(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
@@ -128,19 +128,14 @@ namespace molumes
 
 		float hex_horizontal_space = 0.0f;
 		float hex_vertical_space = 0.0f;
-		float hex_width = 0.0f;
-		float hex_height = 0.0f;
 		float hex_rect_width = 0.0f;
 		float hex_rect_height = 0.0f;
 		int hex_max_rect_row = 0;
 		int hex_max_rect_col = 0;
 		glm::vec2 maxBounds_hex_rect;
 
-		globjects::Program * getHexagonAccumulationProgram(glm::vec2 minBounds);
-		glm::vec2 getScreenSpacePosOfPoint(glm::mat4 modelViewProjectionMatrix, glm::vec2 coords, int windowWidth, int windowHeight);
-		glm::vec4 getScreenSpacePosOfRect(glm::mat4 modelViewProjectionMatrix, glm::vec2 maxCoords, glm::vec2 minCoords, int windowWidth, int windowHeight);
-		bool pointOutsideHex(glm::vec2 a, glm::vec2 b, glm::vec2 p);
-		globjects::Program * getHexagonTileProgram(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
+		globjects::Program * getHexagonAccumulationProgram();
+		globjects::Program * getHexagonTileProgram(glm::mat4 modelViewProjectionMatrix);
 		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
 		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
@@ -150,8 +145,6 @@ namespace molumes
 
 		void renderGUI();
 		void setShaderDefines();
-
-		bool printDebug = false;
 
 		// items for ImGui Combo
 		std::string m_guiFileNames = { 'N', 'o', 'n', 'e', '\0' };

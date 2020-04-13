@@ -463,7 +463,7 @@ void HexTileRenderer::display()
 		shaderProgram_tile_acc = getSquareAccumulationProgram();
 	}
 	else if (m_selected_tile_style == 2) {
-		shaderProgram_tile_acc = getHexagonAccumulationProgram(minBounds);
+		shaderProgram_tile_acc = getHexagonAccumulationProgram();
 	}
 	if (shaderProgram_tile_acc != nullptr) {
 
@@ -506,11 +506,8 @@ void HexTileRenderer::display()
 	auto shaderProgram_max_val = shaderProgram("max-val");
 
 	//geometry shader
-	shaderProgram_max_val->setUniform("maxBounds_tiles", maxBounds_Offset);
-	shaderProgram_max_val->setUniform("minBounds_tiles", minBounds_Offset);
-
 	shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds_Offset);
-	shaderProgram_max_val->setUniform("minBounds_acc", minBounds);
+	shaderProgram_max_val->setUniform("minBounds_acc", minBounds_Offset);
 
 	//geometry & fragment shader
 	shaderProgram_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -563,10 +560,10 @@ void HexTileRenderer::display()
 
 		Program* shaderProgram_tiles = nullptr;
 		if (m_selected_tile_style == 1) {
-			shaderProgram_tiles = getSquareTileProgram(modelViewProjectionMatrix, minBounds);
+			shaderProgram_tiles = getSquareTileProgram(modelViewProjectionMatrix);
 		}
 		else if (m_selected_tile_style == 2) {
-			shaderProgram_tiles = getHexagonTileProgram(modelViewProjectionMatrix, minBounds);
+			shaderProgram_tiles = getHexagonTileProgram(modelViewProjectionMatrix);
 		}
 		if (shaderProgram_tiles != nullptr) {
 
@@ -639,8 +636,8 @@ void HexTileRenderer::display()
 			renderHexagonGrid(modelViewProjectionMatrix, minBounds);
 		}
 
-		m_tileAccumulateTexture->unbindActive(1);
 		m_gridTexture->unbindActive(0);
+		m_tileAccumulateTexture->unbindActive(1);
 
 		// disable blending
 		glDisablei(GL_BLEND, 0);
@@ -794,16 +791,13 @@ Program * molumes::HexTileRenderer::getSquareAccumulationProgram()
 	return shaderProgram_square_acc;
 }
 
-globjects::Program * molumes::HexTileRenderer::getSquareTileProgram(mat4 modelViewProjectionMatrix, vec2 minBounds)
+globjects::Program * molumes::HexTileRenderer::getSquareTileProgram(mat4 modelViewProjectionMatrix)
 {
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
 	//geometry shader
-	shaderProgram_square_tiles->setUniform("maxBounds_tiles", maxBounds_Offset);
-	shaderProgram_square_tiles->setUniform("minBounds_tiles", minBounds_Offset);
-
 	shaderProgram_square_tiles->setUniform("maxBounds_acc", maxBounds_Offset);
-	shaderProgram_square_tiles->setUniform("minBounds_acc", minBounds);
+	shaderProgram_square_tiles->setUniform("minBounds_acc", minBounds_Offset);
 
 	//geometry & fragment shader
 	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -869,12 +863,12 @@ void molumes::HexTileRenderer::calculateNumberOfSquares(vec3 boundingBoxSize, ve
 // ###########################  HEXAGON ############################################
 // --------------------------------------------------------------------------------------
 
-globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram(vec2 minBounds)
+globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram()
 {
 	auto shaderProgram_hex_acc = shaderProgram("hex-acc");
 
 	shaderProgram_hex_acc->setUniform("maxBounds_rect", maxBounds_hex_rect);
-	shaderProgram_hex_acc->setUniform("minBounds", minBounds);
+	shaderProgram_hex_acc->setUniform("minBounds_Offset", minBounds_Offset);
 
 	shaderProgram_hex_acc->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_hex_acc->setUniform("maxTexCoordY", m_tileMaxY);
@@ -888,47 +882,13 @@ globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram(vec
 	return shaderProgram_hex_acc;
 }
 
-
-vec2 molumes::HexTileRenderer::getScreenSpacePosOfPoint(mat4 modelViewProjectionMatrix, vec2 coords, int windowWidth, int windowHeight) {
-
-	vec4 coordsNDC = modelViewProjectionMatrix * vec4(coords, 0.0, 1.0);
-
-	vec2 coordsScreenSpace = vec2(windowWidth / 2 * coordsNDC[0] + windowWidth / 2, //maxX
-		windowHeight / 2 * coordsNDC[1] + windowHeight / 2);//maxY
-
-	return coordsScreenSpace;
-}
-
-vec4 molumes::HexTileRenderer::getScreenSpacePosOfRect(mat4 modelViewProjectionMatrix, vec2 maxCoords, vec2 minCoords, int windowWidth, int windowHeight) {
-
-	vec4 boundsScreenSpace = vec4(
-		getScreenSpacePosOfPoint(modelViewProjectionMatrix, maxCoords, windowWidth, windowHeight),
-		getScreenSpacePosOfPoint(modelViewProjectionMatrix, minCoords, windowWidth, windowHeight)
-	);
-
-	return boundsScreenSpace;
-}
-
-bool molumes::HexTileRenderer::pointOutsideHex(vec2 a, vec2 b, vec2 p) {
-
-	float d = ((p.x - a.x)*(b.y - a.y) - (p.y - a.y)*(b.x - a.x));
-
-	//std::cout << "d: " << d << '\n';
-
-	return d < 0;
-}
-
-
-globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelViewProjectionMatrix, vec2 minBounds)
+globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelViewProjectionMatrix)
 {
 	auto shaderProgram_hex_tiles = shaderProgram("hex-tiles");
 
 	//geometry shader
-	shaderProgram_hex_tiles->setUniform("maxBounds_tiles", maxBounds_Offset);
-	shaderProgram_hex_tiles->setUniform("minBounds_tiles", minBounds_Offset);
-
 	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_hex_rect);
-	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds);
+	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds_Offset);
 
 	//geometry & fragment shader
 	shaderProgram_hex_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -944,121 +904,29 @@ globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelV
 	shaderProgram_hex_tiles->setUniform("max_rect_col", hex_max_rect_col);
 	shaderProgram_hex_tiles->setUniform("max_rect_row", hex_max_rect_row);
 
-
-	std::vector xVals = viewer()->scene()->table()->activeXColumn();
-	std::vector yVals = viewer()->scene()->table()->activeYColumn();
-	int numPoints = xVals.size();
-
-
-	vec4 boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_Offset, minBounds_Offset, viewer()->viewportSize()[0], viewer()->viewportSize()[1]);
-	boundsScreenSpace -= vec4(boundsScreenSpace[2], boundsScreenSpace[3], boundsScreenSpace[2], boundsScreenSpace[3]);
-
-
-	vec2 rectSizeSS = getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(hex_rect_width, hex_rect_height)*vec2(2, 2), viewer()->viewportSize()[0], viewer()->viewportSize()[1])
-		- getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(hex_rect_width, hex_rect_height), viewer()->viewportSize()[0], viewer()->viewportSize()[1]);
-
-	for (int i = ceil(boundsScreenSpace[2]); i < (int)boundsScreenSpace[0]; i += 10) {
-		for (int j = ceil(boundsScreenSpace[3]); j < (int)boundsScreenSpace[1]; j += 10) {
-
-			vec2 p = vec2(i, j);
-			if (printDebug) std::cout << "P" << i << "," << j << ": [" << p.x << "," << p.y << "]" << '\n';
-
-			// to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
-			// If the current value = maxValue, we take the maxCoord instead
-			int rectX = min(hex_max_rect_col, int(mapInterval(p.x, boundsScreenSpace[2], boundsScreenSpace[0], hex_max_rect_col + 1)));
-			int rectY = min(hex_max_rect_row, int(mapInterval(p.y, boundsScreenSpace[3], boundsScreenSpace[1], hex_max_rect_row + 1)));
-
-			if (printDebug) std::cout << "R" << i << "," << j << ": [" << rectX << "," << rectY << "]" << '\n';
-
-			// rectangle left lower corner in space of points
-			vec2 ll = vec2(rectX * rectSizeSS.x + minBounds.x, rectY * rectSizeSS.y + minBounds.y);
-			vec2 a, b;
-
-			// calculate hexagon index from rectangle index
-			int hexX, hexY, modX, modY;
-
-			// get modulo values
-			modX = rectX % 3;
-			modY = rectY % 2;
-
-			//calculate X index
-			hexX = int(rectX / 3) * 2 + modX;
-			if (modX != 0) {
-				if (modX == 1) {
-					if (modY == 0) {
-						//Upper Left
-						a = ll;
-						b = vec2(ll.x + rectSizeSS.x / 2.0f, ll.y + rectSizeSS.y);
-						if (pointOutsideHex(a, b, p)) {
-							hexX--;
-						}
-					}
-					//modY = 1
-					else {
-						//Lower Left
-						a = vec2(ll.x + rectSizeSS.x / 2.0f, ll.y);
-						b = vec2(ll.x, ll.y + rectSizeSS.y);
-						if (pointOutsideHex(a, b, p)) {
-							hexX--;
-						}
-					}
-				}
-				//modX = 2
-				else {
-
-					if (modY == 0) {
-						//Upper Right
-						a = vec2(ll.x + rectSizeSS.x / 2.0f, ll.y + rectSizeSS.y);
-						b = vec2(ll.x + rectSizeSS.x, ll.y);
-						if (!pointOutsideHex(a, b, p)) {
-							hexX--;
-						}
-					}
-					//modY = 1
-					else {
-						//Lower Right
-						a = vec2(ll.x + rectSizeSS.x, ll.y + rectSizeSS.y);
-						b = vec2(ll.x + rectSizeSS.x / 2.0f, ll.y);
-						if (!pointOutsideHex(a, b, p)) {
-							hexX--;
-						}
-					}
-				}
-			}
-
-			if (hexX % 2 == 0) {
-				hexY = int(rectY / 2);
-			}
-			else {
-				hexY = int((rectY + 1) / 2);
-			}
-			if (printDebug) std::cout << "H" << i << "," << j << ": [" << hexX << "," << hexY << "]" << '\n' << '\n';
-		}
-	}
-
 	return shaderProgram_hex_tiles;
 }
 
 void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix, vec2 minBounds) {
 
-	auto shaderProgram_hexagonGrid = shaderProgram("hexagon-grid");
-	shaderProgram_hexagonGrid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_hexagonGrid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
+	auto shaderProgram_hexagon_grid = shaderProgram("hexagon-grid");
+	shaderProgram_hexagon_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_hexagon_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
 
-	shaderProgram_hexagonGrid->setUniform("horizontal_space", hex_horizontal_space);
-	shaderProgram_hexagonGrid->setUniform("vertical_space", hex_vertical_space);
-	shaderProgram_hexagonGrid->setUniform("num_cols", m_tile_cols);
-	shaderProgram_hexagonGrid->setUniform("minBounds", minBounds);
+	shaderProgram_hexagon_grid->setUniform("horizontal_space", hex_horizontal_space);
+	shaderProgram_hexagon_grid->setUniform("vertical_space", hex_vertical_space);
+	shaderProgram_hexagon_grid->setUniform("num_cols", m_tile_cols);
+	shaderProgram_hexagon_grid->setUniform("minBounds", minBounds);
 
-	shaderProgram_hexagonGrid->setUniform("hexSize", tileSizeWS);
-	shaderProgram_hexagonGrid->setUniform("accumulateTexture", 1);
+	shaderProgram_hexagon_grid->setUniform("hexSize", tileSizeWS);
+	shaderProgram_hexagon_grid->setUniform("accumulateTexture", 1);
 
 	//draw call
 	m_vaoTiles->bind();
 
-	shaderProgram_hexagonGrid->use();
+	shaderProgram_hexagon_grid->use();
 	m_vaoTiles->drawArrays(GL_POINTS, 0, numTiles);
-	shaderProgram_hexagonGrid->release();
+	shaderProgram_hexagon_grid->release();
 
 	m_vaoTiles->unbind();
 }
@@ -1071,13 +939,11 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 	// we use "Offset Coordinates"
 	hex_horizontal_space = tileSizeWS * 1.5f;
 	hex_vertical_space = sqrt(3)*tileSizeWS;
-	//todo: maybe remove
-	hex_width = 2 * tileSizeWS;
-	hex_height = hex_vertical_space;
 
-	hex_rect_height = hex_height / 2.0f;
+	hex_rect_height = hex_vertical_space / 2.0f;
 	hex_rect_width = tileSizeWS;
 
+	//number of hex columns
 	//+1 because else the floor operation could return 0 
 	float cols_tmp = 1 + (boundingBoxSize.x / hex_horizontal_space);
 	m_tile_cols = floor(cols_tmp);
@@ -1085,23 +951,34 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 		m_tile_cols += 1;
 	}
 
+	//number of hex rows
 	float rows_tmp = 1 + (boundingBoxSize.y / hex_vertical_space);
 	m_tile_rows = floor(rows_tmp);
 	if ((rows_tmp - m_tile_rows) * hex_vertical_space >= hex_vertical_space / 2) {
 		m_tile_rows += 1;
 	}
 
-	hex_max_rect_col = ceil(m_tile_cols*1.5f) - 1;
-	hex_max_rect_row = m_tile_rows * 2 - 1;
+	//max index of rect columns
+	if (m_tile_cols % 2 == 1) {
+		hex_max_rect_col = ceil(m_tile_cols*1.5f) - 1;
+	}
+	else {
+		hex_max_rect_col = ceil(m_tile_cols*1.5f);
+	}
 
+	//max index of rect rows
+	hex_max_rect_row = m_tile_rows * 2;
+
+	//max indices of hexagon grid
 	m_tileMaxX = m_tile_cols - 1;
 	m_tileMaxY = m_tile_rows - 1;
 	numTiles = m_tile_rows * m_tile_cols;
 
-	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - hex_height / 2.0f);
-	maxBounds_Offset = vec2(m_tile_cols * hex_horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * hex_vertical_space + minBounds_Offset.y + hex_height / 2.0f);
+	//bounding box offsets
+	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - hex_vertical_space / 2.0f);
+	maxBounds_Offset = vec2(m_tile_cols * hex_horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * hex_vertical_space + minBounds_Offset.y + hex_vertical_space / 2.0f);
 
-	maxBounds_hex_rect = vec2((hex_max_rect_col + 1) * hex_rect_width + minBounds.x, (hex_max_rect_row + 1)*hex_rect_height + minBounds.y);
+	maxBounds_hex_rect = vec2((hex_max_rect_col + 1) * hex_rect_width + minBounds_Offset.x, (hex_max_rect_row + 1)*hex_rect_height + minBounds_Offset.y);
 }
 
 // --------------------------------------------------------------------------------------
@@ -1280,9 +1157,6 @@ void HexTileRenderer::renderGUI() {
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
-
-		ImGui::Checkbox("Print Debug", &printDebug);
-
 
 		// update status
 		dataChanged = false;

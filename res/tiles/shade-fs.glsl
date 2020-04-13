@@ -37,9 +37,7 @@ void main()
         //normaliize color with maximum alpha
         pointCircleCol /= floatMaxPointAlpha;
 
-        // debug only
         col = pointCircleCol;
-        
     #endif 
 
     #if defined(RENDER_SQUARES) || defined(RENDER_HEXAGONS)

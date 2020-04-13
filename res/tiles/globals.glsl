@@ -38,6 +38,10 @@ vec4 over(vec4 colA, vec4 colB){
     return 1/alphaBlend * (colA.a*colA + (1-colA.a)*colB.a*colB);
 }
 
+bool pointInsideHex(vec2 a, vec2 b, vec2 p){
+    return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) > 0;
+}
+
 bool pointOutsideHex(vec2 a, vec2 b, vec2 p){
     return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) < 0;
 }
@@ -62,8 +66,8 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
 
     //calculate X index
     hexX = int(rectX/3) * 2 + modX;
-    if(modX != 0){
-        if(modX == 1){
+    if(modX != 2){
+        if(modX == 0){
             if(modY == 0){
                 //Upper Left
                 a = ll;
@@ -82,7 +86,7 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
                 }
             }
         }
-        //modX = 2
+        //modX = 1
         else{
 
             if(modY == 0){
@@ -104,12 +108,16 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
             }
         }
     }
+    else 
+    {
+		hexX--;
+	}
 
     if(mod(hexX, 2) == 0){
-        hexY = int(rectY/2);
+        hexY = int((rectY-1)/2);
     }
     else{
-        hexY = int((rectY+1)/2);
+        hexY = int(rectY/2);
     }
 
     return vec2(hexX, hexY);

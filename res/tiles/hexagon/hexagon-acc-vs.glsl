@@ -8,7 +8,7 @@ layout(location = 1) in float yValue;
 
 //[x,y]
 uniform vec2 maxBounds_rect;
-uniform vec2 minBounds;
+uniform vec2 minBounds_Offset;
 //min = 0
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
@@ -24,13 +24,13 @@ out vec4 vertexColor;
 void main()
 {
 
-    vec2 hex = matchPointWithHexagon(vec2 (xValue, yValue), max_rect_col, max_rect_row, rectWidth, rectHeight, minBounds, maxBounds_rect);
+    vec2 hex = matchPointWithHexagon(vec2 (xValue, yValue), max_rect_col, max_rect_row, rectWidth, rectHeight, minBounds_Offset, maxBounds_rect);
 
     // we only set the red channel, because we only use the color for additive blending
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
 
-    // debug: color point according to square
-   // vertexColor = vec4(float(hex.x/float(maxTexCoordX)),float(hex.y/float(maxTexCoordY)),0.0f,1.0f);
+    // debug: color point according to hex
+   // vertexColor = vec4(1.0f, float(hex.x/float(maxTexCoordX)),float(hex.y/float(maxTexCoordY)),1.0f);
 
     // NDC - map square coordinates to [-1,1] (first [0,2] than -1)
 	//vec2 rectNDC = vec2(((rectX * 2) / float(max_rect_col+1)) - 1, ((rectY * 2) / float(max_rect_row+1)) - 1);

@@ -23,7 +23,7 @@ void main()
     float hexValue = texelFetch(accumulateTexture, ivec2(gs_in[0].accTexPosition), 0).r;
 
     // we dont want to render the grid for empty hexs
-   // if(hexValue > 0.00000001){
+  //  if(hexValue > 0.00000001){
 
 		float angle_rad;
 		vec4 offset;
