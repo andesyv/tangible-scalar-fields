@@ -74,8 +74,8 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/point-circle-fs.glsl"}
 		});
 
-	createShaderProgram("square-tiles-disc", {
-		{GL_VERTEX_SHADER,"./res/tiles/square/square-discrepancy-vs.glsl"},
+	createShaderProgram("tiles-disc", {
+		{GL_VERTEX_SHADER,"./res/tiles/discrepancy-vs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/discrepancy-fs.glsl"}
 		});
 
@@ -249,12 +249,14 @@ void HexTileRenderer::display()
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 
-	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp || m_discrepancy_easeIn != m_discrepancy_easeIn_tmp) {
+	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp
+		|| m_discrepancy_easeIn != m_discrepancy_easeIn_tmp || m_discrepancy_lowCount != m_discrepancy_lowCount_tmp) {
 		// set new size
 		m_selected_tile_style = m_selected_tile_style_tmp;
 		m_tileSize = m_tileSize_tmp;
 		m_renderDiscrepancy = m_renderDiscrepancy_tmp;
 		m_discrepancy_easeIn = m_discrepancy_easeIn_tmp;
+		m_discrepancy_lowCount = m_discrepancy_lowCount_tmp;
 
 		calculateTileTextureSize(inverseModelViewProjectionMatrix);
 	}
@@ -410,7 +412,7 @@ void HexTileRenderer::display()
 
 		// -------------------------------------------------------------------------------------------------
 
-		auto shaderProgram_discrepancies = shaderProgram("square-tiles-disc");
+		auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
 
 		shaderProgram_discrepancies->setUniform("numCols", m_tile_cols);
 		shaderProgram_discrepancies->setUniform("numRows", m_tile_rows);
@@ -1145,7 +1147,8 @@ void HexTileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
 			ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
 			ImGui::Checkbox("Show Discrepancy", &m_renderDiscrepancy_tmp);
-			ImGui::Checkbox("Ease In", &m_discrepancy_easeIn_tmp);
+			ImGui::SliderFloat("Ease In", &m_discrepancy_easeIn_tmp, 1.0f, 5.0f);
+			ImGui::SliderFloat("Low Point Count", &m_discrepancy_lowCount_tmp, 0.0f, 1.0f);
 			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
 		if (ImGui::CollapsingHeader("Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
@@ -1273,10 +1276,13 @@ std::vector<float> HexTileRenderer::calculateDiscrepancy2D(const std::vector<flo
 	//Step 2: calc prefix Sum
 	std::vector<float> pointsInTilesPrefixSum(pointsInTilesCount);
 	int prefixSum = 0;
+	int sampleCount = 0;
+	int maxSampleCount = 0;
 	for (int i = 0; i < numTiles; i++) {
-		int sCount = pointsInTilesPrefixSum[i];
+		sampleCount = pointsInTilesPrefixSum[i];
 		pointsInTilesPrefixSum[i] = prefixSum;
-		prefixSum += sCount;
+		prefixSum += sampleCount;
+		maxSampleCount = max(maxSampleCount, sampleCount);
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
@@ -1374,13 +1380,16 @@ std::vector<float> HexTileRenderer::calculateDiscrepancy2D(const std::vector<flo
 
 			maxDifference = max(eps, maxDifference);
 
-			// set tile discrepancy
-			if (m_discrepancy_easeIn) {
-				discrepancies[i] = quadricEaseIn(maxDifference, 0, 1, 1);
-			}
-			else {
-				discrepancies[i] = maxDifference;
-			}
+			// Ease In
+			maxDifference = pow(maxDifference, m_discrepancy_easeIn);
+
+			// account for tiles with few points
+			//TODO: show thomas
+			//maxDifference = (1 - m_discrepancy_lowCount) * maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2));
+			maxDifference = min(maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2)), 1.0f);
+
+
+			discrepancies[i] = maxDifference;
 		}
 	}
 
@@ -1389,9 +1398,4 @@ std::vector<float> HexTileRenderer::calculateDiscrepancy2D(const std::vector<flo
 
 
 	return discrepancies;
-}
-
-double HexTileRenderer::quadricEaseIn(double t, int b, int c, int d) {
-	t /= d;
-	return c * t*t + b;
 }

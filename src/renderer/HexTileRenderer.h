@@ -181,7 +181,8 @@ namespace molumes
 
 		//discrepancy parameters
 		float m_discrepancyDiv = 1.5f;
-		bool m_discrepancy_easeIn = false;
+		float m_discrepancy_easeIn = 1.0f;
+		float m_discrepancy_lowCount = 0.0f;
 
 		// define booleans
 		bool m_renderPointCircles = true;
@@ -189,7 +190,8 @@ namespace molumes
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;
-		bool m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
+		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
+		float m_discrepancy_lowCount_tmp = m_discrepancy_lowCount;
 		// ------------------------------------------------------------------------------------------
 
 		// INTERVAL MAPPING--------------------------------------------------------------------------
@@ -199,7 +201,6 @@ namespace molumes
 		// DISCREPANCY------------------------------------------------------------------------------
 
 		std::vector<float> calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
-		double quadricEaseIn(double t, int b, int c, int d);
 	};
 
 }
