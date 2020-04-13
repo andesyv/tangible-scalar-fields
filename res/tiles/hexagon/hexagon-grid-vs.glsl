@@ -16,19 +16,20 @@ out VS_OUT {
 
 void main()
 {
-	//calculate position of hexagon center
+	//calculate position of hexagon center - in double height coordinates!
+	//https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
 	float row;
 	float col = mod(gl_VertexID,num_cols);
 
 	if(mod(col,2) == 0){
 		row = floor(gl_VertexID/num_cols) * 2;
-		vs_out.accTexPosition = vec2(col, row);
 	}
 	else{
 		row = (floor(gl_VertexID/num_cols) * 2) - 1;
-		vs_out.accTexPosition = vec2(col, row + 1);
 	}
-
+	
+	//position of hexagon in accumulate texture (offset coordinates)
+	vs_out.accTexPosition = vec2(col, floor(gl_VertexID/num_cols));
 
 	gl_Position =  vec4(col * horizontal_space + minBounds.x + hexSize/2.0f, row * vertical_space/2.0f + minBounds.y + vertical_space/2.0f, 0.0f, 1.0f);
 }

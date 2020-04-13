@@ -13,7 +13,7 @@ uniform mat4 modelViewProjectionMatrix;
 
 const float PI = 3.1415926;
 
-out VS_OUT {
+in VS_OUT {
     vec2 accTexPosition;
 } gs_in[];
 
@@ -23,7 +23,7 @@ void main()
     float hexValue = texelFetch(accumulateTexture, ivec2(gs_in[0].accTexPosition), 0).r;
 
     // we dont want to render the grid for empty hexs
-  //  if(hexValue > 0.00000001){
+    if(hexValue > 0){
 
 		float angle_rad;
 		vec4 offset;
@@ -43,5 +43,5 @@ void main()
 		}
 
 		EndPrimitive();
-	//}
+	}
 }

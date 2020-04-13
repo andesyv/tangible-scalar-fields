@@ -29,7 +29,7 @@ void main()
     float squareValue = texelFetch(accumulateTexture, ivec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y), 0).r;
 
     // we dont want to render the grid for empty squares
-    if(squareValue > 0.00000001){
+    if(squareValue > 0){
 
         // map from square space to bounding box space
         float bbX = mapInterval_O(gl_in[0].gl_Position.x, 0, numCols, minBounds_Off[0], maxBounds_Off[0]);
