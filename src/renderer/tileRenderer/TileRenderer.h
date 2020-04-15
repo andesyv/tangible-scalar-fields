@@ -1,9 +1,9 @@
 #pragma once
-#include "Renderer.h"
+#include "../Renderer.h"
 #include <memory>
 
 #include <glm/glm.hpp>
-#include <glbinding/gl/gl.h>
+#include <glbinding/gl/gl.h> 
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/functions.h>
 
@@ -22,13 +22,13 @@
 #include <globjects/Query.h>
 
 namespace molumes
-{
+{ 
 	class Viewer;
 
-	class HexTileRenderer : public Renderer
+	class TileRenderer : public Renderer
 	{
 	public:
-		HexTileRenderer(Viewer *viewer);
+		TileRenderer(Viewer *viewer);
 		virtual void display();
 		//virtual std::list<globjects::File*> shaderFiles() const;
 

@@ -42,7 +42,7 @@ struct Statistics
 //#define BENCHMARK
 //#define STATISTICS
 
-HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
+TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
@@ -203,7 +203,7 @@ HexTileRenderer::HexTileRenderer(Viewer* viewer) : Renderer(viewer)
 }
 
 
-void HexTileRenderer::display()
+void TileRenderer::display()
 {
 	auto currentState = State::currentState();
 
@@ -710,7 +710,7 @@ void HexTileRenderer::display()
 // --------------------------------------------------------------------------------------
 // ###########################  TILES ############################################
 // --------------------------------------------------------------------------------------
-void HexTileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectionMatrix) {
+void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectionMatrix) {
 
 
 	tileSizeWS = (inverseModelViewProjectionMatrix * vec4(m_tileSize_tmp / tileSizeDiv, 0, 0, 0)).x;
@@ -780,7 +780,7 @@ void HexTileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjec
 // ###########################  SQUARE ############################################
 // --------------------------------------------------------------------------------------
 
-Program * molumes::HexTileRenderer::getSquareAccumulationProgram()
+Program * molumes::TileRenderer::getSquareAccumulationProgram()
 {
 	auto shaderProgram_square_acc = shaderProgram("square-acc");
 
@@ -793,7 +793,7 @@ Program * molumes::HexTileRenderer::getSquareAccumulationProgram()
 	return shaderProgram_square_acc;
 }
 
-globjects::Program * molumes::HexTileRenderer::getSquareTileProgram(mat4 modelViewProjectionMatrix)
+globjects::Program * molumes::TileRenderer::getSquareTileProgram(mat4 modelViewProjectionMatrix)
 {
 	auto shaderProgram_square_tiles = shaderProgram("square-tiles");
 
@@ -814,7 +814,7 @@ globjects::Program * molumes::HexTileRenderer::getSquareTileProgram(mat4 modelVi
 	return shaderProgram_square_tiles;
 }
 
-void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProjectionMatrix)
+void molumes::TileRenderer::renderSquareGrid(const glm::mat4 modelViewProjectionMatrix)
 {
 	auto shaderProgram_square_grid = shaderProgram("square-grid");
 
@@ -845,7 +845,7 @@ void molumes::HexTileRenderer::renderSquareGrid(const glm::mat4 modelViewProject
 	m_vaoTiles->unbind();
 }
 
-void molumes::HexTileRenderer::calculateNumberOfSquares(vec3 boundingBoxSize, vec3 minBounds)
+void molumes::TileRenderer::calculateNumberOfSquares(vec3 boundingBoxSize, vec3 minBounds)
 {
 	// get maximum value of X,Y in accumulateTexture-Space
 	m_tile_cols = ceil(boundingBoxSize.x / tileSizeWS);
@@ -865,7 +865,7 @@ void molumes::HexTileRenderer::calculateNumberOfSquares(vec3 boundingBoxSize, ve
 // ###########################  HEXAGON ############################################
 // --------------------------------------------------------------------------------------
 
-globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram()
+globjects::Program * molumes::TileRenderer::getHexagonAccumulationProgram()
 {
 	auto shaderProgram_hex_acc = shaderProgram("hex-acc");
 
@@ -884,7 +884,7 @@ globjects::Program * molumes::HexTileRenderer::getHexagonAccumulationProgram()
 	return shaderProgram_hex_acc;
 }
 
-globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelViewProjectionMatrix)
+globjects::Program * molumes::TileRenderer::getHexagonTileProgram(mat4 modelViewProjectionMatrix)
 {
 	auto shaderProgram_hex_tiles = shaderProgram("hex-tiles");
 
@@ -909,7 +909,7 @@ globjects::Program * molumes::HexTileRenderer::getHexagonTileProgram(mat4 modelV
 	return shaderProgram_hex_tiles;
 }
 
-void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix, vec2 minBounds) {
+void TileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix, vec2 minBounds) {
 
 	auto shaderProgram_hexagon_grid = shaderProgram("hexagon-grid");
 	shaderProgram_hexagon_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
@@ -934,7 +934,7 @@ void HexTileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix, ve
 }
 
 
-void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBounds) {
+void TileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBounds) {
 
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
@@ -989,7 +989,7 @@ void HexTileRenderer::calculateNumberOfHexagons(vec3 boundingBoxSize, vec3 minBo
 /*
 Renders the User interface
 */
-void HexTileRenderer::renderGUI() {
+void TileRenderer::renderGUI() {
 
 	// boolean variable used to automatically update the data
 	static bool dataChanged = false;
@@ -1171,7 +1171,7 @@ void HexTileRenderer::renderGUI() {
 /*
 Gathers all #define, reset the defines files and reload the shaders
 */
-void HexTileRenderer::setShaderDefines() {
+void TileRenderer::setShaderDefines() {
 	std::string defines = "";
 
 
@@ -1216,7 +1216,7 @@ void HexTileRenderer::setShaderDefines() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //maps value x from [a,b] --> [0,c]
-float molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
+float molumes::TileRenderer::mapInterval(float x, float a, float b, int c)
 {
 	return (x - a)*c / (b - a);
 }
@@ -1225,7 +1225,7 @@ float molumes::HexTileRenderer::mapInterval(float x, float a, float b, int c)
 //DISCREPANCY
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<float> HexTileRenderer::calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds)
+std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, vec3 maxBounds, vec3 minBounds)
 {
 
 	// Calculates the discrepancy of this data.
