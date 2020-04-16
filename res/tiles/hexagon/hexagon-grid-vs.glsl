@@ -8,7 +8,7 @@ uniform float horizontal_space;
 uniform float vertical_space;
 uniform float hexSize;
 uniform int num_cols;
-uniform vec2 minBounds;
+uniform vec2 minBounds_Off;
 
 out VS_OUT {
     vec2 accTexPosition;
@@ -31,5 +31,5 @@ void main()
 	//position of hexagon in accumulate texture (offset coordinates)
 	vs_out.accTexPosition = vec2(col, floor(gl_VertexID/num_cols));
 
-	gl_Position =  vec4(col * horizontal_space + minBounds.x + hexSize/2.0f, row * vertical_space/2.0f + minBounds.y + vertical_space/2.0f, 0.0f, 1.0f);
+	gl_Position =  vec4(col * horizontal_space + minBounds_Off.x + hexSize, row * vertical_space/2.0f + minBounds_Off.y + vertical_space, 0.0f, 1.0f);
 }

@@ -2,6 +2,7 @@
 #include "../Renderer.h"
 #include "Tile.h"
 #include "SquareTile.h"
+#include "HexTile.h"
 #include <memory>
 
 #include <glm/glm.hpp>

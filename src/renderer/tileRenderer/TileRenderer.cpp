@@ -34,6 +34,7 @@ using namespace globjects;
 TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	tile_processors["square"] = new SquareTile(this);
+	tile_processors["hexagon"] = new HexTile(this);
 
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
@@ -70,27 +71,10 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/discrepancy-fs.glsl"}
 		});
 
-	createShaderProgram("hex-acc", {
-		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-acc-vs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/acc-fs.glsl"}
-		});
-
 	createShaderProgram("max-val", {
 		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/max-val-fs.glsl"}
-		});
-
-	createShaderProgram("hex-tiles", {
-		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/hexagon/hexagon-tiles-fs.glsl"}
-		});
-
-	createShaderProgram("hexagon-grid", {
-		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-grid-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/hexagon/hexagon-grid-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
 		});
 
 	createShaderProgram("shade", {
@@ -180,6 +164,9 @@ molumes::TileRenderer::~TileRenderer()
 {
 	if (tile_processors.count("square") > 0) {
 		delete tile_processors["square"];
+	}
+	if (tile_processors.count("hexagon") > 0) {
+		delete tile_processors["hexagon"];
 	}
 }
 
@@ -899,7 +886,7 @@ void TileRenderer::renderHexagonGrid(const mat4 modelViewProjectionMatrix, vec2 
 	shaderProgram_hexagon_grid->setUniform("horizontal_space", hex_horizontal_space);
 	shaderProgram_hexagon_grid->setUniform("vertical_space", hex_vertical_space);
 	shaderProgram_hexagon_grid->setUniform("num_cols", m_tile_cols);
-	shaderProgram_hexagon_grid->setUniform("minBounds", minBounds);
+	shaderProgram_hexagon_grid->setUniform("minBounds_Off", minBounds_Offset);
 
 	shaderProgram_hexagon_grid->setUniform("hexSize", tileSizeWS);
 	shaderProgram_hexagon_grid->setUniform("accumulateTexture", 1);

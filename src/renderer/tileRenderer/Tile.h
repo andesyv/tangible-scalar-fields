@@ -19,6 +19,8 @@ namespace molumes
 {
 	class Renderer;
 
+	//IS USED AS ABSTRACT CLASS!!
+	//DOES NOT CONTAIN ANY IMPLEMENTATIONS
 	class Tile
 	{
 	public:

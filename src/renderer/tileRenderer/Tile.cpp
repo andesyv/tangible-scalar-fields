@@ -2,7 +2,8 @@
 
 using namespace molumes;
 
-
+//IS USED AS ABSTRACT CLASS!!
+//DOES NOT CONTAIN ANY IMPLEMENTATIONS
 molumes::Tile::Tile(Renderer* renderer)
 {
 	this->renderer = renderer;
