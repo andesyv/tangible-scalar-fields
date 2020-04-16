@@ -1,5 +1,7 @@
 #pragma once
 #include "../Renderer.h"
+#include "Tile.h"
+#include "SquareTile.h"
 #include <memory>
 
 #include <glm/glm.hpp>
@@ -22,18 +24,20 @@
 #include <globjects/Query.h>
 
 namespace molumes
-{ 
+{
 	class Viewer;
 
 	class TileRenderer : public Renderer
 	{
 	public:
 		TileRenderer(Viewer *viewer);
+		~TileRenderer();
 		virtual void display();
-		//virtual std::list<globjects::File*> shaderFiles() const;
 
 	private:
 
+		Tile* tile;
+		std::unordered_map<std::string, Tile*> tile_processors;
 
 		// INITIAL POINT DATA ----------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vao = std::make_unique<globjects::VertexArray>();

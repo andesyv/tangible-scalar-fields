@@ -1,13 +1,13 @@
-#include "HexTileRenderer.h"
+#include "TileRenderer.h"
 #include <globjects/base/File.h>
 #include <globjects/State.h>
 #include <iostream>
 #include <filesystem>
 #include <imgui.h>
 #include <omp.h>
-#include "../Viewer.h"
-#include "../Scene.h"
-#include "../Table.h"
+#include "../../Viewer.h"
+#include "../../Scene.h"
+#include "../../Table.h"
 #include <lodepng.h>
 #include <sstream>
 
@@ -31,19 +31,10 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-struct Statistics
-{
-	uint intersectionCount = 0;
-	uint totalPixelCount = 0;
-	uint totalEntryCount = 0;
-	uint maximumEntryCount = 0;
-};
-
-//#define BENCHMARK
-//#define STATISTICS
-
 TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 {
+	tile_processors["square"] = new SquareTile(this);
+
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
 	m_verticesQuad->setStorage(std::array<vec3, 1>({ vec3(0.0f, 0.0f, 0.0f) }), gl::GL_NONE_BIT);
@@ -79,11 +70,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/discrepancy-fs.glsl"}
 		});
 
-	createShaderProgram("square-acc", {
-		{GL_VERTEX_SHADER,"./res/tiles/square/square-acc-vs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/acc-fs.glsl"}
-		});
-
 	createShaderProgram("hex-acc", {
 		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-acc-vs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/acc-fs.glsl"}
@@ -95,22 +81,10 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/max-val-fs.glsl"}
 		});
 
-	createShaderProgram("square-tiles", {
-		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/square/square-tiles-fs.glsl"}
-		});
-
 	createShaderProgram("hex-tiles", {
 		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/hexagon/hexagon-tiles-fs.glsl"}
-		});
-
-	createShaderProgram("square-grid", {
-		{GL_VERTEX_SHADER,"./res/tiles/square/square-grid-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/square/square-grid-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
 		});
 
 	createShaderProgram("hexagon-grid", {
@@ -200,6 +174,13 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
 	m_shadeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+}
+
+molumes::TileRenderer::~TileRenderer()
+{
+	if (tile_processors.count("square") > 0) {
+		delete tile_processors["square"];
+	}
 }
 
 
