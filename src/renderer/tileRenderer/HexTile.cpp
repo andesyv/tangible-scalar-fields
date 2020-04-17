@@ -55,7 +55,7 @@ Program * HexTile::getAccumulationProgram()
 {
 	auto shaderProgram_hex_acc = renderer->shaderProgram("hex-acc");
 
-	shaderProgram_hex_acc->setUniform("maxBounds_rect", maxBounds_hex_rect);
+	shaderProgram_hex_acc->setUniform("maxBounds_rect", maxBounds_rect);
 	shaderProgram_hex_acc->setUniform("minBounds_Offset", minBounds_Offset);
 
 	shaderProgram_hex_acc->setUniform("maxTexCoordX", m_tileMaxX);
@@ -64,8 +64,8 @@ Program * HexTile::getAccumulationProgram()
 	shaderProgram_hex_acc->setUniform("max_rect_col", max_rect_col);
 	shaderProgram_hex_acc->setUniform("max_rect_row", max_rect_row);
 
-	shaderProgram_hex_acc->setUniform("rect_height", rect_height);
-	shaderProgram_hex_acc->setUniform("rect_width", rect_width);
+	shaderProgram_hex_acc->setUniform("rectHeight", rect_height);
+	shaderProgram_hex_acc->setUniform("rectWidth", rect_width);
 
 	return shaderProgram_hex_acc;
 }
@@ -75,7 +75,7 @@ Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewport
 	auto shaderProgram_hex_tiles = renderer->shaderProgram("hex-tiles");
 
 	//geometry shader
-	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_hex_rect);
+	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_rect);
 	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds_Offset);
 
 	//geometry & fragment shader
@@ -165,7 +165,7 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - vertical_space / 2.0f);
 	maxBounds_Offset = vec2(m_tile_cols * horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * vertical_space + minBounds_Offset.y + vertical_space / 2.0f);
 
-	maxBounds_hex_rect = vec2((max_rect_col + 1) * rect_width + minBounds_Offset.x, (max_rect_row + 1)*rect_height + minBounds_Offset.y);
+	maxBounds_rect = vec2((max_rect_col + 1) * rect_width + minBounds_Offset.x, (max_rect_row + 1)*rect_height + minBounds_Offset.y);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,11 +181,11 @@ int molumes::HexTile::mapPointToTile(vec2 p)
 {
 	// to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
 	// If the current value = maxValue, we take the maxCoord instead
-	int rectX = min(max_rect_col, mapInterval(p.x, minBounds_Offset.x, maxBounds_hex_rect.x, max_rect_col + 1));
-	int rectY = min(max_rect_row, mapInterval(p.y, minBounds_Offset.y, maxBounds_hex_rect.y, max_rect_row + 1));
+	int rectX = min(max_rect_col, mapInterval(p.x, minBounds_Offset.x, maxBounds_rect.x, max_rect_col + 1));
+	int rectY = min(max_rect_row, mapInterval(p.y, minBounds_Offset.y, maxBounds_rect.y, max_rect_row + 1));
 
 	// rectangle left lower corner in space of points
-	vec2 ll = vec2(rectX * rect_width + minBounds_Offset.x, rectY * rect_height + minBounds_Offset.y);
+	vec2 ll = vec2(rectX * rect_width + minBounds_Offset.x, rectY *rect_height + minBounds_Offset.y);
 	vec2 a, b;
 
 	// calculate hexagon index from rectangle index
