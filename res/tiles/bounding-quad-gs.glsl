@@ -9,13 +9,16 @@ layout(triangle_strip, max_vertices = 4) out;
 uniform vec2 maxBounds_acc;
 uniform vec2 minBounds_acc;
 
-uniform int windowHeight;
-uniform int windowWidth;
-
 uniform mat4 modelViewProjectionMatrix;
 
-out vec4 boundsScreenSpace;
+#ifdef RENDER_TILES
+	uniform int windowHeight;
+	uniform int windowWidth;
 
+	out vec4 boundsScreenSpace;
+#endif
+
+//if RENDER_HEXAGONS is defined RENDER_TILES is also defined -> we have windowHeigt, windowWidth
 #ifdef RENDER_HEXAGONS
 	uniform vec2 rectSize;
 	out vec2 rectSizeScreenSpace;
@@ -24,7 +27,9 @@ out vec4 boundsScreenSpace;
 void main()
 {
 
-    boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_acc, minBounds_acc, windowWidth, windowHeight);
+	#ifdef RENDER_TILES
+    	boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_acc, minBounds_acc, windowWidth, windowHeight);
+	#endif
 
 	#ifdef RENDER_HEXAGONS
 		rectSizeScreenSpace = getScreenSpacePosOfPoint(modelViewProjectionMatrix, rectSize * vec2(2,2), windowWidth, windowHeight)-getScreenSpacePosOfPoint(modelViewProjectionMatrix, rectSize, windowWidth, windowHeight);

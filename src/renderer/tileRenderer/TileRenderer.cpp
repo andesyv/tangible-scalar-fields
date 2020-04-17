@@ -176,6 +176,7 @@ void TileRenderer::display()
 	auto currentState = State::currentState();
 
 	// Scatterplot GUI -----------------------------------------------------------------------------------------------------------
+	// needs to be first to set all the new values before rendering
 	renderGUI();
 
 	setShaderDefines();
@@ -188,7 +189,6 @@ void TileRenderer::display()
 	}
 
 	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
-
 
 	if (viewer()->viewportSize() != m_framebufferSize)
 	{
@@ -486,22 +486,30 @@ void TileRenderer::display()
 	//can use the same shader for hexagon and square tiles
 	auto shaderProgram_max_val = shaderProgram("max-val");
 
-	//geometry shader
-	shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds_Offset);
-	shaderProgram_max_val->setUniform("minBounds_acc", minBounds_Offset);
-
 	//geometry & fragment shader
 	shaderProgram_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-	shaderProgram_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
-	shaderProgram_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
-
-	//fragment Shader
-	shaderProgram_max_val->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_max_val->setUniform("maxTexCoordY", m_tileMaxY);
-
-	shaderProgram_max_val->setUniform("accumulateTexture", 1);
+	//fragment shader
 	shaderProgram_max_val->setUniform("pointCircleTexture", 2);
+
+	if (m_selected_tile_style == 0) {
+		//geometry shader
+		shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds);
+		shaderProgram_max_val->setUniform("minBounds_acc", minBounds);
+	}
+	else {
+		//geometry shader
+		shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds_Offset);
+		shaderProgram_max_val->setUniform("minBounds_acc", minBounds_Offset);
+
+		shaderProgram_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
+		shaderProgram_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
+		//fragment Shader
+		shaderProgram_max_val->setUniform("maxTexCoordX", m_tileMaxX);
+		shaderProgram_max_val->setUniform("maxTexCoordY", m_tileMaxY);
+
+		shaderProgram_max_val->setUniform("accumulateTexture", 1);
+	}
 
 	m_vaoQuad->bind();
 
@@ -692,13 +700,8 @@ void TileRenderer::display()
 void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectionMatrix) {
 
 
-	tileSizeWS = (inverseModelViewProjectionMatrix * vec4(m_tileSize_tmp / tileSizeDiv, 0, 0, 0)).x;
-	tileSizeWS *= viewer()->scaleFactor();
-
 	vec3 maxBounds = viewer()->scene()->table()->maximumBounds();
 	vec3 minBounds = viewer()->scene()->table()->minimumBounds();
-
-	vec3 boundingBoxSize = maxBounds - minBounds;
 
 	// needs to be set for bounding-quad-gs
 	maxBounds_Offset = maxBounds;
@@ -706,6 +709,11 @@ void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectio
 
 	// if we only render points, we do not need to calculate tile sizes
 	if (m_selected_tile_style != 0) {
+
+		tileSizeWS = (inverseModelViewProjectionMatrix * vec4(m_tileSize_tmp / tileSizeDiv, 0, 0, 0)).x;
+		tileSizeWS *= viewer()->scaleFactor();
+
+		vec3 boundingBoxSize = maxBounds - minBounds;
 
 		if (m_selected_tile_style == 1) {
 			calculateNumberOfSquares(boundingBoxSize, minBounds);
