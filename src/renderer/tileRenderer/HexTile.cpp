@@ -61,11 +61,11 @@ Program * HexTile::getAccumulationProgram()
 	shaderProgram_hex_acc->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_hex_acc->setUniform("maxTexCoordY", m_tileMaxY);
 
-	shaderProgram_hex_acc->setUniform("max_rect_col", hex_max_rect_col);
-	shaderProgram_hex_acc->setUniform("max_rect_row", hex_max_rect_row);
+	shaderProgram_hex_acc->setUniform("max_rect_col", max_rect_col);
+	shaderProgram_hex_acc->setUniform("max_rect_row", max_rect_row);
 
-	shaderProgram_hex_acc->setUniform("rectHeight", hex_rect_height);
-	shaderProgram_hex_acc->setUniform("rectWidth", hex_rect_width);
+	shaderProgram_hex_acc->setUniform("rect_height", rect_height);
+	shaderProgram_hex_acc->setUniform("rect_width", rect_width);
 
 	return shaderProgram_hex_acc;
 }
@@ -83,14 +83,14 @@ Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewport
 
 	shaderProgram_hex_tiles->setUniform("windowWidth", viewportSize[0]);
 	shaderProgram_hex_tiles->setUniform("windowHeight", viewportSize[1]);
-	shaderProgram_hex_tiles->setUniform("rectSize", vec2(hex_rect_width, hex_rect_height));
+	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
 
 	//fragment Shader
 	shaderProgram_hex_tiles->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_hex_tiles->setUniform("maxTexCoordY", m_tileMaxY);
 
-	shaderProgram_hex_tiles->setUniform("max_rect_col", hex_max_rect_col);
-	shaderProgram_hex_tiles->setUniform("max_rect_row", hex_max_rect_row);
+	shaderProgram_hex_tiles->setUniform("max_rect_col", max_rect_col);
+	shaderProgram_hex_tiles->setUniform("max_rect_row", max_rect_row);
 
 	return shaderProgram_hex_tiles;
 }
@@ -101,8 +101,8 @@ void HexTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTil
 	shaderProgram_hexagon_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgram_hexagon_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
 
-	shaderProgram_hexagon_grid->setUniform("horizontal_space", hex_horizontal_space);
-	shaderProgram_hexagon_grid->setUniform("vertical_space", hex_vertical_space);
+	shaderProgram_hexagon_grid->setUniform("horizontal_space", horizontal_space);
+	shaderProgram_hexagon_grid->setUniform("vertical_space", vertical_space);
 	shaderProgram_hexagon_grid->setUniform("num_cols", m_tile_cols);
 	shaderProgram_hexagon_grid->setUniform("minBounds_Off", minBounds_Offset);
 
@@ -124,37 +124,37 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
-	hex_horizontal_space = tileSizeWS * 1.5f;
-	hex_vertical_space = sqrt(3)*tileSizeWS;
+	horizontal_space = tileSizeWS * 1.5f;
+	vertical_space = sqrt(3)*tileSizeWS;
 
-	hex_rect_height = hex_vertical_space / 2.0f;
-	hex_rect_width = tileSizeWS;
+	rect_height = vertical_space / 2.0f;
+	rect_width = tileSizeWS;
 
 	//number of hex columns
 	//+1 because else the floor operation could return 0 
-	float cols_tmp = 1 + (boundingBoxSize.x / hex_horizontal_space);
+	float cols_tmp = 1 + (boundingBoxSize.x / horizontal_space);
 	m_tile_cols = floor(cols_tmp);
-	if ((cols_tmp - m_tile_cols) * hex_horizontal_space >= tileSizeWS) {
+	if ((cols_tmp - m_tile_cols) * horizontal_space >= tileSizeWS) {
 		m_tile_cols += 1;
 	}
 
 	//number of hex rows
-	float rows_tmp = 1 + (boundingBoxSize.y / hex_vertical_space);
+	float rows_tmp = 1 + (boundingBoxSize.y / vertical_space);
 	m_tile_rows = floor(rows_tmp);
-	if ((rows_tmp - m_tile_rows) * hex_vertical_space >= hex_vertical_space / 2) {
+	if ((rows_tmp - m_tile_rows) * vertical_space >= vertical_space / 2) {
 		m_tile_rows += 1;
 	}
 
 	//max index of rect columns
 	if (m_tile_cols % 2 == 1) {
-		hex_max_rect_col = ceil(m_tile_cols*1.5f) - 1;
-	} 
+		max_rect_col = ceil(m_tile_cols*1.5f) - 1;
+	}
 	else {
-		hex_max_rect_col = ceil(m_tile_cols*1.5f);
+		max_rect_col = ceil(m_tile_cols*1.5f);
 	}
 
 	//max index of rect rows
-	hex_max_rect_row = m_tile_rows * 2;
+	max_rect_row = m_tile_rows * 2;
 
 	//max indices of hexagon grid
 	m_tileMaxX = m_tile_cols - 1;
@@ -162,12 +162,94 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	numTiles = m_tile_rows * m_tile_cols;
 
 	//bounding box offsets
-	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - hex_vertical_space / 2.0f);
-	maxBounds_Offset = vec2(m_tile_cols * hex_horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * hex_vertical_space + minBounds_Offset.y + hex_vertical_space / 2.0f);
+	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - vertical_space / 2.0f);
+	maxBounds_Offset = vec2(m_tile_cols * horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * vertical_space + minBounds_Offset.y + vertical_space / 2.0f);
 
-	maxBounds_hex_rect = vec2((hex_max_rect_col + 1) * hex_rect_width + minBounds_Offset.x, (hex_max_rect_row + 1)*hex_rect_height + minBounds_Offset.y);
+	maxBounds_hex_rect = vec2((max_rect_col + 1) * rect_width + minBounds_Offset.x, (max_rect_row + 1)*rect_height + minBounds_Offset.y);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //DISCREPANCY
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+bool pointOutsideHex(vec2 a, vec2 b, vec2 p) {
+	return ((p.x - a.x)*(b.y - a.y) - (p.y - a.y)*(b.x - a.x)) < 0;
+}
+
+int molumes::HexTile::mapPointToTile(vec2 p)
+{
+	// to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
+	// If the current value = maxValue, we take the maxCoord instead
+	int rectX = min(max_rect_col, mapInterval(p.x, minBounds_Offset.x, maxBounds_hex_rect.x, max_rect_col + 1));
+	int rectY = min(max_rect_row, mapInterval(p.y, minBounds_Offset.y, maxBounds_hex_rect.y, max_rect_row + 1));
+
+	// rectangle left lower corner in space of points
+	vec2 ll = vec2(rectX * rect_width + minBounds_Offset.x, rectY * rect_height + minBounds_Offset.y);
+	vec2 a, b;
+
+	// calculate hexagon index from rectangle index
+	int hexX, hexY, modX, modY;
+
+	// get modulo values
+	modX = rectX % 3;
+	modY = rectY % 2;
+
+	//calculate X index
+	hexX = int(rectX / 3) * 2 + modX;
+	if (modX != 2) {
+		if (modX == 0) {
+			if (modY == 0) {
+				//Upper Left
+				a = ll;
+				b = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
+				if (pointOutsideHex(a, b, p)) {
+					hexX--;
+				}
+			}
+			//modY = 1
+			else {
+				//Lower Left
+				a = vec2(ll.x + rect_width / 2.0f, ll.y);
+				b = vec2(ll.x, ll.y + rect_height);
+				if (pointOutsideHex(a, b, p)) {
+					hexX--;
+				}
+			}
+		}
+		//modX = 1
+		else {
+
+			if (modY == 0) {
+				//Upper Right
+				a = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
+				b = vec2(ll.x + rect_width, ll.y);
+				if (!pointOutsideHex(a, b, p)) {
+					hexX--;
+				}
+			}
+			//modY = 1
+			else {
+				//Lower Right
+				a = vec2(ll.x + rect_width, ll.y + rect_height);
+				b = vec2(ll.x + rect_width / 2.0f, ll.y);
+				if (!pointOutsideHex(a, b, p)) {
+					hexX--;
+				}
+			}
+		}
+	}
+	else
+	{
+		hexX--;
+	}
+
+	if (hexX % 2 == 0) {
+		hexY = int((rectY - 1) / 2);
+	}
+	else {
+		hexY = int(rectY / 2);
+	}
+
+	return hexX + m_tile_cols * hexY;
+}

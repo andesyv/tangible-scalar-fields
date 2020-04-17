@@ -136,8 +136,12 @@ void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 //DISCREPANCY
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//maps value x from [a,b] --> [0,c]
-float SquareTile::mapInterval(float x, float a, float b, int c)
-{
-	return (x - a)*c / (b - a);
+int SquareTile::mapPointToTile(vec2 p) {
+	 
+	// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
+	// If the current value = maxValue, we take the maxTexCoord instead
+	int squareX = min(m_tileMaxX, mapInterval(p.x, minBounds_Offset[0], maxBounds_Offset[0], m_tileMaxX + 1));
+	int squareY = min(m_tileMaxY, mapInterval(p.y, minBounds_Offset[1], maxBounds_Offset[1], m_tileMaxY + 1));
+
+	return squareX + m_tile_cols * squareY;
 }

@@ -27,3 +27,14 @@ void molumes::Tile::calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 
 {
 }
 
+int molumes::Tile::mapPointToTile(glm::vec2 p) 
+{
+	return 0;
+}
+
+//maps value x from [a,b] --> [0,c]
+int Tile::mapInterval(float x, float a, float b, int c)
+{
+	return int((x - a)*c / (b - a));
+}
+

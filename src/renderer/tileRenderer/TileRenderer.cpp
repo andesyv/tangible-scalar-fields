@@ -219,7 +219,7 @@ void TileRenderer::display()
 
 	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp
 		|| m_discrepancy_easeIn != m_discrepancy_easeIn_tmp || m_discrepancy_lowCount != m_discrepancy_lowCount_tmp) {
-		
+
 		// set new values
 		m_selected_tile_style = m_selected_tile_style_tmp;
 		m_tileSize = m_tileSize_tmp;
@@ -1003,19 +1003,14 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	double duration;
 
 	start = std::clock();
-	/*
+
 	//Step 1: Count how many elements belong to each square
 	for (int i = 0; i < numSamples; i++) {
 
 		float sampleX = samplesX[i];
 		float sampleY = samplesY[i];
 
-		// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
-		// If the current value = maxValue, we take the maxTexCoord instead
-		int squareX = min(m_tileMaxX, int(mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_tileMaxX + 1)));
-		int squareY = min(m_tileMaxY, int(mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_tileMaxY + 1)));
-
-		pointsInTilesCount[squareX + m_tile_cols * squareY]++;
+		pointsInTilesCount[tile->mapPointToTile(vec2(sampleX, sampleY))]++;
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
@@ -1028,7 +1023,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	int prefixSum = 0;
 	int sampleCount = 0;
 	int maxSampleCount = 0;
-	for (int i = 0; i < numTiles; i++) {
+	for (int i = 0; i < tile->numTiles; i++) {
 		sampleCount = pointsInTilesPrefixSum[i];
 		pointsInTilesPrefixSum[i] = prefixSum;
 		prefixSum += sampleCount;
@@ -1049,12 +1044,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		float sampleX = samplesX[i];
 		float sampleY = samplesY[i];
 
-		// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
-		// If the current value = maxValue, we take the maxTexCoord instead
-		int squareX = min(m_tileMaxX, int(mapInterval(sampleX, minBounds[0], maxBounds_Offset[0], m_tileMaxX + 1)));
-		int squareY = min(m_tileMaxY, int(mapInterval(sampleY, minBounds[1], maxBounds_Offset[1], m_tileMaxY + 1)));
-
-		int squareIndex1D = squareX + m_tile_cols * squareY;
+		int squareIndex1D = tile->mapPointToTile(vec2(sampleX, sampleY));
 
 		// put sample in correct position and increment prefix sum
 		int sampleIndex = pointsInTilesRunningPrefixSum[squareIndex1D]++;
@@ -1088,9 +1078,9 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		std::cout << "Thread: " << omp_get_thread_num() << '\n';
 #pragma omp barrier
 */
-/*
+
 #pragma omp for
-		for (int i = 0; i < numTiles; i++) {
+		for (int i = 0; i < tile->numTiles; i++) {
 
 			float maxDifference = 0.0f;
 			int startPoint = pointsInTilesPrefixSum[i];
@@ -1146,7 +1136,6 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
 	//std::cout << "Step4: " << duration << '\n' << '\n';
-	*/
 
 	return discrepancies;
 }

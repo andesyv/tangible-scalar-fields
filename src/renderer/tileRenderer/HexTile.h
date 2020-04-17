@@ -24,15 +24,19 @@ namespace molumes
 
 		globjects::Program * getAccumulationProgram() override;
 		globjects::Program * getTileProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize) override;
+
 		void renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix) override;
+
 		void calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 minBounds) override;
 
-		float hex_horizontal_space = 0.0f;
-		float hex_vertical_space = 0.0f;
-		float hex_rect_width = 0.0f;
-		float hex_rect_height = 0.0f;
-		int hex_max_rect_row = 0;
-		int hex_max_rect_col = 0;
+		int mapPointToTile(glm::vec2 p) override;
+
+		float horizontal_space = 0.0f;
+		float vertical_space = 0.0f;
+		float rect_width = 0.0f;
+		float rect_height = 0.0f;
+		int max_rect_row = 0;
+		int max_rect_col = 0;
 		glm::vec2 maxBounds_hex_rect;
 
 	private:
