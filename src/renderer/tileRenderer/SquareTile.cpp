@@ -118,6 +118,7 @@ void SquareTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vao
 
 void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 {
+
 	// get maximum value of X,Y in accumulateTexture-Space
 	m_tile_cols = ceil(boundingBoxSize.x / tileSizeWS);
 	m_tile_rows = ceil(boundingBoxSize.y / tileSizeWS);

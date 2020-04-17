@@ -121,6 +121,11 @@ void HexTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTil
 
 void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 {
+
+	//hex size is defined as the lenght from its middle to a corner (so half of its bounding box size)
+	//to account for this we use half the size for computation to keep the size consistent with other tile forms
+	tileSizeWS /= 2.0f;
+
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
