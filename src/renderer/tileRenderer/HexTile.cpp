@@ -39,7 +39,7 @@ HexTile::HexTile(Renderer* renderer) :Tile(renderer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/hexagon/hexagon-tiles-fs.glsl"}
 		});
 
-	renderer->createShaderProgram("hexagon-grid", {
+	renderer->createShaderProgram("hex-grid", {
 		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-grid-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/hexagon/hexagon-grid-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
@@ -95,9 +95,9 @@ Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewport
 	return shaderProgram_hex_tiles;
 }
 
-void HexTile::renderGrid(std::unique_ptr<globjects::VertexArray> m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
+void HexTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
 {
-	auto shaderProgram_hexagon_grid = renderer->shaderProgram("hexagon-grid");
+	auto shaderProgram_hexagon_grid = renderer->shaderProgram("hex-grid");
 	shaderProgram_hexagon_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgram_hexagon_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
 

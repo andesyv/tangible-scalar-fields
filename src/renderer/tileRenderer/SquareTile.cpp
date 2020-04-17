@@ -85,7 +85,7 @@ Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewp
 	return shaderProgram_square_tiles;
 }
 
-void SquareTile::renderGrid(std::unique_ptr<globjects::VertexArray> m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
+void SquareTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
 {
 	auto shaderProgram_square_grid = renderer->shaderProgram("square-grid");
 

@@ -29,11 +29,10 @@ namespace molumes
 		// TILE CALC -------------------------------------------------------------------
 		virtual globjects::Program * getAccumulationProgram();
 		virtual globjects::Program * getTileProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize);
-		virtual void renderGrid(std::unique_ptr<globjects::VertexArray> m_vaoTiles, const glm::mat4 modelViewProjectionMatrix);
+		virtual void renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix);
 		virtual void calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
 		const float tileSizeDiv = 500.0f;
-		float m_tileSize = 20.0f;
 		float tileSizeWS = 0.0f;
 
 		int m_tileMaxY = 0;

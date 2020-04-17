@@ -37,7 +37,7 @@ namespace molumes
 
 	private:
 
-		Tile* tile;
+		Tile* tile = nullptr;
 		std::unordered_map<std::string, Tile*> tile_processors;
 
 		// INITIAL POINT DATA ----------------------------------------------------------------------
@@ -107,42 +107,9 @@ namespace molumes
 		// --------------------------------------------------------------------------------
 
 		// TILES CALC----------------------------------------------------------------
-		const float tileSizeDiv = 500.0f;
 		float m_tileSize = 20.0f;
-		float tileSizeWS = 0.0f;
-
-		int m_tileMaxY = 0;
-		int m_tileMaxX = 0;
-		int m_tile_rows = 0; //Y
-		int m_tile_cols = 0; //X
-		int numTiles = 0;
-
-		glm::vec2 maxBounds_Offset;
-		glm::vec2 minBounds_Offset;
 
 		void calculateTileTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
-
-		// SQUARE CALC -------------------------------------------------------------------
-
-		globjects::Program * getSquareAccumulationProgram();
-		globjects::Program * getSquareTileProgram(glm::mat4 modelViewProjectionMatrix);
-		void renderSquareGrid(const glm::mat4 modelViewProjectionMatrix);
-		void calculateNumberOfSquares(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
-
-		// HEXAGON CALC -------------------------------------------------------------------
-
-		float hex_horizontal_space = 0.0f;
-		float hex_vertical_space = 0.0f;
-		float hex_rect_width = 0.0f;
-		float hex_rect_height = 0.0f;
-		int hex_max_rect_row = 0;
-		int hex_max_rect_col = 0;
-		glm::vec2 maxBounds_hex_rect;
-
-		globjects::Program * getHexagonAccumulationProgram();
-		globjects::Program * getHexagonTileProgram(glm::mat4 modelViewProjectionMatrix);
-		void renderHexagonGrid(glm::mat4 modelViewProjectionMatrix, glm::vec2 minBounds);
-		void calculateNumberOfHexagons(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 
 		// ------------------------------------------------------------------------------------------
 
@@ -180,8 +147,8 @@ namespace molumes
 		// Tile Parameters
 		float m_tileSize_tmp = m_tileSize;
 
-		//point circle parameters
-		float m_pointCircleRadius = 50.0f;
+		//point circle parameters 
+		float m_pointCircleRadius = 50.0f; 
 		const float pointCircleRadiusDiv = 10000.0f;
 
 		//discrepancy parameters
