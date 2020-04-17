@@ -226,6 +226,16 @@ void TileRenderer::display()
 		m_discrepancy_easeIn = m_discrepancy_easeIn_tmp;
 		m_discrepancy_lowCount = m_discrepancy_lowCount_tmp;
 
+		//set tile processor
+		switch (m_selected_tile_style) {
+		case 1:
+			tile = tile_processors["square"];
+		case 2:
+			tile = tile_processors["hexagon"];
+		default:
+			tile = nullptr;
+		}
+
 		calculateTileTextureSize(inverseModelViewProjectionMatrix);
 	}
 
@@ -254,6 +264,7 @@ void TileRenderer::display()
 	nearPlane /= nearPlane.w;
 
 	// ====================================================================================== POINTS RENDER PASS =======================================================================================
+	// ONLY NEEDED TO SHOW POINTS - DOES NOT INFLUENCE COMPUTATION OF ANYTHING
 
 	if (m_selected_tile_style == 0 && !m_renderPointCircles) {
 
@@ -1154,9 +1165,9 @@ void TileRenderer::setShaderDefines() {
 		defines += "#define RENDER_DISCREPANCY\n";
 	}
 
-	if (m_selected_tile_style == 1)
+	if (m_selected_tile_style != 0)
 	{
-		defines += "#define RENDER_SQUARES\n";
+		defines += "#define RENDER_TILES\n";
 	}
 
 	if (m_selected_tile_style == 2)

@@ -40,7 +40,7 @@ void main()
         col = pointCircleCol;
     #endif 
 
-    #if defined(RENDER_SQUARES) || defined(RENDER_HEXAGONS)
+    #ifdef RENDER_TILES
         tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
         #ifdef RENDER_POINT_CIRCLES
