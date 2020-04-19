@@ -3,17 +3,6 @@
 #include <memory>
 
 #include <glm/glm.hpp>
-#include <glbinding/gl/gl.h> 
-#include <glbinding/gl/enum.h>
-#include <glbinding/gl/functions.h>
-
-#include <globjects/VertexArray.h>
-#include <globjects/VertexAttributeBinding.h>
-#include <globjects/Buffer.h>
-#include <globjects/Program.h>
-#include <globjects/Shader.h>
-#include <globjects/Framebuffer.h>
-#include <globjects/TextureHandle.h>
 
 namespace molumes
 {

@@ -1,24 +1,10 @@
 #include "HexTile.h"
-#include <globjects/base/File.h>
-#include <globjects/State.h>
 #include <iostream>
 #include <omp.h>
-#include <lodepng.h>
 #include <sstream>
-
-#include <glm/gtc/type_ptr.hpp>
 
 #include <cstdio>
 #include <ctime>
-
-
-#ifndef GLM_ENABLE_EXPERIMENTAL
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/transform.hpp>
-#endif
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
 
 using namespace molumes;
 using namespace gl;
