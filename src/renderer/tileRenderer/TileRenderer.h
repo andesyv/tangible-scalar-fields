@@ -77,6 +77,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -93,6 +94,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_tileAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_tilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_kdeFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
@@ -156,12 +158,17 @@ namespace molumes
 		float m_discrepancy_easeIn = 1.0f;
 		float m_discrepancy_lowCount = 0.0f;
 
+		//kde parameters
+		float m_sigma = 1.0f;
+		float m_gaussScale = 0.5f;
+
 		// define booleans
 		bool m_renderPointCircles = true;
 		bool m_renderDiscrepancy = false;
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
 		bool m_renderAccumulatePoints = false;
+		bool m_renderKDE = false;
 		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
 		float m_discrepancy_lowCount_tmp = m_discrepancy_lowCount;
 		// ------------------------------------------------------------------------------------------

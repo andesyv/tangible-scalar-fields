@@ -77,6 +77,12 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/max-val-fs.glsl"}
 		});
 
+	createShaderProgram("kde", {
+		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/kde-fs.glsl"}
+		});
+
 	createShaderProgram("shade", {
 		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
@@ -97,6 +103,8 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_tilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_gridTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	m_kdeTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -153,6 +161,11 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_gridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_gridTexture.get());
 	m_gridFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_gridFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+
+	m_kdeFramebuffer = Framebuffer::create();
+	m_kdeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_kdeTexture.get());
+	m_kdeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+	m_kdeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
@@ -269,58 +282,58 @@ void TileRenderer::display()
 	// ====================================================================================== POINTS RENDER PASS =======================================================================================
 	// ONLY NEEDED TO SHOW POINTS - DOES NOT INFLUENCE COMPUTATION OF ANYTHING
 
-	if (m_selected_tile_style == 0 && !m_renderPointCircles) {
+	//if (m_selected_tile_style == 0 && !m_renderPointCircles) {
 
-		m_pointFramebuffer->bind();
-		glClearDepth(1.0f);
-		glClearColor(0.0, 0.0, 0.0, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	m_pointFramebuffer->bind();
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// make sure points are drawn on top of each other
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_ALWAYS);
+	// make sure points are drawn on top of each other
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
 
-		// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
-		glEnablei(GL_BLEND, 0);
-		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glBlendEquationi(0, GL_MAX);
+	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendEquationi(0, GL_MAX);
 
-		// -------------------------------------------------------------------------------------------------
+	// -------------------------------------------------------------------------------------------------
 
-		auto shaderProgram_points = shaderProgram("points");
+	auto shaderProgram_points = shaderProgram("points");
 
-		shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
+	shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
 
-		shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-		if (m_colorMapLoaded)
-		{
-			m_colorMapTexture->bindActive(5);
-			shaderProgram_points->setUniform("colorMapTexture", 5);
-			shaderProgram_points->setUniform("textureWidth", m_ColorMapWidth);
-			shaderProgram_points->setUniform("viewportX", float(viewportSize.x));
-		}
-
-		m_vao->bind();
-		shaderProgram_points->use();
-
-		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-		shaderProgram_points->release();
-		m_vao->unbind();
-
-		if (m_colorMapLoaded)
-		{
-			m_colorMapTexture->unbindActive(5);
-		}
-
-		// disable blending for draw buffer 0 (classical scatter plot)
-		glDisablei(GL_BLEND, 0);
-
-		m_pointFramebuffer->unbind();
-
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->bindActive(5);
+		shaderProgram_points->setUniform("colorMapTexture", 5);
+		shaderProgram_points->setUniform("textureWidth", m_ColorMapWidth);
+		shaderProgram_points->setUniform("viewportX", float(viewportSize.x));
 	}
+
+	m_vao->bind();
+	shaderProgram_points->use();
+
+	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+	shaderProgram_points->release();
+	m_vao->unbind();
+
+	if (m_colorMapLoaded)
+	{
+		m_colorMapTexture->unbindActive(5);
+	}
+
+	// disable blending for draw buffer 0 (classical scatter plot)
+	glDisablei(GL_BLEND, 0);
+
+	m_pointFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	//}
 
 	// ====================================================================================== POINT CIRCLES RENDER PASS =======================================================================================
 
@@ -579,6 +592,7 @@ void TileRenderer::display()
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
+
 	// ====================================================================================== GRID RENDER PASS ======================================================================================
 	// render grid into texture
 
@@ -616,6 +630,55 @@ void TileRenderer::display()
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
+
+	// ====================================================================================== KDE RENDER PASS ======================================================================================
+	// render Kernel Density Estimation into texture
+
+	m_kdeFramebuffer->bind();
+
+	glClearDepth(1.0f);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// make sure points are drawn on top of each other
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_ALWAYS);
+
+	//ADDITIVE Blending GL_COLOR_ATTACHMENT0
+	glEnablei(GL_BLEND, 0);
+	glBlendFunci(0, GL_ONE, GL_ONE);
+	glBlendEquationi(0, GL_FUNC_ADD);
+
+	// -------------------------------------------------------------------------------------------------
+
+	m_pointChartTexture->bindActive(0);
+
+	auto shaderProgram_kde = shaderProgram("kde");
+
+	//shaderProgram_kde->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_kde->setUniform("sigma2", m_sigma);
+	shaderProgram_kde->setUniform("gaussScale", m_gaussScale);
+	shaderProgram_kde->setUniform("windowSize", vec2(viewer()->m_windowWidth, viewer()->m_windowHeight));
+
+	shaderProgram_kde->setUniform("pointChartTexture", 0);
+
+	m_vaoQuad->bind();
+
+	shaderProgram_kde->use();
+	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+	shaderProgram_kde->release();
+
+	m_vaoQuad->unbind();
+
+	// disable blending for draw buffer 0
+	glDisablei(GL_BLEND, 0);
+
+	m_pointChartTexture->unbindActive(0);
+
+	m_kdeFramebuffer->unbind();
+
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
 	// ====================================================================================== SHADE/BLEND RENDER PASS ======================================================================================
 	// blend everything together and draw to screen
 	m_shadeFramebuffer->bind();
@@ -625,6 +688,7 @@ void TileRenderer::display()
 	m_tileAccumulateTexture->bindActive(2);
 	m_gridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
+	m_kdeTexture->bindActive(5);
 
 	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 6);
 
@@ -650,6 +714,10 @@ void TileRenderer::display()
 		shaderProgram_shade->setUniform("accPointTexture", 2);
 	}
 
+	if (m_renderKDE) {
+		shaderProgram_shade->setUniform("kdeTexture", 5);
+	}
+
 	m_vaoQuad->bind();
 
 	shaderProgram_shade->use();
@@ -663,6 +731,7 @@ void TileRenderer::display()
 	m_tileAccumulateTexture->unbindActive(2);
 	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
+	m_kdeTexture->unbindActive(5);
 
 	//unbind shader storage buffer
 	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -835,7 +904,7 @@ void TileRenderer::renderGUI() {
 
 		}
 
-		if (ImGui::CollapsingHeader("Color Maps"), ImGuiTreeNodeFlags_DefaultOpen)
+		if (ImGui::CollapsingHeader("Color Maps"))
 		{
 			// show all available color-maps
 			ImGui::Combo("Maps", &m_colorMap, "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
@@ -891,7 +960,7 @@ void TileRenderer::renderGUI() {
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Discrepancy"), ImGuiTreeNodeFlags_DefaultOpen)
+		if (ImGui::CollapsingHeader("Discrepancy"))
 		{
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
 			ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
@@ -900,12 +969,19 @@ void TileRenderer::renderGUI() {
 			ImGui::SliderFloat("Low Point Count", &m_discrepancy_lowCount_tmp, 0.0f, 1.0f);
 			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
-		if (ImGui::CollapsingHeader("Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
+		if (ImGui::CollapsingHeader("Tiles"))
 		{
 			const char* tile_styles[]{ "none", "square", "hexagon" };
 			ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
 			ImGui::Checkbox("Render Grid", &m_renderGrid);
 			ImGui::SliderFloat("Tile Size ", &m_tileSize_tmp, 1.0f, 100.0f);
+		}
+
+		if (ImGui::CollapsingHeader("Kernel Density Estimation"))
+		{
+			ImGui::Checkbox("Render KDE", &m_renderKDE);
+			ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 20.0f);
+			ImGui::SliderFloat("Scale", &m_gaussScale, 0.1f, 1.0f);
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
@@ -948,8 +1024,12 @@ void TileRenderer::setShaderDefines() {
 	if (m_renderGrid) {
 		defines += "#define RENDER_GRID\n";
 	}
+
 	if (m_renderAccumulatePoints)
 		defines += "#define RENDER_ACC_POINTS\n";
+
+	if (m_renderKDE)
+		defines += "#define RENDER_KDE\n";
 
 
 	if (defines != m_shaderSourceDefines->string())
