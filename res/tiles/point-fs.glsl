@@ -3,24 +3,9 @@
 
 layout (location = 0) out vec4 pointChartTexture;
 
-uniform vec3 pointColor;
-
-// 1D color map parameters
-uniform sampler1D colorMapTexture;
-uniform int textureWidth;
-
-uniform float viewportX;
-
 void main()
 {
 
-	pointChartTexture = vec4(pointColor, 1.0f);
-
-	#ifdef COLORMAP
-		
-		//simple 1D texel fetch by mapping the viewport.x to the colormap
-		int colorTexelCoord = int((gl_FragCoord.x * textureWidth)/viewportX);
-		pointChartTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
-	#endif
+	pointChartTexture = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
 }

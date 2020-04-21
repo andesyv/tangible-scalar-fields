@@ -14,7 +14,6 @@ uniform float aspectRatio;
 //imposter space coordinates
 out vec2 isCoords;
 
-
 void main()
 {
     // create bounding box geometry

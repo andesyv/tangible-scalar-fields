@@ -78,8 +78,8 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		});
 
 	createShaderProgram("kde", {
-		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
+		{GL_VERTEX_SHADER,"./res/tiles/point-circle-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/point-circle-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/kde-fs.glsl"}
 		});
 
@@ -280,39 +280,29 @@ void TileRenderer::display()
 	nearPlane /= nearPlane.w;
 
 	// ====================================================================================== POINTS RENDER PASS =======================================================================================
-	// ONLY NEEDED TO SHOW POINTS - DOES NOT INFLUENCE COMPUTATION OF ANYTHING
+	// ONLY USED TO SHOW INITIAL POINTS
 
-	//if (m_selected_tile_style == 0 && !m_renderPointCircles) {
+	if (m_selected_tile_style == 0 && !m_renderPointCircles) {
 
-	m_pointFramebuffer->bind();
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		m_pointFramebuffer->bind();
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendEquationi(0, GL_MAX);
-
+		// allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquationi(0, GL_MAX);
+	}
 	// -------------------------------------------------------------------------------------------------
 
 	auto shaderProgram_points = shaderProgram("points");
 
-	shaderProgram_points->setUniform("pointColor", viewer()->samplePointColor());
-
 	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->bindActive(5);
-		shaderProgram_points->setUniform("colorMapTexture", 5);
-		shaderProgram_points->setUniform("textureWidth", m_ColorMapWidth);
-		shaderProgram_points->setUniform("viewportX", float(viewportSize.x));
-	}
 
 	m_vao->bind();
 	shaderProgram_points->use();
@@ -322,18 +312,12 @@ void TileRenderer::display()
 	shaderProgram_points->release();
 	m_vao->unbind();
 
-	if (m_colorMapLoaded)
-	{
-		m_colorMapTexture->unbindActive(5);
-	}
-
 	// disable blending for draw buffer 0 (classical scatter plot)
 	glDisablei(GL_BLEND, 0);
 
 	m_pointFramebuffer->unbind();
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-	//}
 
 	// ====================================================================================== POINT CIRCLES RENDER PASS =======================================================================================
 
@@ -633,52 +617,53 @@ void TileRenderer::display()
 
 	// ====================================================================================== KDE RENDER PASS ======================================================================================
 	// render Kernel Density Estimation into texture
+	if (m_renderKDE) {
+		m_kdeFramebuffer->bind();
 
-	m_kdeFramebuffer->bind();
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glClearDepth(1.0f);
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
 
-	// make sure points are drawn on top of each other
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
+		//ADDITIVE Blending GL_COLOR_ATTACHMENT0
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_ONE, GL_ONE);
+		glBlendEquationi(0, GL_FUNC_ADD);
 
-	//ADDITIVE Blending GL_COLOR_ATTACHMENT0
-	glEnablei(GL_BLEND, 0);
-	glBlendFunci(0, GL_ONE, GL_ONE);
-	glBlendEquationi(0, GL_FUNC_ADD);
+		// -------------------------------------------------------------------------------------------------
 
-	// -------------------------------------------------------------------------------------------------
+		auto shaderProgram_kde = shaderProgram("kde");
 
-	m_pointChartTexture->bindActive(0);
+		//set correct radius
+		float scaleAdjustedRadius = m_gaussSampleRadius / gaussSampleRadiusDiv * viewer()->scaleFactor();;
 
-	auto shaderProgram_kde = shaderProgram("kde");
+		//geometry shader
+		shaderProgram_kde->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_kde->setUniform("radius", scaleAdjustedRadius);
+		shaderProgram_kde->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
-	//shaderProgram_kde->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_kde->setUniform("sigma2", m_sigma);
-	shaderProgram_kde->setUniform("gaussScale", m_gaussScale);
-	shaderProgram_kde->setUniform("windowSize", vec2(viewer()->m_windowWidth, viewer()->m_windowHeight));
+		//fragment shader
+		shaderProgram_kde->setUniform("sigma2", m_sigma);
+		shaderProgram_kde->setUniform("viewportSize", vec2(viewer()->viewportSize()));
 
-	shaderProgram_kde->setUniform("pointChartTexture", 0);
+		m_vao->bind();
 
-	m_vaoQuad->bind();
+		shaderProgram_kde->use();
+		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+		shaderProgram_kde->release();
 
-	shaderProgram_kde->use();
-	m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-	shaderProgram_kde->release();
+		m_vao->unbind();
 
-	m_vaoQuad->unbind();
+		// disable blending for draw buffer 0
+		glDisablei(GL_BLEND, 0);
 
-	// disable blending for draw buffer 0
-	glDisablei(GL_BLEND, 0);
+		m_kdeFramebuffer->unbind();
 
-	m_pointChartTexture->unbindActive(0);
-
-	m_kdeFramebuffer->unbind();
-
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
 	// ====================================================================================== SHADE/BLEND RENDER PASS ======================================================================================
 	// blend everything together and draw to screen
 	m_shadeFramebuffer->bind();
@@ -980,8 +965,8 @@ void TileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Kernel Density Estimation"))
 		{
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
-			ImGui::SliderFloat("Sigma", &m_sigma, 1.0f, 20.0f);
-			ImGui::SliderFloat("Scale", &m_gaussScale, 0.1f, 1.0f);
+			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 2.0f);
+			ImGui::SliderFloat("Sample Radius", &m_gaussSampleRadius, 1.0f, 100.0f);
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
