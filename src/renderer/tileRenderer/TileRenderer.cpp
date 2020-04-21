@@ -210,6 +210,7 @@ void TileRenderer::display()
 		m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_tilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_gridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		m_kdeTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	}
 
@@ -647,7 +648,6 @@ void TileRenderer::display()
 
 		//fragment shader
 		shaderProgram_kde->setUniform("sigma2", m_sigma);
-		shaderProgram_kde->setUniform("viewportSize", vec2(viewer()->viewportSize()));
 
 		m_vao->bind();
 

@@ -5,7 +5,6 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 const float PI = 3.14159265359;
 
 uniform float sigma2;			
-uniform vec2 viewportSize;
 
 layout (location = 0) out vec4 densityEstimation;
 
