@@ -42,7 +42,6 @@ bool discardOutsideOfGridFragments(vec2 minBounds, vec2 maxBounds){
 
     if (rectY == 0 && mod(rectX, 3) != 2)
     {
-
         // rectangle left lower corner in space of points
         vec2 ll = vec2(rectX * rectSizeScreenSpace.x + minBounds.x, minBounds.y);
         vec2 a, b;
@@ -74,7 +73,6 @@ bool discardOutsideOfGridFragments(vec2 minBounds, vec2 maxBounds){
 
 void main()
 {
-
     vec2 minBounds = vec2(boundsScreenSpace[2], boundsScreenSpace[3]);
     vec2 maxBounds = vec2(boundsScreenSpace[0], boundsScreenSpace[1]);
 
