@@ -73,12 +73,13 @@ namespace molumes
 
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr; //TODO: could also use free channel of AccumulateTexture
+		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_densityNormalsTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_tileNormalsTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -97,6 +98,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_kdeFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_densityNormalsFramebuffer = nullptr;
+		std::unique_ptr<globjects::Framebuffer> m_tileNormalsFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
@@ -173,6 +175,7 @@ namespace molumes
 		bool m_renderAccumulatePoints = false;
 		bool m_renderKDE = false;
 		bool m_renderDensityNormals = false;
+		bool m_renderTileNormals = false;
 		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
 		float m_discrepancy_lowCount_tmp = m_discrepancy_lowCount;
 		// ------------------------------------------------------------------------------------------

@@ -24,5 +24,6 @@ void main()
 		discard;
 	}
 
+	//TODO do not use imposter coordinates
     densityEstimation = vec4(gaussKernel(fragDistanceFromCenter), 0.0f, 0.0f, 1.0f);
 }
