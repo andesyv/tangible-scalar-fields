@@ -460,15 +460,18 @@ void TileRenderer::display()
 		auto shaderProgram_kde = shaderProgram("kde");
 
 		//set correct radius
-		float scaleAdjustedRadius = m_gaussSampleRadius / gaussSampleRadiusDiv * viewer()->scaleFactor();;
-
+		float scaleAdjustedRadius = m_gaussSampleRadius / gaussSampleRadiusDiv * viewer()->scaleFactor();
+		float scaleAdjustedRadiusMult = gaussSampleRadiusMult / viewer()->scaleFactor();
 		//geometry shader
 		shaderProgram_kde->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-		shaderProgram_kde->setUniform("radius", scaleAdjustedRadius);
 		shaderProgram_kde->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+
+		// geometry&fragment shader
+		shaderProgram_kde->setUniform("radius", scaleAdjustedRadius);
 
 		//fragment shader
 		shaderProgram_kde->setUniform("sigma2", m_sigma);
+		shaderProgram_kde->setUniform("radiusMult", scaleAdjustedRadiusMult);
 
 		m_vao->bind();
 
@@ -1039,7 +1042,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
 			ImGui::Checkbox("Render Density Normals", &m_renderDensityNormals);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
-			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 2.0f);
+			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_gaussSampleRadius, 1.0f, 100.0f);
 		}
 

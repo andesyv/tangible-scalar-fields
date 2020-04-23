@@ -5,6 +5,8 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 const float PI = 3.14159265359;
 
 uniform float sigma2;			
+uniform float radius;
+uniform float radiusMult;
 
 layout (location = 0) out vec4 densityEstimation;
 
@@ -24,6 +26,5 @@ void main()
 		discard;
 	}
 
-	//TODO do not use imposter coordinates
-    densityEstimation = vec4(gaussKernel(fragDistanceFromCenter), 0.0f, 0.0f, 1.0f);
+    densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*radius*radiusMult), 0.0f, 0.0f, 1.0f);
 }
