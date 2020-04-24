@@ -96,7 +96,6 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_tileAccumulateFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_tilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_kdeFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_densityNormalsFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
@@ -153,8 +152,8 @@ namespace molumes
 		float m_tileSize_tmp = m_tileSize;
 
 		//point circle parameters 
-		float m_pointCircleRadius = 50.0f; 
-		const float pointCircleRadiusDiv = 10000.0f;
+		float m_pointCircleRadius = 30.0f;  // used for both pointCircles and kde-gaussSampleRadius 
+		const float pointCircleRadiusDiv = 5000.0f;
 
 		//discrepancy parameters
 		float m_discrepancyDiv = 1.5f;
@@ -163,8 +162,6 @@ namespace molumes
 
 		//kde parameters
 		float m_sigma = 1.0f;
-		float m_gaussSampleRadius = 50.0f;
-		const float gaussSampleRadiusDiv = 5000.0f;
 		const float gaussSampleRadiusMult = 400.0f;
 
 		// define booleans

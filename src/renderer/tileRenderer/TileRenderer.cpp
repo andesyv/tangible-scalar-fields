@@ -77,12 +77,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/max-val-fs.glsl"}
 		});
 
-	createShaderProgram("kde", {
-		{GL_VERTEX_SHADER,"./res/tiles/point-circle-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/point-circle-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/kde-fs.glsl"}
-		});
-
 	createShaderProgram("density-normals", {
 		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
@@ -147,8 +141,9 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_pointCircleFramebuffer = Framebuffer::create();
 	m_pointCircleFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_pointCircleTexture.get());
+	m_pointCircleFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_kdeTexture.get());
 	m_pointCircleFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_pointCircleFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_pointCircleFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
 
 	m_tilesDiscrepanciesFramebuffer = Framebuffer::create();
 	m_tilesDiscrepanciesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_tilesDiscrepanciesTexture.get());
@@ -169,11 +164,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_gridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_gridTexture.get());
 	m_gridFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_gridFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-
-	m_kdeFramebuffer = Framebuffer::create();
-	m_kdeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_kdeTexture.get());
-	m_kdeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_kdeFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_densityNormalsFramebuffer = Framebuffer::create();
 	m_densityNormalsFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_densityNormalsTexture.get());
@@ -312,76 +302,28 @@ void TileRenderer::display()
 		glEnablei(GL_BLEND, 0);
 		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glBlendEquationi(0, GL_MAX);
-	}
-	// -------------------------------------------------------------------------------------------------
-
-	auto shaderProgram_points = shaderProgram("points");
-
-	shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-	m_vao->bind();
-	shaderProgram_points->use();
-
-	m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-	shaderProgram_points->release();
-	m_vao->unbind();
-
-	// disable blending for draw buffer 0 (classical scatter plot)
-	glDisablei(GL_BLEND, 0);
-
-	m_pointFramebuffer->unbind();
-
-	glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-	// ====================================================================================== POINT CIRCLES RENDER PASS =======================================================================================
-
-	if (m_renderPointCircles) {
-		m_pointCircleFramebuffer->bind();
-		glClearDepth(1.0f);
-		glClearColor(0.0, 0.0, 0.0, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// make sure points are drawn on top of each other
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_ALWAYS);
-
-		// additive blending
-		glEnablei(GL_BLEND, 0);
-		glBlendFunci(0, GL_ONE, GL_ONE);
-		glBlendEquationi(0, GL_FUNC_ADD);
 
 		// -------------------------------------------------------------------------------------------------
 
-		auto shaderProgram_pointCircles = shaderProgram("point-circle");
+		auto shaderProgram_points = shaderProgram("points");
 
-		//set correct radius
-		float scaleAdjustedRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();;
-
-		//geometry shader
-		shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-		shaderProgram_pointCircles->setUniform("radius", scaleAdjustedRadius);
-		shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
-
-		//fragment shader
-		shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
+		shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 		m_vao->bind();
-		shaderProgram_pointCircles->use();
+		shaderProgram_points->use();
 
 		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
-		shaderProgram_pointCircles->release();
+		shaderProgram_points->release();
 		m_vao->unbind();
 
 		// disable blending for draw buffer 0 (classical scatter plot)
 		glDisablei(GL_BLEND, 0);
 
-		m_pointCircleFramebuffer->unbind();
+		m_pointFramebuffer->unbind();
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
-
 	// ====================================================================================== DISCREPANCIES RENDER PASS ======================================================================================
 	// Accumulate Points into tiles
 
@@ -431,11 +373,12 @@ void TileRenderer::display()
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 
-	if (m_renderKDE || m_renderDensityNormals || m_renderTileNormals) {
-		// ====================================================================================== KDE RENDER PASS ======================================================================================
-		// render Kernel Density Estimation into texture
-		m_kdeFramebuffer->bind();
+	// ====================================================================================== POINT CIRCLES  & KDE RENDER PASS =======================================================================================
+	// render Point Circles into texture
+	// render Kernel Density Estimation into texture
 
+	if (m_renderPointCircles || m_renderKDE) {
+		m_pointCircleFramebuffer->bind();
 		glClearDepth(1.0f);
 		glClearColor(0.0, 0.0, 0.0, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -444,44 +387,50 @@ void TileRenderer::display()
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_ALWAYS);
 
-		//ADDITIVE Blending GL_COLOR_ATTACHMENT0
+		// additive blending
 		glEnablei(GL_BLEND, 0);
 		glBlendFunci(0, GL_ONE, GL_ONE);
 		glBlendEquationi(0, GL_FUNC_ADD);
-
+		glEnablei(GL_BLEND, 1);
+		glBlendFunci(1, GL_ONE, GL_ONE);
+		glBlendEquationi(1, GL_FUNC_ADD);
 		// -------------------------------------------------------------------------------------------------
 
-		auto shaderProgram_kde = shaderProgram("kde");
+		auto shaderProgram_pointCircles = shaderProgram("point-circle");
 
 		//set correct radius
-		float scaleAdjustedRadius = m_gaussSampleRadius / gaussSampleRadiusDiv * viewer()->scaleFactor();
+		float scaleAdjustedRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
 		float scaleAdjustedRadiusMult = gaussSampleRadiusMult / viewer()->scaleFactor();
-		//geometry shader
-		shaderProgram_kde->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-		shaderProgram_kde->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
-		// geometry&fragment shader
-		shaderProgram_kde->setUniform("radius", scaleAdjustedRadius);
+		//geometry shader
+		shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_pointCircles->setUniform("radius", scaleAdjustedRadius);
+		shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
 		//fragment shader
-		shaderProgram_kde->setUniform("sigma2", m_sigma);
-		shaderProgram_kde->setUniform("radiusMult", scaleAdjustedRadiusMult);
+		shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
+		shaderProgram_pointCircles->setUniform("sigma2", m_sigma);
+		shaderProgram_pointCircles->setUniform("radiusMult", scaleAdjustedRadiusMult);
 
 		m_vao->bind();
+		shaderProgram_pointCircles->use();
 
-		shaderProgram_kde->use();
 		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-		shaderProgram_kde->release();
 
+		shaderProgram_pointCircles->release();
 		m_vao->unbind();
 
-		// disable blending for draw buffer 0
+		// disable blending for draw buffer 0 (classical scatter plot)
 		glDisablei(GL_BLEND, 0);
+		glDisablei(GL_BLEND, 1);
 
-		m_kdeFramebuffer->unbind();
+		m_pointCircleFramebuffer->unbind();
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	}
 
+	//TODO: combine into single render pass
+	if (m_renderDensityNormals || m_renderTileNormals) {
 		// ====================================================================================== DENSITY NORMALS RENDER PASS ======================================================================================
 		// render Density Normals into texture
 
@@ -1075,7 +1024,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Density Normals", &m_renderDensityNormals);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
-			ImGui::SliderFloat("Sample Radius", &m_gaussSampleRadius, 1.0f, 100.0f);
+			ImGui::SliderFloat("Sample Radius", &m_pointCircleRadius, 1.0f, 100.0f);
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
