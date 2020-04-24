@@ -954,7 +954,7 @@ void TileRenderer::renderGUI() {
 
 		}
 
-		if (ImGui::CollapsingHeader("Color Maps"))
+		if (ImGui::CollapsingHeader("Color Maps"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			// show all available color-maps
 			ImGui::Combo("Maps", &m_colorMap, "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
