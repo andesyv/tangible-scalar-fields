@@ -39,7 +39,7 @@ void main()
 	pointCircleTexture.rgb *= pointCircleTexture.a;
 
 	//TODO set correct define
-	#if defined(RENDER_KDE) || defined(RENDER_DENSITY_NORMALS)
-	densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*radius*radiusMult), 0.0f, 0.0f, 1.0f);
+	#if defined(RENDER_KDE) || defined(RENDER_DENSITY_NORMALS) || defined(RENDER_TILE_NORMALS)
+		densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*radius*radiusMult), 0.0f, 0.0f, 1.0f);
 	#endif
 }

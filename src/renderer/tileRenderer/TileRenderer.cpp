@@ -311,7 +311,7 @@ void TileRenderer::display()
 
 		m_vao->bind();
 		shaderProgram_points->use();
-
+		 
 		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
 		shaderProgram_points->release();
@@ -377,7 +377,7 @@ void TileRenderer::display()
 	// render Point Circles into texture
 	// render Kernel Density Estimation into texture
 
-	if (m_renderPointCircles || m_renderKDE) {
+	if (m_renderPointCircles || m_renderKDE || m_renderTileNormals) {
 		m_pointCircleFramebuffer->bind();
 		glClearDepth(1.0f);
 		glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -429,85 +429,6 @@ void TileRenderer::display()
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 
-	//TODO: combine into single render pass
-	if (m_renderDensityNormals || m_renderTileNormals) {
-		// ====================================================================================== DENSITY NORMALS RENDER PASS ======================================================================================
-		// render Density Normals into texture
-
-		m_densityNormalsFramebuffer->bind();
-
-		glClearDepth(1.0f);
-		glClearColor(0.0, 0.0, 0.0, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// make sure points are drawn on top of each other
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_ALWAYS);
-
-		//Blending GL_COLOR_ATTACHMENT0
-		glEnablei(GL_BLEND, 0);
-		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glBlendEquationi(0, GL_MAX);
-
-		// -------------------------------------------------------------------------------------------------
-
-		m_kdeTexture->bindActive(0);
-
-		auto shaderProgram_density_normals = shaderProgram("density-normals");
-
-		//fragment shader
-		shaderProgram_density_normals->setUniform("kdeTexture", 0);
-
-		m_vaoQuad->bind();
-
-		shaderProgram_density_normals->use();
-		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		shaderProgram_density_normals->release();
-
-		m_vaoQuad->unbind();
-
-		m_kdeTexture->unbindActive(0);
-
-		// disable blending
-		glDisablei(GL_BLEND, 0);
-
-		m_densityNormalsFramebuffer->unbind();
-
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-		// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
-		// render Tile Normals into storage buffer
-		if (tile != nullptr) {
-			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-			m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
-
-			uint initialVal = 0;
-			m_tileNormalsBuffer->clearData(GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &initialVal);
-			// -------------------------------------------------------------------------------------------------
-
-			m_densityNormalsTexture->bindActive(1);
-
-			auto shaderProgram_tile_normals = tile->getTileNormalsProgram(modelViewProjectionMatrix, viewer()->viewportSize());
-
-			shaderProgram_tile_normals->setUniform("densityNormalsTexture", 1);
-
-			m_vaoQuad->bind();
-
-			shaderProgram_tile_normals->use();
-			m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-			shaderProgram_tile_normals->release();
-
-			m_vaoQuad->unbind();
-
-			m_densityNormalsTexture->unbindActive(1);
-
-			//unbind shader storage buffer
-			m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-			glMemoryBarrier(GL_ALL_BARRIER_BITS);
-		}
-	}
-
 	// ====================================================================================== ACCUMULATE RENDER PASS ======================================================================================
 	// Accumulate Points into tiles
 	if (tile != nullptr) {
@@ -551,12 +472,12 @@ void TileRenderer::display()
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
-	// ====================================================================================== MAX VAL & TILES RENDER PASS ======================================================================================
-	// THIRD: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
-	// FOURTH: Render Tiles
+
+	// ====================================================================================== MAX VAL RENDER PASS ======================================================================================
+	// MAX VAL: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
 
 	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
 	// max accumulated Value
 	const uint initialMaxValue = 0;
@@ -604,12 +525,99 @@ void TileRenderer::display()
 	m_vaoQuad->unbind();
 
 	m_tileAccumulateTexture->unbindActive(1);
+	m_pointCircleTexture->unbindActive(2);
+
+	//unbind shader storage buffer
+	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	// -------------------------------------------------------------------------------------------------
+	//TODO: density normals pass only debug to show normals per pixel
+	if (m_renderDensityNormals || m_renderTileNormals) {
+		// ====================================================================================== DENSITY NORMALS RENDER PASS ======================================================================================
+		// render Density Normals into texture
+
+		m_densityNormalsFramebuffer->bind();
+
+		glClearDepth(1.0f);
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// make sure points are drawn on top of each other
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_ALWAYS);
+
+		//Blending GL_COLOR_ATTACHMENT0
+		glEnablei(GL_BLEND, 0);
+		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendEquationi(0, GL_MAX);
+
+		// -------------------------------------------------------------------------------------------------
+
+		m_kdeTexture->bindActive(0);
+
+		auto shaderProgram_density_normals = shaderProgram("density-normals");
+
+		//fragment shader
+		shaderProgram_density_normals->setUniform("kdeTexture", 0);
+
+		m_vaoQuad->bind();
+
+		shaderProgram_density_normals->use();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+		shaderProgram_density_normals->release();
+
+		m_vaoQuad->unbind();
+
+		m_kdeTexture->unbindActive(0);
+
+		// disable blending
+		glDisablei(GL_BLEND, 0);
+
+		m_densityNormalsFramebuffer->unbind();
+
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+		// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
+		// render Tile Normals into storage buffer
+		if (tile != nullptr && m_renderTileNormals) {
+			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+			m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+
+			uint initialVal = 0;
+			m_tileNormalsBuffer->clearData(GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &initialVal);
+			// -------------------------------------------------------------------------------------------------
+
+			m_kdeTexture->bindActive(1);
+			//TODO: remove
+			m_densityNormalsTexture->bindActive(2);
+
+			auto shaderProgram_tile_normals = tile->getTileNormalsProgram(modelViewProjectionMatrix, viewer()->viewportSize());
+
+			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
+			shaderProgram_tile_normals->setUniform("densityNormalsTexture", 2);
+
+			m_vaoQuad->bind();
+
+			shaderProgram_tile_normals->use();
+			m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+			shaderProgram_tile_normals->release();
+
+			m_vaoQuad->unbind();
+
+			m_kdeTexture->unbindActive(1);
+			m_densityNormalsTexture->unbindActive(2);
+
+			glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		}
+	}
+
+	// ====================================================================================== TILES RENDER PASS ======================================================================================
 	// Render tiles
 	if (tile != nullptr) {
+
+		m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+
 		m_tilesFramebuffer->bind();
 
 		glClearDepth(1.0f);
@@ -627,13 +635,13 @@ void TileRenderer::display()
 
 		// -------------------------------------------------------------------------------------------------
 
-		m_tileAccumulateTexture->bindActive(1);
-		m_tilesDiscrepanciesTexture->bindActive(2);
+		m_tileAccumulateTexture->bindActive(2);
+		m_tilesDiscrepanciesTexture->bindActive(3);
 
 		auto shaderProgram_tiles = tile->getTileProgram(modelViewProjectionMatrix, viewer()->viewportSize());
 
-		shaderProgram_tiles->setUniform("accumulateTexture", 1);
-		shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 2);
+		shaderProgram_tiles->setUniform("accumulateTexture", 2);
+		shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 3);
 
 		if (m_colorMapLoaded)
 		{
@@ -655,8 +663,8 @@ void TileRenderer::display()
 			m_colorMapTexture->unbindActive(5);
 		}
 
-		m_tileAccumulateTexture->unbindActive(1);
-		m_tilesDiscrepanciesTexture->unbindActive(2);
+		m_tileAccumulateTexture->unbindActive(2);
+		m_tilesDiscrepanciesTexture->unbindActive(3);
 
 		// disable blending
 		glDisablei(GL_BLEND, 0);
@@ -665,6 +673,7 @@ void TileRenderer::display()
 
 		//unbind shader storage buffer
 		m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+		m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
@@ -803,7 +812,7 @@ void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectio
 		//allocate tile normals buffer storage
 		m_tileNormalsBuffer->bind(GL_SHADER_STORAGE_BUFFER);
 		// we safe each value of the normal (vec4) seperately
-		m_tileNormalsBuffer->setData(sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_READ_BUFFER);
+		m_tileNormalsBuffer->setData(sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_DYNAMIC_READ);
 		m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 		//calculate viewport settings

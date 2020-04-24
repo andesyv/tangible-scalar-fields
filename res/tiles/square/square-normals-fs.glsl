@@ -5,7 +5,7 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-layout(std430, binding = 2) buffer valueMaxBuffer
+layout(std430, binding = 0) buffer tileNormalsBuffer
 {
     uint tileNormals[];
 };
@@ -13,6 +13,7 @@ layout(std430, binding = 2) buffer valueMaxBuffer
 in vec4 boundsScreenSpace;
 
 uniform sampler2D densityNormalsTexture;
+uniform sampler2D kdeTexture;
 
 //min = 0
 uniform int maxTexCoordX;
@@ -28,17 +29,20 @@ void main()
 
     //TODO: test if necessary
     // we don't want to render fragments outside the grid
-    if(squareX < 0 || squareY < 0){
-        discard;
-    }
-
+   // if(squareX < 0 || squareY < 0){
+   //     discard;
+   // }
     //TODO: maybe discard empty tiles for performance
 
     // get value from density normals texture
-    vec4 fragmentNormal = texelFetch(densityNormalsTexture, ivec2(gl_FragCoord.xy), 0);
+    vec4 fragmentNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
+    //vec4 fragmentNormal = texelFetch(densityNormalsTexture, ivec2(gl_FragCoord.xy), 0);
 
     for(int i = 0; i < 4; i++){
-        uint uintValue = floatBitsToUint(fragmentNormal[i]);
+        uint uintValue = floatBitsToUint(.5f);
+        //uint uintValue =floatBitsToUint(fragmentNormal[i]);
+        //tileNormals[((squareX*maxTexCoordY) + squareY) * 4 + i] = uintValue;
+
         atomicAdd(tileNormals[((squareX*maxTexCoordY) + squareY) * 4 + i], uintValue);
     }
 }

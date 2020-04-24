@@ -5,7 +5,12 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-layout(std430, binding = 2) buffer valueMaxBuffer
+layout(std430, binding = 0) buffer tileNormalsBuffer
+{
+    uint tileNormals[];
+};
+
+layout(std430, binding = 1) buffer valueMaxBuffer
 {
     uint maxAccumulate;
     uint maxPointAlpha;
@@ -61,5 +66,21 @@ void main()
         //discrepancy is set as opacity
         float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(squareX,squareY), 0).r;
         squareTilesTexture *= tilesDiscrepancy;
+    #endif
+
+
+
+    // REGRESSION PLANE------------------------------------------------------------------------------------------------
+    #ifdef RENDER_TILE_NORMALS
+        vec4 tileNormal = vec4(0.0f,0.0f,0.0f,0.0f);
+        for(int i = 0; i < 4; i++){
+
+            float floatValue = uintBitsToFloat(tileNormals[((squareX*maxTexCoordY) + squareY) * 4 + i]);
+            tileNormal[i] = floatValue;
+        }
+        //tileNormal = normalize(tileNormal);
+
+        //debug
+        squareTilesTexture = tileNormal;
     #endif
 }

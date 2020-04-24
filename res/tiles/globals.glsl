@@ -38,6 +38,20 @@ vec4 over(vec4 colA, vec4 colB){
     return 1/alphaBlend * (colA.a*colA + (1-colA.a)*colB.a*colB);
 }
 
+// https://stackoverflow.com/questions/49640250/calculate-normals-from-heightmap
+vec3 calculateNormal(ivec2 texelCoord, sampler2D texture){
+                
+    // texelFetch (0,0) -> left bottom
+    float top = texelFetch(texture, ivec2(texelCoord.x, texelCoord.y+1), 0).r;
+    float bottom = texelFetch(texture, ivec2(texelCoord.x, texelCoord.y-1), 0).r;
+    float left = texelFetch(texture, ivec2(texelCoord.x-1, texelCoord.y), 0).r;
+    float right = texelFetch(texture, ivec2(texelCoord.x+1, texelCoord.y), 0).r;
+
+    // reconstruct normal
+    vec3 normal = vec3((right-left)/2,(top-bottom)/2,1);
+    return normalize(normal);
+}
+
 bool pointInsideHex(vec2 a, vec2 b, vec2 p){
     return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) > 0;
 }

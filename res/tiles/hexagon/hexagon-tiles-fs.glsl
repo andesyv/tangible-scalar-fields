@@ -5,7 +5,7 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-layout(std430, binding = 2) buffer valueMaxBuffer
+layout(std430, binding = 1) buffer valueMaxBuffer
 {
     uint maxAccumulate;
     uint maxPointAlpha;
