@@ -18,6 +18,7 @@ namespace molumes
 		// TILE CALC -------------------------------------------------------------------
 		virtual globjects::Program * getAccumulationProgram();
 		virtual globjects::Program * getTileProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize);
+		virtual globjects::Program * getTileNormalsProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize);
 		virtual void renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix);
 		virtual void calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 		virtual int mapPointToTile(glm::vec2 p);

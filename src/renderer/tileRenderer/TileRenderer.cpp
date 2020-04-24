@@ -105,7 +105,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	// the size of this textures is set dynamicly depending on the grid granularity
 	m_tilesDiscrepanciesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	m_tileAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	m_tileNormalsTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_tilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -180,11 +179,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_densityNormalsFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_densityNormalsTexture.get());
 	m_densityNormalsFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_densityNormalsFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-
-	m_tileNormalsFramebuffer = Framebuffer::create();
-	m_tileNormalsFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_tileNormalsTexture.get());
-	m_tileNormalsFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_tileNormalsFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
@@ -531,6 +525,38 @@ void TileRenderer::display()
 		m_densityNormalsFramebuffer->unbind();
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+		// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
+		// render Tile Normals into storage buffer
+		if (tile != nullptr) {
+			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+			m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+
+			uint initialVal = 0;
+			m_tileNormalsBuffer->clearData(GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &initialVal);
+			// -------------------------------------------------------------------------------------------------
+
+			m_densityNormalsTexture->bindActive(1);
+
+			auto shaderProgram_tile_normals = tile->getTileNormalsProgram(modelViewProjectionMatrix, viewer()->viewportSize());
+
+			shaderProgram_tile_normals->setUniform("densityNormalsTexture", 1);
+
+			m_vaoQuad->bind();
+
+			shaderProgram_tile_normals->use();
+			m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+			shaderProgram_tile_normals->release();
+
+			m_vaoQuad->unbind();
+
+			m_densityNormalsTexture->unbindActive(1);
+
+			//unbind shader storage buffer
+			m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+
+			glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		}
 	}
 
 	// ====================================================================================== ACCUMULATE RENDER PASS ======================================================================================
@@ -824,6 +850,12 @@ void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectio
 		//set texture size
 		m_tilesDiscrepanciesTexture->image2D(0, GL_RGBA32F, ivec2(tile->m_tile_cols, tile->m_tile_rows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		m_tileAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(tile->m_tile_cols, tile->m_tile_rows), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+		//allocate tile normals buffer storage
+		m_tileNormalsBuffer->bind(GL_SHADER_STORAGE_BUFFER);
+		// we safe each value of the normal (vec4) seperately
+		m_tileNormalsBuffer->setData(sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_READ_BUFFER);
+		m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 		//calculate viewport settings
 		/*vec4 testPoint = vec4(1.0f, 2.0f, 0.0f, 1.0f);

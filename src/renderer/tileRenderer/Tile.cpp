@@ -19,6 +19,11 @@ globjects::Program * molumes::Tile::getTileProgram(glm::mat4 modelViewProjection
 	return nullptr;
 }
 
+globjects::Program * molumes::Tile::getTileNormalsProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize)
+{
+	return nullptr;
+}
+
 void molumes::Tile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
 {
 }

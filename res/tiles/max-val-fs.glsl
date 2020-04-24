@@ -11,9 +11,6 @@ layout(std430, binding = 2) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
-//--in
-layout(pixel_center_integer) in vec4 gl_FragCoord;
-
 #ifdef RENDER_TILES
     in vec4 boundsScreenSpace;
 

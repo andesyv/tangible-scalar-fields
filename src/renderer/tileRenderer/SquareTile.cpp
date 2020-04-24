@@ -30,6 +30,12 @@ SquareTile::SquareTile(Renderer* renderer) :Tile(renderer)
 		{GL_GEOMETRY_SHADER,"./res/tiles/square/square-grid-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
 		});
+
+	renderer->createShaderProgram("square-normals", {
+		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/square/square-normals-fs.glsl"}
+		});
 }
 
 
@@ -58,17 +64,36 @@ Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewp
 	shaderProgram_square_tiles->setUniform("maxBounds_acc", maxBounds_Offset);
 	shaderProgram_square_tiles->setUniform("minBounds_acc", minBounds_Offset);
 
-	//geometry & fragment shader
-	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
 	shaderProgram_square_tiles->setUniform("windowWidth", viewportSize[0]);
 	shaderProgram_square_tiles->setUniform("windowHeight", viewportSize[1]);
+
+	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 	//fragment Shader
 	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_tileMaxY);
 
 	return shaderProgram_square_tiles;
+}
+
+Program * SquareTile::getTileNormalsProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize)
+{
+	auto shaderProgram_square_normals = renderer->shaderProgram("square-normals");
+
+	//geometry shader
+	shaderProgram_square_normals->setUniform("maxBounds_acc", maxBounds_Offset);
+	shaderProgram_square_normals->setUniform("minBounds_acc", minBounds_Offset);
+
+	shaderProgram_square_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+	shaderProgram_square_normals->setUniform("windowWidth", viewportSize[0]);
+	shaderProgram_square_normals->setUniform("windowHeight", viewportSize[1]);
+
+	//fragment Shader
+	shaderProgram_square_normals->setUniform("maxTexCoordX", m_tileMaxX);
+	shaderProgram_square_normals->setUniform("maxTexCoordY", m_tileMaxY);
+
+	return shaderProgram_square_normals;
 }
 
 void SquareTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
@@ -124,7 +149,7 @@ void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int SquareTile::mapPointToTile(vec2 p) {
-	 
+
 	// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
 	// If the current value = maxValue, we take the maxTexCoord instead
 	int squareX = min(m_tileMaxX, mapInterval(p.x, minBounds_Offset[0], maxBounds_Offset[0], m_tileMaxX + 1));

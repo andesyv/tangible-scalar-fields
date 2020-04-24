@@ -30,6 +30,12 @@ HexTile::HexTile(Renderer* renderer) :Tile(renderer)
 		{GL_GEOMETRY_SHADER,"./res/tiles/hexagon/hexagon-grid-gs.glsl"},
 		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
 		});
+
+	renderer->createShaderProgram("hex-normals", {
+		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
+		{GL_GEOMETRY_SHADER,"./res/tiles/bounding-quad-gs.glsl"},
+		{GL_FRAGMENT_SHADER,"./res/tiles/hexagon/hexagon-normals-fs.glsl"}
+		});
 }
 
 
@@ -64,11 +70,38 @@ Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewport
 	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_rect);
 	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds_Offset);
 
-	//geometry & fragment shader
 	shaderProgram_hex_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 	shaderProgram_hex_tiles->setUniform("windowWidth", viewportSize[0]);
 	shaderProgram_hex_tiles->setUniform("windowHeight", viewportSize[1]);
+
+	//geometry & fragment shader
+	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
+
+	//fragment Shader
+	shaderProgram_hex_tiles->setUniform("maxTexCoordX", m_tileMaxX);
+	shaderProgram_hex_tiles->setUniform("maxTexCoordY", m_tileMaxY);
+
+	shaderProgram_hex_tiles->setUniform("max_rect_col", max_rect_col);
+	shaderProgram_hex_tiles->setUniform("max_rect_row", max_rect_row);
+
+	return shaderProgram_hex_tiles;
+}
+
+Program * HexTile::getTileNormalsProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize)
+{
+	auto shaderProgram_hex_tiles = renderer->shaderProgram("hex-normals");
+
+	//geometry shader
+	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_rect);
+	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds_Offset);
+
+	shaderProgram_hex_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+	shaderProgram_hex_tiles->setUniform("windowWidth", viewportSize[0]);
+	shaderProgram_hex_tiles->setUniform("windowHeight", viewportSize[1]);
+
+	//geometry & fragment shader
 	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
 
 	//fragment Shader

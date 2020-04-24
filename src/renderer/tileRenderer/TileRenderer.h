@@ -79,7 +79,6 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_densityNormalsTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_tileNormalsTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -87,6 +86,7 @@ namespace molumes
 
 		//SSBO
 		std::unique_ptr<globjects::Buffer> m_valueMaxBuffer = std::make_unique<globjects::Buffer>();
+		std::unique_ptr<globjects::Buffer> m_tileNormalsBuffer = std::make_unique<globjects::Buffer>();
 
 		// FRAMEBUFFER -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
@@ -98,7 +98,6 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_kdeFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_densityNormalsFramebuffer = nullptr;
-		std::unique_ptr<globjects::Framebuffer> m_tileNormalsFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
