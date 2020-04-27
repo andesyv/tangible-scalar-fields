@@ -32,6 +32,8 @@ namespace molumes
 		int m_tile_cols = 0; //X
 		int numTiles = 0;
 
+		const float normalsFactor = 10000.0f;
+
 		glm::vec2 maxBounds_Offset;
 		glm::vec2 minBounds_Offset;
 

@@ -29,6 +29,8 @@ uniform int textureWidth;
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
 
+uniform float normalsFactor;
+
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
 
@@ -72,13 +74,17 @@ void main()
 
     // REGRESSION PLANE------------------------------------------------------------------------------------------------
     #ifdef RENDER_TILE_NORMALS
-        vec4 tileNormal = vec4(0.0f,0.0f,0.0f,0.0f);
+        vec4 tileNormal = vec4(0.0f,0.0f,0.0f,1.0f);
         for(int i = 0; i < 4; i++){
-
-            float floatValue = uintBitsToFloat(tileNormals[((squareX*maxTexCoordY) + squareY) * 4 + i]);
-            tileNormal[i] = floatValue;
+            tileNormal[i] = float(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i]);
         }
-        //tileNormal = normalize(tileNormal);
+        tileNormal /= normalsFactor;
+
+        vec2 xy = normalize(vec2(tileNormal));
+        tileNormal.x = xy.x;
+        tileNormal.y = xy.y;
+        //which w? tileNormal.w or gl_FragCoord.w
+        tileNormal.z /= gl_FragCoord.w;
 
         //debug
         squareTilesTexture = tileNormal;

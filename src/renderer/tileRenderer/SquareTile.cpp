@@ -73,6 +73,8 @@ Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewp
 	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_tileMaxY);
 
+	shaderProgram_square_tiles->setUniform("normalsFactor", normalsFactor);
+
 	return shaderProgram_square_tiles;
 }
 
@@ -92,6 +94,8 @@ Program * SquareTile::getTileNormalsProgram(mat4 modelViewProjectionMatrix, ivec
 	//fragment Shader
 	shaderProgram_square_normals->setUniform("maxTexCoordX", m_tileMaxX);
 	shaderProgram_square_normals->setUniform("maxTexCoordY", m_tileMaxY);
+
+	shaderProgram_square_normals->setUniform("normalsFactor", normalsFactor);
 
 	return shaderProgram_square_normals;
 }

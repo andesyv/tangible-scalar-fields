@@ -19,6 +19,8 @@ uniform sampler2D kdeTexture;
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
 
+uniform float normalsFactor;
+
 void main()
 {
     
@@ -36,13 +38,11 @@ void main()
 
     // get value from density normals texture
     vec4 fragmentNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
-    //vec4 fragmentNormal = texelFetch(densityNormalsTexture, ivec2(gl_FragCoord.xy), 0);
-
+    fragmentNormal *= normalsFactor;
+   
     for(int i = 0; i < 4; i++){
-        uint uintValue = floatBitsToUint(.5f);
-        //uint uintValue =floatBitsToUint(fragmentNormal[i]);
-        //tileNormals[((squareX*maxTexCoordY) + squareY) * 4 + i] = uintValue;
+        uint uintValue = uint(fragmentNormal[i]);
 
-        atomicAdd(tileNormals[((squareX*maxTexCoordY) + squareY) * 4 + i], uintValue);
+        atomicAdd(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i], uintValue);
     }
 }

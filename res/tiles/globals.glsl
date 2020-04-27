@@ -48,7 +48,7 @@ vec3 calculateNormal(ivec2 texelCoord, sampler2D texture){
     float right = texelFetch(texture, ivec2(texelCoord.x+1, texelCoord.y), 0).r;
 
     // reconstruct normal
-    vec3 normal = vec3((right-left)/2,(top-bottom)/2,1);
+    vec3 normal = vec3((right-left)/2,(top-bottom)/2, 1);
     return normalize(normal);
 }
 

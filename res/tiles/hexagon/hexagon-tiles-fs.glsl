@@ -28,6 +28,8 @@ uniform int maxTexCoordY;
 uniform int max_rect_col;
 uniform int max_rect_row;
 
+uniform float normalsFactor;
+
 //--out
 layout(location = 0) out vec4 hexTilesTexture;
 

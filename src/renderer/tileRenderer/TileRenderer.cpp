@@ -311,7 +311,7 @@ void TileRenderer::display()
 
 		m_vao->bind();
 		shaderProgram_points->use();
-		 
+
 		m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
 		shaderProgram_points->release();
@@ -584,7 +584,9 @@ void TileRenderer::display()
 			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
 			m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
-			uint initialVal = 0;
+			// one Pixel fo data is enough to clear whole buffer
+			// https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
+			const uint initialVal = 0;
 			m_tileNormalsBuffer->clearData(GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &initialVal);
 			// -------------------------------------------------------------------------------------------------
 
@@ -608,7 +610,27 @@ void TileRenderer::display()
 			m_kdeTexture->unbindActive(1);
 			m_densityNormalsTexture->unbindActive(2);
 
+			/*
 			glMemoryBarrier(GL_ALL_BARRIER_BITS);
+			uint* arrayMain = new uint[4 * tile->m_tile_cols*tile->m_tile_rows]();
+			m_tileNormalsBuffer->getSubData(0, sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
+			
+			std::cout << "New Frame: " << std::endl;
+
+			float a = 0.123456789f;
+			uint t = floatBitsToUint(a);
+			uint t_s = t / 10000;
+			float t_f = uintBitsToFloat(t_s * 10000);
+
+			uint t2 = a * 1000000;
+			float t2_f = t2 / 1000000.0f;
+
+			for (int i = 0; i < 4 * tile->m_tile_cols*tile->m_tile_rows; i++) {
+				uint y = arrayMain[i];
+				float z = uintBitsToFloat(y);
+				std::cout << i / 4 << ": " << i % 4 << ": " << y << std::endl;
+			}
+			delete[] arrayMain;*/
 		}
 	}
 
@@ -812,7 +834,7 @@ void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectio
 		//allocate tile normals buffer storage
 		m_tileNormalsBuffer->bind(GL_SHADER_STORAGE_BUFFER);
 		// we safe each value of the normal (vec4) seperately
-		m_tileNormalsBuffer->setData(sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_DYNAMIC_READ);
+		m_tileNormalsBuffer->setData(sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_STREAM_DRAW);
 		m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 		//calculate viewport settings

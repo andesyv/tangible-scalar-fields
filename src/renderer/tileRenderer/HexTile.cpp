@@ -85,6 +85,8 @@ Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewport
 	shaderProgram_hex_tiles->setUniform("max_rect_col", max_rect_col);
 	shaderProgram_hex_tiles->setUniform("max_rect_row", max_rect_row);
 
+	shaderProgram_hex_tiles->setUniform("normalsFactor", normalsFactor);
+
 	return shaderProgram_hex_tiles;
 }
 
@@ -110,6 +112,8 @@ Program * HexTile::getTileNormalsProgram(mat4 modelViewProjectionMatrix, ivec2 v
 
 	shaderProgram_hex_tiles->setUniform("max_rect_col", max_rect_col);
 	shaderProgram_hex_tiles->setUniform("max_rect_row", max_rect_row);
+
+	shaderProgram_hex_tiles->setUniform("normalsFactor", normalsFactor);
 
 	return shaderProgram_hex_tiles;
 }
