@@ -56,7 +56,7 @@ Program * SquareTile::getAccumulationProgram()
 	return shaderProgram_square_acc;
 }
 
-Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize)
+Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize, vec3 viewLightPosition)
 {
 	auto shaderProgram_square_tiles = renderer->shaderProgram("square-tiles");
 
@@ -74,6 +74,11 @@ Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewp
 	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_tileMaxY);
 
 	shaderProgram_square_tiles->setUniform("normalsFactor", normalsFactor);
+
+	//lighting
+	shaderProgram_square_tiles->setUniform("lightPos", viewLightPosition);
+	shaderProgram_square_tiles->setUniform("viewPos", vec3(0));
+	shaderProgram_square_tiles->setUniform("lightColor", vec3(1));
 
 	return shaderProgram_square_tiles;
 }

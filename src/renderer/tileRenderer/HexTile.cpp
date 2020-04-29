@@ -62,7 +62,7 @@ Program * HexTile::getAccumulationProgram()
 	return shaderProgram_hex_acc;
 }
 
-Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize)
+Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize, vec3 viewLightPosition)
 {
 	auto shaderProgram_hex_tiles = renderer->shaderProgram("hex-tiles");
 

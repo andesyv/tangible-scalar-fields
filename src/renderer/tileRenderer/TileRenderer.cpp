@@ -223,6 +223,9 @@ void TileRenderer::display()
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 
+	//TODO: ask thomas if correct
+	vec4 viewLightPosition = modelViewProjectionMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
 	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp
 		|| m_discrepancy_easeIn != m_discrepancy_easeIn_tmp || m_discrepancy_lowCount != m_discrepancy_lowCount_tmp || viewer()->viewportSize() != m_framebufferSize) {
 
@@ -610,11 +613,11 @@ void TileRenderer::display()
 			m_kdeTexture->unbindActive(1);
 			m_densityNormalsTexture->unbindActive(2);
 
-			/*
 			glMemoryBarrier(GL_ALL_BARRIER_BITS);
-			uint* arrayMain = new uint[4 * tile->m_tile_cols*tile->m_tile_rows]();
+
+			/*uint* arrayMain = new uint[4 * tile->m_tile_cols*tile->m_tile_rows]();
 			m_tileNormalsBuffer->getSubData(0, sizeof(uint) * 4 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
-			
+
 			std::cout << "New Frame: " << std::endl;
 
 			float a = 0.123456789f;
@@ -625,10 +628,18 @@ void TileRenderer::display()
 			uint t2 = a * 1000000;
 			float t2_f = t2 / 1000000.0f;
 
-			for (int i = 0; i < 4 * tile->m_tile_cols*tile->m_tile_rows; i++) {
-				uint y = arrayMain[i];
-				float z = uintBitsToFloat(y);
-				std::cout << i / 4 << ": " << i % 4 << ": " << y << std::endl;
+			for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
+				vec4 tileNormal = vec4(0);
+				for (int j = 0; j < 4; j++) {
+					uint y = arrayMain[4 * i + j];
+					float z = y / 10000.0f;
+					tileNormal[j] = z;
+				}
+				tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
+				for (int j = 0; j < 4; j++) {
+
+					std::cout << i << ": " << j << ": " << tileNormal[j] << std::endl;
+				}
 			}
 			delete[] arrayMain;*/
 		}
@@ -660,7 +671,7 @@ void TileRenderer::display()
 		m_tileAccumulateTexture->bindActive(2);
 		m_tilesDiscrepanciesTexture->bindActive(3);
 
-		auto shaderProgram_tiles = tile->getTileProgram(modelViewProjectionMatrix, viewer()->viewportSize());
+		auto shaderProgram_tiles = tile->getTileProgram(modelViewProjectionMatrix, viewer()->viewportSize(), viewLightPosition);
 
 		shaderProgram_tiles->setUniform("accumulateTexture", 2);
 		shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 3);

@@ -31,6 +31,12 @@ uniform int maxTexCoordY;
 
 uniform float normalsFactor;
 
+//Lighting----------------------
+uniform vec3 lightPos; 
+uniform vec3 viewPos; //is vec3(0,0,0) because we work in viewspace
+uniform vec3 lightColor;
+//----------------------
+
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
 
@@ -70,23 +76,46 @@ void main()
         squareTilesTexture *= tilesDiscrepancy;
     #endif
 
-
-
     // REGRESSION PLANE------------------------------------------------------------------------------------------------
+    vec4 tileNormal = vec4(0.0f,0.0f,0.0f,1.0f);
     #ifdef RENDER_TILE_NORMALS
-        vec4 tileNormal = vec4(0.0f,0.0f,0.0f,1.0f);
         for(int i = 0; i < 4; i++){
             tileNormal[i] = float(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i]);
         }
         tileNormal /= normalsFactor;
-
+        vec3 t = vec3(tileNormal.x, tileNormal.y, 1);
+        t = normalize(t);
+/*
         vec2 xy = normalize(vec2(tileNormal));
         tileNormal.x = xy.x;
         tileNormal.y = xy.y;
         //which w? tileNormal.w or gl_FragCoord.w
-        tileNormal.z /= gl_FragCoord.w;
+        tileNormal.z /= gl_FragCoord.w;*/
+        tileNormal = vec4(t,tileNormal.w);
 
         //debug
-        squareTilesTexture = tileNormal;
+        //squareTilesTexture = vec4(t, 1.0f);
     #endif
+
+    // PHONG LIGHTING ----------------------------------------------------------------------------------------------
+    // TODO: move to global.glsl
+    //TODO: maybe create different global.glsl for different groups of methods
+    // ambient
+    float ambientStrength = 0.8;
+    vec3 ambient = ambientStrength * lightColor;
+  	
+    // diffuse 
+    vec3 norm = vec3(tileNormal);
+    vec3 lightDir = normalize(lightPos - vec3(gl_FragCoord));
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+    
+    // specular
+    float specularStrength = 0.5;
+    vec3 viewDir = normalize(viewPos - vec3(gl_FragCoord));
+    vec3 reflectDir = reflect(-lightDir, norm);  
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    vec3 specular = specularStrength * spec * lightColor;  
+        
+    squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
 }
