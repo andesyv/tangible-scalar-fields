@@ -14,12 +14,12 @@ globjects::Program * molumes::Tile::getAccumulationProgram()
 	return nullptr;
 }
 
-globjects::Program * molumes::Tile::getTileProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize, glm::vec3 viewLightPosition)
+globjects::Program * molumes::Tile::getTileProgram()
 {
 	return nullptr;
 }
 
-globjects::Program * molumes::Tile::getTileNormalsProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize)
+globjects::Program * molumes::Tile::getTileNormalsProgram()
 {
 	return nullptr;
 }

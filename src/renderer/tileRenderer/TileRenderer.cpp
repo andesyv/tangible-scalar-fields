@@ -250,7 +250,7 @@ void TileRenderer::display()
 
 		if (viewer()->viewportSize() != m_framebufferSize)
 		{
-			m_framebufferSize = viewer()->viewportSize();
+			m_framebufferSize = viewportSize;
 			m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_tilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -596,7 +596,13 @@ void TileRenderer::display()
 			//TODO: remove
 			m_densityNormalsTexture->bindActive(2);
 
-			auto shaderProgram_tile_normals = tile->getTileNormalsProgram(modelViewProjectionMatrix, viewer()->viewportSize());
+			auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
+
+			//geometry shader
+			shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+			shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
+			shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
 
 			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
 			shaderProgram_tile_normals->setUniform("densityNormalsTexture", 2);
@@ -672,8 +678,23 @@ void TileRenderer::display()
 		m_tileAccumulateTexture->bindActive(2);
 		m_tilesDiscrepanciesTexture->bindActive(3);
 
-		auto shaderProgram_tiles = tile->getTileProgram(modelViewProjectionMatrix, viewer()->viewportSize(), viewLightPosition);
+		auto shaderProgram_tiles = tile->getTileProgram();
+		
+		//geometry shader
+		shaderProgram_tiles->setUniform("windowWidth", viewportSize[0]);
+		shaderProgram_tiles->setUniform("windowHeight", viewportSize[1]);
 
+		shaderProgram_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+		//fragment Shader
+		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
+
+		//lighting
+		shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));
+		shaderProgram_tiles->setUniform("viewPos", vec3(0));
+		shaderProgram_tiles->setUniform("lightColor", vec3(1));
+		
+		// textures
 		shaderProgram_tiles->setUniform("accumulateTexture", 2);
 		shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 3);
 
@@ -1061,13 +1082,14 @@ void TileRenderer::renderGUI() {
 			ImGui::SliderFloat("Tile Size ", &m_tileSize_tmp, 1.0f, 100.0f);
 		}
 
-		if (ImGui::CollapsingHeader("Kernel Density Estimation"))
+		if (ImGui::CollapsingHeader("Regression Plane"))
 		{
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
 			ImGui::Checkbox("Render Density Normals", &m_renderDensityNormals);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_pointCircleRadius, 1.0f, 100.0f);
+			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.00001f, 2.0f);
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);

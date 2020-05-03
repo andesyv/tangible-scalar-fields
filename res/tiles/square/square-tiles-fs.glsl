@@ -17,6 +17,7 @@ layout(std430, binding = 1) buffer valueMaxBuffer
 };
 
 in vec4 boundsScreenSpace;
+in float tileSizeScreenSpace;
 
 uniform sampler2D accumulateTexture;
 uniform sampler2D tilesDiscrepancyTexture;
@@ -30,6 +31,7 @@ uniform int maxTexCoordX;
 uniform int maxTexCoordY;
 
 uniform float normalsFactor;
+uniform float tileHeightMult;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -91,8 +93,18 @@ void main()
         lightingNormal = normalize(lightingNormal);
 
         //TODO: z depends on the position of the fragment in the tile and the normal
-        fragmentPos.z = tileNormal.z;
+        fragmentPos.z = tileNormal.z * tileHeightMult;
+
+        //lower Left Corner Of Square
+        vec2 llCorner = vec2(squareX * tileSizeScreenSpace + boundsScreenSpace[2], squareY * tileSizeScreenSpace + boundsScreenSpace[3]);
+        // move size/2 up and right
+        vec2 squareCenter = llCorner + tileSizeScreenSpace / 2.0f;
+        //distance to center
+        float distCenter = length(vec2(fragmentPos) - squareCenter); 
+        float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
         //debug
+        squareTilesTexture = vec4(normDistCenter,0.0f,0.0f,1.0f);
+        
         //squareTilesTexture = vec4(lightingNormal, 1.0f);
     #endif
 
@@ -116,5 +128,5 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;  
         
-    squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
+   // squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
 }

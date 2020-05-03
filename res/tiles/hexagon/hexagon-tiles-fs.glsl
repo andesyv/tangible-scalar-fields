@@ -13,6 +13,7 @@ layout(std430, binding = 1) buffer valueMaxBuffer
 
 in vec4 boundsScreenSpace;
 in vec2 rectSizeScreenSpace;
+in float tileSizeScreenSpace;
 
 uniform sampler2D accumulateTexture;
 uniform sampler2D tilesDiscrepancyTexture;

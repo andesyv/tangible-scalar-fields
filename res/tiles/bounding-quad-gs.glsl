@@ -14,7 +14,10 @@ uniform mat4 modelViewProjectionMatrix;
 #ifdef RENDER_TILES
 	uniform int windowHeight;
 	uniform int windowWidth;
+	uniform float tileSize;
 
+	out float tileSizeScreenSpace;
+	//[maxX,maxY,minX,minY]
 	out vec4 boundsScreenSpace;
 #endif
 
@@ -29,10 +32,11 @@ void main()
 
 	#ifdef RENDER_TILES
     	boundsScreenSpace = getScreenSpacePosOfRect(modelViewProjectionMatrix, maxBounds_acc, minBounds_acc, windowWidth, windowHeight);
+		tileSizeScreenSpace = getScreenSpaceSize(modelViewProjectionMatrix, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
 	#endif
 
 	#ifdef RENDER_HEXAGONS
-		rectSizeScreenSpace = getScreenSpacePosOfPoint(modelViewProjectionMatrix, rectSize * vec2(2,2), windowWidth, windowHeight)-getScreenSpacePosOfPoint(modelViewProjectionMatrix, rectSize, windowWidth, windowHeight);
+		rectSizeScreenSpace = getScreenSpaceSize(modelViewProjectionMatrix, rectSize, windowWidth, windowHeight);
 	#endif
 
     // create bounding box geometry

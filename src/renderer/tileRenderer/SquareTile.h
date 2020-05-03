@@ -12,8 +12,8 @@ namespace molumes
 		SquareTile(Renderer* renderer);
 
 		globjects::Program * getAccumulationProgram() override;
-		globjects::Program * getTileProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize, glm::vec3 viewLightPosition) override;
-		globjects::Program * getTileNormalsProgram(glm::mat4 modelViewProjectionMatrix, glm::ivec2 viewportSize) override;
+		globjects::Program * getTileProgram() override;
+		globjects::Program * getTileNormalsProgram() override;
 
 		void renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix) override;
 

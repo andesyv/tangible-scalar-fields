@@ -62,18 +62,13 @@ Program * HexTile::getAccumulationProgram()
 	return shaderProgram_hex_acc;
 }
 
-Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize, vec3 viewLightPosition)
+Program * HexTile::getTileProgram()
 {
 	auto shaderProgram_hex_tiles = renderer->shaderProgram("hex-tiles");
 
 	//geometry shader
 	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_rect);
 	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds_Offset);
-
-	shaderProgram_hex_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-	shaderProgram_hex_tiles->setUniform("windowWidth", viewportSize[0]);
-	shaderProgram_hex_tiles->setUniform("windowHeight", viewportSize[1]);
 
 	//geometry & fragment shader
 	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
@@ -90,32 +85,27 @@ Program * HexTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewport
 	return shaderProgram_hex_tiles;
 }
 
-Program * HexTile::getTileNormalsProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize)
+Program * HexTile::getTileNormalsProgram()
 {
-	auto shaderProgram_hex_tiles = renderer->shaderProgram("hex-normals");
+	auto shaderProgram_hex_normals = renderer->shaderProgram("hex-normals");
 
 	//geometry shader
-	shaderProgram_hex_tiles->setUniform("maxBounds_acc", maxBounds_rect);
-	shaderProgram_hex_tiles->setUniform("minBounds_acc", minBounds_Offset);
-
-	shaderProgram_hex_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-	shaderProgram_hex_tiles->setUniform("windowWidth", viewportSize[0]);
-	shaderProgram_hex_tiles->setUniform("windowHeight", viewportSize[1]);
+	shaderProgram_hex_normals->setUniform("maxBounds_acc", maxBounds_rect);
+	shaderProgram_hex_normals->setUniform("minBounds_acc", minBounds_Offset);
 
 	//geometry & fragment shader
-	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
+	shaderProgram_hex_normals->setUniform("rectSize", vec2(rect_width, rect_height));
 
 	//fragment Shader
-	shaderProgram_hex_tiles->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_hex_tiles->setUniform("maxTexCoordY", m_tileMaxY);
+	shaderProgram_hex_normals->setUniform("maxTexCoordX", m_tileMaxX);
+	shaderProgram_hex_normals->setUniform("maxTexCoordY", m_tileMaxY);
 
-	shaderProgram_hex_tiles->setUniform("max_rect_col", max_rect_col);
-	shaderProgram_hex_tiles->setUniform("max_rect_row", max_rect_row);
+	shaderProgram_hex_normals->setUniform("max_rect_col", max_rect_col);
+	shaderProgram_hex_normals->setUniform("max_rect_row", max_rect_row);
 
-	shaderProgram_hex_tiles->setUniform("normalsFactor", normalsFactor);
+	shaderProgram_hex_normals->setUniform("normalsFactor", normalsFactor);
 
-	return shaderProgram_hex_tiles;
+	return shaderProgram_hex_normals;
 }
 
 void HexTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)

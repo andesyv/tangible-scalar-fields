@@ -56,18 +56,14 @@ Program * SquareTile::getAccumulationProgram()
 	return shaderProgram_square_acc;
 }
 
-Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize, vec3 viewLightPosition)
+Program * SquareTile::getTileProgram()
 {
 	auto shaderProgram_square_tiles = renderer->shaderProgram("square-tiles");
 
 	//geometry shader
 	shaderProgram_square_tiles->setUniform("maxBounds_acc", maxBounds_Offset);
 	shaderProgram_square_tiles->setUniform("minBounds_acc", minBounds_Offset);
-
-	shaderProgram_square_tiles->setUniform("windowWidth", viewportSize[0]);
-	shaderProgram_square_tiles->setUniform("windowHeight", viewportSize[1]);
-
-	shaderProgram_square_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgram_square_tiles->setUniform("tileSize", tileSizeWS);
 
 	//fragment Shader
 	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_tileMaxX);
@@ -75,26 +71,17 @@ Program * SquareTile::getTileProgram(mat4 modelViewProjectionMatrix, ivec2 viewp
 
 	shaderProgram_square_tiles->setUniform("normalsFactor", normalsFactor);
 
-	//lighting
-	shaderProgram_square_tiles->setUniform("lightPos", viewLightPosition);
-	shaderProgram_square_tiles->setUniform("viewPos", vec3(0));
-	shaderProgram_square_tiles->setUniform("lightColor", vec3(1));
 
 	return shaderProgram_square_tiles;
 }
 
-Program * SquareTile::getTileNormalsProgram(mat4 modelViewProjectionMatrix, ivec2 viewportSize)
+Program * SquareTile::getTileNormalsProgram()
 {
 	auto shaderProgram_square_normals = renderer->shaderProgram("square-normals");
 
 	//geometry shader
 	shaderProgram_square_normals->setUniform("maxBounds_acc", maxBounds_Offset);
 	shaderProgram_square_normals->setUniform("minBounds_acc", minBounds_Offset);
-
-	shaderProgram_square_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-	shaderProgram_square_normals->setUniform("windowWidth", viewportSize[0]);
-	shaderProgram_square_normals->setUniform("windowHeight", viewportSize[1]);
 
 	//fragment Shader
 	shaderProgram_square_normals->setUniform("maxTexCoordX", m_tileMaxX);

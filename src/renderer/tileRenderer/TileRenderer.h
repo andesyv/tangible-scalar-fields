@@ -163,6 +163,7 @@ namespace molumes
 		//kde parameters
 		float m_sigma = 1.0f;
 		const float gaussSampleRadiusMult = 400.0f;
+		float m_tileHeightMult = 1.0f;
 
 		// define booleans
 		bool m_renderPointCircles = true;

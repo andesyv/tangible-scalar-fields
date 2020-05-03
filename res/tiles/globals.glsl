@@ -30,6 +30,11 @@ vec4 getScreenSpacePosOfRect(mat4 modelViewProjectionMatrix, vec2 maxCoords, vec
     return boundsScreenSpace;
 }
 
+// distance from size to size*2 in screen space 
+vec2 getScreenSpaceSize(mat4 modelViewProjectionMatrix, vec2 size, int windowWidth, int windowHeight){
+    return getScreenSpacePosOfPoint(modelViewProjectionMatrix, size * vec2(2,2), windowWidth, windowHeight)-getScreenSpacePosOfPoint(modelViewProjectionMatrix, size, windowWidth, windowHeight);
+}
+
 // blends A over B
 // https://de.wikipedia.org/wiki/Alpha_Blending
 vec4 over(vec4 colA, vec4 colB){
