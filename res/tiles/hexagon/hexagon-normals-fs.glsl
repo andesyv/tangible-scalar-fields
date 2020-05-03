@@ -13,6 +13,7 @@ layout(std430, binding = 0) buffer tileNormalsBuffer
 in vec4 boundsScreenSpace;
 in vec2 rectSizeScreenSpace;
 
+uniform sampler2D accumulateTexture;
 uniform sampler2D densityNormalsTexture;
 uniform sampler2D kdeTexture;
 
@@ -80,13 +81,18 @@ void main()
     vec2 hex = matchPointWithHexagon(vec2(gl_FragCoord), max_rect_col, max_rect_row, rectSizeScreenSpace.x, rectSizeScreenSpace.y,
                                      minBounds, maxBounds);
 
-    //TODO: test if necessary
     // we don't want to render fragments outside the grid
     if(hex.x < 0 || hex.y < 0){
         discard;
     }
-
-    //TODO: maybe discard empty tiles for performance
+    // get value from accumulate texture
+    float hexValue = texelFetch(accumulateTexture, ivec2(hex.x, hex.y), 0).r;
+    // we don't want to render empty hexs
+    if (hexValue < 0.00000001)
+    {
+        discard;
+    }
+    
     // get value from accumulate texture
     vec4 fragmentNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
     //vec4 fragmentNormal = texelFetch(densityNormalsTexture, ivec2(gl_FragCoord.xy), 0);

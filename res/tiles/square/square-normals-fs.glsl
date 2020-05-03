@@ -12,6 +12,7 @@ layout(std430, binding = 0) buffer tileNormalsBuffer
 
 in vec4 boundsScreenSpace;
 
+uniform sampler2D accumulateTexture;
 uniform sampler2D densityNormalsTexture;
 uniform sampler2D kdeTexture;
 
@@ -29,12 +30,16 @@ void main()
     int squareX = min(maxTexCoordX, mapInterval(gl_FragCoord.x, boundsScreenSpace[2], boundsScreenSpace[0], maxTexCoordX+1));
     int squareY = min(maxTexCoordY, mapInterval(gl_FragCoord.y, boundsScreenSpace[3], boundsScreenSpace[1], maxTexCoordY+1));
 
-    //TODO: test if necessary
     // we don't want to render fragments outside the grid
-   // if(squareX < 0 || squareY < 0){
-   //     discard;
-   // }
-    //TODO: maybe discard empty tiles for performance
+    if(squareX < 0 || squareY < 0){
+        discard;
+    }
+    // get value from accumulate texture
+    float squareValue = texelFetch(accumulateTexture, ivec2(squareX,squareY), 0).r;
+    // we don't want to render empty squares
+    if(squareValue < 0.00000001){
+        discard;
+    }
 
     // get value from density normals texture
     vec4 fragmentNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);

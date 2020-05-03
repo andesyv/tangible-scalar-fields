@@ -88,23 +88,32 @@ void main()
         }
         tileNormal /= normalsFactor;
         
+        // LIGHTING NORMAL ------------------------
         //to debug normals set z ~= 0.01f
-        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 0.005f);
+        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 1.0f);
         lightingNormal = normalize(lightingNormal);
+        //-----------------------------------------
 
-        //TODO: z depends on the position of the fragment in the tile and the normal
-        fragmentPos.z = tileNormal.z * tileHeightMult;
+        // FRAGMENTPOS.Z ------------------------------
+        //fragmentPos.z depends on the position of the fragment in the tile and the normal
+        float tileCenterZ = tileNormal.z * tileHeightMult;
 
         //lower Left Corner Of Square
         vec2 llCorner = vec2(squareX * tileSizeScreenSpace + boundsScreenSpace[2], squareY * tileSizeScreenSpace + boundsScreenSpace[3]);
         // move size/2 up and right
-        vec2 squareCenter = llCorner + tileSizeScreenSpace / 2.0f;
-        //distance to center
-        float distCenter = length(vec2(fragmentPos) - squareCenter); 
-        float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
-        //debug
-        squareTilesTexture = vec4(normDistCenter,0.0f,0.0f,1.0f);
+        vec2 tileCenter2D = llCorner + tileSizeScreenSpace / 2.0f;
         
+        vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
+        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+        //--------------------------------------------
+
+        //debug
+        //distance to center
+        float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
+        float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
+        float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
+
+        squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
         //squareTilesTexture = vec4(lightingNormal, 1.0f);
     #endif
 

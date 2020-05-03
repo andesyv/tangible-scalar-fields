@@ -595,6 +595,7 @@ void TileRenderer::display()
 			m_kdeTexture->bindActive(1);
 			//TODO: remove
 			m_densityNormalsTexture->bindActive(2);
+			m_tileAccumulateTexture->bindActive(3);
 
 			auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
 
@@ -606,6 +607,7 @@ void TileRenderer::display()
 
 			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
 			shaderProgram_tile_normals->setUniform("densityNormalsTexture", 2);
+			shaderProgram_tile_normals->setUniform("accumulateTexture",3 );
 
 			m_vaoQuad->bind();
 
@@ -617,6 +619,7 @@ void TileRenderer::display()
 
 			m_kdeTexture->unbindActive(1);
 			m_densityNormalsTexture->unbindActive(2);
+			m_tileAccumulateTexture->unbindActive(3);
 
 			glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -1089,7 +1092,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_pointCircleRadius, 1.0f, 100.0f);
-			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.00001f, 2.0f);
+			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.001f, 2.0f);
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);

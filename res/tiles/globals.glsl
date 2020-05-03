@@ -10,6 +10,17 @@ float mapInterval_O(float x, int a, int b, float c, float d){
     return float((x-a)*(d-c)/float(b-a) + c);
 }
 
+//p1 = point needs z
+//p2 = known point
+//n = normal
+// hessesche normal form: (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y + (p1.z-p2.z)*n.z = 0
+// we have point p2 and the normal n
+// we also have xy of point p1 and seach p1.z
+// by solving for p1.z gives us the used formular
+float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
+    return (p2.z*n.z - (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y)/n.z;
+}
+
 vec2 getScreenSpacePosOfPoint(mat4 modelViewProjectionMatrix, vec2 coords, int windowWidth, int windowHeight){
     
     vec4 coordsNDC = modelViewProjectionMatrix * vec4(coords,0.0,1.0);
