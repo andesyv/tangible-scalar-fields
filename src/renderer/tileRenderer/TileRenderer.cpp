@@ -223,8 +223,7 @@ void TileRenderer::display()
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 
-	//TODO: ask thomas if correct
-	vec4 viewLightPosition = modelViewProjectionMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	vec4 viewLightPosition = viewer()->lightTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp
 		|| m_discrepancy_easeIn != m_discrepancy_easeIn_tmp || m_discrepancy_lowCount != m_discrepancy_lowCount_tmp || viewer()->viewportSize() != m_framebufferSize) {
@@ -635,10 +634,12 @@ void TileRenderer::display()
 					float z = y / 10000.0f;
 					tileNormal[j] = z;
 				}
-				tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
-				for (int j = 0; j < 4; j++) {
+				//tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
+				vec3 lightNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y / tileNormal.w, 0.5f);
+				lightNormal = normalize(lightNormal);
+				for (int j = 0; j < 3; j++) {
 
-					std::cout << i << ": " << j << ": " << tileNormal[j] << std::endl;
+					std::cout << i << ": " << j << ": " << lightNormal[j] << std::endl;
 				}
 			}
 			delete[] arrayMain;*/
@@ -1295,7 +1296,6 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 			maxDifference = pow(maxDifference, m_discrepancy_easeIn);
 
 			// account for tiles with few points
-			//TODO: show thomas
 			//maxDifference = (1 - m_discrepancy_lowCount) * maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2));
 			maxDifference = min(maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2)), 1.0f);
 

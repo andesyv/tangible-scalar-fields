@@ -78,23 +78,22 @@ void main()
 
     // REGRESSION PLANE------------------------------------------------------------------------------------------------
     vec4 tileNormal = vec4(0.0f,0.0f,0.0f,1.0f);
+    vec3 lightingNormal = vec3(0.0f,0.0f,0.0f);
+    vec3 fragmentPos = vec3(gl_FragCoord);
     #ifdef RENDER_TILE_NORMALS
         for(int i = 0; i < 4; i++){
             tileNormal[i] = float(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i]);
         }
         tileNormal /= normalsFactor;
-        vec3 t = vec3(tileNormal.x, tileNormal.y, 1);
-        t = normalize(t);
-/*
-        vec2 xy = normalize(vec2(tileNormal));
-        tileNormal.x = xy.x;
-        tileNormal.y = xy.y;
-        //which w? tileNormal.w or gl_FragCoord.w
-        tileNormal.z /= gl_FragCoord.w;*/
-        tileNormal = vec4(t,tileNormal.w);
+        
+        //to debug normals set z ~= 0.01f
+        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 0.005f);
+        lightingNormal = normalize(lightingNormal);
 
+        //TODO: z depends on the position of the fragment in the tile and the normal
+        fragmentPos.z = tileNormal.z;
         //debug
-        //squareTilesTexture = vec4(t, 1.0f);
+        //squareTilesTexture = vec4(lightingNormal, 1.0f);
     #endif
 
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
@@ -105,15 +104,15 @@ void main()
     vec3 ambient = ambientStrength * lightColor;
   	
     // diffuse 
-    vec3 norm = vec3(tileNormal);
-    vec3 lightDir = normalize(lightPos - vec3(gl_FragCoord));
-    float diff = max(dot(norm, lightDir), 0.0);
+    //TODO: calculate correct z value for position
+    vec3 lightDir = normalize(lightPos - vec3(fragmentPos));
+    float diff = max(dot(lightingNormal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
     
     // specular
     float specularStrength = 0.5;
-    vec3 viewDir = normalize(viewPos - vec3(gl_FragCoord));
-    vec3 reflectDir = reflect(-lightDir, norm);  
+    vec3 viewDir = normalize(viewPos - vec3(fragmentPos));
+    vec3 reflectDir = reflect(-lightDir, lightingNormal);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;  
         

@@ -40,7 +40,7 @@ vec4 over(vec4 colA, vec4 colB){
 
 // https://stackoverflow.com/questions/49640250/calculate-normals-from-heightmap
 vec3 calculateNormal(ivec2 texelCoord, sampler2D texture){
-                
+                 
     // texelFetch (0,0) -> left bottom
     float top = texelFetch(texture, ivec2(texelCoord.x, texelCoord.y+1), 0).r;
     float bottom = texelFetch(texture, ivec2(texelCoord.x, texelCoord.y-1), 0).r;
