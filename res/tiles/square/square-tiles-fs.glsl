@@ -16,6 +16,13 @@ layout(std430, binding = 1) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
+struct box{
+    float left;
+    float right;
+    float top;
+    float bottom;
+} insideBoundingBox;
+
 in vec4 boundsScreenSpace;
 in float tileSizeScreenSpace;
 
@@ -32,6 +39,7 @@ uniform int maxTexCoordY;
 
 uniform float normalsFactor;
 uniform float tileHeightMult;
+uniform float borderWidth;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -41,6 +49,12 @@ uniform vec3 lightColor;
 
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
+
+bool pointInsideRect(vec2 p){
+
+    return (p.x >= insideBoundingBox.left && p.x <= insideBoundingBox.right) &&
+    (p.y <= insideBoundingBox.top && p.y >= insideBoundingBox.bottom);
+}
 
 void main()
 {
@@ -94,7 +108,7 @@ void main()
         lightingNormal = normalize(lightingNormal);
         //-----------------------------------------
 
-        // FRAGMENTPOS.Z ------------------------------
+        // FRAGMENT_POS.Z ------------------------------
         //fragmentPos.z depends on the position of the fragment in the tile and the normal
         float tileCenterZ = tileNormal.z * tileHeightMult;
 
@@ -107,13 +121,29 @@ void main()
         fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
         //--------------------------------------------
 
-        //debug
+        // BORDER-------------------------------------
         //distance to center
         float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
+       
+        
+        float insideSizeFromCenter = (1.0f - borderWidth) * tileSizeScreenSpace/2.0f;
+        
+        insideBoundingBox.left = tileCenter2D.x - insideSizeFromCenter;
+        insideBoundingBox.right = tileCenter2D.x + insideSizeFromCenter;
+        insideBoundingBox.top = tileCenter2D.y + insideSizeFromCenter;
+        insideBoundingBox.bottom = tileCenter2D.y - insideSizeFromCenter;
+
+        if(!pointInsideRect(vec2(fragmentPos))){
+            discard;
+        }
+
+        //--------------------------------------------
+
+        //debug
         float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
         float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-        squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+       // squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
         //squareTilesTexture = vec4(lightingNormal, 1.0f);
     #endif
 
@@ -137,5 +167,5 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;  
         
-   // squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
+    squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
 }

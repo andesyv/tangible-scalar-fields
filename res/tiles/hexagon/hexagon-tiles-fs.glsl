@@ -30,7 +30,14 @@ uniform int max_rect_col;
 uniform int max_rect_row;
 
 uniform float normalsFactor;
+uniform float tileHeightMult;
+uniform float borderWidth;
 
+//Lighting----------------------
+uniform vec3 lightPos; 
+uniform vec3 viewPos; //is vec3(0,0,0) because we work in viewspace
+uniform vec3 lightColor;
+//----------------------
 //--out
 layout(location = 0) out vec4 hexTilesTexture;
 

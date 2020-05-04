@@ -160,10 +160,11 @@ namespace molumes
 		float m_discrepancy_easeIn = 1.0f;
 		float m_discrepancy_lowCount = 0.0f;
 
-		//kde parameters
+		//regression parameters
 		float m_sigma = 1.0f;
 		const float gaussSampleRadiusMult = 400.0f;
 		float m_tileHeightMult = 1.0f;
+		float m_borderWidth = 0.2f; // width in percent to size
 
 		// define booleans
 		bool m_renderPointCircles = true;
