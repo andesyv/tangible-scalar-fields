@@ -50,10 +50,9 @@ uniform vec3 lightColor;
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
 
-bool pointInsideRect(vec2 p){
-
-    return (p.x >= insideBoundingBox.left && p.x <= insideBoundingBox.right) &&
-    (p.y <= insideBoundingBox.top && p.y >= insideBoundingBox.bottom);
+bool pointInBorder(vec2 p){
+    return !((p.x >= insideBoundingBox.left && p.x <= insideBoundingBox.right) &&
+    (p.y <= insideBoundingBox.top && p.y >= insideBoundingBox.bottom));
 }
 
 void main()
@@ -101,50 +100,75 @@ void main()
             tileNormal[i] = float(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i]);
         }
         tileNormal /= normalsFactor;
-        
-        // LIGHTING NORMAL ------------------------
-        //to debug normals set z ~= 0.01f
-        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 1.0f);
-        lightingNormal = normalize(lightingNormal);
-        //-----------------------------------------
-
-        // FRAGMENT_POS.Z ------------------------------
-        //fragmentPos.z depends on the position of the fragment in the tile and the normal
-        float tileCenterZ = tileNormal.z * tileHeightMult;
-
+       
         //lower Left Corner Of Square
         vec2 llCorner = vec2(squareX * tileSizeScreenSpace + boundsScreenSpace[2], squareY * tileSizeScreenSpace + boundsScreenSpace[3]);
         // move size/2 up and right
         vec2 tileCenter2D = llCorner + tileSizeScreenSpace / 2.0f;
-        
-        vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
-        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
-        //--------------------------------------------
-
+          
         // BORDER-------------------------------------
-        //distance to center
-        float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
        
-        
         float insideSizeFromCenter = (1.0f - borderWidth) * tileSizeScreenSpace/2.0f;
         
         insideBoundingBox.left = tileCenter2D.x - insideSizeFromCenter;
         insideBoundingBox.right = tileCenter2D.x + insideSizeFromCenter;
         insideBoundingBox.top = tileCenter2D.y + insideSizeFromCenter;
         insideBoundingBox.bottom = tileCenter2D.y - insideSizeFromCenter;
-
-        if(!pointInsideRect(vec2(fragmentPos))){
-            discard;
-        }
-
         //--------------------------------------------
 
-        //debug
-        float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
-        float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
+        if(pointInBorder(vec2(fragmentPos))){
+            //check which side
+            //left
+            if(fragmentPos.x < insideBoundingBox.left && 
+            (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.top))) && 
+            (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
+                squareTilesTexture = vec4(0.0f, 1.0f, 0.0f, 1.0f);  
+            }
+            //right
+            else if(fragmentPos.x > insideBoundingBox.right && 
+            (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.top))) && 
+            (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
+                squareTilesTexture = vec4(0.0f,1.0f,0.0f,1.0f);
+            }
+            //bottom
+            else if(fragmentPos.y < insideBoundingBox.bottom){
+                squareTilesTexture = vec4(0.0f,0.0f,1.0f,1.0f);
+            }
+            //top
+            else if(fragmentPos.y > insideBoundingBox.top){
+                squareTilesTexture = vec4(0.0f,0.0f,1.0f,1.0f);
+            }
+            //compute surface using 2 corner points of inside and 1 corner point of outside
+            //get normal
+            //get height
+            //discard;
+        }
+        //point is on the inside
+        else{
+            // LIGHTING NORMAL ------------------------
+            //to debug normals set z ~= 0.01f
+            lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 1.0f);
+            lightingNormal = normalize(lightingNormal);
+            //-----------------------------------------
 
-       // squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-        //squareTilesTexture = vec4(lightingNormal, 1.0f);
+            // FRAGMENT_POS.Z ------------------------------
+            //fragmentPos.z depends on the position of the fragment in the tile and the normal
+            float tileCenterZ = tileNormal.z * tileHeightMult;
+
+              
+            vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
+            fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+            //--------------------------------------------
+
+            //debug
+            //distance to center
+            float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
+            float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
+            float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
+
+            squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+            // squareTilesTexture = vec4(lightingNormal, 1.0f);
+        }
     #endif
 
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
@@ -167,5 +191,5 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;  
         
-    squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
+    //squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
 }
