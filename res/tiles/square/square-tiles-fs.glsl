@@ -101,11 +101,24 @@ void main()
         }
         tileNormal /= normalsFactor;
        
-        //lower Left Corner Of Square
-        vec2 llCorner = vec2(squareX * tileSizeScreenSpace + boundsScreenSpace[2], squareY * tileSizeScreenSpace + boundsScreenSpace[3]);
+        //Corner Of Square (z=0)
+        vec3 leftBottomCorner = vec3(squareX * tileSizeScreenSpace + boundsScreenSpace[2], squareY * tileSizeScreenSpace + boundsScreenSpace[3], 0.0f);
+        vec3 leftTopCorner = vec3(leftBottomCorner.x, leftBottomCorner.y+tileSizeScreenSpace, 0.0f);
+        vec3 rightBottomCorner = vec3(leftBottomCorner.x + tileSizeScreenSpace, leftBottomCorner.y, 0.0f);
+        vec3 rightTopCorner = vec3(rightBottomCorner.x, rightBottomCorner.y + tileSizeScreenSpace, 0.0f);
         // move size/2 up and right
-        vec2 tileCenter2D = llCorner + tileSizeScreenSpace / 2.0f;
-          
+        vec2 tileCenter2D = vec2(leftBottomCorner) + tileSizeScreenSpace / 2.0f;
+        //height at tile center
+        float tileCenterZ = tileNormal.z * tileHeightMult;
+   
+        vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
+
+        // LIGHTING NORMAL ------------------------
+        //to debug normals set z ~= 0.01f
+        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 1.0f);
+        lightingNormal = normalize(lightingNormal);
+        //-----------------------------------------
+
         // BORDER-------------------------------------
        
         float insideSizeFromCenter = (1.0f - borderWidth) * tileSizeScreenSpace/2.0f;
@@ -114,6 +127,13 @@ void main()
         insideBoundingBox.right = tileCenter2D.x + insideSizeFromCenter;
         insideBoundingBox.top = tileCenter2D.y + insideSizeFromCenter;
         insideBoundingBox.bottom = tileCenter2D.y - insideSizeFromCenter;
+
+        //get height of inside bounding box points
+        vec3 leftBottomInside = vec3(insideBoundingBox.left, insideBoundingBox.bottom, getHeightOfPointOnSurface(vec2(insideBoundingBox.left, insideBoundingBox.bottom),tileCenter3D,lightingNormal));  
+        vec3 leftTopInside = vec3(insideBoundingBox.left, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.left, insideBoundingBox.top),tileCenter3D,lightingNormal));
+        vec3 rightBottomInside = vec3(insideBoundingBox.right, insideBoundingBox.bottom, getHeightOfPointOnSurface(vec2(insideBoundingBox.right, insideBoundingBox.bottom),tileCenter3D,lightingNormal));  
+        vec3 rightTopInside = vec3(insideBoundingBox.right, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.right, insideBoundingBox.top),tileCenter3D,lightingNormal));  
+
         //--------------------------------------------
 
         if(pointInBorder(vec2(fragmentPos))){
@@ -122,52 +142,76 @@ void main()
             if(fragmentPos.x < insideBoundingBox.left && 
             (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.top))) && 
             (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
-                squareTilesTexture = vec4(0.0f, 1.0f, 0.0f, 1.0f);  
+            
+                //squareTilesTexture = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+                //TODO: write function for that
+                //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                vec3 bottomToTopInside = leftTopInside - leftBottomInside;
+                vec3 bottomInToBottomOut = leftBottomCorner - leftBottomInside;
+            
+                lightingNormal = normalize(cross(bottomToTopInside, bottomInToBottomOut));
+                
+                // fragment height
+                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
+
             }
             //right
             else if(fragmentPos.x > insideBoundingBox.right && 
             (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.top))) && 
             (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
-                squareTilesTexture = vec4(0.0f,1.0f,0.0f,1.0f);
+                //squareTilesTexture = vec4(0.0f,1.0f,0.0f,1.0f);
+
+                //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                vec3 bottomToTopInside = rightTopInside - rightBottomInside;
+                vec3 bottomInToBottomOut = rightBottomCorner - rightBottomInside;
+            
+                lightingNormal = normalize(cross(bottomToTopInside, bottomInToBottomOut));
+                
+                // fragment height
+                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
             }
             //bottom
             else if(fragmentPos.y < insideBoundingBox.bottom){
-                squareTilesTexture = vec4(0.0f,0.0f,1.0f,1.0f);
+                //squareTilesTexture = vec4(0.0f,0.0f,1.0f,1.0f);
+
+                //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                vec3 leftToRightInside = rightBottomInside - leftBottomInside;
+                vec3 bottomInToBottomOut = leftBottomCorner - leftBottomInside;
+            
+                lightingNormal = normalize(cross(leftToRightInside, bottomInToBottomOut));
+                
+                // fragment height
+                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
             }
             //top
             else if(fragmentPos.y > insideBoundingBox.top){
-                squareTilesTexture = vec4(0.0f,0.0f,1.0f,1.0f);
+                //squareTilesTexture = vec4(0.0f,0.0f,1.0f,1.0f);
+
+                //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                vec3 leftToRightInside = rightTopInside - leftTopInside;
+                vec3 topInToTopOut = leftTopCorner - leftTopInside;
+            
+                lightingNormal = normalize(cross(leftToRightInside, topInToTopOut));
+                
+                // fragment height
+                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
             }
-            //compute surface using 2 corner points of inside and 1 corner point of outside
-            //get normal
-            //get height
-            //discard;
+
         }
         //point is on the inside
         else{
-            // LIGHTING NORMAL ------------------------
-            //to debug normals set z ~= 0.01f
-            lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 1.0f);
-            lightingNormal = normalize(lightingNormal);
-            //-----------------------------------------
 
-            // FRAGMENT_POS.Z ------------------------------
-            //fragmentPos.z depends on the position of the fragment in the tile and the normal
-            float tileCenterZ = tileNormal.z * tileHeightMult;
-
-              
-            vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
+            // fragemnt height
             fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
-            //--------------------------------------------
 
             //debug
             //distance to center
-            float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
+           /* float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
             squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-            // squareTilesTexture = vec4(lightingNormal, 1.0f);
+            // squareTilesTexture = vec4(lightingNormal, 1.0f);*/
         }
     #endif
 
@@ -191,5 +235,5 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;  
         
-    //squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
+    squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
 }
