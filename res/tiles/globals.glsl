@@ -63,7 +63,7 @@ vec2 getScreenSpaceSize(mat4 modelViewProjectionMatrix, vec2 size, int windowWid
 // we also have xy of point p1 and seach p1.z
 // by solving for p1.z gives us the used formular
 float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
-    return (p2.z*n.z - (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y)/n.z;
+   return (p2.z*n.z - (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y)/n.z;
 }
 
 vec3 calcPlaneNormal(vec3 a, vec3 b, vec3 c){
@@ -84,7 +84,7 @@ vec3 calculateNormalFromHeightMap(ivec2 texelCoord, sampler2D texture){
     float right = texelFetch(texture, ivec2(texelCoord.x+1, texelCoord.y), 0).r;
 
     // reconstruct normal
-    vec3 normal = vec3((right-left)/2,(top-bottom)/2, 1);
+    vec3 normal = vec3((left-right)/2,(bottom-top)/2, 1);
     return normalize(normal);
 }
 //---------------------------------------------------------------------------------------------------------------
@@ -109,6 +109,7 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
     vec3 specular = specularStrength * spec * lightColor;
 
     return (ambient + diffuse + specular);
+    //return diffuse;
 }
 
 //---------------------------------------------------------------------------------------------------------------

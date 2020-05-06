@@ -115,7 +115,7 @@ void main()
 
         // LIGHTING NORMAL ------------------------
         //to debug normals set z ~= 0.01f
-        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 1.0f);
+        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 0.01f);
         lightingNormal = normalize(lightingNormal);
         //-----------------------------------------
 
@@ -156,7 +156,7 @@ void main()
             (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
 
                 //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(rightBottomInside, rightTopInside, rightBottomCorner);
+                lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
 
                 // fragment height
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
@@ -164,7 +164,7 @@ void main()
             //bottom
             else if(fragmentPos.y < insideBoundingBox.bottom){
                 //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftBottomInside, rightBottomInside, leftBottomCorner);
+                lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
 
                 // fragment height
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
@@ -192,13 +192,15 @@ void main()
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-           // squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-        // squareTilesTexture = vec4(lightingNormal, 1.0f);
+          // squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+          //squareTilesTexture = vec4(lightingNormal, 1.0f);
+        //squareTilesTexture = vec4(0.0f,0.0f,1.0f, 1.0f);
         }
     #endif
 
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
-  
+
+    //TODO: somethings wrong, tiles are not showing
     squareTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * squareTilesTexture.rgb;
 
 }

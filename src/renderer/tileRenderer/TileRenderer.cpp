@@ -1096,7 +1096,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_pointCircleRadius, 1.0f, 100.0f);
-			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.001f, 2.0f);
+			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.01f, 2.0f);
 			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.0f, 1.0f);
 		}
 
