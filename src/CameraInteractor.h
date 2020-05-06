@@ -18,6 +18,7 @@ namespace molumes
 
 		void resetProjectionTransform();
 		void resetViewTransform();
+		void setLightPosition();
 
 	private:
 

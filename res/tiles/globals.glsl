@@ -66,6 +66,7 @@ float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
    return (p2.z*n.z - (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y)/n.z;
 }
 
+
 vec3 calcPlaneNormal(vec3 a, vec3 b, vec3 c){
 
     vec3 aToB = b - a;
@@ -109,7 +110,6 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
     vec3 specular = specularStrength * spec * lightColor;
 
     return (ambient + diffuse + specular);
-    //return diffuse;
 }
 
 //---------------------------------------------------------------------------------------------------------------

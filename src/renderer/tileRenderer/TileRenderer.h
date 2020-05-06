@@ -111,6 +111,7 @@ namespace molumes
 		glm::vec3 diffuseMaterial;
 		glm::vec3 specularMaterial;
 		float shininess;
+
 		// --------------------------------------------------------------------------------
 
 		// TILES CALC----------------------------------------------------------------

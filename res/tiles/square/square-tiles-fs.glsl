@@ -193,14 +193,12 @@ void main()
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
           // squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-          //squareTilesTexture = vec4(lightingNormal, 1.0f);
-        //squareTilesTexture = vec4(0.0f,0.0f,1.0f, 1.0f);
+    //      squareTilesTexture = vec4(lightingNormal, 1.0f);
         }
     #endif
 
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
 
-    //TODO: somethings wrong, tiles are not showing
     squareTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * squareTilesTexture.rgb;
 
 }
