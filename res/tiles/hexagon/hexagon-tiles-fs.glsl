@@ -1,6 +1,7 @@
 #version 450
 #include "/defines.glsl"
 #include "/globals.glsl"
+#include "/hex/globals.glsl"
 
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;

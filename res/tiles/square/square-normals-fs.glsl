@@ -42,7 +42,7 @@ void main()
     }
 
     // get value from density normals texture
-    vec4 fragmentNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
+    vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
     fragmentNormal *= normalsFactor;
    
     for(int i = 0; i < 4; i++){

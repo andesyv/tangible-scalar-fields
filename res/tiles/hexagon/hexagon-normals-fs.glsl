@@ -1,6 +1,7 @@
 #version 450
 #include "/defines.glsl"
 #include "/globals.glsl"
+#include "/hex/globals.glsl"
 
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
@@ -94,7 +95,7 @@ void main()
     }
     
     // get value from accumulate texture
-    vec4 fragmentNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
+    vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
     //vec4 fragmentNormal = texelFetch(densityNormalsTexture, ivec2(gl_FragCoord.xy), 0);
 
     for(int i = 0; i < 4; i++){

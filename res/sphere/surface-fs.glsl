@@ -34,7 +34,7 @@ float calcDepth(vec3 pos)
 }
 
 // https://stackoverflow.com/questions/49640250/calculate-normals-from-heightmap
-vec3 calculateNormal(ivec2 texelCoord){
+vec3 calculateNormalFromHeightMap(ivec2 texelCoord){
 	
 	// texelFetch (0,0) -> left bottom
 	float top = texelFetch(kernelDensityTexture, ivec2(texelCoord.x, texelCoord.y+1), 0).r;
@@ -57,7 +57,7 @@ void main()
 		discard;
 
 	surfacePosition = vec4(gl_FragCoord.xy, kernelDensity, 1);
-	surfaceNormal = vec4(calculateNormal(ivec2(gl_FragCoord.xy)), 1);
+	surfaceNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy)), 1);
 
 	// set diffuse colors
 	surfaceDiffuse = vec4(1.0f, 1.0f, 1.0f, 1.0f); 

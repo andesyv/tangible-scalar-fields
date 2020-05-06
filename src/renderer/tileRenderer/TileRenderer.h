@@ -67,6 +67,9 @@ namespace molumes
 		std::unique_ptr<globjects::File> m_shaderSourceGlobals = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderGlobals = nullptr;
 
+		std::unique_ptr<globjects::File> m_shaderSourceGlobalsHexagon = nullptr;
+		std::unique_ptr<globjects::NamedString> m_shaderGlobalsHexagon = nullptr;
+
 		// TEXTURES -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Texture> m_depthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_colorTexture = nullptr;

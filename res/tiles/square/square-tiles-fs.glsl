@@ -198,23 +198,7 @@ void main()
     #endif
 
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
-    // TODO: move to global.glsl
-    //TODO: maybe create different global.glsl for different groups of methods
-    // ambient
-    float ambientStrength = 0.8;
-    vec3 ambient = ambientStrength * lightColor;
-  	
-    // diffuse 
-    vec3 lightDir = normalize(lightPos - fragmentPos);
-    float diff = max(dot(lightingNormal, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
-    
-    // specular
-    float specularStrength = 0.5;
-    vec3 viewDir = normalize(viewPos - fragmentPos);
-    vec3 reflectDir = reflect(-lightDir, lightingNormal);  
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;  
-        
-    squareTilesTexture.rgb = (ambient + diffuse + specular) * squareTilesTexture.rgb;
+  
+    squareTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * squareTilesTexture.rgb;
+
 }

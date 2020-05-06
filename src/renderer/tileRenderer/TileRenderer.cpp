@@ -54,6 +54,9 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shaderSourceGlobals = File::create("./res/tiles/globals.glsl");
 	m_shaderGlobals = NamedString::create("/globals.glsl", m_shaderSourceGlobals.get());
 
+	m_shaderSourceGlobalsHexagon = File::create("./res/tiles/hexagon/globals.glsl");
+	m_shaderGlobalsHexagon = NamedString::create("/hex/globals.glsl", m_shaderSourceGlobalsHexagon.get());
+
 	// create shader programs
 	createShaderProgram("points", {
 		{GL_VERTEX_SHADER,"./res/tiles/point-vs.glsl"},
