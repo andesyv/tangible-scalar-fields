@@ -50,7 +50,7 @@ bool discardOutsideOfGridFragments(vec2 minBounds, vec2 maxBounds){
             //Upper Left
             a = ll;
             b = vec2(ll.x + rectSizeScreenSpace.x / 2.0f, ll.y + rectSizeScreenSpace.y);
-            if (pointInsideHex(a, b, vec2(gl_FragCoord)))
+            if (pointLeftOfLine(a, b, vec2(gl_FragCoord)))
             {
                 return true;
             }
@@ -61,7 +61,7 @@ bool discardOutsideOfGridFragments(vec2 minBounds, vec2 maxBounds){
             //Upper Right
             a = vec2(ll.x + rectSizeScreenSpace.x / 2.0f, ll.y + rectSizeScreenSpace.y);
             b = vec2(ll.x + rectSizeScreenSpace.x, ll.y);
-            if (pointInsideHex(a, b, vec2(gl_FragCoord)))
+            if (pointLeftOfLine(a, b, vec2(gl_FragCoord)))
             {
                 return true;
             }

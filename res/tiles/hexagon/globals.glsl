@@ -1,13 +1,5 @@
 #include "/globals.glsl"
 
-bool pointInsideHex(vec2 a, vec2 b, vec2 p){
-    return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) > 0;
-}
-
-bool pointOutsideHex(vec2 a, vec2 b, vec2 p){
-    return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) < 0;
-}
-
 vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rectWidth, float rectHeight, vec2 minBounds, vec2 maxBounds){
     
     // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
@@ -34,7 +26,7 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
                 //Upper Left
                 a = ll;
                 b = vec2(ll.x + rectWidth/2.0f, ll.y + rectHeight);
-                if(pointOutsideHex(a,b,p)){
+                if(!pointLeftOfLine(a,b,p)){
                     hexX--;
                 }
             }
@@ -43,7 +35,7 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
                 //Lower Left
                 a = vec2(ll.x + rectWidth/2.0f, ll.y);
                 b = vec2(ll.x, ll.y + rectHeight);
-                if(pointOutsideHex(a,b,p)){
+                if(!pointLeftOfLine(a,b,p)){
                     hexX--;
                 }
             }
@@ -55,7 +47,7 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
                 //Upper Right
                 a = vec2(ll.x + rectWidth/2.0f, ll.y + rectHeight);
                 b = vec2(ll.x + rectWidth, ll.y);
-                if(!pointOutsideHex(a,b,p)){
+                if(pointLeftOfLine(a,b,p)){
                     hexX--;
                 }
             }
@@ -64,7 +56,7 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
                 //Lower Right
                 a = vec2(ll.x + rectWidth, ll.y + rectHeight);
                 b = vec2(ll.x + rectWidth/2.0f, ll.y);
-                if(!pointOutsideHex(a,b,p)){
+                if(pointLeftOfLine(a,b,p)){
                     hexX--;
                 }
             }

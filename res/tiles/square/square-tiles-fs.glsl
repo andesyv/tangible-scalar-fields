@@ -50,9 +50,12 @@ uniform vec3 lightColor;
 //--out
 layout (location = 0) out vec4 squareTilesTexture;
 
-bool pointInBorder(vec2 p){
-    return !((p.x >= insideBoundingBox.left && p.x <= insideBoundingBox.right) &&
-    (p.y <= insideBoundingBox.top && p.y >= insideBoundingBox.bottom));
+bool pointInBorder(vec3 p, vec3 leftBottomInside, vec3 leftTopInside, vec3 rightBottomInside, vec3 rightTopInside){
+    
+    return pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(p))
+            || pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside),vec2(p))
+            || pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(p))
+            || pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(p));
 }
 
 void main()
@@ -120,7 +123,32 @@ void main()
         //-----------------------------------------
 
         // BORDER-------------------------------------
-       
+
+        // 1) get lowest corner point
+        float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), tileCenter3D, lightingNormal);
+        float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), tileCenter3D, lightingNormal);
+        float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), tileCenter3D, lightingNormal);
+        float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
+
+        float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
+
+        // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
+        // get border plane
+        float heightOffset = tileCenterZ - minHeightCorner;
+        float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
+        
+        vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
+
+        // 3) get intersections of plane with pyramid
+        // pyramid top = tileCenter3D
+        // lineDir = normalize(pyramidTop - Corner)
+
+       vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
+        vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
+        vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
+        vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
+
+
         float insideSizeFromCenter = (1.0f - borderWidth) * tileSizeScreenSpace/2.0f;
         
         insideBoundingBox.left = tileCenter2D.x - insideSizeFromCenter;
@@ -129,17 +157,16 @@ void main()
         insideBoundingBox.bottom = tileCenter2D.y - insideSizeFromCenter;
 
         //get height of inside bounding box points
-        vec3 leftBottomInside = vec3(insideBoundingBox.left, insideBoundingBox.bottom, getHeightOfPointOnSurface(vec2(insideBoundingBox.left, insideBoundingBox.bottom),tileCenter3D,lightingNormal));  
-        vec3 leftTopInside = vec3(insideBoundingBox.left, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.left, insideBoundingBox.top),tileCenter3D,lightingNormal));
+       /* vec3 leftTopInside = vec3(insideBoundingBox.left, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.left, insideBoundingBox.top),tileCenter3D,lightingNormal));
         vec3 rightBottomInside = vec3(insideBoundingBox.right, insideBoundingBox.bottom, getHeightOfPointOnSurface(vec2(insideBoundingBox.right, insideBoundingBox.bottom),tileCenter3D,lightingNormal));  
         vec3 rightTopInside = vec3(insideBoundingBox.right, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.right, insideBoundingBox.top),tileCenter3D,lightingNormal));  
-
+*/
         //--------------------------------------------
 
-        if(pointInBorder(vec2(fragmentPos))){
+        if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){
             //check which side
             //left
-            if(fragmentPos.x < insideBoundingBox.left && 
+            /*if(fragmentPos.x < insideBoundingBox.left && 
             (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.top))) && 
             (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
             
@@ -177,14 +204,14 @@ void main()
 
                 // fragment height
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
-            }
-            //discard;
+            }*/
+            discard;
         }
         //point is on the inside
         else{
 
             // fragemnt height
-            fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+            fragmentPos.z = tileCenterZ;//getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
 
             //debug
             //distance to center
@@ -192,8 +219,8 @@ void main()
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-          // squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-    //      squareTilesTexture = vec4(lightingNormal, 1.0f);
+          /// squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+          squareTilesTexture = vec4(lightingNormal, 1.0f);
         }
     #endif
 

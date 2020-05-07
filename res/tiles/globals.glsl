@@ -53,6 +53,15 @@ vec2 getScreenSpaceSize(mat4 modelViewProjectionMatrix, vec2 size, int windowWid
 
 //---------------------------------------------------------------------------------------------------------------
 
+// POINT SIDE LINE -----------------------------------------------------------------------------------------------------
+
+bool pointLeftOfLine(vec2 a, vec2 b, vec2 p){
+    return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) > 0;
+}
+
+//---------------------------------------------------------------------------------------------------------------
+
+
 // REGRESSION PLANE -----------------------------------------------------------------------------------------------------
 
 //p1 = point needs z
@@ -66,6 +75,12 @@ float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
    return (p2.z*n.z - (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y)/n.z;
 }
 
+//https://stackoverflow.com/questions/5666222/3d-line-plane-intersection
+// PRECONDITION: planeNormal and lineDir are normalized
+vec3 linePlaneIntersection(vec3 planeNormal, vec3 planePoint, vec3 lineDir, vec3 linePoint){
+    float t = (dot(planeNormal, planePoint) - dot(planeNormal, linePoint)) / dot(planeNormal, lineDir);
+    return linePoint + (lineDir * t);
+}
 
 vec3 calcPlaneNormal(vec3 a, vec3 b, vec3 c){
 
