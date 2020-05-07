@@ -143,44 +143,30 @@ void main()
         // pyramid top = tileCenter3D
         // lineDir = normalize(pyramidTop - Corner)
 
-       vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
+        vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
         vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
         vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
         vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
 
-
-        float insideSizeFromCenter = (1.0f - borderWidth) * tileSizeScreenSpace/2.0f;
-        
-        insideBoundingBox.left = tileCenter2D.x - insideSizeFromCenter;
-        insideBoundingBox.right = tileCenter2D.x + insideSizeFromCenter;
-        insideBoundingBox.top = tileCenter2D.y + insideSizeFromCenter;
-        insideBoundingBox.bottom = tileCenter2D.y - insideSizeFromCenter;
-
-        //get height of inside bounding box points
-       /* vec3 leftTopInside = vec3(insideBoundingBox.left, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.left, insideBoundingBox.top),tileCenter3D,lightingNormal));
-        vec3 rightBottomInside = vec3(insideBoundingBox.right, insideBoundingBox.bottom, getHeightOfPointOnSurface(vec2(insideBoundingBox.right, insideBoundingBox.bottom),tileCenter3D,lightingNormal));  
-        vec3 rightTopInside = vec3(insideBoundingBox.right, insideBoundingBox.top, getHeightOfPointOnSurface(vec2(insideBoundingBox.right, insideBoundingBox.top),tileCenter3D,lightingNormal));  
-*/
         //--------------------------------------------
 
         if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){
             //check which side
             //left
-            /*if(fragmentPos.x < insideBoundingBox.left && 
-            (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.top))) && 
-            (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.left) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
-            
+            if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
+            && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
+            && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
+                
                 //compute surface normal using 2 corner points of inside and 1 corner point of outside
                 lightingNormal = calcPlaneNormal(leftBottomInside, leftTopInside, leftBottomCorner);
                 
                 // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
-
+                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
             }
             //right
-            else if(fragmentPos.x > insideBoundingBox.right && 
-            (fragmentPos.y < insideBoundingBox.top || (fragmentPos.y > insideBoundingBox.top && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.top))) && 
-            (fragmentPos.y > insideBoundingBox.bottom || (fragmentPos.y < insideBoundingBox.bottom && abs(fragmentPos.x - insideBoundingBox.right) > abs(fragmentPos.y - insideBoundingBox.bottom)))){
+            else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
+            && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
+            && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
 
                 //compute surface normal using 2 corner points of inside and 1 corner point of outside
                 lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
@@ -189,7 +175,7 @@ void main()
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
             }
             //bottom
-            else if(fragmentPos.y < insideBoundingBox.bottom){
+            else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
                 //compute surface normal using 2 corner points of inside and 1 corner point of outside
                 lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
 
@@ -197,21 +183,21 @@ void main()
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
             }
             //top
-            else if(fragmentPos.y > insideBoundingBox.top){
+            else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
                 
                 //compute surface normal using 2 corner points of inside and 1 corner point of outside
                 lightingNormal = calcPlaneNormal(leftTopInside, rightTopInside, leftTopCorner);
 
                 // fragment height
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
-            }*/
-            discard;
+            }
+            //discard;
         }
         //point is on the inside
         else{
 
             // fragemnt height
-            fragmentPos.z = tileCenterZ;//getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+            fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
 
             //debug
             //distance to center
@@ -220,7 +206,7 @@ void main()
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
           /// squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-          squareTilesTexture = vec4(lightingNormal, 1.0f);
+         // squareTilesTexture = vec4(lightingNormal, 1.0f);
         }
     #endif
 
