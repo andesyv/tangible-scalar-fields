@@ -72,6 +72,7 @@ Program * HexTile::getTileProgram()
 
 	//geometry & fragment shader
 	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
+	shaderProgram_hex_tiles->setUniform("tileSize", tileSizeWS);
 
 	//fragment Shader
 	shaderProgram_hex_tiles->setUniform("maxTexCoordX", m_tileMaxX);

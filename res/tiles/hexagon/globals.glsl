@@ -1,5 +1,44 @@
 #include "/globals.glsl"
 
+//some pixels of rect row 0 do not fall inside a hexagon.
+//there we need to discard them
+bool discardOutsideOfGridFragments(vec2 fragCoord, vec2 minBounds, vec2 maxBounds, vec2 rectSizeScreenSpace, int max_rect_col, int max_rect_row){
+    // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
+    // If the current value = maxValue, we take the maxCoord instead
+    int rectX = min(max_rect_col, mapInterval(fragCoord.x, minBounds.x, maxBounds.x, max_rect_col + 1));
+    int rectY = min(max_rect_row, mapInterval(fragCoord.y, minBounds.y, maxBounds.y, max_rect_row + 1));
+
+    if (rectY == 0 && mod(rectX, 3) != 2)
+    {
+        // rectangle left lower corner in space of points
+        vec2 ll = vec2(rectX * rectSizeScreenSpace.x + minBounds.x, minBounds.y);
+        vec2 a, b;
+        //modX = 0
+        if (mod(rectX, 3) == 0)
+        {
+            //Upper Left
+            a = ll;
+            b = vec2(ll.x + rectSizeScreenSpace.x / 2.0f, ll.y + rectSizeScreenSpace.y);
+            if (pointLeftOfLine(a, b, fragCoord))
+            {
+                return true;
+            }
+        }
+        // modX = 1
+        else
+        {
+            //Upper Right
+            a = vec2(ll.x + rectSizeScreenSpace.x / 2.0f, ll.y + rectSizeScreenSpace.y);
+            b = vec2(ll.x + rectSizeScreenSpace.x, ll.y);
+            if (pointLeftOfLine(a, b, fragCoord))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rectWidth, float rectHeight, vec2 minBounds, vec2 maxBounds){
     
     // to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
