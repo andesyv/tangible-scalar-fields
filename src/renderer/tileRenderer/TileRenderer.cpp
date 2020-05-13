@@ -229,6 +229,7 @@ void TileRenderer::display()
 	//TODO: show thomas
 	// projection matrix so we are in screen space and not view space
 	vec4 viewLightPosition = projectionMatrix * viewer()->lightTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	//viewLightPosition.z *= viewer()->scaleFactor();
 
 	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp
 		|| m_discrepancy_easeIn != m_discrepancy_easeIn_tmp || m_discrepancy_lowCount != m_discrepancy_lowCount_tmp || viewer()->viewportSize() != m_framebufferSize) {
@@ -418,6 +419,7 @@ void TileRenderer::display()
 		shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
 		shaderProgram_pointCircles->setUniform("sigma2", m_sigma);
 		shaderProgram_pointCircles->setUniform("radiusMult", scaleAdjustedRadiusMult);
+		shaderProgram_pointCircles->setUniform("densityMult", m_densityMult);
 
 		m_vao->bind();
 		shaderProgram_pointCircles->use();
@@ -649,7 +651,7 @@ void TileRenderer::display()
 					tileNormal[j] = z;
 				}
 				//tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
-				vec3 lightNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y / tileNormal.w, 0.5f);
+				vec3 lightNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y / tileNormal.w, 0.01f);
 				lightNormal = normalize(lightNormal);
 				for (int j = 0; j < 3; j++) {
 
@@ -697,6 +699,7 @@ void TileRenderer::display()
 		//fragment Shader
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
 		shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
+		shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
 
 		//lighting
 		shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));
@@ -1098,8 +1101,10 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_pointCircleRadius, 1.0f, 100.0f);
+			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 100.0f);
 			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
 			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.0f, 1.0f);
+			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
 		}
 
 		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);

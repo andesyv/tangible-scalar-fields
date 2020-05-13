@@ -40,6 +40,7 @@ uniform int maxTexCoordY;
 uniform float normalsFactor;
 uniform float tileHeightMult;
 uniform float borderWidth;
+uniform bool invertPyramid;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -105,9 +106,7 @@ void main()
         tileNormal /= normalsFactor;
        
         // LIGHTING NORMAL ------------------------
-        //to debug normals set z ~= 0.01f
-        lightingNormal = vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w, 0.01f);
-        lightingNormal = normalize(lightingNormal);
+        lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
         //-----------------------------------------
 
         //Corner Of Square (z=0)
@@ -120,7 +119,10 @@ void main()
         vec2 tileCenter2D = vec2(leftBottomCorner) + tileSizeScreenSpace / 2.0f;
         //height at tile center
         float tileCenterZ = tileNormal.z * tileHeightMult;
-   
+        if(invertPyramid){
+            tileCenterZ *= -1;
+        }
+
         vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
 
         // BORDER-------------------------------------
@@ -132,6 +134,10 @@ void main()
         float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
 
         float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
+        if(invertPyramid){
+            //minHeightCorner becomes maxHeightCorner if pyramid is inverted
+            minHeightCorner = max(max(heightLeftBottomCorner, heightLeftTopCorner), max(heightRightBottomCorner, heightRightTopCorner));
+        }
 
         // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
         // get border plane
@@ -149,6 +155,11 @@ void main()
         vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
         vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
 
+
+        /*if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 5 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 5 &&
+         distance(vec2(fragmentPos), vec2(leftTopInside)) > 5 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 5){
+            discard;
+        }*/
         //--------------------------------------------
 
         if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){

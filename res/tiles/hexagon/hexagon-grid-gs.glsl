@@ -33,7 +33,7 @@ void main()
 		
 			//flat-topped
 			float angle_deg = 60 * i;
-   			float angle_rad = PI / 180 * angle_deg;
+   			angle_rad = PI / 180 * angle_deg;
 
 			// Offset from center of point
         	offset = vec4(hexSize * cos(angle_rad), hexSize*sin(angle_rad), 0.0, 0.0);

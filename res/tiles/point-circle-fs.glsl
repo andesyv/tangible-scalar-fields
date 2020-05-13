@@ -11,6 +11,7 @@ const float PI = 3.14159265359;
 uniform float sigma2;			
 uniform float radius;
 uniform float radiusMult;
+uniform float densityMult;
 
 in vec2 isCoords;
 
@@ -40,6 +41,6 @@ void main()
 
 	//TODO set correct define
 	#if defined(RENDER_KDE) || defined(RENDER_DENSITY_NORMALS) || defined(RENDER_TILE_NORMALS)
-		densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*radius*radiusMult), 0.0f, 0.0f, 1.0f);
+		densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*radius*radiusMult)*densityMult, 0.0f, 0.0f, 1.0f);
 	#endif
 }

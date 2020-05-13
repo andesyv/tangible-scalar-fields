@@ -205,8 +205,6 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			mat4 viewTransform = viewer()->viewTransform();
 			mat4 newViewTransform = scale(viewTransform, vec3(s, s, s));
 			viewer()->setViewTransform(newViewTransform);
-
-			//setLightPosition();
 		}
 	}
 
@@ -309,6 +307,8 @@ void CameraInteractor::resetViewTransform()
 	//----------------------------------------------------------------------------------------------------------------
 	
 	setLightPosition();
+
+	viewer()->setScaleFactor(1.0f);
 }
 
 void molumes::CameraInteractor::setLightPosition()
@@ -316,7 +316,7 @@ void molumes::CameraInteractor::setLightPosition()
 	// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------------------------------------------------------
 	glm::mat4 viewTransform = viewer()->viewTransform();
 	glm::vec3 initLightDir = normalize(glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-	glm::mat4 newLightTransform = glm::inverse(viewTransform)*glm::translate(mat4(1.0f), (5 * viewer()->m_scatterPlotDiameter*initLightDir))*viewTransform;
+	glm::mat4 newLightTransform = glm::inverse(viewTransform)*glm::translate(mat4(1.0f), ( 5 * viewer()->m_scatterPlotDiameter*initLightDir))*viewTransform;
 	viewer()->setLightTransform(newLightTransform);
 	//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
