@@ -168,7 +168,7 @@ namespace molumes
 		//regression parameters
 		float m_sigma = 1.0f;
 		const float gaussSampleRadiusMult = 400.0f;
-		float m_densityMult = 1.0f;
+		float m_densityMult = 50.0f;
 		float m_tileHeightMult = 1.0f;
 		float m_borderWidth = 0.2f; // width in percent to size
 		bool m_invertPyramid = false;
