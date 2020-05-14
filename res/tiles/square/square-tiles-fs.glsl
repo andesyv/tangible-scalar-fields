@@ -7,7 +7,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 layout(std430, binding = 0) buffer tileNormalsBuffer
 {
-    uint tileNormals[];
+    int tileNormals[];
 };
 
 layout(std430, binding = 1) buffer valueMaxBuffer
@@ -101,11 +101,13 @@ void main()
     vec3 fragmentPos = vec3(gl_FragCoord);
     #ifdef RENDER_TILE_NORMALS
         for(int i = 0; i < 4; i++){
-            tileNormal[i] = float(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i]);
+            tileNormal[i] = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 4 + i)]);
         }
+
         tileNormal /= normalsFactor;
        
         // LIGHTING NORMAL ------------------------
+       // lightingNormal = normalize(vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w,0.01f));
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
         //-----------------------------------------
 
@@ -161,7 +163,11 @@ void main()
             discard;
         }*/
         //--------------------------------------------
-
+        bool debugNormals = false;
+        if(debugNormals){
+            squareTilesTexture = vec4(lightingNormal, 1.0f);
+        }
+        else{
         if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){
             //check which side
             //left
@@ -217,11 +223,10 @@ void main()
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-          /// squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-         // squareTilesTexture = vec4(lightingNormal, 1.0f);
+           //squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+        }
         }
     #endif
-
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
 
     squareTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * squareTilesTexture.rgb;

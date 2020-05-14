@@ -8,7 +8,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 layout(std430, binding = 0) buffer tileNormalsBuffer
 {
-    uint tileNormals[];
+    int tileNormals[];
 };
 
 layout(std430, binding = 1) buffer valueMaxBuffer

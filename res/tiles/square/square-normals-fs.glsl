@@ -7,7 +7,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 
 layout(std430, binding = 0) buffer tileNormalsBuffer
 {
-    uint tileNormals[];
+    int tileNormals[];
 };
 
 in vec4 boundsScreenSpace;
@@ -46,8 +46,8 @@ void main()
     fragmentNormal *= normalsFactor;
    
     for(int i = 0; i < 4; i++){
-        uint uintValue = uint(fragmentNormal[i]);
+        int intValue = int(fragmentNormal[i]);
 
-        atomicAdd(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i], uintValue);
+        atomicAdd(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 4 + i], intValue);
     }
 }
