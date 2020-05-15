@@ -714,6 +714,7 @@ void TileRenderer::display()
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
 		shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
 		shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
+		shaderProgram_tiles->setUniform("showBorder", m_showBorder);
 
 		//lighting
 		shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));
@@ -1118,6 +1119,7 @@ void TileRenderer::renderGUI() {
 			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 100.0f);
 			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
 			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.0f, 1.0f);
+			ImGui::Checkbox("Show Border", &m_showBorder);
 			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
 		}
 

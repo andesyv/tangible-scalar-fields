@@ -38,6 +38,8 @@ uniform int max_rect_row;
 uniform float normalsFactor;
 uniform float tileHeightMult;
 uniform float borderWidth;
+uniform bool showBorder;
+uniform bool invertPyramid;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -118,6 +120,7 @@ void main()
         float vertical_offset = mod(hex.x, 2) == 0 ? vertical_space : vertical_space/2.0f;
 
         vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset);
+        //TODO: add invert pyramid
         //height at tile center
         float tileCenterZ = tileNormal.z * tileHeightMult;
    
@@ -127,112 +130,122 @@ void main()
             discard;
         }*/
 
-        //Corner Of Hexagon (z=0)
-		vec3 leftBottomCorner = tileCenter3D + vec3(-tileSizeScreenSpace/2.0f, -vertical_space/2.0f, 0.0f);     
-		vec3 leftCenterCorner = tileCenter3D + vec3(-tileSizeScreenSpace, 0.0f, 0.0f);
-        vec3 leftTopCorner = tileCenter3D + vec3(-tileSizeScreenSpace/2.0f, vertical_space/2.0f, 0.0f);     
-		vec3 rightBottomCorner = tileCenter3D + vec3(tileSizeScreenSpace/2.0f, -vertical_space/2.0f, 0.0f);     
-		vec3 rightCenterCorner = tileCenter3D + vec3(tileSizeScreenSpace, 0.0f, 0.0f);
-		vec3 rightTopCorner = tileCenter3D + vec3(tileSizeScreenSpace/2.0f, vertical_space/2.0f, 0.0f);  
+        if(showBorder){
+            // BORDER-------------------------------------
+            //Corner Of Hexagon (z=0)
+            vec3 leftBottomCorner = tileCenter3D + vec3(-tileSizeScreenSpace/2.0f, -vertical_space/2.0f, 0.0f);     
+            vec3 leftCenterCorner = tileCenter3D + vec3(-tileSizeScreenSpace, 0.0f, 0.0f);
+            vec3 leftTopCorner = tileCenter3D + vec3(-tileSizeScreenSpace/2.0f, vertical_space/2.0f, 0.0f);     
+            vec3 rightBottomCorner = tileCenter3D + vec3(tileSizeScreenSpace/2.0f, -vertical_space/2.0f, 0.0f);     
+            vec3 rightCenterCorner = tileCenter3D + vec3(tileSizeScreenSpace, 0.0f, 0.0f);
+            vec3 rightTopCorner = tileCenter3D + vec3(tileSizeScreenSpace/2.0f, vertical_space/2.0f, 0.0f);  
 
-        /*if(distance(vec2(fragmentPos), vec2(leftBottomCorner)) > 10 && distance(vec2(fragmentPos), vec2(rightBottomCorner)) > 10 &&
-         distance(vec2(fragmentPos), vec2(leftCenterCorner)) > 10 && distance(vec2(fragmentPos), vec2(rightCenterCorner)) > 10 &&
-         distance(vec2(fragmentPos), vec2(leftTopCorner)) > 10 && distance(vec2(fragmentPos), vec2(rightTopCorner)) > 10){
-            discard;
-        }*/
-        
-
-        // BORDER-------------------------------------
-
-        // 1) get lowest corner point
-        float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), tileCenter3D, lightingNormal);
-        float heightLeftCenterCorner = getHeightOfPointOnSurface(vec2(leftCenterCorner), tileCenter3D, lightingNormal);
-        float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), tileCenter3D, lightingNormal);
-        float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), tileCenter3D, lightingNormal);
-        float heightRightCenterCorner = getHeightOfPointOnSurface(vec2(rightCenterCorner), tileCenter3D, lightingNormal);
-        float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
-
-        float minLeftCorner = min(min(heightLeftBottomCorner, heightLeftCenterCorner), heightLeftTopCorner);
-        float minRightCorner = min(min(heightRightBottomCorner, heightRightCenterCorner), heightRightTopCorner);
-        float minHeightCorner = min(minLeftCorner, minRightCorner);
-
-        // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
-        // get border plane
-        float heightOffset = tileCenterZ - minHeightCorner;
-        float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
-        
-        vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
-
-        // 3) get intersections of plane with pyramid
-        // pyramid top = tileCenter3D
-        // lineDir = normalize(pyramidTop - Corner)
-
-        vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
-        vec3 leftCenterInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftCenterCorner), tileCenter3D);        
-        vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
-        vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
-        vec3 rightCenterInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightCenterCorner), tileCenter3D);        
-        vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
-
-         if(distance(vec2(fragmentPos), vec2(rightBottomInside)) > 5){
-             discard;
-         }
-         /*
-        if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 10 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 10 &&
-         distance(vec2(fragmentPos), vec2(leftCenterInside)) > 10 && distance(vec2(fragmentPos), vec2(rightCenterInside)) > 10 &&
-         distance(vec2(fragmentPos), vec2(leftTopInside)) > 10 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 10){
-            discard;
-        }*/
-
-        //--------------------------------------------
-
-        if(pointInBorder(fragmentPos, leftBottomInside, leftCenterInside, leftTopInside, rightBottomInside, rightCenterInside, rightTopInside)){
-            //check which side
-            //left
-            /*if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
-            && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
-            && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
-                
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftBottomInside, leftTopInside, leftBottomCorner);
-                
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
-            }
-            //right
-            else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
-            && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
-            && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
-
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
-
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
-            }
-            //bottom
-            else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
-
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
-            }
-            //top
-            else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
-                
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftTopInside, rightTopInside, leftTopCorner);
-
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
+            /*if(distance(vec2(fragmentPos), vec2(leftBottomCorner)) > 10 && 
+            distance(vec2(fragmentPos), vec2(rightBottomCorner)) > 10 &&
+            distance(vec2(fragmentPos), vec2(leftCenterCorner)) > 10 && 
+            distance(vec2(fragmentPos), vec2(rightCenterCorner)) > 10 &&
+            distance(vec2(fragmentPos), vec2(leftTopCorner)) > 10 && 
+            distance(vec2(fragmentPos), vec2(rightTopCorner)) > 10){
+                discard;
             }*/
-           // discard;
-        }
-        //point is on the inside
-        else{
+            
+            // 1) get lowest corner point
+            float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), tileCenter3D, lightingNormal);
+            float heightLeftCenterCorner = getHeightOfPointOnSurface(vec2(leftCenterCorner), tileCenter3D, lightingNormal);
+            float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), tileCenter3D, lightingNormal);
+            float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), tileCenter3D, lightingNormal);
+            float heightRightCenterCorner = getHeightOfPointOnSurface(vec2(rightCenterCorner), tileCenter3D, lightingNormal);
+            float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
 
-            // fragemnt height
+            float minLeftCorner = min(min(heightLeftBottomCorner, heightLeftCenterCorner), heightLeftTopCorner);
+            float minRightCorner = min(min(heightRightBottomCorner, heightRightCenterCorner), heightRightTopCorner);
+            float minHeightCorner = min(minLeftCorner, minRightCorner);
+
+            // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
+            // get border plane
+            float heightOffset = tileCenterZ - minHeightCorner;
+            float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
+            
+            vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
+
+            // 3) get intersections of plane with pyramid
+            // pyramid top = tileCenter3D
+            // lineDir = normalize(pyramidTop - Corner)
+
+            vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
+            vec3 leftCenterInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftCenterCorner), tileCenter3D);        
+            vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
+            vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
+            vec3 rightCenterInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightCenterCorner), tileCenter3D);        
+            vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
+
+            //leftBottomInside = leftBottomCorner;
+            //leftBottomInside.x += tileSizeScreenSpace/2.0f;
+            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 5){
+                discard;
+            }
+            /*
+            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 10 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 10 &&
+            distance(vec2(fragmentPos), vec2(leftCenterInside)) > 10 && distance(vec2(fragmentPos), vec2(rightCenterInside)) > 10 &&
+            distance(vec2(fragmentPos), vec2(leftTopInside)) > 10 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 10){
+                discard;
+            }*/
+
+            //--------------------------------------------
+            //hexTilesTexture = vec4(lightingNormal, 1.0f);
+
+            if(pointInBorder(fragmentPos, leftBottomInside, leftCenterInside, leftTopInside, rightBottomInside, rightCenterInside, rightTopInside)){
+                //check which side
+                //left
+                /*if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
+                && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
+                && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
+                    
+                    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                    lightingNormal = calcPlaneNormal(leftBottomInside, leftTopInside, leftBottomCorner);
+                    
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
+                }
+                //right
+                else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
+                && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
+                && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
+
+                    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                    lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
+
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
+                }
+                //bottom
+                else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
+                    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                    lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
+
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
+                }
+                //top
+                else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
+                    
+                    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                    lightingNormal = calcPlaneNormal(leftTopInside, rightTopInside, leftTopCorner);
+
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
+                }*/
+            // discard;
+            }
+            //point is on the inside
+            else{
+
+                // fragemnt height
+                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+            }
+        }
+        else{
+             // fragemnt height
             fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
             //debug
             //distance to center
@@ -248,5 +261,5 @@ void main()
     
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
 
-   // hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
+    hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
 }

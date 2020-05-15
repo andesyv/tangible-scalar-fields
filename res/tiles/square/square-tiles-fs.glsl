@@ -40,6 +40,7 @@ uniform int maxTexCoordY;
 uniform float normalsFactor;
 uniform float tileHeightMult;
 uniform float borderWidth;
+uniform bool showBorder;
 uniform bool invertPyramid;
 
 //Lighting----------------------
@@ -127,104 +128,108 @@ void main()
 
         vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
 
-        // BORDER-------------------------------------
+        if(showBorder){
+            // BORDER-------------------------------------
 
-        // 1) get lowest corner point
-        float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), tileCenter3D, lightingNormal);
-        float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), tileCenter3D, lightingNormal);
-        float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), tileCenter3D, lightingNormal);
-        float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
+            // 1) get lowest corner point
+            float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), tileCenter3D, lightingNormal);
+            float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), tileCenter3D, lightingNormal);
+            float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), tileCenter3D, lightingNormal);
+            float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
 
-        float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
-        if(invertPyramid){
-            //minHeightCorner becomes maxHeightCorner if pyramid is inverted
-            minHeightCorner = max(max(heightLeftBottomCorner, heightLeftTopCorner), max(heightRightBottomCorner, heightRightTopCorner));
-        }
+            float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
+            if(invertPyramid){
+                //minHeightCorner becomes maxHeightCorner if pyramid is inverted
+                minHeightCorner = max(max(heightLeftBottomCorner, heightLeftTopCorner), max(heightRightBottomCorner, heightRightTopCorner));
+            }
 
-        // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
-        // get border plane
-        float heightOffset = tileCenterZ - minHeightCorner;
-        float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
-        
-        vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
+            // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
+            // get border plane
+            float heightOffset = tileCenterZ - minHeightCorner;
+            float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
+            
+            vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
 
-        // 3) get intersections of plane with pyramid
-        // pyramid top = tileCenter3D
-        // lineDir = normalize(pyramidTop - Corner)
+            // 3) get intersections of plane with pyramid
+            // pyramid top = tileCenter3D
+            // lineDir = normalize(pyramidTop - Corner)
 
-        vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
-        vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
-        vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
-        vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
+            vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
+            vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
+            vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
+            vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
 
 
-        /*if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 5 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 5 &&
-         distance(vec2(fragmentPos), vec2(leftTopInside)) > 5 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 5){
-            discard;
-        }*/
-        //--------------------------------------------
-        bool debugNormals = false;
-        if(debugNormals){
-            squareTilesTexture = vec4(lightingNormal, 1.0f);
+            /*if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 5 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 5 &&
+            distance(vec2(fragmentPos), vec2(leftTopInside)) > 5 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 5){
+                discard;
+            }*/
+            //--------------------------------------------
+            bool debugNormals = false;
+            if(debugNormals){
+                squareTilesTexture = vec4(lightingNormal, 1.0f);
+            }
+            else{
+                if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){
+                    //check which side
+                    //left
+                    if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
+                    && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
+                    && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
+                        
+                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                        lightingNormal = calcPlaneNormal(leftBottomInside, leftTopInside, leftBottomCorner);
+                        
+                        // fragment height
+                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
+                    }
+                    //right
+                    else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
+                    && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
+                    && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
+
+                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                        lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
+
+                        // fragment height
+                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
+                    }
+                    //bottom
+                    else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
+                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                        lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
+
+                        // fragment height
+                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
+                    }
+                    //top
+                    else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
+                        
+                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                        lightingNormal = calcPlaneNormal(leftTopInside, rightTopInside, leftTopCorner);
+
+                        // fragment height
+                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
+                    }
+                    //discard;
+                }
+                //point is on the inside
+                else{
+                    // fragemnt height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);         
+                }
+            }
         }
         else{
-        if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){
-            //check which side
-            //left
-            if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
-            && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
-            && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
-                
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftBottomInside, leftTopInside, leftBottomCorner);
-                
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
-            }
-            //right
-            else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
-            && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
-            && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
-
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
-
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
-            }
-            //bottom
-            else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
-
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
-            }
-            //top
-            else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
-                
-                //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                lightingNormal = calcPlaneNormal(leftTopInside, rightTopInside, leftTopCorner);
-
-                // fragment height
-                fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
-            }
-            //discard;
-        }
-        //point is on the inside
-        else{
-
             // fragemnt height
             fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
-
             //debug
             //distance to center
             float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-           //squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-        }
+            //squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
         }
     #endif
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
