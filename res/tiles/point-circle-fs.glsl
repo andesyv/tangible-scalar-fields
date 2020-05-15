@@ -9,7 +9,8 @@ layout (location = 1) out vec4 densityEstimation;
 const float PI = 3.14159265359;
 
 uniform float sigma2;			
-uniform float radius;
+uniform float pointCircleRadius;
+uniform float kdeRadius;
 uniform float radiusMult;
 uniform float densityMult;
 
@@ -25,22 +26,40 @@ float gaussKernel(float d)
 
 void main()
 {
+	float fragDistanceFromCenter;
+	#ifdef RENDER_POINT_CIRCLES
+		fragDistanceFromCenter = length(isCoords);
 
-    float fragDistanceFromCenter = length(isCoords);
+		if(pointCircleRadius < kdeRadius){
+			fragDistanceFromCenter /= pointCircleRadius / kdeRadius;
+		}
 
-	// create circle
-	if (fragDistanceFromCenter > 1) {
-		discard;
-	}
+		// create circle
+		if (fragDistanceFromCenter > 1) {
+			pointCircleTexture = vec4(0,0,0,0);
+		}
+		else{
+			float blendRadius = smoothstep(0.5, 1.0, fragDistanceFromCenter);
 
-	float blendRadius = smoothstep(0.5, 1.0, fragDistanceFromCenter);
-
-    pointCircleTexture = vec4(pointColor, 1.0f-blendRadius);
-	//OpenGL expects premultiplied alpha values
-	pointCircleTexture.rgb *= pointCircleTexture.a;
-
+			pointCircleTexture = vec4(pointColor, 1.0f-blendRadius);
+			//OpenGL expects premultiplied alpha values
+			pointCircleTexture.rgb *= pointCircleTexture.a;
+		}
+	#endif
 	//TODO set correct define
 	#if defined(RENDER_KDE) || defined(RENDER_DENSITY_NORMALS) || defined(RENDER_TILE_NORMALS)
-		densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*radius*radiusMult)*densityMult, 0.0f, 0.0f, 1.0f);
+		fragDistanceFromCenter = length(isCoords);
+
+		if(pointCircleRadius > kdeRadius){
+			fragDistanceFromCenter /= kdeRadius / pointCircleRadius;
+		}
+
+		// create circle
+		if (fragDistanceFromCenter > 1) {
+			densityEstimation = vec4(0,0,0,0);
+		}
+		else{
+			densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*kdeRadius*radiusMult)*densityMult, 0.0f, 0.0f, 1.0f);
+		}
 	#endif
 }

@@ -8,7 +8,8 @@ layout(triangle_strip, max_vertices = 4) out;
 
 uniform mat4 modelViewProjectionMatrix;
 
-uniform float radius;
+uniform float pointCircleRadius;
+uniform float kdeRadius;
 uniform float aspectRatio;
 
 //imposter space coordinates
@@ -16,6 +17,9 @@ out vec2 isCoords;
 
 void main()
 {
+
+	float radius = max(kdeRadius, pointCircleRadius);
+
     // create bounding box geometry
 	vec4 pos = modelViewProjectionMatrix * gl_in[0].gl_Position + vec4(radius, radius/aspectRatio,0.0,0.0);
     isCoords = vec2(1, 1);

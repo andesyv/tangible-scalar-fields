@@ -156,8 +156,8 @@ namespace molumes
 		float m_tileSize_tmp = m_tileSize;
 
 		//point circle parameters 
-		//TODO: seperate: used for both pointCircles and kde-gaussSampleRadius 
-		float m_pointCircleRadius = 30.0f; 
+		float m_pointCircleRadius = 30.0f;
+		float m_kdeRadius = 30.0f;
 		const float pointCircleRadiusDiv = 5000.0f;
 
 		//discrepancy parameters

@@ -407,12 +407,14 @@ void TileRenderer::display()
 		auto shaderProgram_pointCircles = shaderProgram("point-circle");
 
 		//set correct radius
-		float scaleAdjustedRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
+		float scaleAdjustedPointCircleRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
+		float scaleAdjustedKDERadius = m_kdeRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
 		float scaleAdjustedRadiusMult = gaussSampleRadiusMult / viewer()->scaleFactor();
 
 		//geometry shader
 		shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-		shaderProgram_pointCircles->setUniform("radius", scaleAdjustedRadius);
+		shaderProgram_pointCircles->setUniform("pointCircleRadius", scaleAdjustedPointCircleRadius);
+		shaderProgram_pointCircles->setUniform("kdeRadius", scaleAdjustedKDERadius);
 		shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
 		//fragment shader
@@ -1115,7 +1117,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Density Normals", &m_renderDensityNormals);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
-			ImGui::SliderFloat("Sample Radius", &m_pointCircleRadius, 1.0f, 100.0f);
+			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
 			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 100.0f);
 			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
 			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.0f, 1.0f);
