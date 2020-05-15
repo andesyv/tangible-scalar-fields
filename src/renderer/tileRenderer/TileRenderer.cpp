@@ -109,8 +109,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_kdeTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	m_densityNormalsTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
 	m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	//colorMap - 1D Texture
@@ -167,11 +165,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_gridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_gridTexture.get());
 	m_gridFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 	m_gridFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
-
-	m_densityNormalsFramebuffer = Framebuffer::create();
-	m_densityNormalsFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_densityNormalsTexture.get());
-	m_densityNormalsFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_densityNormalsFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
 
 	m_shadeFramebuffer = Framebuffer::create();
 	m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
@@ -262,7 +255,6 @@ void TileRenderer::display()
 			m_tilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_gridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_kdeTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-			m_densityNormalsTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		}
 
@@ -543,52 +535,7 @@ void TileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	//TODO: density normals pass only debug to show normals per pixel
-	if (m_renderDensityNormals || m_renderTileNormals) {
-		// ====================================================================================== DENSITY NORMALS RENDER PASS ======================================================================================
-		// render Density Normals into texture
-
-		m_densityNormalsFramebuffer->bind();
-
-		glClearDepth(1.0f);
-		glClearColor(0.0, 0.0, 0.0, 0.0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// make sure points are drawn on top of each other
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_ALWAYS);
-
-		//Blending GL_COLOR_ATTACHMENT0
-		glEnablei(GL_BLEND, 0);
-		glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glBlendEquationi(0, GL_MAX);
-
-		// -------------------------------------------------------------------------------------------------
-
-		m_kdeTexture->bindActive(0);
-
-		auto shaderProgram_density_normals = shaderProgram("density-normals");
-
-		//fragment shader
-		shaderProgram_density_normals->setUniform("kdeTexture", 0);
-
-		m_vaoQuad->bind();
-
-		shaderProgram_density_normals->use();
-		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-		shaderProgram_density_normals->release();
-
-		m_vaoQuad->unbind();
-
-		m_kdeTexture->unbindActive(0);
-
-		// disable blending
-		glDisablei(GL_BLEND, 0);
-
-		m_densityNormalsFramebuffer->unbind();
-
-		glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
+	if (m_renderTileNormals) {
 		// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
 		
 		// render Tile Normals into storage buffer
@@ -603,9 +550,7 @@ void TileRenderer::display()
 			// -------------------------------------------------------------------------------------------------
 
 			m_kdeTexture->bindActive(1);
-			//TODO: remove
-			m_densityNormalsTexture->bindActive(2);
-			m_tileAccumulateTexture->bindActive(3);
+			m_tileAccumulateTexture->bindActive(2);
 
 			auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
 
@@ -616,8 +561,7 @@ void TileRenderer::display()
 			shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
 
 			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
-			shaderProgram_tile_normals->setUniform("densityNormalsTexture", 2);
-			shaderProgram_tile_normals->setUniform("accumulateTexture", 3);
+			shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
 
 			m_vaoQuad->bind();
 
@@ -628,8 +572,7 @@ void TileRenderer::display()
 			m_vaoQuad->unbind();
 
 			m_kdeTexture->unbindActive(1);
-			m_densityNormalsTexture->unbindActive(2);
-			m_tileAccumulateTexture->unbindActive(3);
+			m_tileAccumulateTexture->unbindActive(2);
 
 			glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -811,7 +754,6 @@ void TileRenderer::display()
 	m_pointCircleTexture->bindActive(4);
 	//debug
 	m_kdeTexture->bindActive(5);
-	m_densityNormalsTexture->bindActive(7);
 	//end debug
 
 	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 6);
@@ -841,9 +783,6 @@ void TileRenderer::display()
 	if (m_renderKDE) {
 		shaderProgram_shade->setUniform("kdeTexture", 5);
 	}
-	if (m_renderDensityNormals) {
-		shaderProgram_shade->setUniform("densityNormalsTexture", 7);
-	}
 
 	m_vaoQuad->bind();
 
@@ -859,7 +798,6 @@ void TileRenderer::display()
 	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
 	m_kdeTexture->unbindActive(5);
-	m_densityNormalsTexture->unbindActive(7);
 
 	//unbind shader storage buffer
 	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -1114,7 +1052,6 @@ void TileRenderer::renderGUI() {
 		if (ImGui::CollapsingHeader("Regression Plane"))
 		{
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
-			ImGui::Checkbox("Render Density Normals", &m_renderDensityNormals);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
@@ -1171,9 +1108,6 @@ void TileRenderer::setShaderDefines() {
 
 	if (m_renderKDE)
 		defines += "#define RENDER_KDE\n";
-
-	if (m_renderDensityNormals)
-		defines += "#define RENDER_DENSITY_NORMALS\n";
 
 	if (m_renderTileNormals)
 		defines += "#define RENDER_TILE_NORMALS\n";

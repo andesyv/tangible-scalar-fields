@@ -13,7 +13,6 @@ layout(std430, binding = 0) buffer tileNormalsBuffer
 in vec4 boundsScreenSpace;
 
 uniform sampler2D accumulateTexture;
-uniform sampler2D densityNormalsTexture;
 uniform sampler2D kdeTexture;
 
 //min = 0

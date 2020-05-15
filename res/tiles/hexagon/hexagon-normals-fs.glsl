@@ -15,7 +15,6 @@ in vec4 boundsScreenSpace;
 in vec2 rectSizeScreenSpace;
 
 uniform sampler2D accumulateTexture;
-uniform sampler2D densityNormalsTexture;
 uniform sampler2D kdeTexture;
 
 //min = 0

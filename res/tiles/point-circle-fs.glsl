@@ -47,7 +47,7 @@ void main()
 		}
 	#endif
 	//TODO set correct define
-	#if defined(RENDER_KDE) || defined(RENDER_DENSITY_NORMALS) || defined(RENDER_TILE_NORMALS)
+	#if defined(RENDER_KDE) || defined(RENDER_TILE_NORMALS)
 		fragDistanceFromCenter = length(isCoords);
 
 		if(pointCircleRadius > kdeRadius){

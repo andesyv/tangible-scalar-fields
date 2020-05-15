@@ -18,7 +18,6 @@ uniform sampler2D tilesTexture;
 uniform sampler2D gridTexture;
 uniform sampler2D accPointTexture;
 uniform sampler2D kdeTexture;
-uniform sampler2D densityNormalsTexture;
 
 void main()
 {
@@ -61,11 +60,6 @@ void main()
     // KDE overrides everything except GRID and ACC_POINTS
     #ifdef RENDER_KDE
         col = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-    #endif
-
-    // DENSITY NORMALS overrides everything except GRID and ACC_POINTS
-    #ifdef RENDER_DENSITY_NORMALS
-        col = texelFetch(densityNormalsTexture, ivec2(gl_FragCoord.xy), 0).rgba;
     #endif
 
     #ifdef RENDER_GRID
