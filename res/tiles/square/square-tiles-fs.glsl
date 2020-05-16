@@ -104,11 +104,9 @@ void main()
         for(int i = 0; i < 4; i++){
             tileNormal[i] = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 4 + i)]);
         }
-
         tileNormal /= normalsFactor;
        
         // LIGHTING NORMAL ------------------------
-        //lightingNormal = normalize(vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w,1.0f));
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
         //-----------------------------------------
 
@@ -159,13 +157,6 @@ void main()
             vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
             vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
 
-
-            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 5 && 
-            distance(vec2(fragmentPos), vec2(rightBottomInside)) > 5 &&
-            distance(vec2(fragmentPos), vec2(leftTopInside)) > 5 && 
-            distance(vec2(fragmentPos), vec2(rightTopInside)) > 5){
-                discard;
-            }
             //--------------------------------------------
             bool debugNormals = false;
             if(debugNormals){
@@ -220,13 +211,6 @@ void main()
                     // fragemnt height
                     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);         
                 }
-            }
-            
-            if(minHeightCorner  < 0){
-                squareTilesTexture = vec4(1,0,0,1);
-            }
-            else{
-                squareTilesTexture = vec4(0,1,0,1);
             }
         }
         else{
