@@ -543,7 +543,7 @@ void TileRenderer::display()
 			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
 			m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
-			// one Pixel fo data is enough to clear whole buffer
+			// one Pixel of data is enough to clear whole buffer
 			// https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
 			const int initialVal = 0;
 			m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);

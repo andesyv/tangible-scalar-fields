@@ -4,7 +4,7 @@
 
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 layout (location = 0) out vec4 pointCircleTexture;
-layout (location = 1) out vec4 densityEstimation;
+layout (location = 1) out vec4 kdeTexture;
 
 const float PI = 3.14159265359;
 
@@ -56,10 +56,10 @@ void main()
 
 		// create circle
 		if (fragDistanceFromCenter > 1) {
-			densityEstimation = vec4(0,0,0,0);
+			kdeTexture = vec4(0,0,0,0);
 		}
 		else{
-			densityEstimation = vec4(gaussKernel(fragDistanceFromCenter*kdeRadius*radiusMult)*densityMult, 0.0f, 0.0f, 1.0f);
+			kdeTexture = vec4(gaussKernel(fragDistanceFromCenter*kdeRadius*radiusMult)*densityMult, 0.0f, 0.0f, 1.0f);
 		}
 	#endif
 }

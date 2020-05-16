@@ -111,7 +111,8 @@ void main()
         tileNormal /= normalsFactor;
 
         // LIGHTING NORMAL ------------------------
-        lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
+        lightingNormal = normalize(vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w,0.05f));
+        //lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
         //-----------------------------------------
 
         float horizontal_space = tileSizeScreenSpace * 1.5f;
@@ -140,12 +141,12 @@ void main()
             vec3 rightCenterCorner = tileCenter3D + vec3(tileSizeScreenSpace, 0.0f, 0.0f);
             vec3 rightTopCorner = tileCenter3D + vec3(tileSizeScreenSpace/2.0f, vertical_space/2.0f, 0.0f);  
 
-            /*if(distance(vec2(fragmentPos), vec2(leftBottomCorner)) > 10 && 
-            distance(vec2(fragmentPos), vec2(rightBottomCorner)) > 10 &&
-            distance(vec2(fragmentPos), vec2(leftCenterCorner)) > 10 && 
-            distance(vec2(fragmentPos), vec2(rightCenterCorner)) > 10 &&
-            distance(vec2(fragmentPos), vec2(leftTopCorner)) > 10 && 
-            distance(vec2(fragmentPos), vec2(rightTopCorner)) > 10){
+            /*if(distance(vec2(fragmentPos), vec2(leftBottomCorner)) > 3 && 
+            distance(vec2(fragmentPos), vec2(rightBottomCorner)) > 3 &&
+            distance(vec2(fragmentPos), vec2(leftCenterCorner)) > 3 && 
+            distance(vec2(fragmentPos), vec2(rightCenterCorner)) > 3 &&
+            distance(vec2(fragmentPos), vec2(leftTopCorner)) > 3 && 
+            distance(vec2(fragmentPos), vec2(rightTopCorner)) > 3){
                 discard;
             }*/
             
@@ -167,7 +168,10 @@ void main()
             float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
             
             vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
-
+            /*if(distance(vec2(fragmentPos), vec2(borderPlaneCenter)) > 3){
+                discard;
+            }*/
+            
             // 3) get intersections of plane with pyramid
             // pyramid top = tileCenter3D
             // lineDir = normalize(pyramidTop - Corner)
@@ -178,26 +182,23 @@ void main()
             vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
             vec3 rightCenterInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightCenterCorner), tileCenter3D);        
             vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
-
+            
             //leftBottomInside = leftBottomCorner;
             //leftBottomInside.x += tileSizeScreenSpace/2.0f;
-            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 5){
+             
+            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 3 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 3 &&
+            distance(vec2(fragmentPos), vec2(leftCenterInside)) > 3 && distance(vec2(fragmentPos), vec2(rightCenterInside)) > 3 &&
+            distance(vec2(fragmentPos), vec2(leftTopInside)) > 3 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 3){
                 discard;
             }
-            /*
-            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 10 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 10 &&
-            distance(vec2(fragmentPos), vec2(leftCenterInside)) > 10 && distance(vec2(fragmentPos), vec2(rightCenterInside)) > 10 &&
-            distance(vec2(fragmentPos), vec2(leftTopInside)) > 10 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 10){
-                discard;
-            }*/
 
             //--------------------------------------------
             //hexTilesTexture = vec4(lightingNormal, 1.0f);
 
-            if(pointInBorder(fragmentPos, leftBottomInside, leftCenterInside, leftTopInside, rightBottomInside, rightCenterInside, rightTopInside)){
+          /*  if(pointInBorder(fragmentPos, leftBottomInside, leftCenterInside, leftTopInside, rightBottomInside, rightCenterInside, rightTopInside)){
                 //check which side
                 //left
-                /*if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
+                if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
                 && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
                 && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
                     
@@ -234,7 +235,7 @@ void main()
 
                     // fragment height
                     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
-                }*/
+                }
             // discard;
             }
             //point is on the inside
@@ -242,7 +243,25 @@ void main()
 
                 // fragemnt height
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+            }*/
+            //float normZ = mapInterval_O(tileCenterZ, 0, int(tileNormal.w), 0.0f, 1.0f);
+           // hexTilesTexture = vec4(normZ*4, 0.0f, 0.0f, 1.0f);  
+
+  /*          vec3 lineDir = normalize(tileCenter3D - leftCenterCorner);
+            float t = (dot(lightingNormal, borderPlaneCenter) - dot(lightingNormal, tileCenter3D)) / dot(lightingNormal, lineDir);
+            t = t > 0 ? t*-1 : t;
+            leftBottomInside = tileCenter3D + (lineDir * t);
+
+            if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 4){
+                discard;
             }
+
+            if(t < 0){
+                hexTilesTexture = vec4(1,0,0,1);
+            }
+            else{
+                hexTilesTexture = vec4(0,1,0,1);
+            }*/
         }
         else{
              // fragemnt height
@@ -253,13 +272,13 @@ void main()
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
             float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-            //hexTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
-           // hexTilesTexture = vec4(lightingNormal, 1.0f);
+        hexTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+        //   hexTilesTexture = vec4(lightingNormal, 1.0f);
         }
     #endif
 
     
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
 
-    hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
+    //hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
 }

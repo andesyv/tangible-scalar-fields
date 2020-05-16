@@ -78,7 +78,11 @@ float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
 //https://stackoverflow.com/questions/5666222/3d-line-plane-intersection
 // PRECONDITION: planeNormal and lineDir are normalized
 vec3 linePlaneIntersection(vec3 planeNormal, vec3 planePoint, vec3 lineDir, vec3 linePoint){
-    float t = (dot(planeNormal, planePoint) - dot(planeNormal, linePoint)) / dot(planeNormal, lineDir);
+    planeNormal = normalize(planeNormal);
+    lineDir = normalize(lineDir);
+    float t = (dot(planeNormal, planePoint) - dot(planeNormal, linePoint)) / dot(planeNormal, lineDir);        
+    // t has to be negative
+    t = t > 0 ? t*-1 : t;
     return linePoint + (lineDir * t);
 }
 
