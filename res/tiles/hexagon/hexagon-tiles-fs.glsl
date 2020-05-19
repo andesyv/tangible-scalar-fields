@@ -169,43 +169,58 @@ void main()
 
             //--------------------------------------------
 
-            /*if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 3 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 3 &&
-            distance(vec2(fragmentPos), vec2(leftCenterInside)) > 3 && distance(vec2(fragmentPos), vec2(rightCenterInside)) > 3 &&
-            distance(vec2(fragmentPos), vec2(leftTopInside)) > 3 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 3){
-                discard;
-            }*/
-
             if(pointInBorder(fragmentPos, leftBottomInside, leftCenterInside, leftTopInside, rightBottomInside, rightCenterInside, rightTopInside)){
                 //check which side
-               /* //left
-                if(pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(fragmentPos)) 
-                && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
+                //left top
+                if(pointLeftOfLine(vec2(leftTopInside), vec2(leftCenterInside), vec2(fragmentPos)) 
+                && pointLeftOfLine(vec2(leftCenterInside),vec2(leftCenterCorner),vec2(fragmentPos))
                 && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
                     
                     //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                    lightingNormal = calcPlaneNormal(leftBottomInside, leftTopInside, leftBottomCorner);
+                    lightingNormal = calcPlaneNormal(leftCenterInside, leftTopInside, leftCenterCorner);
+                    
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftCenterCorner, lightingNormal);   
+                }
+                //left bottom
+                else if(pointLeftOfLine(vec2(leftCenterInside), vec2(leftBottomInside), vec2(fragmentPos)) 
+                && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))){
+                    
+                    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                    lightingNormal = calcPlaneNormal(leftBottomInside, leftCenterInside, leftBottomCorner);
                     
                     // fragment height
                     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
                 }
-                //right
-                else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
-                && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
-                && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
-
+                //bottom
+                else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))
+                && pointLeftOfLine(vec2(rightBottomInside), vec2(rightBottomCorner), vec2(fragmentPos))){
                     //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                    lightingNormal = calcPlaneNormal(rightBottomInside, rightBottomCorner, rightTopInside);
+                    lightingNormal = calcPlaneNormal(rightBottomInside, leftBottomInside, rightBottomCorner);
 
                     // fragment height
                     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
-                }
-                //bottom
-                else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
+                } 
+                //right bottom
+                else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightCenterInside), vec2(fragmentPos))
+                && pointLeftOfLine(vec2(rightCenterInside),vec2(rightCenterCorner),vec2(fragmentPos))){
+
                     //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                    lightingNormal = calcPlaneNormal(leftBottomInside, leftBottomCorner, rightBottomInside);
+                    lightingNormal = calcPlaneNormal(rightCenterInside, rightBottomInside, rightCenterCorner);
 
                     // fragment height
-                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightCenterCorner, lightingNormal);
+                }
+                //right top
+                else if(pointLeftOfLine(vec2(rightCenterInside),vec2(rightTopInside), vec2(fragmentPos))
+                && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))
+                ){
+
+                    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+                    lightingNormal = calcPlaneNormal(rightTopInside, rightCenterInside, rightTopCorner);
+
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightTopCorner, lightingNormal);
                 }
                 //top
                 else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
@@ -215,8 +230,7 @@ void main()
 
                     // fragment height
                     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
-                }*/
-             discard;
+                }
             }
             //point is on the inside
             else{
@@ -242,5 +256,5 @@ void main()
     
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------
 
-    //hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
+    hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
 }
