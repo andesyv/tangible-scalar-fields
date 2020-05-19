@@ -15,17 +15,18 @@ uniform mat4 modelViewProjectionMatrix;
 	uniform int windowHeight;
 	uniform int windowWidth;
 	uniform float tileSize;
-
-	out float tileSizeScreenSpace;
-	//[maxX,maxY,minX,minY]
-	out vec4 boundsScreenSpace;
 #endif
+
 
 //if RENDER_HEXAGONS is defined RENDER_TILES is also defined -> we have windowHeigt, windowWidth
 #ifdef RENDER_HEXAGONS
 	uniform vec2 rectSize;
-	out vec2 rectSizeScreenSpace;
 #endif
+
+out float tileSizeScreenSpace;
+//[maxX,maxY,minX,minY]
+out vec4 boundsScreenSpace;
+out vec2 rectSizeScreenSpace;
 
 void main()
 {

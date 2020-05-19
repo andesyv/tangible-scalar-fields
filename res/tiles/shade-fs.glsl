@@ -16,7 +16,7 @@ uniform sampler2D pointChartTexture;
 uniform sampler2D pointCircleTexture;
 uniform sampler2D tilesTexture;
 uniform sampler2D gridTexture;
-uniform sampler2D accPointTexture;
+uniform sampler2D accumulateTexture;
 uniform sampler2D kdeTexture;
 
 void main()
@@ -70,7 +70,7 @@ void main()
     #endif
 
     #ifdef RENDER_ACC_POINTS
-        col = max(col, texelFetch(accPointTexture, ivec2(gl_FragCoord.xy), 0).rgba);
+        col = max(col, texelFetch(accumulateTexture, ivec2(gl_FragCoord.xy), 0).rgba);
     #endif
 
     colorTexture = col;
