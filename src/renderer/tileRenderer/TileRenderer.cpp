@@ -537,7 +537,7 @@ void TileRenderer::display()
 
 	if (m_renderTileNormals) {
 		// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
-		
+
 		// render Tile Normals into storage buffer
 		if (tile != nullptr && m_renderTileNormals) {
 			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
@@ -560,6 +560,13 @@ void TileRenderer::display()
 			shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
 			shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
 
+			//fragment Shader
+			shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
+			shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
+
+			shaderProgram_tile_normals->setUniform("normalsFactor", tile->normalsFactor);
+			shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
+
 			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
 			shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
 
@@ -576,48 +583,71 @@ void TileRenderer::display()
 
 			glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-			/*uint* arrayMain = new uint[4 * tile->m_tile_cols*tile->m_tile_rows]();
-			m_tileNormalsBuffer->getSubData(0, sizeof(int) * 4 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
+			//DEBUG----------------
 
-			std::cout << "New Frame: " << std::endl;
+			/*if (debugOutputCount % 1000 == 0) {
+				debugOutputCount = 1;
 
-			float a = 0.123456789f;
-			uint t = floatBitsToUint(a);
-			uint t_s = t / 10000;
-			float t_f = uintBitsToFloat(t_s * tile->normalsFactor);
+				uint* arrayMain = new uint[5 * tile->m_tile_cols*tile->m_tile_rows]();
+				m_tileNormalsBuffer->getSubData(0, sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
+
+				std::cout << "New Frame: " << std::endl;
+
+				float a = 0.123456789f;
+				uint t = floatBitsToUint(a);
+				uint t_s = t / 10000;
+				float t_f = uintBitsToFloat(t_s * tile->normalsFactor);
 
 
-			float b = -0.123456789f;
-			uint t_n = floatBitsToUint(b);
-			uint t_s_n = t_n;// / 10000;
-			t_s_n += t_s_n;
-			float t_f_n = uintBitsToFloat(t_s_n);// *tile->normalFactor);
+				float b = -0.123456789f;
+				uint t_n = floatBitsToUint(b);
+				uint t_s_n = t_n;// / 10000;
+				t_s_n += t_s_n;
+				float t_f_n = uintBitsToFloat(t_s_n);// *tile->normalFactor);
 
-			float test = b + b;
+				float test = b + b;
 
-			uint t2 = a * tile->normalsFactor;
-			float t2_f = t2 / tile->normalsFactor;
+				uint t2 = a * tile->normalsFactor;
+				float t2_f = t2 / tile->normalsFactor;
 
-			int t2_n = int(b * tile->normalsFactor);
-			t2_n += t2_n;
-			float t2_f_n = (t2_n / tile->normalsFactor);
+				int t2_n = int(b * tile->normalsFactor);
+				t2_n += t2_n;
+				float t2_f_n = (t2_n / tile->normalsFactor);
 
-			for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
-				vec4 tileNormal = vec4(0);
-				for (int j = 0; j < 4; j++) {
-					int y = arrayMain[4 * i + j];
-					float z = y / tile->normalsFactor;
-					tileNormal[j] = z;
+				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
+					vec4 tileNormal = vec4(0);
+					for (int j = 0; j < 4; j++) {
+						int y = arrayMain[5 * i + j];
+						float z = y / tile->normalsFactor;
+						tileNormal[j] = z;
+					}
+					float height = arrayMain[5 * i + 4] / tile->normalsFactor;
+					tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
+					vec3 lightNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
+					for (int j = 0; j < 4; j++) {
+
+						std::cout << i << ": " << j << ": " << tileNormal[j] << std::endl;
+					}
+					std::cout << i << ": " << "height" << ": " << height << std::endl;
+
 				}
-				//tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
-				//vec3 lightNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
-				vec3 lightNormal = normalize(vec3(tileNormal.x / tileNormal.w, tileNormal.y / tileNormal.w, 0.01f));
-				for (int j = 0; j < 3; j++) {
 
-					std::cout << i << ": " << j << ": " << lightNormal[j] << std::endl;
+				float maxKdeHeight = 0.0f;
+				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
+
+					float height = arrayMain[5 * i + 4] / tile->normalsFactor;
+					maxKdeHeight = max(height, maxKdeHeight);
 				}
+				std::cout << "maxHeight" << ": " << maxKdeHeight << std::endl;
+
+
+				delete[] arrayMain;
 			}
-			delete[] arrayMain;*/
+			else {
+				debugOutputCount++;
+			}*/
+			//END DEBUG----------------
+
 		}
 	}
 
@@ -655,11 +685,20 @@ void TileRenderer::display()
 
 		shaderProgram_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
+		//geometry & fragment shader
+		shaderProgram_tiles->setUniform("tileSize", tile->tileSizeWS);
+
+
 		//fragment Shader
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
 		shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
 		shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
 		shaderProgram_tiles->setUniform("showBorder", m_showBorder);
+
+		shaderProgram_tiles->setUniform("maxTexCoordX", tile->m_tileMaxX);
+		shaderProgram_tiles->setUniform("maxTexCoordY", tile->m_tileMaxY);
+
+		shaderProgram_tiles->setUniform("normalsFactor", tile->normalsFactor);
 
 		//lighting
 		shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));
@@ -833,8 +872,8 @@ void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectio
 
 		//allocate tile normals buffer storage
 		m_tileNormalsBuffer->bind(GL_SHADER_STORAGE_BUFFER);
-		// we safe each value of the normal (vec4) seperately
-		m_tileNormalsBuffer->setData(sizeof(int) * 4 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_STREAM_DRAW);
+		// we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
+		m_tileNormalsBuffer->setData(sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_STREAM_DRAW);
 		m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
 		//calculate viewport settings

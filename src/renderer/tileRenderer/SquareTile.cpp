@@ -63,13 +63,6 @@ Program * SquareTile::getTileProgram()
 	//geometry shader
 	shaderProgram_square_tiles->setUniform("maxBounds_acc", maxBounds_Offset);
 	shaderProgram_square_tiles->setUniform("minBounds_acc", minBounds_Offset);
-	shaderProgram_square_tiles->setUniform("tileSize", tileSizeWS);
-
-	//fragment Shader
-	shaderProgram_square_tiles->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_square_tiles->setUniform("maxTexCoordY", m_tileMaxY);
-
-	shaderProgram_square_tiles->setUniform("normalsFactor", normalsFactor);
 
 
 	return shaderProgram_square_tiles;
@@ -83,11 +76,6 @@ Program * SquareTile::getTileNormalsProgram()
 	shaderProgram_square_normals->setUniform("maxBounds_acc", maxBounds_Offset);
 	shaderProgram_square_normals->setUniform("minBounds_acc", minBounds_Offset);
 
-	//fragment Shader
-	shaderProgram_square_normals->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_square_normals->setUniform("maxTexCoordY", m_tileMaxY);
-
-	shaderProgram_square_normals->setUniform("normalsFactor", normalsFactor);
 
 	return shaderProgram_square_normals;
 }

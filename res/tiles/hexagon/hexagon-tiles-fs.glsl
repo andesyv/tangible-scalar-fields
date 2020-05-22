@@ -104,11 +104,15 @@ void main()
     vec4 tileNormal = vec4(0.0f,0.0f,0.0f,1.0f);
     vec3 lightingNormal = vec3(0.0f,0.0f,0.0f);
     vec3 fragmentPos = vec3(gl_FragCoord);
+    float kdeHeight = 0.0f;
     #ifdef RENDER_TILE_NORMALS
         for(int i = 0; i < 4; i++){
-            tileNormal[i] = float(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 4 + i)]);
+            tileNormal[i] = float(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + i)]);
         }
         tileNormal /= normalsFactor;
+
+        kdeHeight = float(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)]);
+        kdeHeight /= normalsFactor;
 
         // LIGHTING NORMAL ------------------------
         //lightingNormal = normalize(vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w,0.05f));
@@ -123,7 +127,7 @@ void main()
         vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset);
         //TODO: add invert pyramid
         //height at tile center
-        float tileCenterZ = tileNormal.z * tileHeightMult;
+        float tileCenterZ = kdeHeight * tileHeightMult;
    
         vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
 

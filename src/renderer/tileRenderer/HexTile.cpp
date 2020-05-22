@@ -72,16 +72,10 @@ Program * HexTile::getTileProgram()
 
 	//geometry & fragment shader
 	shaderProgram_hex_tiles->setUniform("rectSize", vec2(rect_width, rect_height));
-	shaderProgram_hex_tiles->setUniform("tileSize", tileSizeWS);
 
 	//fragment Shader
-	shaderProgram_hex_tiles->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_hex_tiles->setUniform("maxTexCoordY", m_tileMaxY);
-
 	shaderProgram_hex_tiles->setUniform("max_rect_col", max_rect_col);
 	shaderProgram_hex_tiles->setUniform("max_rect_row", max_rect_row);
-
-	shaderProgram_hex_tiles->setUniform("normalsFactor", normalsFactor);
 
 	return shaderProgram_hex_tiles;
 }
@@ -98,13 +92,10 @@ Program * HexTile::getTileNormalsProgram()
 	shaderProgram_hex_normals->setUniform("rectSize", vec2(rect_width, rect_height));
 
 	//fragment Shader
-	shaderProgram_hex_normals->setUniform("maxTexCoordX", m_tileMaxX);
-	shaderProgram_hex_normals->setUniform("maxTexCoordY", m_tileMaxY);
 
 	shaderProgram_hex_normals->setUniform("max_rect_col", max_rect_col);
 	shaderProgram_hex_normals->setUniform("max_rect_row", max_rect_row);
 
-	shaderProgram_hex_normals->setUniform("normalsFactor", normalsFactor);
 
 	return shaderProgram_hex_normals;
 }

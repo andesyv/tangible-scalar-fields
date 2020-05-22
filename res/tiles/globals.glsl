@@ -123,6 +123,8 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
     vec3 viewDir = normalize(viewPos - fragmentPos);
     vec3 reflectDir = reflect(-lightDir, lightingNormal);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    spec = max(0, spec);
+
     vec3 specular = specularStrength * spec * lightColor;
 
     return (ambient + diffuse + specular);

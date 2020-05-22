@@ -191,6 +191,9 @@ namespace molumes
 		// DISCREPANCY------------------------------------------------------------------------------
 
 		std::vector<float> calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
+
+
+		int debugOutputCount = 0.0f;
 	};
 
 }

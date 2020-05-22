@@ -98,13 +98,17 @@ void main()
 
     // REGRESSION PLANE------------------------------------------------------------------------------------------------
     vec4 tileNormal = vec4(0.0f,0.0f,0.0f,1.0f);
+    float kdeHeight = 0.0f;
     vec3 lightingNormal = vec3(0.0f,0.0f,0.0f);
     vec3 fragmentPos = vec3(gl_FragCoord);
     #ifdef RENDER_TILE_NORMALS
         for(int i = 0; i < 4; i++){
-            tileNormal[i] = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 4 + i)]);
+            tileNormal[i] = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + i)]);
         }
         tileNormal /= normalsFactor;
+
+        kdeHeight = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + 4)]);
+        kdeHeight /= normalsFactor;
        
         // LIGHTING NORMAL ------------------------
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
@@ -119,7 +123,7 @@ void main()
         // move size/2 up and right
         vec2 tileCenter2D = vec2(leftBottomCorner) + tileSizeScreenSpace / 2.0f;
         //height at tile center
-        float tileCenterZ = tileNormal.z * tileHeightMult;
+        float tileCenterZ = kdeHeight * tileHeightMult;
         if(invertPyramid){
             tileCenterZ *= -1;
         }
@@ -220,9 +224,21 @@ void main()
             //distance to center
             float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
             float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
-            float normZ = mapInterval_O(fragmentPos.z, 0, int(tileNormal.w), 0.0f, 1.0f);
 
-            //squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  
+            /*
+            //when there are a lot of tiles (small tileSize) this affects fps massively negativ
+            float maxKdeHeight = 0.0f;
+            for(int i = 0; i < maxTexCoordX+1; i++){
+                for(int j = 0; j < maxTexCoordY+1; j++){
+                    float tmpKdeHeight = float(tileNormals[int((i*(maxTexCoordY+1) + j) * 5 + 4)]);
+                    tmpKdeHeight /= normalsFactor;
+                    maxKdeHeight = max(tmpKdeHeight, maxKdeHeight);
+                }
+            }
+
+            float normZ = mapInterval_O(fragmentPos.z, 0, int(maxKdeHeight), 0.0f, 1.0f);
+
+            squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  */
         }
     #endif
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------

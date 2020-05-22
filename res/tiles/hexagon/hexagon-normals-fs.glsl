@@ -13,6 +13,7 @@ layout(std430, binding = 0) buffer tileNormalsBuffer
 
 in vec4 boundsScreenSpace;
 in vec2 rectSizeScreenSpace;
+in float tileSizeScreenSpace;
 
 uniform sampler2D accumulateTexture;
 uniform sampler2D kdeTexture;
@@ -60,6 +61,13 @@ void main()
     for(int i = 0; i < 4; i++){
         int intValue = int(fragmentNormal[i]);
 
-        atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 4 + i)], intValue);
+        atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + i)], intValue);
     }
+
+    //accumulate height of kdeTexture
+    //divide with tileSize^2 to achieve approximate scale independency
+    //small scale tiles will in general have higher height, because the height does not grow with power of 2
+    float kdeHeight = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).r / pow(tileSizeScreenSpace,2);
+    kdeHeight *= normalsFactor;
+    atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)], int(kdeHeight));
 }
