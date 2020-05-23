@@ -80,35 +80,20 @@ Program * SquareTile::getTileNormalsProgram()
 	return shaderProgram_square_normals;
 }
 
-void SquareTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
+globjects::Program * molumes::SquareTile::getGridProgram()
 {
+	
 	auto shaderProgram_square_grid = renderer->shaderProgram("square-grid");
-
-	//set uniforms
 
 	//vertex shader
 	shaderProgram_square_grid->setUniform("numCols", m_tile_cols);
 	shaderProgram_square_grid->setUniform("numRows", m_tile_rows);
 
 	//geometry shader
-	shaderProgram_square_grid->setUniform("squareSize", tileSizeWS);
-	shaderProgram_square_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgram_square_grid->setUniform("maxBounds_Off", maxBounds_Offset);
 	shaderProgram_square_grid->setUniform("minBounds_Off", minBounds_Offset);
-	shaderProgram_square_grid->setUniform("accumulateTexture", 1);
 
-	//fragment Shader
-	shaderProgram_square_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
-	shaderProgram_square_grid->setUniform("gridTexture", 0);
-
-	//draw call
-	m_vaoTiles->bind();
-
-	shaderProgram_square_grid->use();
-	m_vaoTiles->drawArrays(GL_POINTS, 0, numTiles);
-	shaderProgram_square_grid->release();
-
-	m_vaoTiles->unbind();
+	return shaderProgram_square_grid;
 }
 
 void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)

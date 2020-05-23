@@ -8,7 +8,7 @@ layout(line_strip, max_vertices = N+1) out;
 
 uniform sampler2D accumulateTexture;
 
-uniform float hexSize;
+uniform float tileSize;
 uniform mat4 modelViewProjectionMatrix;
 
 const float PI = 3.1415926;
@@ -36,7 +36,7 @@ void main()
    			angle_rad = PI / 180 * angle_deg;
 
 			// Offset from center of point
-        	offset = vec4(hexSize * cos(angle_rad), hexSize*sin(angle_rad), 0.0, 0.0);
+        	offset = vec4(tileSize * cos(angle_rad), tileSize*sin(angle_rad), 0.0, 0.0);
 			gl_Position = modelViewProjectionMatrix * (gl_in[0].gl_Position + offset);
 
 			EmitVertex();

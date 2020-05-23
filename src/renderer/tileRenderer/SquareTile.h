@@ -14,8 +14,7 @@ namespace molumes
 		globjects::Program * getAccumulationProgram() override;
 		globjects::Program * getTileProgram() override;
 		globjects::Program * getTileNormalsProgram() override;
-
-		void renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix) override;
+		globjects::Program * getGridProgram() override;
 
 		void calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 minBounds) override;
 

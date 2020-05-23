@@ -100,28 +100,17 @@ Program * HexTile::getTileNormalsProgram()
 	return shaderProgram_hex_normals;
 }
 
-void HexTile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
+globjects::Program * molumes::HexTile::getGridProgram()
 {
+	
 	auto shaderProgram_hexagon_grid = renderer->shaderProgram("hex-grid");
-	shaderProgram_hexagon_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-	shaderProgram_hexagon_grid->setUniform("borderColor", vec3(1.0f, 1.0f, 1.0f));
 
 	shaderProgram_hexagon_grid->setUniform("horizontal_space", horizontal_space);
 	shaderProgram_hexagon_grid->setUniform("vertical_space", vertical_space);
 	shaderProgram_hexagon_grid->setUniform("num_cols", m_tile_cols);
 	shaderProgram_hexagon_grid->setUniform("minBounds_Off", minBounds_Offset);
 
-	shaderProgram_hexagon_grid->setUniform("hexSize", tileSizeWS);
-	shaderProgram_hexagon_grid->setUniform("accumulateTexture", 1);
-
-	//draw call
-	m_vaoTiles->bind();
-
-	shaderProgram_hexagon_grid->use();
-	m_vaoTiles->drawArrays(GL_POINTS, 0, numTiles);
-	shaderProgram_hexagon_grid->release();
-
-	m_vaoTiles->unbind();
+	return shaderProgram_hexagon_grid;
 }
 
 void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)

@@ -24,8 +24,9 @@ globjects::Program * molumes::Tile::getTileNormalsProgram()
 	return nullptr;
 }
 
-void molumes::Tile::renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix)
+globjects::Program * molumes::Tile::getGridProgram()
 {
+	return nullptr;
 }
 
 void molumes::Tile::calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 minBounds)

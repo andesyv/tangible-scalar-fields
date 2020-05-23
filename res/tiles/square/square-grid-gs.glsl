@@ -13,14 +13,13 @@ uniform sampler2D accumulateTexture;
 uniform vec2 maxBounds_Off;
 uniform vec2 minBounds_Off;
 
-uniform float squareSize;
+uniform float tileSize;
 uniform mat4 modelViewProjectionMatrix;
 
 uniform int numCols;
 uniform int numRows;
 
 const float PI = 3.1415926;
-
 
 void main()
 {
@@ -45,15 +44,15 @@ void main()
         gl_Position = pos;
         EmitVertex();
 
-        pos = modelViewProjectionMatrix * (bbPos + vec4(0, squareSize,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(0, tileSize,0.0,0.0));
         gl_Position = pos;
         EmitVertex();
 
-        pos = modelViewProjectionMatrix * (bbPos + vec4(squareSize, squareSize,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, tileSize,0.0,0.0));
         gl_Position = pos;
         EmitVertex();
 
-        pos = modelViewProjectionMatrix * (bbPos + vec4(squareSize, 0,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, 0,0.0,0.0));
         gl_Position = pos;
         EmitVertex();
 

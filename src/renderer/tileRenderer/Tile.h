@@ -19,7 +19,7 @@ namespace molumes
 		virtual globjects::Program * getAccumulationProgram();
 		virtual globjects::Program * getTileProgram();
 		virtual globjects::Program * getTileNormalsProgram();
-		virtual void renderGrid(std::unique_ptr<globjects::VertexArray> const &m_vaoTiles, const glm::mat4 modelViewProjectionMatrix);
+		virtual globjects::Program * getGridProgram();
 		virtual void calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 minBounds);
 		virtual int mapPointToTile(glm::vec2 p);
 

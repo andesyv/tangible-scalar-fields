@@ -769,7 +769,23 @@ void TileRenderer::display()
 		//used to check if we actually need to draw the grid for a given square
 		m_tileAccumulateTexture->bindActive(1);
 
-		tile->renderGrid(m_vaoTiles, modelViewProjectionMatrix);
+		auto shaderProgram_grid = tile->getGridProgram();
+
+		shaderProgram_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+		//fragment Shader
+		shaderProgram_grid->setUniform("borderColor", viewer()->contourLineColor());
+		shaderProgram_grid->setUniform("tileSize", tile->tileSizeWS);
+		shaderProgram_grid->setUniform("accumulateTexture", 1);
+
+		//draw call
+		m_vaoTiles->bind();
+
+		shaderProgram_grid->use();
+		m_vaoTiles->drawArrays(GL_POINTS, 0, tile->numTiles);
+		shaderProgram_grid->release();
+
+		m_vaoTiles->unbind();
 
 		m_gridTexture->unbindActive(0);
 		m_tileAccumulateTexture->unbindActive(1);
