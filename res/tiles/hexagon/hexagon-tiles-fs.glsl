@@ -125,10 +125,12 @@ void main()
         float vertical_offset = mod(hex.x, 2) == 0 ? vertical_space : vertical_space/2.0f;
 
         vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset);
-        //TODO: add invert pyramid
         //height at tile center
         float tileCenterZ = kdeHeight * tileHeightMult;
-   
+        if(invertPyramid){
+            tileCenterZ *= -1;
+        }
+
         vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
 
         if(showBorder){
@@ -152,6 +154,12 @@ void main()
             float minLeftCorner = min(min(heightLeftBottomCorner, heightLeftCenterCorner), heightLeftTopCorner);
             float minRightCorner = min(min(heightRightBottomCorner, heightRightCenterCorner), heightRightTopCorner);
             float minHeightCorner = min(minLeftCorner, minRightCorner);
+            if(invertPyramid){
+                //minHeightCorner becomes maxHeightCorner if pyramid is inverted
+                minLeftCorner = max(max(heightLeftBottomCorner, heightLeftCenterCorner), heightLeftTopCorner);
+                minRightCorner = max(max(heightRightBottomCorner, heightRightCenterCorner), heightRightTopCorner);
+                minHeightCorner = max(minLeftCorner, minRightCorner);
+            }
 
             // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
             // get border plane
