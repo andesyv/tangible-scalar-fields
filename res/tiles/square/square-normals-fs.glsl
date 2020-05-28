@@ -51,11 +51,8 @@ void main()
         atomicAdd(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 5 + i], intValue);
     }
 
-    //TODO: show thomas
     //accumulate height of kdeTexture
-    //divide with tileSize^2 to achieve approximate scale independency
-    //small scale tiles will in general have higher height, because the height does not grow with power of 2
-    float kdeHeight = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).r / pow(tileSizeScreenSpace,2);
+    float kdeHeight = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).r;
     kdeHeight *= normalsFactor;
     atomicAdd(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 5 + 4], int(kdeHeight));
 }

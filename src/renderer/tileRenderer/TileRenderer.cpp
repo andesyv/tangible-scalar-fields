@@ -218,6 +218,7 @@ void TileRenderer::display()
 	const ivec2 viewportSize = viewer()->viewportSize();
 	const vec2 maxBounds = viewer()->scene()->table()->maximumBounds();
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
+	const vec4 backgroundColor = vec4(viewer()->backgroundColor(), 0);
 
 	//TODO: show thomas
 	// projection matrix so we are in screen space and not view space
@@ -815,6 +816,8 @@ void TileRenderer::display()
 
 	auto shaderProgram_shade = shaderProgram("shade");
 
+	shaderProgram_shade->setUniform("backgroundColor", viewer()->backgroundColor());
+
 	if (!m_renderPointCircles && m_selected_tile_style == 0) {
 		shaderProgram_shade->setUniform("pointChartTexture", 0);
 	}
@@ -1110,7 +1113,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
-			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 200.0f);
+			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 10.0f);
 			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
 			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.0f, 1.0f);
 			ImGui::Checkbox("Show Border", &m_showBorder);

@@ -11,6 +11,7 @@ layout(std430, binding = 6) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
+uniform vec3 backgroundColor;
 
 uniform sampler2D pointChartTexture;
 uniform sampler2D pointCircleTexture;
@@ -21,7 +22,7 @@ uniform sampler2D kdeTexture;
 
 void main()
 {
-
+    
     vec4 col = texelFetch(pointChartTexture, ivec2(gl_FragCoord.xy), 0).rgba;
     float alpha;
 
@@ -73,7 +74,7 @@ void main()
         col = max(col, texelFetch(accumulateTexture, ivec2(gl_FragCoord.xy), 0).rgba);
     #endif
 
-    colorTexture = col;
+    colorTexture = col + vec4(backgroundColor,1) * (1.0f-col.a);
 }
 
 

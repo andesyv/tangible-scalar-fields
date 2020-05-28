@@ -113,6 +113,7 @@ void main()
 
         kdeHeight = float(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)]);
         kdeHeight /= normalsFactor;
+        kdeHeight /= tileNormal.w;
 
         // LIGHTING NORMAL ------------------------
         //lightingNormal = normalize(vec3(tileNormal.x/tileNormal.w, tileNormal.y/tileNormal.w,0.05f));

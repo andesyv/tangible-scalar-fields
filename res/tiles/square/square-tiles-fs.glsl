@@ -109,6 +109,7 @@ void main()
 
         kdeHeight = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + 4)]);
         kdeHeight /= normalsFactor;
+        kdeHeight /= tileNormal.w;
        
         // LIGHTING NORMAL ------------------------
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
@@ -218,6 +219,7 @@ void main()
             }
         }
         else{
+
             // fragment height
             fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
             //debug
