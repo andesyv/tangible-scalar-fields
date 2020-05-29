@@ -37,7 +37,7 @@ uniform int textureWidth;
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
 
-uniform float normalsFactor;
+uniform float bufferAccumulationFactor;
 uniform float tileHeightMult;
 uniform float borderWidth;
 uniform bool showBorder;
@@ -105,10 +105,10 @@ void main()
         for(int i = 0; i < 4; i++){
             tileNormal[i] = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + i)]);
         }
-        tileNormal /= normalsFactor;
+        tileNormal /= bufferAccumulationFactor;
 
         kdeHeight = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + 4)]);
-        kdeHeight /= normalsFactor;
+        kdeHeight /= bufferAccumulationFactor;
         kdeHeight /= tileNormal.w;
        
         // LIGHTING NORMAL ------------------------
@@ -123,22 +123,23 @@ void main()
 
         // move size/2 up and right
         vec2 tileCenter2D = vec2(leftBottomCorner) + tileSizeScreenSpace / 2.0f;
-        //height at tile center
-        float tileCenterZ = kdeHeight * tileHeightMult;
+        //height of pyramid
+        float pyramidHeight = kdeHeight * tileHeightMult;
         if(invertPyramid){
-            tileCenterZ *= -1;
+            pyramidHeight *= -1;
         }
 
-        vec3 tileCenter3D = vec3(tileCenter2D, tileCenterZ);
+        vec3 tileCenter3D;
+        vec3 pyramidTop = vec3(tileCenter2D, pyramidHeight);
 
         if(showBorder){
             // BORDER-------------------------------------
 
-            // 1) get lowest corner point
-            float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), tileCenter3D, lightingNormal);
-            float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), tileCenter3D, lightingNormal);
-            float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), tileCenter3D, lightingNormal);
-            float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), tileCenter3D, lightingNormal);
+            // 1) get lowest corner point of regression plane when sitting on top of the pyramid
+            float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), pyramidTop, lightingNormal);
+            float heightLeftTopCorner = getHeightOfPointOnSurface(vec2(leftTopCorner), pyramidTop, lightingNormal);
+            float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), pyramidTop, lightingNormal);
+            float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), pyramidTop, lightingNormal);
 
             float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
             if(invertPyramid){
@@ -146,21 +147,20 @@ void main()
                 minHeightCorner = max(max(heightLeftBottomCorner, heightLeftTopCorner), max(heightRightBottomCorner, heightRightTopCorner));
             }
 
-            // 2) get z value of border plane center by multiplying tileCenterZ-minHeightCorner with borderWidth and then adding minHeightCorner again
-            // get border plane
-            float heightOffset = tileCenterZ - minHeightCorner;
-            float borderPlaneCenterZ = (tileCenterZ - heightOffset) * borderWidth + heightOffset;
+            // 2) get z value of regression plane center by multiplying pyramidHeight-minHeightCorner with borderWidth and then adding minHeightCorner again
+            // get regression plane
+            float heightOffset = pyramidHeight - minHeightCorner;
+            float tileCenterZ = (pyramidHeight - heightOffset) * borderWidth + heightOffset;
             
-            vec3 borderPlaneCenter = vec3(tileCenter2D, borderPlaneCenterZ);
+            tileCenter3D = vec3(tileCenter2D, tileCenterZ);
 
             // 3) get intersections of plane with pyramid
-            // pyramid top = tileCenter3D
             // lineDir = normalize(pyramidTop - Corner)
 
-            vec3 leftBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftBottomCorner), tileCenter3D);        
-            vec3 leftTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - leftTopCorner), tileCenter3D);        
-            vec3 rightBottomInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightBottomCorner), tileCenter3D);        
-            vec3 rightTopInside = linePlaneIntersection(lightingNormal, borderPlaneCenter, normalize(tileCenter3D - rightTopCorner), tileCenter3D);        
+            vec3 leftBottomInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - leftBottomCorner), pyramidTop);        
+            vec3 leftTopInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - leftTopCorner), pyramidTop);        
+            vec3 rightBottomInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - rightBottomCorner), pyramidTop);        
+            vec3 rightTopInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - rightTopCorner), pyramidTop);        
 
             //--------------------------------------------
             bool debugNormals = false;
@@ -220,27 +220,12 @@ void main()
         }
         else{
 
+            //regression plane center is on height of pyramid
+            tileCenter3D = pyramidTop;
+
             // fragment height
             fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
-            //debug
-            //distance to center
-            float distCenter = length(vec2(fragmentPos) - tileCenter2D); 
-            float normDistCenter = mapInterval_O(distCenter, 0, int(ceil(tileSizeScreenSpace/2.0f)), 0.0f, 1.0f);
-
-            /*
-            //when there are a lot of tiles (small tileSize) this affects fps massively negativ
-            float maxKdeHeight = 0.0f;
-            for(int i = 0; i < maxTexCoordX+1; i++){
-                for(int j = 0; j < maxTexCoordY+1; j++){
-                    float tmpKdeHeight = float(tileNormals[int((i*(maxTexCoordY+1) + j) * 5 + 4)]);
-                    tmpKdeHeight /= normalsFactor;
-                    maxKdeHeight = max(tmpKdeHeight, maxKdeHeight);
-                }
-            }
-
-            float normZ = mapInterval_O(fragmentPos.z, 0, int(maxKdeHeight), 0.0f, 1.0f);
-
-            squareTilesTexture = vec4(normZ, 0.0f, 0.0f, 1.0f);  */
+            
         }
     #endif
     // PHONG LIGHTING ----------------------------------------------------------------------------------------------

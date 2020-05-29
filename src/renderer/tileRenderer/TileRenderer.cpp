@@ -565,7 +565,7 @@ void TileRenderer::display()
 			shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
 			shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
 
-			shaderProgram_tile_normals->setUniform("normalsFactor", tile->normalsFactor);
+			shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
 			shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
 
 			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
@@ -597,7 +597,7 @@ void TileRenderer::display()
 				float a = 0.123456789f;
 				uint t = floatBitsToUint(a);
 				uint t_s = t / 10000;
-				float t_f = uintBitsToFloat(t_s * tile->normalsFactor);
+				float t_f = uintBitsToFloat(t_s * tile->bufferAccumulationFactor);
 
 
 				float b = -0.123456789f;
@@ -608,21 +608,21 @@ void TileRenderer::display()
 
 				float test = b + b;
 
-				uint t2 = a * tile->normalsFactor;
-				float t2_f = t2 / tile->normalsFactor;
+				uint t2 = a * tile->bufferAccumulationFactor;
+				float t2_f = t2 / tile->bufferAccumulationFactor;
 
-				int t2_n = int(b * tile->normalsFactor);
+				int t2_n = int(b * tile->bufferAccumulationFactor);
 				t2_n += t2_n;
-				float t2_f_n = (t2_n / tile->normalsFactor);
+				float t2_f_n = (t2_n / tile->bufferAccumulationFactor);
 
 				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
 					vec4 tileNormal = vec4(0);
 					for (int j = 0; j < 4; j++) {
 						int y = arrayMain[5 * i + j];
-						float z = y / tile->normalsFactor;
+						float z = y / tile->bufferAccumulationFactor;
 						tileNormal[j] = z;
 					}
-					float height = arrayMain[5 * i + 4] / tile->normalsFactor;
+					float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
 					tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
 					vec3 lightNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
 					for (int j = 0; j < 4; j++) {
@@ -636,7 +636,7 @@ void TileRenderer::display()
 				float maxKdeHeight = 0.0f;
 				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
 
-					float height = arrayMain[5 * i + 4] / tile->normalsFactor;
+					float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
 					maxKdeHeight = max(height, maxKdeHeight);
 				}
 				std::cout << "maxHeight" << ": " << maxKdeHeight << std::endl;
@@ -699,7 +699,7 @@ void TileRenderer::display()
 		shaderProgram_tiles->setUniform("maxTexCoordX", tile->m_tileMaxX);
 		shaderProgram_tiles->setUniform("maxTexCoordY", tile->m_tileMaxY);
 
-		shaderProgram_tiles->setUniform("normalsFactor", tile->normalsFactor);
+		shaderProgram_tiles->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
 
 		//lighting
 		shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));

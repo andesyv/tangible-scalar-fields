@@ -20,7 +20,7 @@ uniform sampler2D kdeTexture;
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
 
-uniform float normalsFactor;
+uniform float bufferAccumulationFactor;
 
 void main()
 {
@@ -43,7 +43,7 @@ void main()
 
     // get value from density normals texture
     vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
-    fragmentNormal *= normalsFactor;
+    fragmentNormal *= bufferAccumulationFactor;
    
     for(int i = 0; i < 4; i++){
         int intValue = int(fragmentNormal[i]);
@@ -53,6 +53,6 @@ void main()
 
     //accumulate height of kdeTexture
     float kdeHeight = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).r;
-    kdeHeight *= normalsFactor;
+    kdeHeight *= bufferAccumulationFactor;
     atomicAdd(tileNormals[(squareX*(maxTexCoordY+1) + squareY) * 5 + 4], int(kdeHeight));
 }

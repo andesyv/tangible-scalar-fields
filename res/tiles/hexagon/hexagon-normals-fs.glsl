@@ -25,7 +25,7 @@ uniform int maxTexCoordY;
 uniform int max_rect_col;
 uniform int max_rect_row;
 
-uniform float normalsFactor;
+uniform float bufferAccumulationFactor;
 
 //--out
 layout(location = 0) out vec4 hexTilesTexture;
@@ -56,7 +56,7 @@ void main()
     
    // get value from density normals texture
     vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
-    fragmentNormal *= normalsFactor;
+    fragmentNormal *= bufferAccumulationFactor;
    
     for(int i = 0; i < 4; i++){
         int intValue = int(fragmentNormal[i]);
@@ -66,6 +66,6 @@ void main()
 
     //accumulate height of kdeTexture
     float kdeHeight = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).r;
-    kdeHeight *= normalsFactor;
+    kdeHeight *= bufferAccumulationFactor;
     atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)], int(kdeHeight));
 }
