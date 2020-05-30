@@ -141,31 +141,68 @@ void main()
             float heightRightBottomCorner = getHeightOfPointOnSurface(vec2(rightBottomCorner), pyramidTop, lightingNormal);
             float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), pyramidTop, lightingNormal);
 
-            float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
+            float heightOffset;
+            //we need a small offset, because we cannot set an inside corner point to height 0
+            //this would lead to the effect that the regresseion plane is overlapping with one of the border planes
+            //this on the other hand pused all inside corner points to the center of the tile, because there is no more cutting plane
+            //between regression plane and pyramid.
+            //if thats the case, we can not longer compute if a point is in the border, because there are no more line between the inside corner points
+            float offset = 0.01f;
             if(invertPyramid){
-                //minHeightCorner becomes maxHeightCorner if pyramid is inverted
-                minHeightCorner = max(max(heightLeftBottomCorner, heightLeftTopCorner), max(heightRightBottomCorner, heightRightTopCorner));
+                float maxHeightCorner = max(max(heightLeftBottomCorner, heightLeftTopCorner), max(heightRightBottomCorner, heightRightTopCorner));
+               //we need to clamp the pyramidHeight to pyramidHeight + maxHeightCorner*-1 to avoid that the maximum Height Corner is positive
+                if(maxHeightCorner > -offset){
+                    float maxCornerNegative = maxHeightCorner > 0 ? maxHeightCorner * (-1) - offset : maxHeightCorner - offset;
+                    pyramidHeight += maxCornerNegative;
+                    pyramidTop = vec3(tileCenter2D, pyramidHeight);
+                    maxHeightCorner = -offset;
+                }
+                heightOffset = pyramidHeight - maxHeightCorner;
+            }
+            else{
+                float minHeightCorner = min(min(heightLeftBottomCorner, heightLeftTopCorner), min(heightRightBottomCorner, heightRightTopCorner));
+                //we need to clamp the pyramidHeight to pyramidHeight + abs(minHeightCorner) to avoid that the minimum Height Corner is negative
+                if(minHeightCorner < offset){
+                    float minCornerAbs = abs(minHeightCorner) + offset;
+                    pyramidHeight += minCornerAbs;
+                    pyramidTop = vec3(tileCenter2D, pyramidHeight);
+                    minHeightCorner = offset;
+                }
+                heightOffset = pyramidHeight - minHeightCorner;
             }
 
-            // 2) get z value of regression plane center by multiplying pyramidHeight-minHeightCorner with borderWidth and then adding minHeightCorner again
+            // 2) get z value of regression plane center by multiplying pyramidHeight-heightOffset with borderWidth and then adding heightOffset again
             // get regression plane
-            float heightOffset = pyramidHeight - minHeightCorner;
             float tileCenterZ = (pyramidHeight - heightOffset) * borderWidth + heightOffset;
             
             tileCenter3D = vec3(tileCenter2D, tileCenterZ);
 
             // 3) get intersections of plane with pyramid
             // lineDir = normalize(pyramidTop - Corner)
-
             vec3 leftBottomInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - leftBottomCorner), pyramidTop);        
             vec3 leftTopInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - leftTopCorner), pyramidTop);        
             vec3 rightBottomInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - rightBottomCorner), pyramidTop);        
             vec3 rightTopInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - rightTopCorner), pyramidTop);        
 
             //--------------------------------------------
-            bool debugNormals = false;
-            if(debugNormals){
-                squareTilesTexture = vec4(lightingNormal, 1.0f);
+            bool debug = false;
+            if(debug){
+                if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 3 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 3 &&
+                    distance(vec2(fragmentPos), vec2(leftTopInside)) > 3 && distance(vec2(fragmentPos), vec2(rightTopInside)) > 3){
+                    discard;
+                }
+                if(distance(vec2(fragmentPos), vec2(leftBottomInside)) <= 3){
+                    squareTilesTexture = vec4(1,0,0,1);
+                }
+                else if(distance(vec2(fragmentPos), vec2(rightBottomInside)) <= 3){
+                    squareTilesTexture = vec4(0,1,0,1);
+                }
+                else if(distance(vec2(fragmentPos), vec2(rightTopInside)) <= 3){
+                    squareTilesTexture = vec4(0,0,1,1);
+                }
+                else if(distance(vec2(fragmentPos), vec2(leftTopInside)) <= 3){
+                    squareTilesTexture = vec4(1,1,0,1);
+                }            
             }
             else{
                 if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){

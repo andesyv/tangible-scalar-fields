@@ -1113,9 +1113,14 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
-			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 10.0f);
+			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
 			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
-			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.0f, 1.0f);
+			// the borderWidth cannot go from 0-1
+			// if borderWidth == 1, all inside corner points are at the exact same position (tile center)
+			// and we can not longer decide if a point is in the border or not
+			// if borderWidth == 0, at least one of the inside corner points is at the exact same position as its corresponding outside corner point
+			// then it can happen, that we can no longer compute the lighting normal for the corresponding border.
+			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.01f, 0.99f);
 			ImGui::Checkbox("Show Border", &m_showBorder);
 			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
 		}
