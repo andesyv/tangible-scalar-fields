@@ -40,6 +40,7 @@ uniform float tileHeightMult;
 uniform float borderWidth;
 uniform bool showBorder;
 uniform bool invertPyramid;
+uniform float blendRange;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -61,6 +62,7 @@ bool pointInBorder(vec3 p, vec3 leftBottomInside, vec3 leftCenterInside, vec3 le
 
 void main()
 {
+
     vec2 minBounds = vec2(boundsScreenSpace[2], boundsScreenSpace[3]);
     vec2 maxBounds = vec2(boundsScreenSpace[0], boundsScreenSpace[1]);
 
@@ -241,73 +243,56 @@ void main()
                     && pointLeftOfLine(vec2(leftCenterInside),vec2(leftCenterCorner),vec2(fragmentPos))
                     && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
                         
-                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                        lightingNormal = calcPlaneNormal(leftCenterInside, leftTopInside, leftCenterCorner);
-                        
-                        // fragment height
-                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftCenterCorner, lightingNormal);   
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftCenterCorner, leftCenterInside, leftTopInside, 
+                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //left bottom
                     else if(pointLeftOfLine(vec2(leftCenterInside), vec2(leftBottomInside), vec2(fragmentPos)) 
                     && pointLeftOfLine(vec2(leftCenterCorner),vec2(leftCenterInside),vec2(fragmentPos)) 
                     && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))){
-                        
-                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                        lightingNormal = calcPlaneNormal(leftBottomInside, leftCenterInside, leftBottomCorner);
-                        
-                        // fragment height
-                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftBottomCorner, lightingNormal);   
+
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftBottomCorner, leftBottomInside, leftCenterInside, 
+                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //bottom
                     else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightBottomInside), vec2(rightBottomCorner), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(leftBottomCorner),vec2(leftBottomInside),vec2(fragmentPos))){
-                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                        lightingNormal = calcPlaneNormal(rightBottomInside, leftBottomInside, rightBottomCorner);
-
-                        // fragment height
-                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightBottomCorner, lightingNormal);
+                        
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightBottomCorner, rightBottomInside, leftBottomInside, 
+                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     } 
                     //right bottom
                     else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightCenterInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightBottomCorner), vec2(rightBottomInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightCenterInside),vec2(rightCenterCorner),vec2(fragmentPos))){
 
-                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                        lightingNormal = calcPlaneNormal(rightCenterInside, rightBottomInside, rightCenterCorner);
-
-                        // fragment height
-                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightCenterCorner, lightingNormal);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightCenterCorner, rightCenterInside, rightBottomInside,
+                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //right top
                     else if(pointLeftOfLine(vec2(rightCenterInside),vec2(rightTopInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightCenterCorner),vec2(rightCenterInside), vec2(fragmentPos))
-                    && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))
-                    ){
+                    && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
 
-                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                        lightingNormal = calcPlaneNormal(rightTopInside, rightCenterInside, rightTopCorner);
-
-                        // fragment height
-                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), rightTopCorner, lightingNormal);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightTopCorner, rightTopInside, rightCenterInside, 
+                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //top
                     else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(leftTopInside), vec2(leftTopCorner), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightTopCorner), vec2(rightTopInside), vec2(fragmentPos))){
-                        
-                        //compute surface normal using 2 corner points of inside and 1 corner point of outside
-                        lightingNormal = calcPlaneNormal(leftTopInside, rightTopInside, leftTopCorner);
-
-                        // fragment height
-                        fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), leftTopCorner, lightingNormal);
+                       
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftTopCorner, leftTopInside, rightTopInside, 
+                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                 }
                 //point is on the inside
-                else{
-
-                    // fragemnt height
-                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);
+                else{                   
+                    // fragment height
+                    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);          
+                    // PHONG LIGHTING 
+                    hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;      
                 }
             }
         }
@@ -317,11 +302,10 @@ void main()
             tileCenter3D = pyramidTop;
 
             // fragemnt height
-            fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);          
+            fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);   
+
+            // PHONG LIGHTING 
+            hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;       
         }
     #endif
-
-    
-    // PHONG LIGHTING ----------------------------------------------------------------------------------------------
-    hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
 }

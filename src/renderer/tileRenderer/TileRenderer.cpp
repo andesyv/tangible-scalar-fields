@@ -691,10 +691,12 @@ void TileRenderer::display()
 
 
 		//fragment Shader
+
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
 		shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
 		shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
 		shaderProgram_tiles->setUniform("showBorder", m_showBorder);
+		shaderProgram_tiles->setUniform("blendRange", blendRange * viewer()->scaleFactor());
 
 		shaderProgram_tiles->setUniform("maxTexCoordX", tile->m_tileMaxX);
 		shaderProgram_tiles->setUniform("maxTexCoordY", tile->m_tileMaxY);

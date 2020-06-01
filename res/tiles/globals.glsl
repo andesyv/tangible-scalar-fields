@@ -83,6 +83,12 @@ vec3 linePlaneIntersection(vec3 planeNormal, vec3 planePoint, vec3 lineDir, vec3
     return linePoint + (lineDir * t);
 }
 
+//https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+float distancePointToLine(vec3 p, vec3 a, vec3 b){
+    return abs((b.y-a.y)*p.x - (b.x-a.x)*p.y + b.x*a.y-b.y*a.x)
+            /sqrt(pow((b.y-a.y),2) + pow((b.x-a.x),2));
+}
+
 vec3 calcPlaneNormal(vec3 a, vec3 b, vec3 c){
 
     vec3 aToB = b - a;
@@ -128,6 +134,35 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
     vec3 specular = specularStrength * spec * lightColor;
 
     return (ambient + diffuse + specular);
+}
+
+vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerB, 
+                            vec3 tileCenter3D, float blendRange, vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos){
+    
+    //compute surface normal using 2 corner points of inside and 1 corner point of outside
+    vec3 lightingNormalBorder = calcPlaneNormal(insideCornerA, insideCornerB, outsideCornerA);
+
+    // fragment height in border
+    fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), outsideCornerA, lightingNormalBorder);
+    
+    // PHONG LIGHTING 
+    vec3 borderColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder, viewPos) * tilesTexture.rgb;  
+
+    // if the fragment is close to the border to the inside, we blend its color with the inside color to get rid of aliasing artifacts
+    float distanceToTopLine = distancePointToLine(fragmentPos, insideCornerA, insideCornerB);
+    if(distanceToTopLine < blendRange){
+        
+        float distanceToTopLineNorm = distanceToTopLine / blendRange;
+
+        // fragment height if fragment would be on inside
+        float insideHeight = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, insideLightingNormal);    
+        vec3 insideColor = calculatePhongLighting(lightColor, lightPos, vec3(vec2(fragmentPos), insideHeight), insideLightingNormal, viewPos) * tilesTexture.rgb;
+
+        return distanceToTopLineNorm * borderColor + (1-distanceToTopLineNorm) * insideColor;
+    }
+    else{
+        return borderColor;
+    }   
 }
 
 //---------------------------------------------------------------------------------------------------------------

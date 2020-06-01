@@ -46,7 +46,7 @@ void main()
 			pointCircleTexture.rgb *= pointCircleTexture.a;
 		}
 	#endif
-	//TODO set correct define
+
 	#if defined(RENDER_KDE) || defined(RENDER_TILE_NORMALS)
 		fragDistanceFromCenter = length(isCoords);
 

@@ -171,6 +171,7 @@ namespace molumes
 		float m_borderWidth = 0.2f; // width in percent to size
 		bool m_showBorder = true;
 		bool m_invertPyramid = false;
+		float blendRange = 1.0f;
 
 		// define booleans
 		bool m_renderPointCircles = false;
