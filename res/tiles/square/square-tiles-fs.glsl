@@ -193,28 +193,28 @@ void main()
                 && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))
                 && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
 
-                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftBottomCorner, leftBottomInside, leftTopInside, 
-                                            tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);  
+                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftBottomCorner, leftBottomInside, rightBottomInside,
+                            leftTopCorner, leftTopInside, rightTopInside, tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);  
                 }
                 //right
                 else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightTopInside), vec2(fragmentPos))
                 && pointLeftOfLine(vec2(rightBottomCorner),vec2(rightBottomInside),vec2(fragmentPos))
                 && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
 
-                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightTopCorner, rightTopInside, rightBottomInside,
-                                            tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);
+                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightTopCorner, rightTopInside, leftTopInside,
+                    rightBottomCorner, rightBottomInside, leftBottomInside, tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);
                 }
                 //bottom
                 else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))){
                     
-                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightBottomCorner, rightBottomInside, leftBottomInside, 
-                                            tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);
+                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightBottomCorner, rightBottomInside, rightTopInside,
+                    leftBottomCorner, leftBottomInside, leftTopInside, tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);
                 }
                 //top
                 else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))){
 
-                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftTopCorner, leftTopInside, rightTopInside, 
-                                            tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);
+                    squareTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftTopCorner, leftTopInside, leftBottomInside,
+                     rightTopCorner, rightTopInside, rightBottomInside, tileCenter3D, blendRange, squareTilesTexture, lightColor, lightPos, viewPos);
                 }
             }
             //point is on the inside

@@ -243,48 +243,48 @@ void main()
                     && pointLeftOfLine(vec2(leftCenterInside),vec2(leftCenterCorner),vec2(fragmentPos))
                     && pointLeftOfLine(vec2(leftTopCorner),vec2(leftTopInside),vec2(fragmentPos))){
                         
-                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftCenterCorner, leftCenterInside, leftTopInside, 
-                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftCenterCorner, leftCenterInside, leftBottomInside,
+                        leftTopCorner, leftTopInside, rightTopInside, tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //left bottom
                     else if(pointLeftOfLine(vec2(leftCenterInside), vec2(leftBottomInside), vec2(fragmentPos)) 
                     && pointLeftOfLine(vec2(leftCenterCorner),vec2(leftCenterInside),vec2(fragmentPos)) 
                     && pointLeftOfLine(vec2(leftBottomInside),vec2(leftBottomCorner),vec2(fragmentPos))){
 
-                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftBottomCorner, leftBottomInside, leftCenterInside, 
-                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftBottomCorner, leftBottomInside, rightBottomInside,
+                        leftCenterCorner, leftCenterInside, leftTopInside, tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //bottom
                     else if(pointLeftOfLine(vec2(leftBottomInside), vec2(rightBottomInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightBottomInside), vec2(rightBottomCorner), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(leftBottomCorner),vec2(leftBottomInside),vec2(fragmentPos))){
                         
-                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightBottomCorner, rightBottomInside, leftBottomInside, 
-                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightBottomCorner, rightBottomInside, rightCenterInside,
+                        leftBottomCorner, leftBottomInside, leftCenterInside, tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     } 
                     //right bottom
                     else if(pointLeftOfLine(vec2(rightBottomInside),vec2(rightCenterInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightBottomCorner), vec2(rightBottomInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightCenterInside),vec2(rightCenterCorner),vec2(fragmentPos))){
 
-                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightCenterCorner, rightCenterInside, rightBottomInside,
-                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightCenterCorner, rightCenterInside, rightTopInside,
+                        rightBottomCorner, rightBottomInside, leftBottomInside, tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //right top
                     else if(pointLeftOfLine(vec2(rightCenterInside),vec2(rightTopInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightCenterCorner),vec2(rightCenterInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightTopInside),vec2(rightTopCorner),vec2(fragmentPos))){
 
-                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightTopCorner, rightTopInside, rightCenterInside, 
-                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, rightTopCorner, rightTopInside, leftTopInside, 
+                        rightCenterCorner, rightCenterInside, rightBottomInside, tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                     //top
                     else if(pointLeftOfLine(vec2(rightTopInside), vec2(leftTopInside), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(leftTopInside), vec2(leftTopCorner), vec2(fragmentPos))
                     && pointLeftOfLine(vec2(rightTopCorner), vec2(rightTopInside), vec2(fragmentPos))){
                        
-                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftTopCorner, leftTopInside, rightTopInside, 
-                                                tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
+                        hexTilesTexture.rgb = calculateBorderColor(fragmentPos, lightingNormal, leftTopCorner, leftTopInside, leftCenterInside,
+                        rightTopCorner, rightTopInside, rightCenterInside, tileCenter3D, blendRange, hexTilesTexture, lightColor, lightPos, viewPos);
                     }
                 }
                 //point is on the inside
