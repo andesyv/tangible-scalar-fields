@@ -155,7 +155,6 @@ void main()
             float heightRightCenterCorner = getHeightOfPointOnSurface(vec2(rightCenterCorner), pyramidTop, lightingNormal);
             float heightRightTopCorner = getHeightOfPointOnSurface(vec2(rightTopCorner), pyramidTop, lightingNormal);
 
-
             float heightOffset;
             //we need a small offset, because we cannot set an inside corner point to height 0
             //this would lead to the effect that the regresseion plane is overlapping with one of the border planes
@@ -209,6 +208,7 @@ void main()
 
             //--------------------------------------------
             bool debug = false;
+            bool debug2 = false;
             if(debug){
                 if(distance(vec2(fragmentPos), vec2(leftBottomInside)) > 3 && distance(vec2(fragmentPos), vec2(rightBottomInside)) > 3 &&
                     distance(vec2(fragmentPos), vec2(leftCenterInside)) > 3 && distance(vec2(fragmentPos), vec2(rightCenterInside)) > 3 &&
@@ -233,6 +233,15 @@ void main()
                  else if(distance(vec2(fragmentPos), vec2(rightCenterInside)) <= 3){
                     hexTilesTexture = vec4(1,1,1,1);
                 }            
+            }
+            else if(debug2){
+                hexTilesTexture = vec4(lightingNormal,1);/*
+                if(tileCenterZ > 0){
+                    hexTilesTexture = vec4(0,1,0,1);
+                }
+                else{
+                    hexTilesTexture = vec4(1,0,0,1);
+                }*/
             }
             else{
                 if(pointInBorder(fragmentPos, leftBottomInside, leftCenterInside, leftTopInside, rightBottomInside, rightCenterInside, rightTopInside)){

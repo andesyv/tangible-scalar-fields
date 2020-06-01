@@ -585,35 +585,14 @@ void TileRenderer::display()
 			glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
 			//DEBUG----------------
-
-			/*if (debugOutputCount % 1000 == 0) {
+			/*
+			if (debugOutputCount % 1000 == 0) {
 				debugOutputCount = 1;
 
 				uint* arrayMain = new uint[5 * tile->m_tile_cols*tile->m_tile_rows]();
 				m_tileNormalsBuffer->getSubData(0, sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
 
 				std::cout << "New Frame: " << std::endl;
-
-				float a = 0.123456789f;
-				uint t = floatBitsToUint(a);
-				uint t_s = t / 10000;
-				float t_f = uintBitsToFloat(t_s * tile->bufferAccumulationFactor);
-
-
-				float b = -0.123456789f;
-				uint t_n = floatBitsToUint(b);
-				uint t_s_n = t_n;// / 10000;
-				t_s_n += t_s_n;
-				float t_f_n = uintBitsToFloat(t_s_n);// *tile->normalFactor);
-
-				float test = b + b;
-
-				uint t2 = a * tile->bufferAccumulationFactor;
-				float t2_f = t2 / tile->bufferAccumulationFactor;
-
-				int t2_n = int(b * tile->bufferAccumulationFactor);
-				t2_n += t2_n;
-				float t2_f_n = (t2_n / tile->bufferAccumulationFactor);
 
 				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
 					vec4 tileNormal = vec4(0);
@@ -634,12 +613,17 @@ void TileRenderer::display()
 				}
 
 				float maxKdeHeight = 0.0f;
+				float maxFragmentsPerTile = 0.0f;
 				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
+
+					float fragmentPerTile = arrayMain[5 * i + 3] / tile->bufferAccumulationFactor;
+					maxFragmentsPerTile = max(maxFragmentsPerTile, fragmentPerTile);
 
 					float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
 					maxKdeHeight = max(height, maxKdeHeight);
 				}
 				std::cout << "maxHeight" << ": " << maxKdeHeight << std::endl;
+				std::cout << "maxFragmentsPerTile" << ": " << maxFragmentsPerTile << std::endl;
 
 
 				delete[] arrayMain;
@@ -1115,7 +1099,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
-			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
+			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 50.0f);
 			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
 			// the borderWidth cannot go from 0-1
 			// if borderWidth == 1, all inside corner points are at the exact same position (tile center)

@@ -32,7 +32,7 @@ namespace molumes
 		int m_tile_cols = 0; //X
 		int numTiles = 0;
 
-		const float bufferAccumulationFactor = 10000.0f;
+		const float bufferAccumulationFactor = 100.0f;
 
 		glm::vec2 maxBounds_Offset;
 		glm::vec2 minBounds_Offset;
