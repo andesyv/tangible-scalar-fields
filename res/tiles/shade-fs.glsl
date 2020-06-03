@@ -65,9 +65,14 @@ void main()
 
     #ifdef RENDER_GRID
         vec4 gridCol = texelFetch(gridTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-        if(gridCol.r > 0 || gridCol.g > 0 || gridCol.b > 0){
+
+        //col = gridCol + col * (1.0f - gridCol.a);
+        col = over(gridCol, col);
+        //col = vec4(gridCol.a,0,0,1);
+
+        /*if(gridCol.r > 0 || gridCol.g > 0 || gridCol.b > 0){
             col = gridCol;
-        }
+        }*/
     #endif
 
     #ifdef RENDER_ACC_POINTS

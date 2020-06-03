@@ -765,6 +765,7 @@ void TileRenderer::display()
 		//fragment Shader
 		shaderProgram_grid->setUniform("borderColor", viewer()->contourLineColor());
 		shaderProgram_grid->setUniform("tileSize", tile->tileSizeWS);
+		shaderProgram_grid->setUniform("gridWidth", m_gridWidth * viewer()->scaleFactor());
 		shaderProgram_grid->setUniform("accumulateTexture", 1);
 
 		//draw call
@@ -1092,6 +1093,7 @@ void TileRenderer::renderGUI() {
 			const char* tile_styles[]{ "none", "square", "hexagon" };
 			ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
 			ImGui::Checkbox("Render Grid", &m_renderGrid);
+			ImGui::SliderFloat("Grid Width", &m_gridWidth, 0.5f, 3.0f);
 			ImGui::SliderFloat("Tile Size ", &m_tileSize_tmp, 1.0f, 100.0f);
 		}
 
