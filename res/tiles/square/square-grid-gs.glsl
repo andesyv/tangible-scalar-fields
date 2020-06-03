@@ -24,7 +24,6 @@ uniform int numRows;
 
 const float PI = 3.1415926;
 
-out vec2 isCoords;
 out float tileSizeScreenSpace;
 out vec2 tileCenterScreenSpace;
 
@@ -52,28 +51,20 @@ void main()
 
         //bottom left
         pos = modelViewProjectionMatrix * (bbPos + vec4(0.0,0.0,0.0,0.0));
-        isCoords = vec2(-1, -1);
         gl_Position = pos;
         EmitVertex();
         //bottom right
         pos = modelViewProjectionMatrix * (bbPos + vec4(0, tileSize,0.0,0.0));
-        isCoords = vec2(-1, 1);
         gl_Position = pos;
         EmitVertex();
         //top left
         pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, 0,0.0,0.0));
-        isCoords = vec2(1, -1);
         gl_Position = pos;
         EmitVertex();
         //top right
         pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, tileSize,0.0,0.0));
-        isCoords = vec2(1, 1);
         gl_Position = pos;
         EmitVertex();
-
-        /*pos = modelViewProjectionMatrix * (bbPos + vec4(0.0,0.0,0.0,0.0));
-        gl_Position = pos;
-        EmitVertex();*/
 
         EndPrimitive();
     }

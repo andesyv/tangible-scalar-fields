@@ -28,7 +28,7 @@ SquareTile::SquareTile(Renderer* renderer) :Tile(renderer)
 	renderer->createShaderProgram("square-grid", {
 		{GL_VERTEX_SHADER,"./res/tiles/square/square-grid-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/square/square-grid-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
+		{GL_FRAGMENT_SHADER,"./res/tiles/square/square-grid-fs.glsl"}
 		});
 
 	renderer->createShaderProgram("square-normals", {

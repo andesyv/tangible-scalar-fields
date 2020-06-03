@@ -28,7 +28,7 @@ HexTile::HexTile(Renderer* renderer) :Tile(renderer)
 	renderer->createShaderProgram("hex-grid", {
 		{GL_VERTEX_SHADER,"./res/tiles/hexagon/hexagon-grid-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/hexagon/hexagon-grid-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/grid-fs.glsl"}
+		{GL_FRAGMENT_SHADER,"./res/tiles/hexagon/hexagon-grid-fs.glsl"}
 		});
 
 	renderer->createShaderProgram("hex-normals", {
