@@ -17,6 +17,7 @@ uniform int windowHeight;
 uniform int windowWidth;
 
 uniform float tileSize;
+uniform float gridWidth;
 uniform mat4 modelViewProjectionMatrix;
 
 uniform int numCols;
@@ -24,14 +25,23 @@ uniform int numRows;
 
 const float PI = 3.1415926;
 
-out float tileSizeScreenSpace;
-out vec2 tileCenterScreenSpace;
+out float tileSizeSS;
+out vec2 tileCenterSS;
+out vec4 neighbourValue;
 
 void main()
 {
+    
+    ivec2 tilePosInAccTexture = ivec2(gl_in[0].gl_Position);
 
     // get value from accumulate texture
-    float squareValue = texelFetch(accumulateTexture, ivec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y), 0).r;
+    float squareValue = texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y), 0).r;
+
+    //left,bottom,right,top
+    neighbourValue = vec4(texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x-1, tilePosInAccTexture.y), 0).r,
+    texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y-1), 0).r,
+    texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x+1, tilePosInAccTexture.y), 0).r,
+    texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y+1), 0).r);
 
     // we dont want to render the grid for empty squares
     if(squareValue > 0){
@@ -42,27 +52,26 @@ void main()
 
         vec4 bbPos = vec4(bbX, bbY, 0.0f, 1.0f);
 
-        tileSizeScreenSpace = getScreenSpaceSize(modelViewProjectionMatrix, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
-        tileCenterScreenSpace = getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(bbPos) + tileSize/2.0f, windowWidth, windowHeight);
+        tileSizeSS = getScreenSpaceSize(modelViewProjectionMatrix, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
+        tileCenterSS = getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(bbPos) + tileSize/2.0f, windowWidth, windowHeight);
 
-        //Emit 5 vertices for square
-        vec4 offset;
+        //Emit 4 vertices for square
         vec4 pos;
 
         //bottom left
-        pos = modelViewProjectionMatrix * (bbPos + vec4(0.0,0.0,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(-gridWidth, -gridWidth, 0 ,0));
         gl_Position = pos;
         EmitVertex();
         //bottom right
-        pos = modelViewProjectionMatrix * (bbPos + vec4(0, tileSize,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize+gridWidth, -gridWidth, 0, 0));
         gl_Position = pos;
         EmitVertex();
         //top left
-        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, 0,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(-gridWidth, tileSize+gridWidth, 0, 0));
         gl_Position = pos;
         EmitVertex();
         //top right
-        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, tileSize,0.0,0.0));
+        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize+gridWidth, tileSize+gridWidth, 0, 0));
         gl_Position = pos;
         EmitVertex();
 

@@ -58,28 +58,21 @@ void main()
         #endif
     #endif
 
-    // KDE overrides everything except GRID and ACC_POINTS
+    // KDE overrides everything except Grid
     #ifdef RENDER_KDE
         col = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).rgba;
     #endif
 
+    //add background color before grid
+    col = col + vec4(backgroundColor,1) * (1.0f-col.a);
+
+    //grid blends over everything
     #ifdef RENDER_GRID
         vec4 gridCol = texelFetch(gridTexture, ivec2(gl_FragCoord.xy), 0).rgba;
-
-        //col = gridCol + col * (1.0f - gridCol.a);
         col = over(gridCol, col);
-        //col = vec4(gridCol.a,0,0,1);
-
-        /*if(gridCol.r > 0 || gridCol.g > 0 || gridCol.b > 0){
-            col = gridCol;
-        }*/
     #endif
 
-    #ifdef RENDER_ACC_POINTS
-        col = max(col, texelFetch(accumulateTexture, ivec2(gl_FragCoord.xy), 0).rgba);
-    #endif
-
-    colorTexture = col + vec4(backgroundColor,1) * (1.0f-col.a);
+    colorTexture = col;
 }
 
 

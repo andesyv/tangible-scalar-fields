@@ -153,7 +153,6 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 <param>lightPos</param>
 <param>viewPos</param>
 */
-
 vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerA_N,
                             vec3 outsideCornerB, vec3 insideCornerB, vec3 insideCornerB_N, vec3 tileCenter3D, float blendRange, 
                             vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos){
@@ -168,7 +167,7 @@ vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outs
     vec3 borderColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder, viewPos) * tilesTexture.rgb;  
 
     // if the fragment is close border to the neightbouring border
-    // we blend its color with the nighbouring border color to get rid of aliasing artifacts
+    // we blend its color with the neighbouring border color to get rid of aliasing artifacts
     float distanceToLine_A = distancePointToLine(fragmentPos, insideCornerA, outsideCornerA);
     float distanceToLine_B = distancePointToLine(fragmentPos, insideCornerB, outsideCornerB);
     float blendRange_2 = blendRange / 2.0f;

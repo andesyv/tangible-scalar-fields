@@ -179,7 +179,6 @@ namespace molumes
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
 		float m_gridWidth = 1.5f;
-		bool m_renderAccumulatePoints = false;
 		bool m_renderKDE = false;
 		bool m_renderTileNormals = false;
 		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;

@@ -80,12 +80,6 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 		{GL_FRAGMENT_SHADER,"./res/tiles/max-val-fs.glsl"}
 		});
 
-	createShaderProgram("density-normals", {
-		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
-		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
-		{GL_FRAGMENT_SHADER,"./res/tiles/density-normals-fs.glsl"}
-		});
-
 	createShaderProgram("shade", {
 		{GL_VERTEX_SHADER,"./res/tiles/image-vs.glsl"},
 		{GL_GEOMETRY_SHADER,"./res/tiles/image-gs.glsl"},
@@ -794,7 +788,6 @@ void TileRenderer::display()
 
 	m_pointChartTexture->bindActive(0);
 	m_tilesTexture->bindActive(1);
-	m_tileAccumulateTexture->bindActive(2);
 	m_gridTexture->bindActive(3);
 	m_pointCircleTexture->bindActive(4);
 	//debug
@@ -823,10 +816,6 @@ void TileRenderer::display()
 		shaderProgram_shade->setUniform("gridTexture", 3);
 	}
 
-	if (m_renderAccumulatePoints) {
-		shaderProgram_shade->setUniform("accPointTexture", 2);
-	}
-
 	if (m_renderKDE) {
 		shaderProgram_shade->setUniform("kdeTexture", 5);
 	}
@@ -841,7 +830,6 @@ void TileRenderer::display()
 
 	m_pointChartTexture->unbindActive(0);
 	m_tilesTexture->unbindActive(1);
-	m_tileAccumulateTexture->unbindActive(2);
 	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
 	m_kdeTexture->unbindActive(5);
@@ -1115,8 +1103,6 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
 		}
 
-		ImGui::Checkbox("Render Acc Points", &m_renderAccumulatePoints);
-
 		// update status
 		dataChanged = false;
 	}
@@ -1155,9 +1141,6 @@ void TileRenderer::setShaderDefines() {
 	if (m_renderGrid) {
 		defines += "#define RENDER_GRID\n";
 	}
-
-	if (m_renderAccumulatePoints)
-		defines += "#define RENDER_ACC_POINTS\n";
 
 	if (m_renderKDE)
 		defines += "#define RENDER_KDE\n";
