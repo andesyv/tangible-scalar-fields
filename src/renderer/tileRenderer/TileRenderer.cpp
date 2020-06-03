@@ -759,6 +759,8 @@ void TileRenderer::display()
 		auto shaderProgram_grid = tile->getGridProgram();
 
 		shaderProgram_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_grid->setUniform("windowWidth", viewer()->viewportSize()[0]);
+		shaderProgram_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 		//fragment Shader
 		shaderProgram_grid->setUniform("borderColor", viewer()->contourLineColor());

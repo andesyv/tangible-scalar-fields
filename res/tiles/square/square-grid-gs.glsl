@@ -5,13 +5,16 @@
 #define N 4
 
 layout(points) in;
-layout(line_strip, max_vertices = N+1) out;
+layout(triangle_strip, max_vertices = N+1) out;
 
 uniform sampler2D accumulateTexture;
 
 //[x,y]
 uniform vec2 maxBounds_Off;
 uniform vec2 minBounds_Off;
+
+uniform int windowHeight;
+uniform int windowWidth;
 
 uniform float tileSize;
 uniform mat4 modelViewProjectionMatrix;
@@ -20,6 +23,10 @@ uniform int numCols;
 uniform int numRows;
 
 const float PI = 3.1415926;
+
+out vec2 isCoords;
+out float tileSizeScreenSpace;
+out vec2 tileCenterScreenSpace;
 
 void main()
 {
@@ -36,29 +43,37 @@ void main()
 
         vec4 bbPos = vec4(bbX, bbY, 0.0f, 1.0f);
 
+        tileSizeScreenSpace = getScreenSpaceSize(modelViewProjectionMatrix, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
+        tileCenterScreenSpace = getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(bbPos) + tileSize/2.0f, windowWidth, windowHeight);
+
         //Emit 5 vertices for square
         vec4 offset;
         vec4 pos;
 
+        //bottom left
         pos = modelViewProjectionMatrix * (bbPos + vec4(0.0,0.0,0.0,0.0));
+        isCoords = vec2(-1, -1);
         gl_Position = pos;
         EmitVertex();
-
+        //bottom right
         pos = modelViewProjectionMatrix * (bbPos + vec4(0, tileSize,0.0,0.0));
+        isCoords = vec2(-1, 1);
         gl_Position = pos;
         EmitVertex();
-
-        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, tileSize,0.0,0.0));
-        gl_Position = pos;
-        EmitVertex();
-
+        //top left
         pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, 0,0.0,0.0));
+        isCoords = vec2(1, -1);
+        gl_Position = pos;
+        EmitVertex();
+        //top right
+        pos = modelViewProjectionMatrix * (bbPos + vec4(tileSize, tileSize,0.0,0.0));
+        isCoords = vec2(1, 1);
         gl_Position = pos;
         EmitVertex();
 
-        pos = modelViewProjectionMatrix * (bbPos + vec4(0.0,0.0,0.0,0.0));
+        /*pos = modelViewProjectionMatrix * (bbPos + vec4(0.0,0.0,0.0,0.0));
         gl_Position = pos;
-        EmitVertex();
+        EmitVertex();*/
 
         EndPrimitive();
     }
