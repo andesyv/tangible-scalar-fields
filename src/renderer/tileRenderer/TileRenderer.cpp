@@ -758,7 +758,7 @@ void TileRenderer::display()
 		shaderProgram_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 		//fragment Shader
-		shaderProgram_grid->setUniform("borderColor", viewer()->contourLineColor());
+		shaderProgram_grid->setUniform("gridColor", viewer()->contourLineColor());
 		shaderProgram_grid->setUniform("tileSize", tile->tileSizeWS);
 		shaderProgram_grid->setUniform("gridWidth", m_gridWidth * viewer()->scaleFactor());
 		shaderProgram_grid->setUniform("accumulateTexture", 1);

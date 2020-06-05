@@ -4,12 +4,27 @@
 
 layout (location = 0) out vec4 gridTexture;
 
-uniform vec3 borderColor;
+uniform vec3 gridColor;
 uniform float gridWidth;
 
 //in screen space
 in float tileSizeSS;
 in vec2 tileCenterSS;
+
+// draws the grid, if gl_FragCoords is inside the gridWidth
+// point naming:  
+//	top 	2 <--- 1   
+//	bottom 	1 ---> 2
+//	counter clockwise
+void drawInsideGrid(float distanceInside, float distanceInsideNorm, vec2 corner1, vec2 corner2, vec2 cornerInside1, vec2 cornerInside2){
+	if(distanceInside <= gridWidth && 
+		pointLeftOfLine(cornerInside1, cornerInside2, vec2(gl_FragCoord)) && 
+		pointLeftOfLine(corner1, cornerInside1, vec2(gl_FragCoord)) &&
+		pointLeftOfLine(cornerInside2, corner2, vec2(gl_FragCoord)))
+	{
+		gridTexture = vec4(gridColor, distanceInsideNorm);
+	}	
+}
 
 void main()
 {
@@ -45,6 +60,7 @@ void main()
 	vec2 rightCenterCorner = vec2(tileCenterSS + vec2(tileSizeSS, 0.0f));
 	vec2 rightTopCorner = vec2(tileCenterSS + vec2(tileSize_2, vertical_space_2));
 
+	//inside grid corner points
 	vec2 leftBottomCornerInside = vec2(tileCenterSS + vec2(-tileSizeInside_2, -vertical_space_inside_2));     
 	vec2 leftCenterCornerInside = vec2(tileCenterSS + vec2(-tileSizeInside, 0.0f));
 	vec2 leftTopCornerInside = vec2(tileCenterSS + vec2(-tileSizeInside_2, vertical_space_inside_2));     
@@ -52,84 +68,42 @@ void main()
 	vec2 rightCenterCornerInside = vec2(tileCenterSS + vec2(tileSizeInside, 0.0f));
 	vec2 rightTopCornerInside = vec2(tileCenterSS + vec2(tileSizeInside_2, vertical_space_inside_2));
 
-	//inside
-	float distanceToLeftTopInsideBorder = distancePointToLine(vec3(gl_FragCoord), vec3(leftCenterCornerInside, 0), vec3(leftTopCornerInside, 0));
-	float distanceToLeftBottomInsideBorder = distancePointToLine(vec3(gl_FragCoord), vec3(leftBottomCornerInside, 0), vec3(leftCenterCornerInside, 0));
-	float distanceToBottomInsideBorder = (tileCenterSS.y - vertical_space_inside_2) - gl_FragCoord.y;
-	float distanceToRightBottomInsideBorder = distancePointToLine(vec3(gl_FragCoord), vec3(rightCenterCornerInside, 0), vec3(rightBottomCornerInside, 0));
-	float distanceToRightTopInsideBorder = distancePointToLine(vec3(gl_FragCoord), vec3(rightTopCornerInside, 0), vec3(rightCenterCornerInside, 0));
-	float distanceToTopInsideBorder = gl_FragCoord.y - (tileCenterSS.y + vertical_space_inside_2);
-	
 	//left top, left bottom, bottom, right bottom, right top, top
 	float distancesInside[6];
 	float distancesInsideNorm[6];
 
-	distancesInside[0] = distanceToLeftTopInsideBorder;
-	distancesInside[1] = distanceToLeftBottomInsideBorder;
-	distancesInside[2] = distanceToBottomInsideBorder;
-	distancesInside[3] = distanceToRightBottomInsideBorder;
-	distancesInside[4] = distanceToRightTopInsideBorder;
-	distancesInside[5] = distanceToTopInsideBorder;
-
+	distancesInside[0] = distancePointToLine(vec3(gl_FragCoord), vec3(leftCenterCornerInside, 0), vec3(leftTopCornerInside, 0));
+	distancesInside[1] = distancePointToLine(vec3(gl_FragCoord), vec3(leftBottomCornerInside, 0), vec3(leftCenterCornerInside, 0));
+	distancesInside[2] = (tileCenterSS.y - vertical_space_inside_2) - gl_FragCoord.y;
+	distancesInside[3] = distancePointToLine(vec3(gl_FragCoord), vec3(rightCenterCornerInside, 0), vec3(rightBottomCornerInside, 0));
+	distancesInside[4] = distancePointToLine(vec3(gl_FragCoord), vec3(rightTopCornerInside, 0), vec3(rightCenterCornerInside, 0));
+	distancesInside[5] = gl_FragCoord.y - (tileCenterSS.y + vertical_space_inside_2);
+	
 	for(int i = 0; i < 6; i++){
 		distancesInsideNorm[i] = distancesInside[i] / gridWidth;
 	}
 
 	//left top
 	//inside
-	if(distancesInside[0] <= gridWidth && 
-		pointLeftOfLine(leftTopCornerInside, leftCenterCornerInside, vec2(gl_FragCoord)) && 
-		pointLeftOfLine(leftTopCorner, leftTopCornerInside, vec2(gl_FragCoord)) &&
-		pointLeftOfLine(leftCenterCornerInside, leftCenterCorner, vec2(gl_FragCoord)))
-	{
-		gridTexture = vec4(borderColor, distancesInsideNorm[0]);
-	}	
+	drawInsideGrid(distancesInside[0], distancesInsideNorm[0], leftTopCorner, leftCenterCorner, leftTopCornerInside, leftCenterCornerInside);
 
 	//left bottom
 	//inside
-	if(distancesInside[1] <= gridWidth && 
-		pointLeftOfLine(leftCenterCornerInside, leftBottomCornerInside, vec2(gl_FragCoord)) && 
-		pointLeftOfLine(leftCenterCorner, leftCenterCornerInside, vec2(gl_FragCoord)) &&
-		pointLeftOfLine(leftBottomCornerInside, leftBottomCorner, vec2(gl_FragCoord)))
-	{
-		gridTexture = vec4(borderColor, distancesInsideNorm[1]);
-	}	
-
+	drawInsideGrid(distancesInside[1], distancesInsideNorm[1], leftCenterCorner, leftBottomCorner, leftCenterCornerInside, leftBottomCornerInside);
+	
 	//bottom
 	//inside
-	if(distancesInside[2] <= gridWidth && 
-		pointLeftOfLine(leftBottomCorner, leftBottomCornerInside, vec2(gl_FragCoord)) &&
-		pointLeftOfLine(rightBottomCornerInside, rightBottomCorner, vec2(gl_FragCoord)))
-	{
-		gridTexture = vec4(borderColor, distancesInsideNorm[2]);
-	}
+	drawInsideGrid(distancesInside[2], distancesInsideNorm[2], leftBottomCorner, rightBottomCorner, leftBottomCornerInside, rightBottomCornerInside);
 
 	//right bottom
 	//inside
-	if(distancesInside[3] <= gridWidth && 
-		pointLeftOfLine(rightBottomCornerInside, rightCenterCornerInside, vec2(gl_FragCoord)) && 
-		pointLeftOfLine(rightCenterCornerInside, rightCenterCorner, vec2(gl_FragCoord)) &&
-		pointLeftOfLine(rightBottomCorner, rightBottomCornerInside, vec2(gl_FragCoord)))
-	{
-		gridTexture = vec4(borderColor, distancesInsideNorm[3]);
-	}
+	drawInsideGrid(distancesInside[3], distancesInsideNorm[3], rightBottomCorner, rightCenterCorner, rightBottomCornerInside, rightCenterCornerInside);
 	
 	//right top
 	//inside
-	if(distancesInside[4] <= gridWidth && 
-		pointLeftOfLine(rightCenterCornerInside, rightTopCornerInside, vec2(gl_FragCoord)) && 
-		pointLeftOfLine(rightTopCornerInside, rightTopCorner, vec2(gl_FragCoord)) &&
-		pointLeftOfLine(rightCenterCorner, rightCenterCornerInside, vec2(gl_FragCoord)))
-	{
-		gridTexture = vec4(borderColor, distancesInsideNorm[4]);
-	}
-
+	drawInsideGrid(distancesInside[4], distancesInsideNorm[4], rightCenterCorner, rightTopCorner, rightCenterCornerInside, rightTopCornerInside);
+	
 	//top
 	//inside
-	if(distancesInside[5] <= gridWidth && 
-		pointLeftOfLine(leftTopCornerInside, leftTopCorner, vec2(gl_FragCoord)) &&
-		pointLeftOfLine(rightTopCorner, rightTopCornerInside, vec2(gl_FragCoord)))
-	{
-		gridTexture = vec4(borderColor, distancesInsideNorm[5]);
-	}
+	drawInsideGrid(distancesInside[5], distancesInsideNorm[5], rightTopCorner, leftTopCorner, rightTopCornerInside, leftTopCornerInside);
 }
