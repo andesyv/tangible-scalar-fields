@@ -37,6 +37,7 @@ uniform int max_rect_row;
 
 uniform float bufferAccumulationFactor;
 uniform float tileHeightMult;
+uniform float densityMult;
 uniform float borderWidth;
 uniform bool showBorder;
 uniform bool invertPyramid;
@@ -114,8 +115,9 @@ void main()
         tileNormal /= bufferAccumulationFactor;
 
         kdeHeight = float(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)]);
-        kdeHeight /= bufferAccumulationFactor;
-        kdeHeight /= tileNormal.w;
+        kdeHeight /= bufferAccumulationFactor; // get original value after accumulation
+        kdeHeight /= densityMult; //remove multiplyer from height
+        kdeHeight /= tileNormal.w; //normalize according to number of fragments in tile
 
         // LIGHTING NORMAL ------------------------
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));

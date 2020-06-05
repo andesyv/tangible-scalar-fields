@@ -84,6 +84,7 @@ vec3 linePlaneIntersection(vec3 planeNormal, vec3 planePoint, vec3 lineDir, vec3
 }
 
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+//only using x,y corrdinates
 float distancePointToLine(vec3 p, vec3 a, vec3 b){
     return abs((b.y-a.y)*p.x - (b.x-a.x)*p.y + b.x*a.y-b.y*a.x)
             /sqrt(pow((b.y-a.y),2) + pow((b.x-a.x),2));

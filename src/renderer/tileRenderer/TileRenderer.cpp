@@ -671,6 +671,7 @@ void TileRenderer::display()
 		//fragment Shader
 
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
+		shaderProgram_tiles->setUniform("densityMult", m_densityMult);
 		shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
 		shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
 		shaderProgram_tiles->setUniform("showBorder", m_showBorder);
@@ -1091,8 +1092,8 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
-			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 50.0f);
-			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 0.1f, 2.0f);
+			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
+			ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 1.0f, 20.0f);
 			// the borderWidth cannot go from 0-1
 			// if borderWidth == 1, all inside corner points are at the exact same position (tile center)
 			// and we can not longer decide if a point is in the border or not
