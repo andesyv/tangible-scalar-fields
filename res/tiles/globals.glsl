@@ -72,7 +72,7 @@ bool pointLeftOfLine(vec2 a, vec2 b, vec2 p){
 // we also have xy of point p1 and seach p1.z
 // by solving for p1.z gives us the used formular
 float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
-   return (p2.z*n.z - (p1.x-p2.x)*n.x + (p1.y-p2.y)*n.y)/n.z;
+   return (-(n.x*p1.x) + (p2.x*n.x) - (n.y*p1.y) + (p2.y*n.y))/n.z + p2.z;
 }
 
 //https://stackoverflow.com/questions/5666222/3d-line-plane-intersection
@@ -153,17 +153,20 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 <param>lightColor</param>
 <param>lightPos</param>
 <param>viewPos</param>
+<return>an array with 7 values: [0,1,2] = color; [3,4,5] = lightingNormal; [6] = depth</return>
 */
-vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerA_N,
+float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerA_N,
                             vec3 outsideCornerB, vec3 insideCornerB, vec3 insideCornerB_N, vec3 tileCenter3D, float blendRange, 
                             vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos){
+
+    float colorNormalDepth[7];
 
     //compute surface normal using 2 corner points of inside and 1 corner point of outside
     vec3 lightingNormalBorder = calcPlaneNormal(insideCornerA, insideCornerB, outsideCornerA);
 
     // fragment height in border
     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), outsideCornerA, lightingNormalBorder);
-    
+
     // PHONG LIGHTING 
     vec3 borderColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder, viewPos) * tilesTexture.rgb;  
 
@@ -223,7 +226,15 @@ vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outs
         fragmentColor = borderColor;
     }
 
-    return fragmentColor;
+    colorNormalDepth[0] = fragmentColor.r;
+    colorNormalDepth[1] = fragmentColor.g;
+    colorNormalDepth[2] = fragmentColor.b;
+    colorNormalDepth[3] = lightingNormalBorder.r;
+    colorNormalDepth[4] = lightingNormalBorder.g;
+    colorNormalDepth[5] = lightingNormalBorder.b;
+    colorNormalDepth[6] = fragmentPos.z;
+
+    return colorNormalDepth;
 }
 //---------------------------------------------------------------------------------------------------------------
 

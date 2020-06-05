@@ -98,6 +98,7 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_tileAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_tilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	m_normalsAndDepthTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	m_gridTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -152,8 +153,9 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_tilesFramebuffer = Framebuffer::create();
 	m_tilesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_tilesTexture.get());
+	m_tilesFramebuffer->attachTexture(GL_COLOR_ATTACHMENT1, m_normalsAndDepthTexture.get());
 	m_tilesFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
-	m_tilesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0 });
+	m_tilesFramebuffer->setDrawBuffers({ GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 });
 
 	m_gridFramebuffer = Framebuffer::create();
 	m_gridFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_gridTexture.get());
@@ -248,6 +250,7 @@ void TileRenderer::display()
 			m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_tilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+			m_normalsAndDepthTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_gridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_kdeTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 			m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -793,6 +796,7 @@ void TileRenderer::display()
 	m_pointCircleTexture->bindActive(4);
 	//debug
 	m_kdeTexture->bindActive(5);
+	m_normalsAndDepthTexture->bindActive(2);
 	//end debug
 
 	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 6);
@@ -821,6 +825,10 @@ void TileRenderer::display()
 		shaderProgram_shade->setUniform("kdeTexture", 5);
 	}
 
+	if (m_renderNormalBuffer || m_renderDepthBuffer) {
+		shaderProgram_shade->setUniform("normalsAndDepthTexture", 2);
+	}
+
 	m_vaoQuad->bind();
 
 	shaderProgram_shade->use();
@@ -834,6 +842,7 @@ void TileRenderer::display()
 	m_gridTexture->unbindActive(3);
 	m_pointCircleTexture->unbindActive(4);
 	m_kdeTexture->unbindActive(5);
+	m_normalsAndDepthTexture->unbindActive(2);
 
 	//unbind shader storage buffer
 	m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
@@ -1104,6 +1113,10 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
 		}
 
+		ImGui::Checkbox("Show Normal Buffer", &m_renderNormalBuffer);
+		ImGui::Checkbox("Show Depth Buffer", &m_renderDepthBuffer);
+
+
 		// update status
 		dataChanged = false;
 	}
@@ -1148,6 +1161,12 @@ void TileRenderer::setShaderDefines() {
 
 	if (m_renderTileNormals)
 		defines += "#define RENDER_TILE_NORMALS\n";
+
+	if (m_renderNormalBuffer)
+		defines += "#define RENDER_NORMAL_BUFFER\n";
+
+	if (m_renderDepthBuffer)
+		defines += "#define RENDER_DEPTH_BUFFER\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{

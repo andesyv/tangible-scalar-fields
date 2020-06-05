@@ -79,6 +79,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_normalsAndDepthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
 
@@ -152,6 +153,7 @@ namespace molumes
 
 		// Tile Parameters
 		float m_tileSize_tmp = m_tileSize;
+		float m_gridWidth = 1.5f;
 
 		//point circle parameters 
 		float m_pointCircleRadius = 30.0f;
@@ -162,6 +164,8 @@ namespace molumes
 		float m_discrepancyDiv = 1.5f;
 		float m_discrepancy_easeIn = 1.0f;
 		float m_discrepancy_lowCount = 0.0f;
+		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
+		float m_discrepancy_lowCount_tmp = m_discrepancy_lowCount;
 
 		//regression parameters
 		float m_sigma = 1.0f;
@@ -178,11 +182,11 @@ namespace molumes
 		bool m_renderDiscrepancy = false;
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
-		float m_gridWidth = 1.5f;
 		bool m_renderKDE = false;
 		bool m_renderTileNormals = false;
-		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
-		float m_discrepancy_lowCount_tmp = m_discrepancy_lowCount;
+		bool m_renderNormalBuffer = false;
+		bool m_renderDepthBuffer = false;
+
 		// ------------------------------------------------------------------------------------------
 
 		// INTERVAL MAPPING--------------------------------------------------------------------------

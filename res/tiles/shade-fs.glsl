@@ -19,6 +19,7 @@ uniform sampler2D tilesTexture;
 uniform sampler2D gridTexture;
 uniform sampler2D accumulateTexture;
 uniform sampler2D kdeTexture;
+uniform sampler2D normalsAndDepthTexture;
 
 void main()
 {
@@ -61,6 +62,14 @@ void main()
     // KDE overrides everything except Grid
     #ifdef RENDER_KDE
         col = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).rgba;
+    #endif
+
+    #ifdef RENDER_NORMAL_BUFFER
+        col = vec4(texelFetch(normalsAndDepthTexture, ivec2(gl_FragCoord.xy),0).rgb, 1);
+    #endif
+
+    #ifdef RENDER_DEPTH_BUFFER
+        col = vec4(abs(texelFetch(normalsAndDepthTexture, ivec2(gl_FragCoord.xy),0).a), 0, 0 ,1);
     #endif
 
     //add background color before grid
