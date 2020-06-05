@@ -167,7 +167,7 @@ vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outs
     // PHONG LIGHTING 
     vec3 borderColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder, viewPos) * tilesTexture.rgb;  
 
-    // if the fragment is close border to the neightbouring border
+    // if the fragment is close to the neightbouring border
     // we blend its color with the neighbouring border color to get rid of aliasing artifacts
     float distanceToLine_A = distancePointToLine(fragmentPos, insideCornerA, outsideCornerA);
     float distanceToLine_B = distancePointToLine(fragmentPos, insideCornerB, outsideCornerB);
@@ -184,7 +184,7 @@ vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outs
         //because all sides of the pyramid have the same angle -> therefore we can just use fragmentPos
         vec3 neighbourColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder_N, viewPos) * tilesTexture.rgb;
 
-        borderColor =  distanceToLine_ANorm * borderColor + (1-distanceToLine_ANorm) * neighbourColor;
+        borderColor = distanceToLine_ANorm * borderColor + (1-distanceToLine_ANorm) * neighbourColor;
     }
     else if(distanceToLine_B < blendRange_2){
         
@@ -205,8 +205,8 @@ vec3 calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outs
     float distanceToInsideLine = distancePointToLine(fragmentPos, insideCornerA, insideCornerB);
     float distanceToInsideLine_A = distancePointToLine(fragmentPos, insideCornerA, insideCornerA_N);
     float distanceToInsideLine_B = distancePointToLine(fragmentPos, insideCornerB, insideCornerB_N);
-    // if the fragment is close to the border to the inside 
-    // we blend its color with the nighbouring border color to get rid of aliasing artifacts
+    // if the fragment is close to the inside border
+    // we blend its color with the neighbouring border color to get rid of aliasing artifacts
     if(distanceToInsideLine < blendRange && 
         !(pointLeftOfLine(vec2(fragmentPos), vec2(insideCornerA), vec2(insideCornerA_N)) && distanceToInsideLine_A > blendRange ||
            pointLeftOfLine(vec2(fragmentPos), vec2(insideCornerB_N), vec2(insideCornerB)) && distanceToInsideLine_B > blendRange)){

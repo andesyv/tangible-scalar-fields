@@ -10,7 +10,7 @@ uniform float gridWidth;
 in float tileSizeSS;
 in vec2 tileCenterSS;
 //left,bottom,right,top
-in vec4 neighbourValue;
+in vec4 neighbourValues;
 
 // draws the grid, if gl_FragCoords is inside the gridWidth
 // point naming:  
@@ -76,10 +76,8 @@ void main()
 	drawGrid(distancesInside.x, distancesInsideNorm.x, leftTopCorner, leftBottomCorner, leftTopCornerInside, leftBottomCornerInside);
 		
 	//outside if the left neighbour is empty
-	if(neighbourValue.x == 0){
-		drawGrid(distancesOutside.x, distancesOutsideNorm.x, 
-				vec2(leftTopCornerOutside.x, leftTopCornerOutside.y - 2 * gridWidth), vec2(leftBottomCornerOutside.x, leftBottomCornerOutside.y + 2 * gridWidth),
-				leftTopCorner, leftBottomCorner);
+	if(neighbourValues.x == 0){
+		drawGrid(distancesOutside.x, distancesOutsideNorm.x, leftTopCornerOutside, leftBottomCornerOutside, leftTopCorner, leftBottomCorner);
 	}
 
 	//bottom
@@ -87,20 +85,16 @@ void main()
 	drawGrid(distancesInside.y, distancesInsideNorm.y, leftBottomCorner, rightBottomCorner, leftBottomCornerInside, rightBottomCornerInside);
 
 	//outside if bottom neghbour is empty
-	if(neighbourValue.y == 0){
-		drawGrid(distancesOutside.y, distancesOutsideNorm.y,
-				vec2(leftBottomCornerOutside.x + 2 * gridWidth, leftBottomCornerOutside.y), vec2(rightBottomCornerOutside.x - 2 * gridWidth, rightBottomCornerOutside.y),
-				leftBottomCorner, rightBottomCorner);
+	if(neighbourValues.y == 0){
+		drawGrid(distancesOutside.y, distancesOutsideNorm.y, leftBottomCornerOutside, rightBottomCornerOutside, leftBottomCorner, rightBottomCorner);
 	}
 
 	//right
 	//inside 
 	drawGrid(distancesInside.z, distancesInsideNorm.z, rightBottomCorner, rightTopCorner, rightBottomCornerInside, rightTopCornerInside);
 	//outside if right neighbour is empty
-	if(neighbourValue.z == 0){
-		drawGrid(distancesOutside.z, distancesOutsideNorm.z,
-				vec2(rightBottomCornerOutside.x, rightBottomCornerOutside.y + 2 * gridWidth), vec2(rightTopCornerOutside.x, rightTopCornerOutside.y - 2 * gridWidth),
-				rightBottomCorner, rightTopCorner);
+	if(neighbourValues.z == 0){
+		drawGrid(distancesOutside.z, distancesOutsideNorm.z, rightBottomCornerOutside, rightTopCornerOutside, rightBottomCorner, rightTopCorner);
 	}
 	
 	//top
@@ -108,9 +102,7 @@ void main()
 	drawGrid(distancesInside.w, distancesInsideNorm.w, rightTopCorner, leftTopCorner, rightTopCornerInside, leftTopCornerInside);
 
 	//outside if top neighbour is empty
-	if(neighbourValue.w == 0){
-		drawGrid(distancesOutside.w, distancesOutsideNorm.w,
-				vec2(rightTopCornerOutside.x - 2 * gridWidth, rightTopCornerOutside.y), vec2(leftTopCornerOutside.x + 2 * gridWidth, leftTopCornerOutside.y),
-				rightTopCorner, leftTopCorner);
+	if(neighbourValues.w == 0){
+		drawGrid(distancesOutside.w, distancesOutsideNorm.w, rightTopCornerOutside, leftTopCornerOutside, rightTopCorner, leftTopCorner);
 	}
 }

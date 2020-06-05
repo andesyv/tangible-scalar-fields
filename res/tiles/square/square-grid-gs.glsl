@@ -27,7 +27,7 @@ const float PI = 3.1415926;
 
 out float tileSizeSS;
 out vec2 tileCenterSS;
-out vec4 neighbourValue;
+out vec4 neighbourValues;
 
 void main()
 {
@@ -38,7 +38,7 @@ void main()
     float squareValue = texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y), 0).r;
 
     //left,bottom,right,top
-    neighbourValue = vec4(texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x-1, tilePosInAccTexture.y), 0).r,
+    neighbourValues = vec4(texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x-1, tilePosInAccTexture.y), 0).r,
     texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y-1), 0).r,
     texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x+1, tilePosInAccTexture.y), 0).r,
     texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y+1), 0).r);
