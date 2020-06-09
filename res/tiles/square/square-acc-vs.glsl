@@ -26,9 +26,6 @@ void main()
     // we only set the red channel, because we only use the color for additive blending
     vertexColor = vec4(1.0f,0.0f,0.0f,1.0f);
 
-    // debug: color point according to square
-    // vertexColor = vec4(float(squareX/float(maxTexCoordX)),float(squareY/float(maxTexCoordY)),0.0f,1.0f);
-
     // NDC - map square coordinates to [-1,1] (first [0,2] than -1)
 	vec2 squareNDC = vec2(((squareX * 2) / float(maxTexCoordX+1)) - 1, ((squareY * 2) / float(maxTexCoordY+1)) - 1);
 

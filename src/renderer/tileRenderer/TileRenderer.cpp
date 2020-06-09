@@ -45,7 +45,7 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_vaoQuad->enable(0);
 	m_vaoQuad->unbind();
 
-	// shader storage buffer object for current maximum accumulated value and maximum discrepancy
+	// shader storage buffer object for current maximum accumulated value and maximum alpha value of point circle blending
 	m_valueMaxBuffer->setStorage(sizeof(uint) * 2, nullptr, gl::GL_NONE_BIT);
 
 	m_shaderSourceDefines = StaticStringSource::create("");
@@ -216,7 +216,6 @@ void TileRenderer::display()
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 	const vec4 backgroundColor = vec4(viewer()->backgroundColor(), 0);
 
-	//TODO: show thomas
 	// projection matrix so we are in screen space and not view space
 	vec4 viewLightPosition = projectionMatrix * viewer()->lightTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	//viewLightPosition.z *= viewer()->scaleFactor();
@@ -323,7 +322,7 @@ void TileRenderer::display()
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 	// ====================================================================================== DISCREPANCIES RENDER PASS ======================================================================================
-	// Accumulate Points into tiles
+	// write tile discrepancies into texture
 
 	if (m_renderDiscrepancy && tile != nullptr) {
 		m_tilesDiscrepanciesFramebuffer->bind();
@@ -475,7 +474,10 @@ void TileRenderer::display()
 	}
 
 	// ====================================================================================== MAX VAL RENDER PASS ======================================================================================
-	// MAX VAL: Get maximum accumulated value (used for coloring) -  no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
+	// Get maximum accumulated value (used for coloring) 
+	// Get maximum alpha of additive blended point circles (used for alpha normalization)
+	// no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
+
 
 	// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
 	m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
@@ -533,105 +535,105 @@ void TileRenderer::display()
 
 	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	if (m_renderTileNormals) {
-		// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
+	// ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
+	// accumulate tile normals using KDE texture and save them into tileNormalsBuffer
+	// no framebuffer needed, because we don't render anything. we just save into the storage buffer
 
-		// render Tile Normals into storage buffer
-		if (tile != nullptr && m_renderTileNormals) {
-			// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-			m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+	// render Tile Normals into storage buffer
+	if (tile != nullptr && m_renderTileNormals) {
+		// SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+		m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
-			// one Pixel of data is enough to clear whole buffer
-			// https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
-			const int initialVal = 0;
-			m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
-			// -------------------------------------------------------------------------------------------------
+		// one Pixel of data is enough to clear whole buffer
+		// https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
+		const int initialVal = 0;
+		m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
+		// -------------------------------------------------------------------------------------------------
 
-			m_kdeTexture->bindActive(1);
-			m_tileAccumulateTexture->bindActive(2);
+		m_kdeTexture->bindActive(1);
+		m_tileAccumulateTexture->bindActive(2);
 
-			auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
+		auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
 
-			//geometry shader
-			shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		//geometry shader
+		shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-			shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
-			shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
+		shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
+		shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
 
-			//fragment Shader
-			shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
-			shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
+		//fragment Shader
+		shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
+		shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
 
-			shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
-			shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
+		shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
+		shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
 
-			shaderProgram_tile_normals->setUniform("kdeTexture", 1);
-			shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
+		shaderProgram_tile_normals->setUniform("kdeTexture", 1);
+		shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
 
-			m_vaoQuad->bind();
+		m_vaoQuad->bind();
 
-			shaderProgram_tile_normals->use();
-			m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-			shaderProgram_tile_normals->release();
+		shaderProgram_tile_normals->use();
+		m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+		shaderProgram_tile_normals->release();
 
-			m_vaoQuad->unbind();
+		m_vaoQuad->unbind();
 
-			m_kdeTexture->unbindActive(1);
-			m_tileAccumulateTexture->unbindActive(2);
+		m_kdeTexture->unbindActive(1);
+		m_tileAccumulateTexture->unbindActive(2);
 
-			glMemoryBarrier(GL_ALL_BARRIER_BITS);
+		glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-			//DEBUG----------------
-			/*
-			if (debugOutputCount % 1000 == 0) {
-				debugOutputCount = 1;
+		//DEBUG Normals Buffer----------------
+		/*
+		if (debugOutputCount % 1000 == 0) {
+			debugOutputCount = 1;
 
-				uint* arrayMain = new uint[5 * tile->m_tile_cols*tile->m_tile_rows]();
-				m_tileNormalsBuffer->getSubData(0, sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
+			uint* arrayMain = new uint[5 * tile->m_tile_cols*tile->m_tile_rows]();
+			m_tileNormalsBuffer->getSubData(0, sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
 
-				std::cout << "New Frame: " << std::endl;
+			std::cout << "New Frame: " << std::endl;
 
-				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
-					vec4 tileNormal = vec4(0);
-					for (int j = 0; j < 4; j++) {
-						int y = arrayMain[5 * i + j];
-						float z = y / tile->bufferAccumulationFactor;
-						tileNormal[j] = z;
-					}
-					float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
-					tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
-					vec3 lightNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
-					for (int j = 0; j < 4; j++) {
-
-						std::cout << i << ": " << j << ": " << tileNormal[j] << std::endl;
-					}
-					std::cout << i << ": " << "height" << ": " << height << std::endl;
-
+			for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
+				vec4 tileNormal = vec4(0);
+				for (int j = 0; j < 4; j++) {
+					int y = arrayMain[5 * i + j];
+					float z = y / tile->bufferAccumulationFactor;
+					tileNormal[j] = z;
 				}
+				float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
+				tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
+				vec3 lightNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
+				for (int j = 0; j < 4; j++) {
 
-				float maxKdeHeight = 0.0f;
-				float maxFragmentsPerTile = 0.0f;
-				for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
-
-					float fragmentPerTile = arrayMain[5 * i + 3] / tile->bufferAccumulationFactor;
-					maxFragmentsPerTile = max(maxFragmentsPerTile, fragmentPerTile);
-
-					float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
-					maxKdeHeight = max(height, maxKdeHeight);
+					std::cout << i << ": " << j << ": " << tileNormal[j] << std::endl;
 				}
-				std::cout << "maxHeight" << ": " << maxKdeHeight << std::endl;
-				std::cout << "maxFragmentsPerTile" << ": " << maxFragmentsPerTile << std::endl;
+				std::cout << i << ": " << "height" << ": " << height << std::endl;
 
-
-				delete[] arrayMain;
 			}
-			else {
-				debugOutputCount++;
-			}*/
-			//END DEBUG----------------
 
+			float maxKdeHeight = 0.0f;
+			float maxFragmentsPerTile = 0.0f;
+			for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
+
+				float fragmentPerTile = arrayMain[5 * i + 3] / tile->bufferAccumulationFactor;
+				maxFragmentsPerTile = max(maxFragmentsPerTile, fragmentPerTile);
+
+				float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
+				maxKdeHeight = max(height, maxKdeHeight);
+			}
+			std::cout << "maxHeight" << ": " << maxKdeHeight << std::endl;
+			std::cout << "maxFragmentsPerTile" << ": " << maxFragmentsPerTile << std::endl;
+
+
+			delete[] arrayMain;
 		}
+		else {
+			debugOutputCount++;
+		}*/
+		//END DEBUG----------------
 	}
+
 
 	// ====================================================================================== TILES RENDER PASS ======================================================================================
 	// Render tiles
@@ -670,9 +672,7 @@ void TileRenderer::display()
 		//geometry & fragment shader
 		shaderProgram_tiles->setUniform("tileSize", tile->tileSizeWS);
 
-
 		//fragment Shader
-
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
 		shaderProgram_tiles->setUniform("densityMult", m_densityMult);
 		shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
@@ -788,6 +788,7 @@ void TileRenderer::display()
 
 	// ====================================================================================== SHADE/BLEND RENDER PASS ======================================================================================
 	// blend everything together and draw to screen
+
 	m_shadeFramebuffer->bind();
 
 	m_pointChartTexture->bindActive(0);
@@ -1220,7 +1221,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 
 	start = std::clock();
 
-	//Step 1: Count how many elements belong to each square
+	//Step 1: Count how many elements belong to each tile
 	for (int i = 0; i < numSamples; i++) {
 
 		float sampleX = samplesX[i];
@@ -1251,8 +1252,8 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 
 	start = clock();
 
-	//Step 3: sort points according to squares
-	// 1D array with "buckets" according to prefix Sum of squares
+	//Step 3: sort points according to tile
+	// 1D array with "buckets" according to prefix Sum of tile
 	// also set the bounding box of points inside tile
 	std::vector<float> pointsInTilesRunningPrefixSum(pointsInTilesPrefixSum);
 	for (int i = 0; i < numSamples; i++) {
@@ -1281,6 +1282,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	start = clock();
 
 	//Step 4: calculate discrepancy for each tile
+	//can be set to how many core the respective PC has
 	omp_set_num_threads(4);
 #pragma omp parallel
 	{
@@ -1299,12 +1301,12 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		for (int i = 0; i < tile->numTiles; i++) {
 
 			float maxDifference = 0.0f;
-			int startPoint = pointsInTilesPrefixSum[i];
-			int stopPoint = pointsInTilesPrefixSum[i] + pointsInTilesCount[i];
+			const int startPoint = pointsInTilesPrefixSum[i];
+			const int stopPoint = pointsInTilesPrefixSum[i] + pointsInTilesCount[i];
 
 			//use the addition and not PrefixSum[i+1] so we can easily get the last boundary
 			for (int j = startPoint; j < stopPoint; j++) {
-				//normalize sample inside its square
+				//normalize sample inside its tile
 				float stopValueXNorm = mapInterval(sortedX[j], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
 				float stopValueYNorm = mapInterval(sortedY[j], tilesMinBoundY[i], tilesMaxBoundY[i], 1);
 
@@ -1313,7 +1315,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 
 				// closed interval [startValue, stopValue]
 				float countInside = 0.0f;
-				for (int k = pointsInTilesPrefixSum[i]; k < pointsInTilesPrefixSum[i] + pointsInTilesCount[i]; k++)
+				for (int k = startPoint; k < stopPoint; k++)
 				{
 					//normalize sample inside its square
 					float sampleXNorm = mapInterval(sortedX[k], tilesMinBoundX[i], tilesMaxBoundX[i], 1);
@@ -1326,7 +1328,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 						countInside++;
 					}
 				}
-				float density = countInside / float(numSamples);
+				float density = countInside / float(pointsInTilesCount[i]);
 				float difference = std::abs(density - area);
 
 				if (difference > maxDifference)

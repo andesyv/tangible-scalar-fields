@@ -139,7 +139,7 @@ namespace molumes
 		int m_xAxisDataID = 0, m_yAxisDataID = 0, m_radiusDataID = 0, m_colorDataID = 0;
 
 		// selection of color maps
-		int m_colorMap = 8;						// use "plasma" as default heatmap
+		int m_colorMap = 12;						// use "virdis" as default heatmap
 		bool m_colorMapLoaded = false;
 		bool m_discreteMap = false;
 		// ---------------------------------
@@ -161,7 +161,7 @@ namespace molumes
 		const float pointCircleRadiusDiv = 5000.0f;
 
 		//discrepancy parameters
-		float m_discrepancyDiv = 1.5f;
+		float m_discrepancyDiv = 1.0f;
 		float m_discrepancy_easeIn = 1.0f;
 		float m_discrepancy_lowCount = 0.0f;
 		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
@@ -178,7 +178,7 @@ namespace molumes
 		float blendRange = 1.0f;
 
 		// define booleans
-		bool m_renderPointCircles = false;
+		bool m_renderPointCircles = true;
 		bool m_renderDiscrepancy = false;
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
