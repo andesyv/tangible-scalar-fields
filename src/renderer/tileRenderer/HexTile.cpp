@@ -40,7 +40,7 @@ HexTile::HexTile(Renderer* renderer) :Tile(renderer)
 
 
 // --------------------------------------------------------------------------------------
-// ###########################  HEXAGON ############################################
+// ###########################   FETCH SHADER PROGRAMS ##################################
 // --------------------------------------------------------------------------------------
 
 Program * HexTile::getAccumulationProgram()
@@ -92,7 +92,6 @@ Program * HexTile::getTileNormalsProgram()
 	shaderProgram_hex_normals->setUniform("rectSize", vec2(rect_width, rect_height));
 
 	//fragment Shader
-
 	shaderProgram_hex_normals->setUniform("max_rect_col", max_rect_col);
 	shaderProgram_hex_normals->setUniform("max_rect_row", max_rect_row);
 
@@ -113,11 +112,15 @@ globjects::Program * molumes::HexTile::getGridProgram()
 	return shaderProgram_hexagon_grid;
 }
 
+// --------------------------------------------------------------------------------------
+// ########################### TILE CALC ###############################################
+// --------------------------------------------------------------------------------------
+
 void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 {
 
 	//hex size is defined as the lenght from its middle to a corner (so half of its bounding box size)
-	//to account for this we use half the size for computation to keep the size consistent with other tile forms
+	//to account for this we use half the size for computation to keep the size consistent with other tile formats
 	tileSizeWS /= 2.0f;
 
 	// calculations derived from: https://www.redblobgames.com/grids/hexagons/
@@ -126,7 +129,10 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	horizontal_space = tileSizeWS * 1.5f;
 	vertical_space = sqrt(3)*tileSizeWS;
 
+	// the rectangles used to map points to hexagons are
+	// half as high as the hexagon
 	rect_height = vertical_space / 2.0f;
+	// half as wide as the hexagon (tileSizeWS is half the width of the whole hexagon)
 	rect_width = tileSizeWS;
 
 	//number of hex columns
@@ -164,6 +170,7 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	minBounds_Offset = vec2(minBounds.x - tileSizeWS / 2.0f, minBounds.y - vertical_space / 2.0f);
 	maxBounds_Offset = vec2(m_tile_cols * horizontal_space + minBounds_Offset.x + tileSizeWS / 2.0f, m_tile_rows * vertical_space + minBounds_Offset.y + vertical_space / 2.0f);
 
+	//bounding box of rectangle (min is same as minBounds_Offset)
 	maxBounds_rect = vec2((max_rect_col + 1) * rect_width + minBounds_Offset.x, (max_rect_row + 1)*rect_height + minBounds_Offset.y);
 }
 
@@ -172,11 +179,11 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-bool pointOutsideHex(vec2 a, vec2 b, vec2 p) {
+bool molumes::HexTile::pointLeftOfLine(vec2 a, vec2 b, vec2 p) {
 	return ((p.x - a.x)*(b.y - a.y) - (p.y - a.y)*(b.x - a.x)) < 0;
 }
 
-int molumes::HexTile::mapPointToTile(vec2 p)
+int molumes::HexTile::mapPointToTile1D(vec2 p)
 {
 	// to get intervals from 0 to maxCoord, we map the original Point interval to maxCoord+1
 	// If the current value = maxValue, we take the maxCoord instead
@@ -202,7 +209,7 @@ int molumes::HexTile::mapPointToTile(vec2 p)
 				//Upper Left
 				a = ll;
 				b = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
-				if (pointOutsideHex(a, b, p)) {
+				if (pointLeftOfLine(a, b, p)) {
 					hexX--;
 				}
 			}
@@ -211,7 +218,7 @@ int molumes::HexTile::mapPointToTile(vec2 p)
 				//Lower Left
 				a = vec2(ll.x + rect_width / 2.0f, ll.y);
 				b = vec2(ll.x, ll.y + rect_height);
-				if (pointOutsideHex(a, b, p)) {
+				if (pointLeftOfLine(a, b, p)) {
 					hexX--;
 				}
 			}
@@ -223,7 +230,7 @@ int molumes::HexTile::mapPointToTile(vec2 p)
 				//Upper Right
 				a = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
 				b = vec2(ll.x + rect_width, ll.y);
-				if (!pointOutsideHex(a, b, p)) {
+				if (!pointLeftOfLine(a, b, p)) {
 					hexX--;
 				}
 			}
@@ -232,7 +239,7 @@ int molumes::HexTile::mapPointToTile(vec2 p)
 				//Lower Right
 				a = vec2(ll.x + rect_width, ll.y + rect_height);
 				b = vec2(ll.x + rect_width / 2.0f, ll.y);
-				if (!pointOutsideHex(a, b, p)) {
+				if (!pointLeftOfLine(a, b, p)) {
 					hexX--;
 				}
 			}
@@ -243,12 +250,9 @@ int molumes::HexTile::mapPointToTile(vec2 p)
 		hexX--;
 	}
 
-	if (hexX % 2 == 0) {
-		hexY = int((rectY - 1) / 2);
-	}
-	else {
-		hexY = int(rectY / 2);
-	}
+	// Y Coordinate
+	hexY = int((rectY - (1 - (hexX % 2))) / 2);
 
+	// calculate 1D coordinates
 	return hexX + m_tile_cols * hexY;
 }

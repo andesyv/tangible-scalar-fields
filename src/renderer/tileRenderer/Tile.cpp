@@ -33,7 +33,7 @@ void molumes::Tile::calculateNumberOfTiles(glm::vec3 boundingBoxSize, glm::vec3 
 {
 }
 
-int molumes::Tile::mapPointToTile(glm::vec2 p) 
+int molumes::Tile::mapPointToTile1D(glm::vec2 p) 
 {
 	return 0;
 }

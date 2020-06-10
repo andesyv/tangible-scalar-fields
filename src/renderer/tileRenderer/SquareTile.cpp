@@ -40,7 +40,7 @@ SquareTile::SquareTile(Renderer* renderer) :Tile(renderer)
 
 
 // --------------------------------------------------------------------------------------
-// ###########################  SQUARE ############################################
+// ###########################   FETCH SHADER PROGRAMS ##################################
 // --------------------------------------------------------------------------------------
 
 Program * SquareTile::getAccumulationProgram()
@@ -96,6 +96,11 @@ globjects::Program * molumes::SquareTile::getGridProgram()
 	return shaderProgram_square_grid;
 }
 
+// --------------------------------------------------------------------------------------
+// ########################### TILE CALC ###############################################
+// --------------------------------------------------------------------------------------
+
+
 void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 {
 
@@ -117,12 +122,13 @@ void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 //DISCREPANCY
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int SquareTile::mapPointToTile(vec2 p) {
+int SquareTile::mapPointToTile1D(vec2 p) {
 
 	// to get intervals from 0 to maxTexCoord, we map the original Point interval to maxTexCoord+1
 	// If the current value = maxValue, we take the maxTexCoord instead
 	int squareX = min(m_tileMaxX, mapInterval(p.x, minBounds_Offset[0], maxBounds_Offset[0], m_tileMaxX + 1));
 	int squareY = min(m_tileMaxY, mapInterval(p.y, minBounds_Offset[1], maxBounds_Offset[1], m_tileMaxY + 1));
 
+	// compute 1D coordinates
 	return squareX + m_tile_cols * squareY;
 }

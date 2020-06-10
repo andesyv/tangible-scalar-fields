@@ -107,12 +107,7 @@ vec2 matchPointWithHexagon(vec2 p, int max_rect_col,int max_rect_row, float rect
 	}
 
     // Y-Coordinate
-    if(mod(hexX, 2) == 0){
-        hexY = int((rectY-1)/2);
-    }
-    else{
-        hexY = int(rectY/2);
-    }
+    hexY = int((rectY - ( 1 - mod(hexX, 2)))/2);
 
     return vec2(hexX, hexY);
 }

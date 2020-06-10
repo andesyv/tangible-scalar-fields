@@ -1227,7 +1227,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		float sampleX = samplesX[i];
 		float sampleY = samplesY[i];
 
-		pointsInTilesCount[tile->mapPointToTile(vec2(sampleX, sampleY))]++;
+		pointsInTilesCount[tile->mapPointToTile1D(vec2(sampleX, sampleY))]++;
 	}
 
 	duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
@@ -1261,7 +1261,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		float sampleX = samplesX[i];
 		float sampleY = samplesY[i];
 
-		int squareIndex1D = tile->mapPointToTile(vec2(sampleX, sampleY));
+		int squareIndex1D = tile->mapPointToTile1D(vec2(sampleX, sampleY));
 
 		// put sample in correct position and increment prefix sum
 		int sampleIndex = pointsInTilesRunningPrefixSum[squareIndex1D]++;
