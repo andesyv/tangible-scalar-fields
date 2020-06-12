@@ -73,6 +73,7 @@ void main()
 	vec2 rightCenterCornerInside = vec2(tileCenterSS + vec2(tileSizeInside, 0.0f));
 	vec2 rightTopCornerInside = vec2(tileCenterSS + vec2(tileSizeInside_2, vertical_space_inside_2));
 
+	// distance of fragment to inside border of grid
 	//left top, left bottom, bottom, right bottom, right top, top
 	float distancesInside[6];
 	float distancesInsideNorm[6];
@@ -96,6 +97,7 @@ void main()
 	vec2 rightCenterCornerOutside = vec2(tileCenterSS + vec2(tileSizeOutside, 0.0f));
 	vec2 rightTopCornerOutside = vec2(tileCenterSS + vec2(tileSizeOutside_2, vertical_space_outside_2));
 
+	// distance of fragment to outside border of grid
 	//left top, left bottom, bottom, right bottom, right top, top
 	float distancesOutside[6];
 	float distancesOutsideNorm[6];

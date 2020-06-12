@@ -30,6 +30,7 @@ void main()
     vec4 tilesCol;
     vec4 pointCircleCol;
 
+    // first set color of point circle scatterplot
     #ifdef RENDER_POINT_CIRCLES
 
         // read from SSBO and convert back to float: --------------------------------------------------------------------
@@ -43,31 +44,38 @@ void main()
         col = pointCircleCol;
     #endif 
 
+    // get colour resulted form tiling
     #ifdef RENDER_TILES
         tilesCol = texelFetch(tilesTexture, ivec2(gl_FragCoord.xy), 0).rgba;
 
+        // if we render the point circles
         #ifdef RENDER_POINT_CIRCLES
             if(tilesCol.r > 0 || tilesCol.g > 0 || tilesCol.b > 0){
+                // and use discrepancy, we render the tile over the circles using discrepancy as tile opacity
                 #ifdef RENDER_DISCREPANCY
                     col = over(tilesCol, pointCircleCol);
+                // else we render the points over the tiles
                 #else
                     col = over(pointCircleCol, tilesCol);
                 #endif
             }    
+        // if we do not render the point circles, we simply set the tile color
         #else
             col = tilesCol;
         #endif
     #endif
 
-    // KDE overrides everything except Grid
+    // KDE overrides everything except Grid - debug
     #ifdef RENDER_KDE
         col = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).rgba;
     #endif
-
+    
+    // NormalBuffer overrides everything except Grid - debug
     #ifdef RENDER_NORMAL_BUFFER
         col = vec4(texelFetch(normalsAndDepthTexture, ivec2(gl_FragCoord.xy),0).rgb, 1);
     #endif
 
+    // DepthBuffer ocerrides everythin expert Grid - debug
     #ifdef RENDER_DEPTH_BUFFER
         col = vec4(abs(texelFetch(normalsAndDepthTexture, ivec2(gl_FragCoord.xy),0).a), 0, 0 ,1);
     #endif

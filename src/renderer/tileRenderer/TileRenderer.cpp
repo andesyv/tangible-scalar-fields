@@ -33,6 +33,7 @@ using namespace globjects;
 
 TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 {
+	// initialise tile objects
 	tile_processors["square"] = new SquareTile(this);
 	tile_processors["hexagon"] = new HexTile(this);
 
@@ -93,7 +94,7 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 
 	m_pointCircleTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	// the size of this textures is set dynamicly depending on the grid granularity
+	// the size of this textures is set dynamicly depending on the tile grid resolution
 	m_tilesDiscrepanciesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	m_tileAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
@@ -168,6 +169,7 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 }
 
+//Destructor
 molumes::TileRenderer::~TileRenderer()
 {
 	if (tile_processors.count("square") > 0) {
@@ -196,6 +198,7 @@ void TileRenderer::display()
 		return;
 	}
 
+	// number of datapoints
 	int vertexCount = int(viewer()->scene()->table()->activeTableData()[0].size());
 
 	// retrieve/compute all necessary matrices and related properties
@@ -218,8 +221,11 @@ void TileRenderer::display()
 
 	// projection matrix so we are in screen space and not view space
 	vec4 viewLightPosition = projectionMatrix * viewer()->lightTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	//viewLightPosition.z *= viewer()->scaleFactor();
 
+	// if any of these values changed we need to:
+	// recompute the resolution and positioning of the current tile grid
+	// reset the texture resolutions
+	// recompute the discrepancy
 	if (m_selected_tile_style != m_selected_tile_style_tmp || m_tileSize != m_tileSize_tmp || m_renderDiscrepancy != m_renderDiscrepancy_tmp
 		|| m_discrepancy_easeIn != m_discrepancy_easeIn_tmp || m_discrepancy_lowCount != m_discrepancy_lowCount_tmp || viewer()->viewportSize() != m_framebufferSize) {
 
@@ -282,6 +288,7 @@ void TileRenderer::display()
 	nearPlane /= nearPlane.w;
 
 	// ====================================================================================== POINTS RENDER PASS =======================================================================================
+	// renders data set as point primitives
 	// ONLY USED TO SHOW INITIAL POINTS
 
 	if (m_selected_tile_style == 0 && !m_renderPointCircles) {
@@ -304,6 +311,7 @@ void TileRenderer::display()
 
 		auto shaderProgram_points = shaderProgram("points");
 
+		// vertex shader
 		shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
 		m_vao->bind();
@@ -347,6 +355,7 @@ void TileRenderer::display()
 
 		auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
 
+		//vertex shader
 		shaderProgram_discrepancies->setUniform("numCols", tile->m_tile_cols);
 		shaderProgram_discrepancies->setUniform("numRows", tile->m_tile_rows);
 		shaderProgram_discrepancies->setUniform("discrepancyDiv", m_discrepancyDiv);
@@ -371,8 +380,8 @@ void TileRenderer::display()
 	}
 
 	// ====================================================================================== POINT CIRCLES  & KDE RENDER PASS =======================================================================================
-	// render Point Circles into texture
-	// render Kernel Density Estimation into texture
+	// render Point Circles into texture0
+	// render Kernel Density Estimation into texture1
 
 	if (m_renderPointCircles || m_renderKDE || m_renderTileNormals) {
 		m_pointCircleFramebuffer->bind();
@@ -402,9 +411,11 @@ void TileRenderer::display()
 
 		//geometry shader
 		shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+		shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+
+		//geometry & fragment shader
 		shaderProgram_pointCircles->setUniform("pointCircleRadius", scaleAdjustedPointCircleRadius);
 		shaderProgram_pointCircles->setUniform("kdeRadius", scaleAdjustedKDERadius);
-		shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
 
 		//fragment shader
 		shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
@@ -452,6 +463,7 @@ void TileRenderer::display()
 
 		// -------------------------------------------------------------------------------------------------
 
+		// get shader program and uniforms from ile program
 		auto shaderProgram_tile_acc = tile->getAccumulationProgram();
 
 		m_vao->bind();
@@ -583,55 +595,6 @@ void TileRenderer::display()
 		m_tileAccumulateTexture->unbindActive(2);
 
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-		//DEBUG Normals Buffer----------------
-		/*
-		if (debugOutputCount % 1000 == 0) {
-			debugOutputCount = 1;
-
-			uint* arrayMain = new uint[5 * tile->m_tile_cols*tile->m_tile_rows]();
-			m_tileNormalsBuffer->getSubData(0, sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, arrayMain);
-
-			std::cout << "New Frame: " << std::endl;
-
-			for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
-				vec4 tileNormal = vec4(0);
-				for (int j = 0; j < 4; j++) {
-					int y = arrayMain[5 * i + j];
-					float z = y / tile->bufferAccumulationFactor;
-					tileNormal[j] = z;
-				}
-				float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
-				tileNormal = vec4(normalize(vec3(tileNormal.x, tileNormal.y, 1.0f)), tileNormal.w);
-				vec3 lightNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
-				for (int j = 0; j < 4; j++) {
-
-					std::cout << i << ": " << j << ": " << tileNormal[j] << std::endl;
-				}
-				std::cout << i << ": " << "height" << ": " << height << std::endl;
-
-			}
-
-			float maxKdeHeight = 0.0f;
-			float maxFragmentsPerTile = 0.0f;
-			for (int i = 0; i < tile->m_tile_cols*tile->m_tile_rows; i++) {
-
-				float fragmentPerTile = arrayMain[5 * i + 3] / tile->bufferAccumulationFactor;
-				maxFragmentsPerTile = max(maxFragmentsPerTile, fragmentPerTile);
-
-				float height = arrayMain[5 * i + 4] / tile->bufferAccumulationFactor;
-				maxKdeHeight = max(height, maxKdeHeight);
-			}
-			std::cout << "maxHeight" << ": " << maxKdeHeight << std::endl;
-			std::cout << "maxFragmentsPerTile" << ": " << maxFragmentsPerTile << std::endl;
-
-
-			delete[] arrayMain;
-		}
-		else {
-			debugOutputCount++;
-		}*/
-		//END DEBUG----------------
 	}
 
 
@@ -882,13 +845,6 @@ void TileRenderer::calculateTileTextureSize(const mat4 inverseModelViewProjectio
 		// we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
 		m_tileNormalsBuffer->setData(sizeof(int) * 5 * tile->m_tile_cols*tile->m_tile_rows, nullptr, GL_STREAM_DRAW);
 		m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-		//calculate viewport settings
-		/*vec4 testPoint = vec4(1.0f, 2.0f, 0.0f, 1.0f);
-
-		vec2 testPointNDC = vec2((testPoint.x * 2 / float(m_squareMaxX)) - 1, (testPoint.y * 2 / float(m_squareMaxY)) - 1);
-		vec2 testPointSS = vec2((testPointNDC.x + 1) * (m_squareMaxX / 2), (testPointNDC.y + 1) * (m_squareMaxY / 2));
-		*/
 
 		//setup grid vertices
 		// create m_squareNumCols*m_squareNumRows vertices with position = 0.0f
@@ -1282,7 +1238,9 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	start = clock();
 
 	//Step 4: calculate discrepancy for each tile
-	//can be set to how many core the respective PC has
+	// this is done using a parallel for loop with the OpenMP Framework
+	// the computations of the discrpeancy of each seperate tile is independent
+	// the number of threads used can be set to how many cores the respective PC has
 	omp_set_num_threads(4);
 #pragma omp parallel
 	{

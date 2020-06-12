@@ -29,5 +29,7 @@ void main()
     // NDC - map square coordinates to [-1,1] (first [0,2] than -1)
 	vec2 squareNDC = vec2(((squareX * 2) / float(maxTexCoordX+1)) - 1, ((squareY * 2) / float(maxTexCoordY+1)) - 1);
 
+    // we need to map the tile coordinates to NDC so when OpenGL performs the viewpoer transformation
+    // we end up with the original tile coordinates again
     gl_Position = vec4(squareNDC, 0.0f, 1.0f);
 }

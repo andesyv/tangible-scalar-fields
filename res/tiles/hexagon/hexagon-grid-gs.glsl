@@ -74,7 +74,9 @@ void main()
     // we dont want to render the grid for empty hexs
     if(hexValue > 0){
 
+		// tile size in screen space
 		tileSizeSS = getScreenSpaceSize(modelViewProjectionMatrix, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
+		// position of tile center in screen space
         tileCenterSS = getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(gl_in[0].gl_Position), windowWidth, windowHeight);
 
 		//Emit 10 vertices for triangulated hexagon

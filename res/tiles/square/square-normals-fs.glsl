@@ -5,6 +5,10 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
+// we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
+// since we deal with floats and SSBOs can only perform atomic operations on int or uint
+// we mulitply all value with bufferAccumulationFactor and then cast them to int when accumulating
+// and the divide them by bufferAccumulationFactor when reading them
 layout(std430, binding = 0) buffer tileNormalsBuffer
 {
     int tileNormals[];
@@ -45,6 +49,7 @@ void main()
     vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
     fragmentNormal *= bufferAccumulationFactor;
    
+   // accumulate fragment normals
     for(int i = 0; i < 4; i++){
         int intValue = int(fragmentNormal[i]);
 

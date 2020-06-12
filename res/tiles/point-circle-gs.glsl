@@ -15,6 +15,14 @@ uniform float aspectRatio;
 //imposter space coordinates
 out vec2 isCoords;
 
+/*
+This shader is used to render both
+circles for the point circle scatterplot
+Kernel Density Estimation
+
+Since they can have different radius, we create imposters which are the size of the bigger one of the 2
+In the fragment shader, we discard the fragments accordingly
+*/
 void main()
 {
 

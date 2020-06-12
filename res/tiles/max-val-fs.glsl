@@ -23,7 +23,6 @@ layout(std430, binding = 0) buffer valueMaxBuffer
 
 uniform sampler2D pointCircleTexture;
 
-
 void main()
 {
     
@@ -37,7 +36,7 @@ void main()
         // get value from accumulate texture
         float tileAccValue = texelFetch(accumulateTexture, ivec2(tileX,tileY), 0).r;
 
-        //// floatBitsToUint: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/floatBitsToInt.xhtml
+        // floatBitsToUint: https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/floatBitsToInt.xhtml
         uint uinttileAccValue = floatBitsToUint(tileAccValue);
 
         // identify max value

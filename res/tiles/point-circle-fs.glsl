@@ -30,6 +30,8 @@ void main()
 	#ifdef RENDER_POINT_CIRCLES
 		fragDistanceFromCenter = length(isCoords);
 
+		// if the kdeRadius is bigger than the pointCircleRadius the imposter square has the size of kdeRadius
+		// therefore we need to adjust the fragDistanceFromCenter which is in imposter coordinates
 		if(pointCircleRadius < kdeRadius){
 			fragDistanceFromCenter /= pointCircleRadius / kdeRadius;
 		}
@@ -41,7 +43,9 @@ void main()
 		else{
 			float blendRadius = smoothstep(0.5, 1.0, fragDistanceFromCenter);
 
+			// fade point color to outside 
 			pointCircleTexture = vec4(pointColor, 1.0f-blendRadius);
+
 			//OpenGL expects premultiplied alpha values
 			pointCircleTexture.rgb *= pointCircleTexture.a;
 		}
@@ -50,6 +54,8 @@ void main()
 	#if defined(RENDER_KDE) || defined(RENDER_TILE_NORMALS)
 		fragDistanceFromCenter = length(isCoords);
 
+		// if the kdeRadius is smaller than the pointCircleRadius the imposter square has the size of pointCircleRadius
+		// therefore we need to adjust the fragDistanceFromCenter which is in imposter coordinates
 		if(pointCircleRadius > kdeRadius){
 			fragDistanceFromCenter /= kdeRadius / pointCircleRadius;
 		}
@@ -59,6 +65,8 @@ void main()
 			kdeTexture = vec4(0,0,0,0);
 		}
 		else{
+			// kde value is computed using a gauss kernel
+			// and is then multiplyed with densityMult (used adjsutable parameter) to increase or decrease it
 			kdeTexture = vec4(gaussKernel(fragDistanceFromCenter*kdeRadius*radiusMult)*densityMult, 0.0f, 0.0f, 1.0f);
 		}
 	#endif

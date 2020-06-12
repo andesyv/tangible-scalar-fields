@@ -202,24 +202,24 @@ int molumes::HexTile::mapPointToTile1D(vec2 p)
 	modY = rectY % 2;
 
 	//calculate X index
-	hexX = int(rectX / 3) * 2 + modX;
+	hexX = int(rectX / 3) * 2 + modX - 1;
 	if (modX != 2) {
 		if (modX == 0) {
 			if (modY == 0) {
 				//Upper Left
-				a = ll;
-				b = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
+				a = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
+				b = ll;
 				if (pointLeftOfLine(a, b, p)) {
-					hexX--;
+					hexX++;
 				}
 			}
 			//modY = 1
 			else {
 				//Lower Left
-				a = vec2(ll.x + rect_width / 2.0f, ll.y);
-				b = vec2(ll.x, ll.y + rect_height);
+				a = vec2(ll.x, ll.y + rect_height);
+				b = vec2(ll.x + rect_width / 2.0f, ll.y);
 				if (pointLeftOfLine(a, b, p)) {
-					hexX--;
+					hexX++;
 				}
 			}
 		}
@@ -230,8 +230,8 @@ int molumes::HexTile::mapPointToTile1D(vec2 p)
 				//Upper Right
 				a = vec2(ll.x + rect_width / 2.0f, ll.y + rect_height);
 				b = vec2(ll.x + rect_width, ll.y);
-				if (!pointLeftOfLine(a, b, p)) {
-					hexX--;
+				if (pointLeftOfLine(a, b, p)) {
+					hexX++;
 				}
 			}
 			//modY = 1
@@ -239,15 +239,11 @@ int molumes::HexTile::mapPointToTile1D(vec2 p)
 				//Lower Right
 				a = vec2(ll.x + rect_width, ll.y + rect_height);
 				b = vec2(ll.x + rect_width / 2.0f, ll.y);
-				if (!pointLeftOfLine(a, b, p)) {
-					hexX--;
+				if (pointLeftOfLine(a, b, p)) {
+					hexX++;
 				}
 			}
 		}
-	}
-	else
-	{
-		hexX--;
 	}
 
 	// Y Coordinate

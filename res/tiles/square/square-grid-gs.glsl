@@ -52,10 +52,13 @@ void main()
 
         vec4 bbPos = vec4(bbX, bbY, 0.0f, 1.0f);
 
+        // tile site in screen space
         tileSizeSS = getScreenSpaceSize(modelViewProjectionMatrix, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
+        // position of the tile center in screen space
         tileCenterSS = getScreenSpacePosOfPoint(modelViewProjectionMatrix, vec2(bbPos) + tileSize/2.0f, windowWidth, windowHeight);
 
         //Emit 4 vertices for square
+        // square is by gridWidth larger than the original tileSize
         vec4 pos;
 
         //bottom left

@@ -47,20 +47,19 @@ namespace molumes
 		std::unique_ptr<globjects::Buffer> m_radiusColumnBuffer = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_colorColumnBuffer = std::make_unique<globjects::Buffer>();
 
-		//---------------------------------------------------------------------------------------
 
 		// TILES GRID VERTEX DATA------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vaoTiles = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesTiles = std::make_unique<globjects::Buffer>();
 		std::unique_ptr<globjects::Buffer> m_discrepanciesBuffer = std::make_unique<globjects::Buffer>();
 
-		//---------------------------------------------------------------------------------------
 
 		// QUAD VERTEX DATA -------------------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vaoQuad = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_verticesQuad = std::make_unique<globjects::Buffer>();
-		//---------------------------------------------------------------------------------------
 
+
+		// SHADER GLOBALS / DEFINES -------------------------------------------------------------------------------
 		std::unique_ptr<globjects::StaticStringSource> m_shaderSourceDefines = nullptr;
 		std::unique_ptr<globjects::NamedString> m_shaderDefines = nullptr;
 
@@ -102,7 +101,6 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize;
-		//---------------------------------------------------------------------------------------
 
 
 		// LIGHTING -----------------------------------------------------------------------
@@ -111,14 +109,10 @@ namespace molumes
 		glm::vec3 specularMaterial;
 		float shininess;
 
-		// --------------------------------------------------------------------------------
 
 		// TILES CALC----------------------------------------------------------------
-		float m_tileSize = 20.0f;
-
 		void calculateTileTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
 
-		// ------------------------------------------------------------------------------------------
 
 		// GUI ----------------------------------------------------------------------------
 
@@ -151,30 +145,46 @@ namespace molumes
 		int m_selected_tile_style = 0;
 		int m_selected_tile_style_tmp = m_selected_tile_style;
 
-		// Tile Parameters
+		// tileSize adjustable by user
+		float m_tileSize = 20.0f;
 		float m_tileSize_tmp = m_tileSize;
+		// gridWidth adjustable by user
 		float m_gridWidth = 1.5f;
 
 		//point circle parameters 
+		// circle radius adjustable by user
 		float m_pointCircleRadius = 30.0f;
+		// kde radius adjustable by user
 		float m_kdeRadius = 30.0f;
+		// divisor of radius that is set by the user when calculation radius in WorldSpace
 		const float pointCircleRadiusDiv = 5000.0f;
 
 		//discrepancy parameters
+		// divisor of discrpenacy values adjustable by user
 		float m_discrepancyDiv = 1.0f;
+		// ease function modyfier adjustable by user
 		float m_discrepancy_easeIn = 1.0f;
-		float m_discrepancy_lowCount = 0.0f;
 		float m_discrepancy_easeIn_tmp = m_discrepancy_easeIn;
+		// adjustment rate for tiles with few points adjustable by user
+		float m_discrepancy_lowCount = 0.0f;
 		float m_discrepancy_lowCount_tmp = m_discrepancy_lowCount;
 
 		//regression parameters
+		// sigma of gauss kernel for KDE adjustable by user
 		float m_sigma = 1.0f;
+		// divisor of radius that is set by the user when calculation radius in WorldSpace
 		const float gaussSampleRadiusMult = 400.0f;
+		// multiplyer for KDE height field adjustable by user
 		float m_densityMult = 10.0f;
+		// multiplyer for pyramid height adjustable by user
 		float m_tileHeightMult = 10.0f;
+		// defines how much of pyramid border is shown = moves regression plane up and down inside pyramid adjustable by user
 		float m_borderWidth = 0.2f; // width in percent to size
+		// render pyramid yes,no adjustable by user
 		bool m_showBorder = true;
+		// invert pyramid adjustable by user
 		bool m_invertPyramid = false;
+		// blend range for anti-aliasing of pyramid edges
 		float blendRange = 1.0f;
 
 		// define booleans
@@ -196,9 +206,6 @@ namespace molumes
 		// DISCREPANCY------------------------------------------------------------------------------
 
 		std::vector<float> calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
-
-
-		int debugOutputCount = 0.0f;
 	};
 
 }

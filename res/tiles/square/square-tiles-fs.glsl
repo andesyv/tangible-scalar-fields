@@ -55,6 +55,11 @@ uniform vec3 lightColor;
 layout (location = 0) out vec4 squareTilesTexture;
 layout (location = 1) out vec4 normalsAndDepthTexture;
 
+/*
+returns true if the fragment is not in the plane-pyramid intersection region
+p       = fragment that is checked
+other   = corner points of the intersection region
+*/
 bool pointInBorder(vec3 p, vec3 leftBottomInside, vec3 leftTopInside, vec3 rightBottomInside, vec3 rightTopInside){
     
     return pointLeftOfLine(vec2(leftTopInside), vec2(leftBottomInside), vec2(p))
@@ -105,11 +110,13 @@ void main()
     vec3 lightingNormal = vec3(0.0f,0.0f,0.0f);
     vec3 fragmentPos = vec3(gl_FragCoord);
     #ifdef RENDER_TILE_NORMALS
+        // get accumulation tile normal from bugger
         for(int i = 0; i < 4; i++){
             tileNormal[i] = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + i)]);
         }
-        tileNormal /= bufferAccumulationFactor;
+        tileNormal /= bufferAccumulationFactor; // get original value after accumulation
 
+        // get kdeHeight from buffer
         kdeHeight = float(tileNormals[int((squareX*(maxTexCoordY+1) + squareY) * 5 + 4)]);
         kdeHeight /= bufferAccumulationFactor; // get original value after accumulation
         kdeHeight /= densityMult; //remove multiplyer from height
@@ -119,7 +126,7 @@ void main()
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
         //-----------------------------------------
 
-        //Corner Of Square (z=0)
+        //Corner Of Square Tile (z=0)
         vec3 leftBottomCorner = vec3(squareX * tileSizeScreenSpace + boundsScreenSpace[2], squareY * tileSizeScreenSpace + boundsScreenSpace[3], 0.0f);
         vec3 leftTopCorner = vec3(leftBottomCorner.x, leftBottomCorner.y+tileSizeScreenSpace, 0.0f);
         vec3 rightBottomCorner = vec3(leftBottomCorner.x + tileSizeScreenSpace, leftBottomCorner.y, 0.0f);
@@ -147,8 +154,8 @@ void main()
 
             float heightOffset;
             //we need a small offset, because we cannot set an inside corner point to height 0
-            //this would lead to the effect that the regresseion plane is overlapping with one of the border planes
-            //this on the other hand pused all inside corner points to the center of the tile, because there is no more cutting plane
+            //this would lead to the effect that the regression plane is overlapping with one of the border planes
+            //this on the other hand pushed all inside corner points to the center of the tile, because there is no more cutting plane
             //between regression plane and pyramid.
             //if thats the case, we can not longer compute if a point is in the border, because there are no more line between the inside corner points
             float offset = 0.01f;
@@ -188,7 +195,7 @@ void main()
             vec3 rightBottomInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - rightBottomCorner), pyramidTop);        
             vec3 rightTopInside = linePlaneIntersection(lightingNormal, tileCenter3D, normalize(pyramidTop - rightTopCorner), pyramidTop);        
 
-            //--------------------------------------------
+            //check if fragment is in intersection region of on pyramid side --------------------------------------------
             if(pointInBorder(fragmentPos, leftBottomInside, leftTopInside, rightBottomInside, rightTopInside)){
                 float colorNormalDepth[7];
                 //check which side
@@ -230,7 +237,7 @@ void main()
                 normalsAndDepthTexture.b = colorNormalDepth[5];
                 normalsAndDepthTexture.a = colorNormalDepth[6];
             }
-            //point is on the inside
+            //point is in intersection region
             else{
                 // fragemnt height
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal); 

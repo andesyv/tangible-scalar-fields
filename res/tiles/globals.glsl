@@ -25,7 +25,7 @@ float mapInterval_O(float x, float a, float b, float c, float d){
 
 
 // CONVERT TO SCREEN SPACE -----------------------------------------------------------------------------------------------------
-
+// transforms a vec2 from worldSpace to ScreenSpace
 vec2 getScreenSpacePosOfPoint(mat4 modelViewProjectionMatrix, vec2 coords, int windowWidth, int windowHeight){
     
     vec4 coordsNDC = modelViewProjectionMatrix * vec4(coords,0.0,1.0);
@@ -36,6 +36,7 @@ vec2 getScreenSpacePosOfPoint(mat4 modelViewProjectionMatrix, vec2 coords, int w
     return coordsScreenSpace;
 }
 
+// transforms a rectangle from world space to screen space
 vec4 getScreenSpacePosOfRect(mat4 modelViewProjectionMatrix, vec2 maxCoords, vec2 minCoords, int windowWidth, int windowHeight){
     
     vec4 boundsScreenSpace = vec4(
@@ -55,6 +56,7 @@ vec2 getScreenSpaceSize(mat4 modelViewProjectionMatrix, vec2 size, int windowWid
 
 // POINT SIDE LINE -----------------------------------------------------------------------------------------------------
 
+// returns true if point p is left of the line a->b
 bool pointLeftOfLine(vec2 a, vec2 b, vec2 p){
     return ((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x)) > 0;
 }
@@ -75,6 +77,7 @@ float getHeightOfPointOnSurface(vec2 p1, vec3 p2, vec3 n){
    return (-(n.x*p1.x) + (p2.x*n.x) - (n.y*p1.y) + (p2.y*n.y))/n.z + p2.z;
 }
 
+// compute the intersection point between a line and a plane
 //https://stackoverflow.com/questions/5666222/3d-line-plane-intersection
 //https://en.wikipedia.org/wiki/Line%E2%80%93plane_intersection 
 // PRECONDITION: planeNormal and lineDir are normalized
@@ -83,6 +86,7 @@ vec3 linePlaneIntersection(vec3 planeNormal, vec3 planePoint, vec3 lineDir, vec3
     return linePoint + (lineDir * t);
 }
 
+// computes the minimum distance of a point to a line
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 //only using x,y corrdinates
 float distancePointToLine(vec3 p, vec3 a, vec3 b){
@@ -90,6 +94,7 @@ float distancePointToLine(vec3 p, vec3 a, vec3 b){
             /sqrt(pow((b.y-a.y),2) + pow((b.x-a.x),2));
 }
 
+// computes the normal of a plane featuring points a,b,c
 vec3 calcPlaneNormal(vec3 a, vec3 b, vec3 c){
 
     vec3 aToB = b - a;
@@ -98,6 +103,7 @@ vec3 calcPlaneNormal(vec3 a, vec3 b, vec3 c){
    return normalize(cross(aToB, aToC));
 }
 
+// computes the normal value of a point on a height field
 // https://stackoverflow.com/questions/49640250/calculate-normals-from-heightmap
 vec3 calculateNormalFromHeightMap(ivec2 texelCoord, sampler2D texture){
                  
@@ -115,6 +121,7 @@ vec3 calculateNormalFromHeightMap(ivec2 texelCoord, sampler2D texture){
 
 // LIGHTING -----------------------------------------------------------------------------------------------------
 
+// computes classic phong lighting
 vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, vec3 lightingNormal, vec3 viewPos){
     // ambient
     float ambientStrength = 0.8;
@@ -139,6 +146,9 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 
 
 /*
+Computes the colour of a point that lies on the pyramid side 
+also performs color blending at the edges
+
 <param>fragmentPos</param>
 <param>insideLightingNormal = lightingNormal of regression plane </param>
 <param>outsideCornerA = tile corner corresponding to insideCornerA </param>
@@ -153,6 +163,7 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 <param>lightColor</param>
 <param>lightPos</param>
 <param>viewPos</param>
+
 <return>an array with 7 values: [0,1,2] = color; [3,4,5] = lightingNormal; [6] = depth</return>
 */
 float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerA_N,

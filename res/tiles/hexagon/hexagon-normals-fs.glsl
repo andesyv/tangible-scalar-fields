@@ -6,7 +6,10 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
-layout(std430, binding = 0) buffer tileNormalsBuffer
+// we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
+// since we deal with floats and SSBOs can only perform atomic operations on int or uint
+// we mulitply all value with bufferAccumulationFactor and then cast them to int when accumulating
+// and the divide them by bufferAccumulationFactor when reading themlayout(std430, binding = 0) buffer tileNormalsBuffer
 {
     int tileNormals[];
 };
@@ -35,10 +38,13 @@ void main()
     vec2 minBounds = vec2(boundsScreenSpace[2], boundsScreenSpace[3]);
     vec2 maxBounds = vec2(boundsScreenSpace[0], boundsScreenSpace[1]);
 
+    //some pixels of rect row 0 do not fall inside a hexagon.
+    //there we need to discard them
     if(discardOutsideOfGridFragments(vec2(gl_FragCoord), minBounds, maxBounds, rectSizeScreenSpace, max_rect_col, max_rect_row)){
         discard;
     }
 
+    // get hexagon coordinates of fragment
     vec2 hex = matchPointWithHexagon(vec2(gl_FragCoord), max_rect_col, max_rect_row, rectSizeScreenSpace.x, rectSizeScreenSpace.y,
                                      minBounds, maxBounds);
 
@@ -48,6 +54,7 @@ void main()
     }
     // get value from accumulate texture
     float hexValue = texelFetch(accumulateTexture, ivec2(hex.x, hex.y), 0).r;
+    
     // we don't want to render empty hexs
     if (hexValue < 0.00000001)
     {
@@ -58,6 +65,7 @@ void main()
     vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
     fragmentNormal *= bufferAccumulationFactor;
    
+    // accumulate fragment normals
     for(int i = 0; i < 4; i++){
         int intValue = int(fragmentNormal[i]);
 
