@@ -1238,7 +1238,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	start = clock();
 
 	//Step 4: calculate discrepancy for each tile
-	// this is done using a parallel for loop with the OpenMP Framework
+	// this is done using a parallel for loop with the OpenMP Framework - need to compile with OpenMP support (add in CMakeList)
 	// the computations of the discrpeancy of each seperate tile is independent
 	// the number of threads used can be set to how many cores the respective PC has
 	omp_set_num_threads(4);
