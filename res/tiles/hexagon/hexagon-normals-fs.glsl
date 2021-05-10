@@ -10,6 +10,7 @@ layout(pixel_center_integer) in vec4 gl_FragCoord;
 // since we deal with floats and SSBOs can only perform atomic operations on int or uint
 // we mulitply all value with bufferAccumulationFactor and then cast them to int when accumulating
 // and the divide them by bufferAccumulationFactor when reading themlayout(std430, binding = 0) buffer tileNormalsBuffer
+layout(std430, binding = 0) buffer tileNormalsBuffer
 {
     int tileNormals[];
 };
