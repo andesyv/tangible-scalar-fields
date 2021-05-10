@@ -57,7 +57,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	io.KeyMap[ImGuiKey_Y] = GLFW_KEY_Y;
 	io.KeyMap[ImGuiKey_Z] = GLFW_KEY_Z;
 
-	io.RenderDrawListsFn = nullptr;
+	//io.RenderDrawListsFn = nullptr;	// https://github.com/ocornut/imgui/issues/1599
 	io.SetClipboardTextFn =  SetClipboardText;
 	io.GetClipboardTextFn = GetClipboardText;
 	io.ClipboardUserData = window;
