@@ -249,3 +249,21 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
 }
 //---------------------------------------------------------------------------------------------------------------
 
+// Analytic occlusion of a quad and an hexagon ------------------------------------------------------------------
+// Source: https://www.shadertoy.com/view/WtSfWK
+
+float macos(float x ) { return acos(clamp(x,-1.0,1.0));}
+
+float occlusionQuad( in vec3 pos, in vec3 nor, in vec3 v0, in vec3 v1, in vec3 v2, in vec3 v3 ){
+    v0 = normalize(v0-pos);
+    v1 = normalize(v1-pos);
+    v2 = normalize(v2-pos);
+    v3 = normalize(v3-pos);
+    float k01 = dot( nor, normalize( cross(v0,v1)) ) * macos( dot(v0,v1) );
+    float k12 = dot( nor, normalize( cross(v1,v2)) ) * macos( dot(v1,v2) );
+    float k23 = dot( nor, normalize( cross(v2,v3)) ) * macos( dot(v2,v3) );
+    float k30 = dot( nor, normalize( cross(v3,v0)) ) * macos( dot(v3,v0) );
+    
+    return abs(k01+k12+k23+k30)/6.283185;
+}
+//---------------------------------------------------------------------------------------------------------------

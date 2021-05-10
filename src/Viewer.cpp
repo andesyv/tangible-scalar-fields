@@ -228,14 +228,14 @@ glm::vec3 Viewer::samplePointColor() const
 	return m_samplePointColor;
 }
 
-glm::vec3 Viewer::contourLineColor() const
+glm::vec3 Viewer::gridColor() const
 {
-	return m_contourLineColor;
+	return m_gridColor;
 }
 
-glm::vec3 Viewer::lensBorderColor() const
+glm::vec3 Viewer::tileColor() const
 {
-	return m_lensBorderColor;
+	return m_tileColor;
 }
 
 float Viewer::scaleFactor() const
@@ -268,15 +268,16 @@ void molumes::Viewer::setSamplePointColor(const glm::vec3 & c)
 	m_samplePointColor = c;
 }
 
-void molumes::Viewer::setContourLineColor(const glm::vec3 & c)
+void molumes::Viewer::setGridColor(const glm::vec3 & c)
 {
-	m_contourLineColor = c;
+	m_gridColor = c;
 }
 
-void molumes::Viewer::setLensBorderColor(const glm::vec3 & c)
+void molumes::Viewer::setTileColor(const glm::vec3 & c)
 {
-	m_lensBorderColor = c;
+	m_tileColor = c;
 }
+
 
 void molumes::Viewer::setScaleFactor(const float s)
 {
@@ -777,8 +778,8 @@ void Viewer::mainMenu()
 	{
 		ImGui::ColorEdit3("Background", (float*)&m_backgroundColor);
 		ImGui::ColorEdit3("Point Color", (float*)&m_samplePointColor);
-		ImGui::ColorEdit3("Contour-Line Color", (float*)&m_contourLineColor);
-		ImGui::ColorEdit3("Lens-Border Color", (float*)&m_lensBorderColor);
+		ImGui::ColorEdit3("Grid Color", (float*)&m_gridColor);
+		ImGui::ColorEdit3("Tile Color", (float*)&m_tileColor);
 
 		if (ImGui::BeginMenu("Viewport"))
 		{

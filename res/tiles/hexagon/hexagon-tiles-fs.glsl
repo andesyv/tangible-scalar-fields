@@ -43,6 +43,8 @@ uniform bool showBorder;
 uniform bool invertPyramid;
 uniform float blendRange;
 
+uniform vec3 tileColor;
+
 //Lighting----------------------
 uniform vec3 lightPos; 
 uniform vec3 viewPos; //is vec3(0,0,0) because we work in viewspace
@@ -105,6 +107,10 @@ void main()
 #ifdef COLORMAP
     int colorTexelCoord = mapInterval(hexValue, 0, floatMaxAccumulate, textureWidth);
     hexTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
+#endif 
+
+#ifdef RENDER_MONOCHROME_TILES
+	hexTilesTexture.rgb = tileColor;
 #endif
 
 #ifdef RENDER_DISCREPANCY
@@ -118,6 +124,26 @@ void main()
     vec3 lightingNormal = vec3(0.0f,0.0f,0.0f);
     vec3 fragmentPos = vec3(gl_FragCoord);
     float kdeHeight = 0.0f;
+
+	// horizontal and vertical space between hexagons (https://www.redblobgames.com/grids/hexagons/)
+    float horizontal_space = tileSizeScreenSpace * 1.5f;
+	float vertical_space = sqrt(3)*tileSizeScreenSpace;
+
+    // vertical offset for each second row of hexagon grid
+    float vertical_offset = mod(hex.x, 2) == 0 ? vertical_space : vertical_space/2.0f;
+
+    // x,y of center of tile
+    vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset);
+
+	//Corner Of Hexagon (z=0)
+    vec3 leftBottomCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace/2.0f, -vertical_space/2.0f), 0.0f);     
+    vec3 leftCenterCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace, 0.0f), 0.0f);
+    vec3 leftTopCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace/2.0f, vertical_space/2.0f), 0.0f);     
+    vec3 rightBottomCorner = vec3(tileCenter2D + vec2(tileSizeScreenSpace/2.0f, -vertical_space/2.0f), 0.0f);     
+    vec3 rightCenterCorner = vec3(tileCenter2D + vec2(tileSizeScreenSpace, 0.0f), 0.0f);
+    vec3 rightTopCorner = vec3(tileCenter2D + vec2(tileSizeScreenSpace/2.0f, vertical_space/2.0f), 0.0f); 
+
+
     #ifdef RENDER_TILE_NORMALS
         // get accumulated tile normals from buffer
         for(int i = 0; i < 4; i++){
@@ -134,17 +160,7 @@ void main()
         // LIGHTING NORMAL ------------------------
         lightingNormal = normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
         //-----------------------------------------
-
-        // horizontal and vertical space between hexagons (https://www.redblobgames.com/grids/hexagons/)
-        float horizontal_space = tileSizeScreenSpace * 1.5f;
-	    float vertical_space = sqrt(3)*tileSizeScreenSpace;
-
-        // vertical offset for each second row of hexagon grid
-        float vertical_offset = mod(hex.x, 2) == 0 ? vertical_space : vertical_space/2.0f;
-
-        // x,y of center of tile
-        vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset);
-        
+ 
         //height at tile center
         float pyramidHeight = kdeHeight * tileHeightMult;
         if(invertPyramid){
@@ -156,14 +172,6 @@ void main()
 
         if(showBorder){
             // BORDER-------------------------------------
-            //Corner Of Hexagon (z=0)
-            vec3 leftBottomCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace/2.0f, -vertical_space/2.0f), 0.0f);     
-            vec3 leftCenterCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace, 0.0f), 0.0f);
-            vec3 leftTopCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace/2.0f, vertical_space/2.0f), 0.0f);     
-            vec3 rightBottomCorner = vec3(tileCenter2D + vec2(tileSizeScreenSpace/2.0f, -vertical_space/2.0f), 0.0f);     
-            vec3 rightCenterCorner = vec3(tileCenter2D + vec2(tileSizeScreenSpace, 0.0f), 0.0f);
-            vec3 rightTopCorner = vec3(tileCenter2D + vec2(tileSizeScreenSpace/2.0f, vertical_space/2.0f), 0.0f);  
-            
             // 1) get lowest corner point
             float heightLeftBottomCorner = getHeightOfPointOnSurface(vec2(leftBottomCorner), pyramidTop, lightingNormal);
             float heightLeftCenterCorner = getHeightOfPointOnSurface(vec2(leftCenterCorner), pyramidTop, lightingNormal);
@@ -311,4 +319,65 @@ void main()
             normalsAndDepthTexture = vec4(lightingNormal, fragmentPos.z);      
         }
     #endif
+
+	// Analytical Ambien Occlusion ===============================================================================================================================================================================================================
+	#ifdef RENDER_ANALYTICAL_AO	
+	
+		// get neighbouring hex-coordinates --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		vec2 hex_below	= hex + vec2( 0, -1);
+		vec2 hex_above	= hex + vec2( 0,  1);
+
+		vec2 hex_belowRight, hex_aboveRight, hex_aboveLeft, hex_belowLeft;
+
+		if(mod(hex.x,2) == 0){
+			hex_belowRight	= hex + vec2( 1,  0);
+			hex_aboveRight	= hex + vec2( 1,  1);
+			hex_aboveLeft	= hex + vec2(-1,  1);
+			hex_belowLeft	= hex + vec2(-1,  0);
+		}else{
+			hex_belowRight	= hex + vec2( 1,  -1);
+			hex_aboveRight	= hex + vec2( 1,  0);
+			hex_aboveLeft	= hex + vec2(-1,  0);
+			hex_belowLeft	= hex + vec2(-1,  -1);
+		}
+
+		// get accumulated value from neighbouring hex-tiles ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		float hexValue_below = texelFetch(accumulateTexture, ivec2(hex_below.x, hex_below.y), 0).r;
+		float hexValue_above = texelFetch(accumulateTexture, ivec2(hex_above.x, hex_above.y), 0).r;
+		float hexValue_belowRight = texelFetch(accumulateTexture, ivec2(hex_belowRight.x, hex_belowRight.y), 0).r;
+		float hexValue_aboveRight = texelFetch(accumulateTexture, ivec2(hex_aboveRight.x, hex_aboveRight.y), 0).r;
+		float hexValue_aboveLeft = texelFetch(accumulateTexture, ivec2(hex_aboveLeft.x, hex_aboveLeft.y), 0).r;
+		float hexValue_belowLeft = texelFetch(accumulateTexture, ivec2(hex_belowLeft.x, hex_belowLeft.y), 0).r;
+
+		// calculate analytical ambient occlusiont -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		// check: https://www.shadertoy.com/view/WtSfWK and https://www.ii.uni.wroc.pl/~anl/cgfiles/TotalCompendium.pdf (page 41 bottom)
+
+		vec3 pos = vec3(vec2(gl_FragCoord), hexValue);
+		vec3 nor = vec3(0.0f, 0.0f, 1.0f);
+
+		float occ = 0.0f;
+
+		if(hexValue_belowLeft > hexValue)	// lower left hex
+			occ += occlusionQuad(pos, nor, vec3(leftBottomCorner.xy, hexValue), vec3(leftCenterCorner.xy, hexValue), vec3(leftCenterCorner.xy, hexValue_belowLeft), vec3(leftBottomCorner.xy, hexValue_belowLeft));
+
+		if(hexValue_aboveLeft > hexValue)	// upper left hex
+			occ += occlusionQuad(pos, nor, vec3(leftCenterCorner.xy, hexValue),	vec3(leftTopCorner.xy, hexValue), vec3(leftTopCorner.xy, hexValue_aboveLeft), vec3(leftCenterCorner.xy, hexValue_aboveLeft));
+
+		if(hexValue_above > hexValue)		// top hex
+			occ += occlusionQuad(pos, nor, vec3(leftTopCorner.xy, hexValue), vec3(rightTopCorner.xy, hexValue),	vec3(rightTopCorner.xy, hexValue_above), vec3(leftTopCorner.xy, hexValue_above));
+
+		if(hexValue_aboveRight > hexValue)	// upper right hex
+			occ += occlusionQuad(pos, nor, vec3(rightTopCorner.xy, hexValue), vec3(rightCenterCorner.xy, hexValue),	vec3(rightCenterCorner.xy, hexValue_aboveRight), vec3(rightTopCorner.xy, hexValue_aboveRight));
+
+		if(hexValue_belowRight > hexValue)	// lower right hex
+			occ += occlusionQuad(pos, nor, vec3(rightCenterCorner.xy, hexValue), vec3(rightBottomCorner.xy, hexValue), vec3(rightBottomCorner.xy, hexValue_belowRight),	vec3(rightCenterCorner.xy, hexValue_belowRight));
+
+		if(hexValue_below > hexValue)		// lower hex
+			occ += occlusionQuad(pos, nor, vec3(rightBottomCorner.xy, hexValue), vec3(leftBottomCorner.xy, hexValue), vec3(leftBottomCorner.xy, hexValue_below), vec3(rightBottomCorner.xy, hexValue_below));
+
+		occ = 1.0f-occ*2;
+
+		// apply occlusion to tile color
+		hexTilesTexture.rgb *= occ;
+	#endif
 }

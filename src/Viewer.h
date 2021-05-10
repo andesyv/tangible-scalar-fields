@@ -35,8 +35,8 @@ namespace molumes
 
 		glm::vec3 backgroundColor() const;
 		glm::vec3 samplePointColor() const;
-		glm::vec3 contourLineColor() const;
-		glm::vec3 lensBorderColor() const;
+		glm::vec3 gridColor() const;
+		glm::vec3 tileColor() const;
 
 		float scaleFactor() const;
 
@@ -56,8 +56,8 @@ namespace molumes
 
 		void setBackgroundColor(const glm::vec3& c);
 		void setSamplePointColor(const glm::vec3& c);
-		void setContourLineColor(const glm::vec3& c);
-		void setLensBorderColor(const glm::vec3& c);
+		void setGridColor(const glm::vec3& c);
+		void setTileColor(const glm::vec3& c);
 
 		void setScaleFactor(const float s);
 
@@ -108,10 +108,10 @@ namespace molumes
 		std::unique_ptr<globjects::VertexArray> m_vaoUi = nullptr;
 
 		// default colors for background and scatter plot sample points
-		glm::vec3 m_backgroundColor = glm::vec3(0, 0, 0);			// white
-		glm::vec3 m_samplePointColor = glm::vec3(1, 1, 1);			// white
-		glm::vec3 m_contourLineColor = glm::vec3(1, 1, 1);		// white
-		glm::vec3 m_lensBorderColor = glm::vec3(0.9f, 0.09f, 0.05f);		// red
+		glm::vec3 m_backgroundColor = glm::vec3(0, 0, 0);				// white
+		glm::vec3 m_samplePointColor = glm::vec3(1, 1, 1);				// white
+		glm::vec3 m_gridColor = glm::vec3(1, 1, 1);						// white
+		glm::vec3 m_tileColor = glm::vec3(1, 1, 1);						// white
 
 		float m_scaleFactor = 1.0f; //used to calculate correct size of elements whose size is set by the user
 

@@ -196,6 +196,8 @@ namespace molumes
 		bool m_renderTileNormals = false;
 		bool m_renderNormalBuffer = false;
 		bool m_renderDepthBuffer = false;
+		bool m_renderAnalyticalAO = false;
+		bool m_renderMomochromeTiles = false;
 
 		// ------------------------------------------------------------------------------------------
 

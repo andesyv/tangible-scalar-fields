@@ -634,6 +634,7 @@ void TileRenderer::display()
 
 		//geometry & fragment shader
 		shaderProgram_tiles->setUniform("tileSize", tile->tileSizeWS);
+		shaderProgram_tiles->setUniform("tileColor", viewer()->tileColor());
 
 		//fragment Shader
 		shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
@@ -724,7 +725,7 @@ void TileRenderer::display()
 		shaderProgram_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
 
 		//fragment Shader
-		shaderProgram_grid->setUniform("gridColor", viewer()->contourLineColor());
+		shaderProgram_grid->setUniform("gridColor", viewer()->gridColor());
 		shaderProgram_grid->setUniform("tileSize", tile->tileSizeWS);
 		shaderProgram_grid->setUniform("gridWidth", m_gridWidth * viewer()->scaleFactor());
 		shaderProgram_grid->setUniform("accumulateTexture", 1);
@@ -986,6 +987,9 @@ void TileRenderer::renderGUI() {
 			// allow the user to load a discrete version of the color map
 			ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap);
 
+			// allow the user to load a discrete version of the color map
+			ImGui::Checkbox("Monochrome-Tiles", &m_renderMomochromeTiles);
+
 			// load new texture if either the texture has changed or the type has changed from discrete to continuous or vice versa
 			if (m_colorMap != m_oldColorMap || m_discreteMap != m_oldDiscreteMap)
 			{
@@ -1050,6 +1054,9 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render Grid", &m_renderGrid);
 			ImGui::SliderFloat("Grid Width", &m_gridWidth, 1.0f, 3.0f);
 			ImGui::SliderFloat("Tile Size ", &m_tileSize_tmp, 1.0f, 100.0f);
+
+			// allow for (optional) analytical ambient occlusion of the hex-tiles
+			ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
 		}
 
 		if (ImGui::CollapsingHeader("Regression Plane"))
@@ -1124,6 +1131,12 @@ void TileRenderer::setShaderDefines() {
 
 	if (m_renderDepthBuffer)
 		defines += "#define RENDER_DEPTH_BUFFER\n";
+
+	if (m_renderAnalyticalAO)
+		defines += "#define RENDER_ANALYTICAL_AO\n";
+
+	if (m_renderMomochromeTiles)
+		defines += "#define RENDER_MONOCHROME_TILES\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
