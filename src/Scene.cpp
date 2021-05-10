@@ -1,5 +1,4 @@
 #include "Scene.h"
-#include "Table.h"
 #include <iostream>
 
 using namespace molumes;

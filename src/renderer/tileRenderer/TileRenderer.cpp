@@ -7,7 +7,7 @@
 #include <omp.h>
 #include "../../Viewer.h"
 #include "../../Scene.h"
-#include "../../Table.h"
+#include "../../CSV/Table.h"
 #include <lodepng.h>
 #include <sstream>
 

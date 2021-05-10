@@ -15,11 +15,9 @@
 
 #include "CameraInteractor.h"
 #include "renderer/BoundingBoxRenderer.h"
-#include "renderer/SphereRenderer.h"
-#include "renderer/MolumeRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "Scene.h" 
-#include "Table.h"
+#include "CSV/Table.h"
 #include <fstream>
 #include <sstream>
 #include <list>

@@ -21,7 +21,7 @@
 #include <globjects/logging.h>
 
 #include "Scene.h"
-#include "Table.h"
+#include "CSV/Table.h"
 #include "Viewer.h"
 #include "Interactor.h"
 #include "renderer/Renderer.h"
