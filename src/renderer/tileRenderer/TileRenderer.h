@@ -140,6 +140,8 @@ namespace molumes
 		int m_oldColorMap = 0;
 		bool m_oldDiscreteMap = false;
 
+		float m_aaoScaling = 1.0f;
+
 		// Tiles Parameters
 		// [none=0, square=1, hexagon=2]
 		int m_selected_tile_style = 0;

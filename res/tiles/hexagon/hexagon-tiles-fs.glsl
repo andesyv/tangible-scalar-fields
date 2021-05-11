@@ -44,6 +44,7 @@ uniform bool invertPyramid;
 uniform float blendRange;
 
 uniform vec3 tileColor;
+uniform float aaoScaling;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -342,42 +343,40 @@ void main()
 		}
 
 		// get accumulated value from neighbouring hex-tiles ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		float hexValue_below = texelFetch(accumulateTexture, ivec2(hex_below.x, hex_below.y), 0).r;
-		float hexValue_above = texelFetch(accumulateTexture, ivec2(hex_above.x, hex_above.y), 0).r;
-		float hexValue_belowRight = texelFetch(accumulateTexture, ivec2(hex_belowRight.x, hex_belowRight.y), 0).r;
-		float hexValue_aboveRight = texelFetch(accumulateTexture, ivec2(hex_aboveRight.x, hex_aboveRight.y), 0).r;
-		float hexValue_aboveLeft = texelFetch(accumulateTexture, ivec2(hex_aboveLeft.x, hex_aboveLeft.y), 0).r;
-		float hexValue_belowLeft = texelFetch(accumulateTexture, ivec2(hex_belowLeft.x, hex_belowLeft.y), 0).r;
+		float hexValue_below = texelFetch(accumulateTexture, ivec2(hex_below), 0).r;
+		float hexValue_above = texelFetch(accumulateTexture, ivec2(hex_above), 0).r;
+		float hexValue_belowRight = texelFetch(accumulateTexture, ivec2(hex_belowRight), 0).r;
+		float hexValue_aboveRight = texelFetch(accumulateTexture, ivec2(hex_aboveRight), 0).r;
+		float hexValue_aboveLeft = texelFetch(accumulateTexture, ivec2(hex_aboveLeft), 0).r;
+		float hexValue_belowLeft = texelFetch(accumulateTexture, ivec2(hex_belowLeft), 0).r;
 
 		// calculate analytical ambient occlusiont -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		// check: https://www.shadertoy.com/view/WtSfWK and https://www.ii.uni.wroc.pl/~anl/cgfiles/TotalCompendium.pdf (page 41 bottom)
 
-		vec3 pos = vec3(vec2(gl_FragCoord), hexValue);
-		vec3 nor = vec3(0.0f, 0.0f, 1.0f);
+		vec3 fragPos = vec3(vec2(gl_FragCoord), hexValue);
+		vec3 defaultNormal = vec3(0.0f, 0.0f, 1.0f);	
 
 		float occ = 0.0f;
 
 		if(hexValue_belowLeft > hexValue)	// lower left hex
-			occ += occlusionQuad(pos, nor, vec3(leftBottomCorner.xy, hexValue), vec3(leftCenterCorner.xy, hexValue), vec3(leftCenterCorner.xy, hexValue_belowLeft), vec3(leftBottomCorner.xy, hexValue_belowLeft));
+			occ += occlusionQuad(fragPos, defaultNormal, vec3(leftBottomCorner.xy, hexValue), vec3(leftCenterCorner.xy, hexValue), vec3(leftCenterCorner.xy, hexValue_belowLeft), vec3(leftBottomCorner.xy, hexValue_belowLeft));
 
 		if(hexValue_aboveLeft > hexValue)	// upper left hex
-			occ += occlusionQuad(pos, nor, vec3(leftCenterCorner.xy, hexValue),	vec3(leftTopCorner.xy, hexValue), vec3(leftTopCorner.xy, hexValue_aboveLeft), vec3(leftCenterCorner.xy, hexValue_aboveLeft));
+			occ += occlusionQuad(fragPos, defaultNormal, vec3(leftCenterCorner.xy, hexValue),	vec3(leftTopCorner.xy, hexValue), vec3(leftTopCorner.xy, hexValue_aboveLeft), vec3(leftCenterCorner.xy, hexValue_aboveLeft));
 
 		if(hexValue_above > hexValue)		// top hex
-			occ += occlusionQuad(pos, nor, vec3(leftTopCorner.xy, hexValue), vec3(rightTopCorner.xy, hexValue),	vec3(rightTopCorner.xy, hexValue_above), vec3(leftTopCorner.xy, hexValue_above));
+			occ += occlusionQuad(fragPos, defaultNormal, vec3(leftTopCorner.xy, hexValue), vec3(rightTopCorner.xy, hexValue),	vec3(rightTopCorner.xy, hexValue_above), vec3(leftTopCorner.xy, hexValue_above));
 
 		if(hexValue_aboveRight > hexValue)	// upper right hex
-			occ += occlusionQuad(pos, nor, vec3(rightTopCorner.xy, hexValue), vec3(rightCenterCorner.xy, hexValue),	vec3(rightCenterCorner.xy, hexValue_aboveRight), vec3(rightTopCorner.xy, hexValue_aboveRight));
+			occ += occlusionQuad(fragPos, defaultNormal, vec3(rightTopCorner.xy, hexValue), vec3(rightCenterCorner.xy, hexValue),	vec3(rightCenterCorner.xy, hexValue_aboveRight), vec3(rightTopCorner.xy, hexValue_aboveRight));
 
 		if(hexValue_belowRight > hexValue)	// lower right hex
-			occ += occlusionQuad(pos, nor, vec3(rightCenterCorner.xy, hexValue), vec3(rightBottomCorner.xy, hexValue), vec3(rightBottomCorner.xy, hexValue_belowRight),	vec3(rightCenterCorner.xy, hexValue_belowRight));
+			occ += occlusionQuad(fragPos, defaultNormal, vec3(rightCenterCorner.xy, hexValue), vec3(rightBottomCorner.xy, hexValue), vec3(rightBottomCorner.xy, hexValue_belowRight),	vec3(rightCenterCorner.xy, hexValue_belowRight));
 
 		if(hexValue_below > hexValue)		// lower hex
-			occ += occlusionQuad(pos, nor, vec3(rightBottomCorner.xy, hexValue), vec3(leftBottomCorner.xy, hexValue), vec3(leftBottomCorner.xy, hexValue_below), vec3(rightBottomCorner.xy, hexValue_below));
-
-		occ = 1.0f-occ*2;
+			occ += occlusionQuad(fragPos, defaultNormal, vec3(rightBottomCorner.xy, hexValue), vec3(leftBottomCorner.xy, hexValue), vec3(leftBottomCorner.xy, hexValue_below), vec3(rightBottomCorner.xy, hexValue_below));
 
 		// apply occlusion to tile color
-		hexTilesTexture.rgb *= occ;
+		hexTilesTexture.rgb *= 1.0f-occ*aaoScaling;
 	#endif
 }

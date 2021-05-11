@@ -658,6 +658,9 @@ void TileRenderer::display()
 		shaderProgram_tiles->setUniform("accumulateTexture", 2);
 		shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 3);
 
+		// analytical ambient occlusion
+		shaderProgram_tiles->setUniform("aaoScaling", m_aaoScaling);
+
 		if (m_colorMapLoaded)
 		{
 			m_colorMapTexture->bindActive(5);
@@ -1038,7 +1041,7 @@ void TileRenderer::renderGUI() {
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Discrepancy"))
+		if (ImGui::CollapsingHeader("Discrepancy"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
 			ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
@@ -1047,19 +1050,20 @@ void TileRenderer::renderGUI() {
 			ImGui::SliderFloat("Low Point Count", &m_discrepancy_lowCount_tmp, 0.0f, 1.0f);
 			ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
 		}
-		if (ImGui::CollapsingHeader("Tiles"))
+		if (ImGui::CollapsingHeader("Tiles"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			const char* tile_styles[]{ "none", "square", "hexagon" };
 			ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
 			ImGui::Checkbox("Render Grid", &m_renderGrid);
 			ImGui::SliderFloat("Grid Width", &m_gridWidth, 1.0f, 3.0f);
-			ImGui::SliderFloat("Tile Size ", &m_tileSize_tmp, 1.0f, 100.0f);
+			ImGui::SliderFloat("Tile Size", &m_tileSize_tmp, 1.0f, 100.0f);
 
 			// allow for (optional) analytical ambient occlusion of the hex-tiles
 			ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
+			ImGui::SliderFloat("AAO Scaling", &m_aaoScaling, 1.0f, 16.0f);
 		}
 
-		if (ImGui::CollapsingHeader("Regression Plane"))
+		if (ImGui::CollapsingHeader("Regression Plane"), ImGuiTreeNodeFlags_DefaultOpen)
 		{
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
