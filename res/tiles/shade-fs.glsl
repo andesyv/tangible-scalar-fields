@@ -51,13 +51,7 @@ void main()
         // if we render the point circles
         #ifdef RENDER_POINT_CIRCLES
             if(tilesCol.r > 0 || tilesCol.g > 0 || tilesCol.b > 0){
-                // and use discrepancy, we render the tile over the circles using discrepancy as tile opacity
-                #ifdef RENDER_DISCREPANCY
-                    col = over(tilesCol, pointCircleCol);
-                // else we render the points over the tiles
-                #else
-                    col = over(pointCircleCol, tilesCol);
-                #endif
+                col = over(tilesCol, pointCircleCol);
             }    
         // if we do not render the point circles, we simply set the tile color
         #else

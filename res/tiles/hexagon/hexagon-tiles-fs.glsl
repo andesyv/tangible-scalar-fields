@@ -118,6 +118,9 @@ void main()
     //discrepancy is set as opacity
     float tilesDiscrepancy = texelFetch(tilesDiscrepancyTexture, ivec2(hex.x, hex.y), 0).r;
     hexTilesTexture *= tilesDiscrepancy;
+#else
+	// make transparency dependent on the "thickness" of a tile
+	hexTilesTexture.a = hexValue/floatMaxAccumulate;
 #endif
 
 // REGRESSION PLANE------------------------------------------------------------------------------------------------
