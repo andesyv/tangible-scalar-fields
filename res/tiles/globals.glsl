@@ -136,12 +136,26 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
     float specularStrength = 0.5;
     vec3 viewDir = normalize(viewPos - fragmentPos);
     vec3 reflectDir = reflect(-lightDir, lightingNormal);  
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 83.2 /*polished gold*/);
     spec = max(0, spec);
 
     vec3 specular = specularStrength * spec * lightColor;
+    return (ambient + diffuse + specular);	
+}
 
-    return (ambient + diffuse + specular);
+// approximate fresnel factor dependent on empirical reflectance factor
+float calculateFresnelFactor(vec3 lightPos, vec3 fragmentPos, vec3 viewPos, float reflectance){
+	
+	vec3 lightDir = normalize(lightPos - fragmentPos);
+	vec3 viewDir = normalize(viewPos - fragmentPos);
+
+	// source: https://developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-14-advanced-techniques-realistic-real-time-skin
+
+	vec3 H = normalize(viewDir + lightDir);
+	float base = 1.0 - dot(viewDir, H);  
+	float exponential = pow(base, 5.0);   
+	return exponential + reflectance * (1.0 - exponential);
+	//---------------------------------------------------------------------------------------------------------------------------------
 }
 
 

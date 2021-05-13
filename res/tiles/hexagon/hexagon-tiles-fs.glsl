@@ -45,6 +45,7 @@ uniform float blendRange;
 
 uniform vec3 tileColor;
 uniform float aaoScaling;
+uniform float reflectance;
 
 //Lighting----------------------
 uniform vec3 lightPos; 
@@ -293,6 +294,9 @@ void main()
                 hexTilesTexture.g = colorNormalDepth[1];
                 hexTilesTexture.b = colorNormalDepth[2];
 
+				// FRESNEL REFLECTANCE
+				hexTilesTexture.a *= calculateFresnelFactor(lightPos, fragmentPos, viewPos, reflectance);
+
                 normalsAndDepthTexture.r = colorNormalDepth[3];
                 normalsAndDepthTexture.g = colorNormalDepth[4];
                 normalsAndDepthTexture.b = colorNormalDepth[5];
@@ -304,6 +308,9 @@ void main()
                 fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, lightingNormal);          
                 // PHONG LIGHTING 
                 hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb;
+
+				// FRESNEL REFLECTANCE
+				hexTilesTexture.a *= calculateFresnelFactor(lightPos, fragmentPos, viewPos, reflectance);
 
                 //write into normals&depth buffer
                 normalsAndDepthTexture = vec4(lightingNormal, fragmentPos.z);      
@@ -319,6 +326,10 @@ void main()
 
             // PHONG LIGHTING 
             hexTilesTexture.rgb = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormal, viewPos) * hexTilesTexture.rgb; 
+			
+			// FRESNEL REFLECTANCE
+			hexTilesTexture.a *= calculateFresnelFactor(lightPos, fragmentPos, viewPos, reflectance);
+
             //write into normals&depth buffer
             normalsAndDepthTexture = vec4(lightingNormal, fragmentPos.z);      
         }

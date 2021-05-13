@@ -108,8 +108,8 @@ namespace molumes
 		std::unique_ptr<globjects::VertexArray> m_vaoUi = nullptr;
 
 		// default colors for background and scatter plot sample points
-		glm::vec3 m_backgroundColor = glm::vec3(0, 0, 0);				// white
-		glm::vec3 m_samplePointColor = glm::vec3(1, 1, 1);				// white
+		glm::vec3 m_backgroundColor = glm::vec3(0, 0, 0);				// black
+		glm::vec3 m_samplePointColor = glm::vec3(0, 0, 0);				// black
 		glm::vec3 m_gridColor = glm::vec3(1, 1, 1);						// white
 		glm::vec3 m_tileColor = glm::vec3(1, 1, 1);						// white
 

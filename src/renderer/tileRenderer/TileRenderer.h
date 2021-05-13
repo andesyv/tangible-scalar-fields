@@ -141,10 +141,11 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		float m_aaoScaling = 1.0f;
+		float m_reflectanceScaling = 0.75f;
 
 		// Tiles Parameters
 		// [none=0, square=1, hexagon=2]
-		int m_selected_tile_style = 0;
+		int m_selected_tile_style = 2;
 		int m_selected_tile_style_tmp = m_selected_tile_style;
 
 		// tileSize adjustable by user
@@ -155,7 +156,7 @@ namespace molumes
 
 		//point circle parameters 
 		// circle radius adjustable by user
-		float m_pointCircleRadius = 30.0f;
+		float m_pointCircleRadius = 6.5f;
 		// kde radius adjustable by user
 		float m_kdeRadius = 30.0f;
 		// divisor of radius that is set by the user when calculation radius in WorldSpace
@@ -195,10 +196,10 @@ namespace molumes
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
 		bool m_renderKDE = false;
-		bool m_renderTileNormals = false;
+		bool m_renderTileNormals = true;
 		bool m_renderNormalBuffer = false;
 		bool m_renderDepthBuffer = false;
-		bool m_renderAnalyticalAO = false;
+		bool m_renderAnalyticalAO = true;
 		bool m_renderMomochromeTiles = false;
 
 		// ------------------------------------------------------------------------------------------

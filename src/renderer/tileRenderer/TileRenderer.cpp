@@ -660,6 +660,7 @@ void TileRenderer::display()
 
 		// analytical ambient occlusion
 		shaderProgram_tiles->setUniform("aaoScaling", m_aaoScaling);
+		shaderProgram_tiles->setUniform("reflectance", m_reflectanceScaling);
 
 		if (m_colorMapLoaded)
 		{
@@ -1061,6 +1062,7 @@ void TileRenderer::renderGUI() {
 			// allow for (optional) analytical ambient occlusion of the hex-tiles
 			ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
 			ImGui::SliderFloat("AAO Scaling", &m_aaoScaling, 1.0f, 16.0f);
+			ImGui::SliderFloat("F0 - Reflectance", &m_reflectanceScaling, 0.0f, 1.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Regression Plane"), ImGuiTreeNodeFlags_DefaultOpen)
