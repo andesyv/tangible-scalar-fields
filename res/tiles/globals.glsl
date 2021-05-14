@@ -123,8 +123,9 @@ vec3 calculateNormalFromHeightMap(ivec2 texelCoord, sampler2D texture){
 
 // computes classic phong lighting
 vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, vec3 lightingNormal, vec3 viewPos){
+
     // ambient
-    float ambientStrength = 0.8;
+    float ambientStrength = 1.5f;
     vec3 ambient = ambientStrength * lightColor;
   	
     // diffuse 
@@ -133,10 +134,10 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
     vec3 diffuse = diff * lightColor;
     
     // specular
-    float specularStrength = 0.5;
+    float specularStrength = 0.9f;
     vec3 viewDir = normalize(viewPos - fragmentPos);
     vec3 reflectDir = reflect(-lightDir, lightingNormal);  
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 83.2 /*polished gold*/);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 250);
     spec = max(0, spec);
 
     vec3 specular = specularStrength * spec * lightColor;
@@ -144,18 +145,18 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 }
 
 // approximate fresnel factor dependent on empirical reflectance factor
-float calculateFresnelFactor(vec3 lightPos, vec3 fragmentPos, vec3 viewPos, float reflectance){
+float calculateFresnelFactor(vec3 fragmentPos, vec3 viewPos, vec3 lightingNormal){
 	
-	vec3 lightDir = normalize(lightPos - fragmentPos);
-	vec3 viewDir = normalize(viewPos - fragmentPos);
-
-	// source: https://developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-14-advanced-techniques-realistic-real-time-skin
-
-	vec3 H = normalize(viewDir + lightDir);
-	float base = 1.0 - dot(viewDir, H);  
-	float exponential = pow(base, 5.0);   
-	return exponential + reflectance * (1.0 - exponential);
-	//---------------------------------------------------------------------------------------------------------------------------------
+	// Schlick's Approximation
+	// source: https://en.wikipedia.org/wiki/Schlick%27s_approximation
+	vec3 N = normalize(lightingNormal);
+	vec3 V = normalize(viewPos - fragmentPos);
+	
+	float n1 = 1.0f;	// air
+	float n2 = 2.42f;	// diamond
+	
+	float R0 = pow((n1-n2)/(n1+n2), 2);		// 0.1723949...
+	return R0 + (1.0 - R0) * pow(1.0 - dot(N,V), 1 /*5*/);
 }
 
 
@@ -182,9 +183,12 @@ also performs color blending at the edges
 */
 float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerA_N,
                             vec3 outsideCornerB, vec3 insideCornerB, vec3 insideCornerB_N, vec3 tileCenter3D, float blendRange, 
-                            vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos){
+                            vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos, int windowWidth, int windowHeight){
 
     float colorNormalDepth[7];
+
+	// transform fragCoordinates to view-space
+	vec3 fragViewSpace = vec3((2.0 * fragmentPos.xy) / vec2(windowWidth, windowHeight) - 1.0, 2.0 * fragmentPos.z - 1.0);
 
     //compute surface normal using 2 corner points of inside and 1 corner point of outside
     vec3 lightingNormalBorder = calcPlaneNormal(insideCornerA, insideCornerB, outsideCornerA);
@@ -193,7 +197,7 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), outsideCornerA, lightingNormalBorder);
 
     // PHONG LIGHTING 
-    vec3 borderColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder, viewPos) * tilesTexture.rgb;  
+    vec3 borderColor = calculatePhongLighting(lightColor, lightPos, fragViewSpace, lightingNormalBorder, viewPos) * tilesTexture.rgb;  
 
     // if the fragment is close to the neightbouring border
     // we blend its color with the neighbouring border color to get rid of aliasing artifacts
@@ -209,8 +213,8 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
         vec3 lightingNormalBorder_N = calcPlaneNormal(insideCornerA_N, insideCornerA, outsideCornerA);
 
         //the height of the fragment, if it would be on the neighbouring border is the same as on the actual border,
-        //because all sides of the pyramid have the same angle -> therefore we can just use fragmentPos
-        vec3 neighbourColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder_N, viewPos) * tilesTexture.rgb;
+        //because all sides of the pyramid have the same angle -> therefore we can just use fragViewSpace
+        vec3 neighbourColor = calculatePhongLighting(lightColor, lightPos, fragViewSpace, lightingNormalBorder_N, viewPos) * tilesTexture.rgb;
 
         borderColor = distanceToLine_ANorm * borderColor + (1-distanceToLine_ANorm) * neighbourColor;
     }
@@ -223,8 +227,8 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
         vec3 lightingNormalBorder_N = calcPlaneNormal(insideCornerB, insideCornerB_N, outsideCornerB);
 
         //the height of the fragment, if it would be on the neighbouring border is the same as on the actual border,
-        //because all sides of the pyramid have the same angle -> therefore we can just use fragmentPos
-        vec3 neighbourColor = calculatePhongLighting(lightColor, lightPos, fragmentPos, lightingNormalBorder_N, viewPos) * tilesTexture.rgb;
+        //because all sides of the pyramid have the same angle -> therefore we can just use fragViewSpace
+        vec3 neighbourColor = calculatePhongLighting(lightColor, lightPos, fragViewSpace, lightingNormalBorder_N, viewPos) * tilesTexture.rgb;
 
         borderColor = distanceToLine_BNorm * borderColor + (1-distanceToLine_BNorm) * neighbourColor;
     }     
@@ -243,7 +247,7 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
 
         // fragment height if fragment would be on inside
         float insideHeight = getHeightOfPointOnSurface(vec2(fragmentPos), tileCenter3D, insideLightingNormal);    
-        vec3 insideColor = calculatePhongLighting(lightColor, lightPos, vec3(vec2(fragmentPos), insideHeight), insideLightingNormal, viewPos) * tilesTexture.rgb;
+        vec3 insideColor = calculatePhongLighting(lightColor, lightPos, vec3(vec2(fragViewSpace), insideHeight), insideLightingNormal, viewPos) * tilesTexture.rgb;
 
         fragmentColor = distanceToInsideLineNorm * borderColor + (1-distanceToInsideLineNorm) * insideColor;         
     }
