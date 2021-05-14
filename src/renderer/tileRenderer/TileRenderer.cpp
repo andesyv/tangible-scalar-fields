@@ -219,8 +219,8 @@ void TileRenderer::display()
 	const vec2 minBounds = viewer()->scene()->table()->minimumBounds();
 	const vec4 backgroundColor = vec4(viewer()->backgroundColor(), 0);
 
-	// projection matrix so we are in screen space and not view space
-	vec4 viewLightPosition = projectionMatrix * viewer()->lightTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	// transform light position, since we evaluate the illumination model in view space
+	vec4 viewLightPosition = viewMatrix * viewer()->lightTransform() * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	// if any of these values changed we need to:
 	// recompute the resolution and positioning of the current tile grid
@@ -660,7 +660,6 @@ void TileRenderer::display()
 
 		// analytical ambient occlusion
 		shaderProgram_tiles->setUniform("aaoScaling", m_aaoScaling);
-		shaderProgram_tiles->setUniform("reflectance", m_reflectanceScaling);
 
 		if (m_colorMapLoaded)
 		{
@@ -1062,7 +1061,6 @@ void TileRenderer::renderGUI() {
 			// allow for (optional) analytical ambient occlusion of the hex-tiles
 			ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
 			ImGui::SliderFloat("AAO Scaling", &m_aaoScaling, 1.0f, 16.0f);
-			ImGui::SliderFloat("F0 - Reflectance", &m_reflectanceScaling, 0.0f, 1.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Regression Plane"), ImGuiTreeNodeFlags_DefaultOpen)

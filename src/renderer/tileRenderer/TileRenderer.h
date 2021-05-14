@@ -141,7 +141,6 @@ namespace molumes
 		bool m_oldDiscreteMap = false;
 
 		float m_aaoScaling = 1.0f;
-		float m_reflectanceScaling = 0.75f;
 
 		// Tiles Parameters
 		// [none=0, square=1, hexagon=2]
