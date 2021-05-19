@@ -1067,6 +1067,8 @@ void TileRenderer::renderGUI() {
 		{
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
+			ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
+			ImGui::Checkbox("Fresnel Reflectance", &m_renderFresnelReflectance);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
 			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
@@ -1130,6 +1132,9 @@ void TileRenderer::setShaderDefines() {
 	if (m_renderTileNormals)
 		defines += "#define RENDER_TILE_NORMALS\n";
 
+	if (m_smoothTileNormals)
+		defines += "#define SMOOTH_TILE_NORMALS\n";
+
 	if (m_renderNormalBuffer)
 		defines += "#define RENDER_NORMAL_BUFFER\n";
 
@@ -1141,6 +1146,9 @@ void TileRenderer::setShaderDefines() {
 
 	if (m_renderMomochromeTiles)
 		defines += "#define RENDER_MONOCHROME_TILES\n";
+
+	if (m_renderFresnelReflectance)
+		defines += "#define RENDER_FRESNEL_REFLECTANCE\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{

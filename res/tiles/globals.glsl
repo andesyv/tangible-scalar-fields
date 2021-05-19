@@ -124,25 +124,45 @@ vec3 calculateNormalFromHeightMap(ivec2 texelCoord, sampler2D texture){
 // computes classic phong lighting
 vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, vec3 lightingNormal, vec3 viewPos){
 
-    // ambient
-    float ambientStrength = 1.5f;
+    // ambient -------------------------------------------------------------------------
+    float ambientStrength = 0.4f;
+#ifdef RENDER_FRESNEL_REFLECTANCE
+	ambientStrength = 1.5f;
+#endif
+
     vec3 ambient = ambientStrength * lightColor;
   	
-    // diffuse 
+
+    // diffuse ------------------------------------------------------------------------- 
+	float diffuseStrength = 0.4f;
+#ifdef RENDER_FRESNEL_REFLECTANCE
+	diffuseStrength = 1.0f;
+#endif
+
     vec3 lightDir = normalize(lightPos - fragmentPos);
     float diff = max(dot(lightingNormal, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
+    vec3 diffuse = diffuseStrength * diff * lightColor;
     
-    // specular
-    float specularStrength = 0.9f;
+
+    // specular ------------------------------------------------------------------------
+    float specularStrength = 0.4f;
+#ifdef RENDER_FRESNEL_REFLECTANCE
+	specularStrength = 0.9f;
+#endif
+
     vec3 viewDir = normalize(viewPos - fragmentPos);
     vec3 reflectDir = reflect(-lightDir, lightingNormal);  
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 250);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 83.2 /*polished gold*/);
     spec = max(0, spec);
 
     vec3 specular = specularStrength * spec * lightColor;
     return (ambient + diffuse + specular);	
 }
+
+//---------------------------------------------------------------------------------------------------------------
+
+
+// FRESNEL ------------------------------------------------------------------------------------------------------
 
 // approximate fresnel factor dependent on empirical reflectance factor
 float calculateFresnelFactor(vec3 fragmentPos, vec3 viewPos, vec3 lightingNormal){
@@ -159,6 +179,7 @@ float calculateFresnelFactor(vec3 fragmentPos, vec3 viewPos, vec3 lightingNormal
 	return R0 + (1.0 - R0) * pow(1.0 - dot(N,V), 1 /*5*/);
 }
 
+//---------------------------------------------------------------------------------------------------------------
 
 /*
 Computes the colour of a point that lies on the pyramid side 
@@ -178,12 +199,15 @@ also performs color blending at the edges
 <param>lightColor</param>
 <param>lightPos</param>
 <param>viewPos</param>
+<param>windowWidth</param>
+<param>windowHeight</param>
+<param>tileSizeScreenSpace</param>
 
 <return>an array with 7 values: [0,1,2] = color; [3,4,5] = lightingNormal; [6] = depth</return>
 */
 float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 outsideCornerA, vec3 insideCornerA, vec3 insideCornerA_N,
                             vec3 outsideCornerB, vec3 insideCornerB, vec3 insideCornerB_N, vec3 tileCenter3D, float blendRange, 
-                            vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos, int windowWidth, int windowHeight){
+                            vec4 tilesTexture, vec3 lightColor, vec3 lightPos, vec3 viewPos, int windowWidth, int windowHeight, float tileSizeScreenSpace){
 
     float colorNormalDepth[7];
 
@@ -192,6 +216,11 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
 
     //compute surface normal using 2 corner points of inside and 1 corner point of outside
     vec3 lightingNormalBorder = calcPlaneNormal(insideCornerA, insideCornerB, outsideCornerA);
+	
+#ifdef SMOOTH_TILE_NORMALS
+	// OPTIONAL: average normal with half-sphere normal
+	lightingNormalBorder = normalize(lightingNormalBorder + normalize(vec3((fragmentPos.xy-tileCenter3D.xy) / tileSizeScreenSpace, 1.0f)));
+#endif
 
     // fragment height in border
     fragmentPos.z = getHeightOfPointOnSurface(vec2(fragmentPos), outsideCornerA, lightingNormalBorder);
@@ -212,6 +241,11 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
         //compute surface normal using 2 corner points of inside and 1 corner point of outside
         vec3 lightingNormalBorder_N = calcPlaneNormal(insideCornerA_N, insideCornerA, outsideCornerA);
 
+	#ifdef SMOOTH_TILE_NORMALS
+		// OPTIONAL: average normal with half-sphere normal
+		lightingNormalBorder_N = normalize(lightingNormalBorder_N + normalize(vec3((fragmentPos.xy-tileCenter3D.xy) / tileSizeScreenSpace, 1.0f)));
+	#endif
+
         //the height of the fragment, if it would be on the neighbouring border is the same as on the actual border,
         //because all sides of the pyramid have the same angle -> therefore we can just use fragViewSpace
         vec3 neighbourColor = calculatePhongLighting(lightColor, lightPos, fragViewSpace, lightingNormalBorder_N, viewPos) * tilesTexture.rgb;
@@ -225,6 +259,11 @@ float[7] calculateBorderColor(vec3 fragmentPos, vec3 insideLightingNormal, vec3 
         //lighting normal of the neighbouring border
         //compute surface normal using 2 corner points of inside and 1 corner point of outside
         vec3 lightingNormalBorder_N = calcPlaneNormal(insideCornerB, insideCornerB_N, outsideCornerB);
+
+	#ifdef SMOOTH_TILE_NORMALS
+		// OPTIONAL: average normal with half-sphere normal
+		lightingNormalBorder_N = normalize(lightingNormalBorder_N + normalize(vec3((fragmentPos.xy-tileCenter3D.xy) / tileSizeScreenSpace, 1.0f)));
+	#endif
 
         //the height of the fragment, if it would be on the neighbouring border is the same as on the actual border,
         //because all sides of the pyramid have the same angle -> therefore we can just use fragViewSpace

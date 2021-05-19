@@ -196,10 +196,12 @@ namespace molumes
 		bool m_renderGrid = false;
 		bool m_renderKDE = false;
 		bool m_renderTileNormals = true;
+		bool m_smoothTileNormals = false;
 		bool m_renderNormalBuffer = false;
 		bool m_renderDepthBuffer = false;
 		bool m_renderAnalyticalAO = true;
 		bool m_renderMomochromeTiles = false;
+		bool m_renderFresnelReflectance = true;
 
 		// ------------------------------------------------------------------------------------------
 
