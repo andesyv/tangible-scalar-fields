@@ -109,7 +109,7 @@ namespace molumes
 
 		// default colors for background and scatter plot sample points
 		glm::vec3 m_backgroundColor = glm::vec3(0, 0, 0);				// black
-		glm::vec3 m_samplePointColor = glm::vec3(0, 0, 0);				// black
+		glm::vec3 m_samplePointColor = glm::vec3(0.5f, 0.5f, 0.5f);		// gray
 		glm::vec3 m_gridColor = glm::vec3(0, 0, 0);						// black
 		glm::vec3 m_tileColor = glm::vec3(1, 1, 1);						// white
 

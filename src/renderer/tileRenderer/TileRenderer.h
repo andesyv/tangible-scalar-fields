@@ -189,6 +189,10 @@ namespace molumes
 		// blend range for anti-aliasing of pyramid edges
 		float blendRange = 1.0f;
 
+		// GUI parameters for Fresnel factor computation (empirically chosen)
+		float m_fresnelBias = 0.1f;
+		float m_fresnelPow = 0.3f;
+
 		// define booleans
 		bool m_renderPointCircles = true;
 		bool m_renderDiscrepancy = false;

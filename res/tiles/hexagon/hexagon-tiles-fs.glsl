@@ -46,6 +46,9 @@ uniform float blendRange;
 uniform vec3 tileColor;
 uniform float aaoScaling;
 
+uniform float fresnelBias;
+uniform float fresnelPow;
+
 //Lighting----------------------
 uniform vec3 lightPos; 
 uniform vec3 viewPos; //is vec3(0,0,0) because we work in viewspace
@@ -306,7 +309,7 @@ void main()
 
 			#ifdef RENDER_FRESNEL_REFLECTANCE
 				// calculate fresnel factor and use it to mix color with black
-				hexTilesTexture.rgb = mix(vec3(0,0,0), hexTilesTexture.rgb, calculateFresnelFactor(fragViewSpace, viewPos, normalsAndDepthTexture.xyz));
+				hexTilesTexture.rgb = mix(vec3(0,0,0), hexTilesTexture.rgb, calculateFresnelFactor(normalsAndDepthTexture.xyz, fresnelBias, fresnelPow));
 			#endif
 
             }
@@ -326,7 +329,7 @@ void main()
 
 			#ifdef RENDER_FRESNEL_REFLECTANCE
 				// calculate fresnel factor and use it to mix color with black
-				hexTilesTexture.rgb = mix(vec3(0,0,0), hexTilesTexture.rgb, calculateFresnelFactor(fragViewSpace, viewPos, lightingNormal));
+				hexTilesTexture.rgb = mix(vec3(0,0,0), hexTilesTexture.rgb, calculateFresnelFactor(lightingNormal, fresnelBias, fresnelPow));
 			#endif
 
                 //write into normals&depth buffer
@@ -346,7 +349,7 @@ void main()
 
 		#ifdef RENDER_FRESNEL_REFLECTANCE
 			// calculate fresnel factor and use it to mix color with black
-			hexTilesTexture.rgb = mix(vec3(0,0,0), hexTilesTexture.rgb, calculateFresnelFactor(fragViewSpace, viewPos, lightingNormal));
+			hexTilesTexture.rgb = mix(vec3(0,0,0), hexTilesTexture.rgb, calculateFresnelFactor(lightingNormal, fresnelBias, fresnelPow));
 		#endif
 
             //write into normals&depth buffer

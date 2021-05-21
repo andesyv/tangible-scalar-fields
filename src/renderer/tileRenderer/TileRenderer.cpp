@@ -661,6 +661,10 @@ void TileRenderer::display()
 		// analytical ambient occlusion
 		shaderProgram_tiles->setUniform("aaoScaling", m_aaoScaling);
 
+		// fresnel factor
+		shaderProgram_tiles->setUniform("fresnelBias", m_fresnelBias);
+		shaderProgram_tiles->setUniform("fresnelPow", m_fresnelPow);
+
 		if (m_colorMapLoaded)
 		{
 			m_colorMapTexture->bindActive(5);
@@ -1061,6 +1065,11 @@ void TileRenderer::renderGUI() {
 			// allow for (optional) analytical ambient occlusion of the hex-tiles
 			ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
 			ImGui::SliderFloat("AAO Scaling", &m_aaoScaling, 1.0f, 16.0f);
+
+			// allow for modification of the fresnel factor calculation
+			ImGui::Checkbox("Fresnel Reflectance", &m_renderFresnelReflectance);
+			ImGui::SliderFloat("Fresnel Bias", &m_fresnelBias, 0.0f, 1.0f);
+			ImGui::SliderFloat("Fresnel Power", &m_fresnelPow, 0.0f, 16.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Regression Plane"), ImGuiTreeNodeFlags_DefaultOpen)
@@ -1068,7 +1077,6 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Render KDE", &m_renderKDE);
 			ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
 			ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
-			ImGui::Checkbox("Fresnel Reflectance", &m_renderFresnelReflectance);
 			ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
 			ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
 			ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);

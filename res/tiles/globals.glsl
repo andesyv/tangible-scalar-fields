@@ -126,37 +126,26 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 
     // ambient -------------------------------------------------------------------------
     float ambientStrength = 0.4f;
-#ifdef RENDER_FRESNEL_REFLECTANCE
-	ambientStrength = 1.5f;
-#endif
-
     vec3 ambient = ambientStrength * lightColor;
-  	
 
     // diffuse ------------------------------------------------------------------------- 
 	float diffuseStrength = 0.4f;
-#ifdef RENDER_FRESNEL_REFLECTANCE
-	diffuseStrength = 1.0f;
-#endif
-
-    vec3 lightDir = normalize(lightPos - fragmentPos);
-    float diff = max(dot(lightingNormal, lightDir), 0.0);
-    vec3 diffuse = diffuseStrength * diff * lightColor;
-    
+	
+	vec3 lightDir = normalize(lightPos - fragmentPos);
+    float diff = max(dot(lightingNormal, lightDir), 0.0);	
+	vec3 diffuse = diffuseStrength * diff * lightColor;
 
     // specular ------------------------------------------------------------------------
     float specularStrength = 0.4f;
-#ifdef RENDER_FRESNEL_REFLECTANCE
-	specularStrength = 0.9f;
-#endif
 
     vec3 viewDir = normalize(viewPos - fragmentPos);
     vec3 reflectDir = reflect(-lightDir, lightingNormal);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 83.2 /*polished gold*/);
     spec = max(0, spec);
-
     vec3 specular = specularStrength * spec * lightColor;
-    return (ambient + diffuse + specular);	
+    
+	// combine all components of the illumination model
+	return ambient + diffuse + specular;	
 }
 
 //---------------------------------------------------------------------------------------------------------------
@@ -165,18 +154,29 @@ vec3 calculatePhongLighting(vec3 lightColor, vec3 lightPos, vec3 fragmentPos, ve
 // FRESNEL ------------------------------------------------------------------------------------------------------
 
 // approximate fresnel factor dependent on empirical reflectance factor
-float calculateFresnelFactor(vec3 fragmentPos, vec3 viewPos, vec3 lightingNormal){
-	
-	// Schlick's Approximation
-	// source: https://en.wikipedia.org/wiki/Schlick%27s_approximation
+float calculateFresnelFactor(vec3 lightingNormal, float fresnelBias, float fresnelPow){
+
 	vec3 N = normalize(lightingNormal);
-	vec3 V = normalize(viewPos - fragmentPos);
+
+	//vec3 V = normalize(viewPos - fragmentPos);
+	vec3 V = vec3(0, 0, 1);	// simplify since orthographic projection --> furthermore prevents artifacts during interaction
+
+
+	// Schlick's Approximation ---------------------------------------------------
+	// source: https://en.wikipedia.org/wiki/Schlick%27s_approximation
+	//
+	//float n1 = 1.0f;	// air
+	//float n2 = 2.42f;	// diamond
+	//
+	//float R0 = pow((n1-n2)/(n1+n2), 2);		// 0.1723949...
+	//return R0 + (1.0 - R0) * pow(1.0 - dot(N,V), 5);
+
+
+	// GPU Gems 2 ----------------------------------------------------------------
+	// source: https://developer.nvidia.com/gpugems/gpugems2/part-ii-shading-lighting-and-shadows/chapter-19-generic-refraction-simulation
 	
-	float n1 = 1.0f;	// air
-	float n2 = 2.42f;	// diamond
-	
-	float R0 = pow((n1-n2)/(n1+n2), 2);		// 0.1723949...
-	return R0 + (1.0 - R0) * pow(1.0 - dot(N,V), 1 /*5*/);
+	float facing = (1.0 - max(dot(N, V), 0));    
+	return max(fresnelBias + (1.0 - fresnelBias) * pow(facing, fresnelPow), 0.0);
 }
 
 //---------------------------------------------------------------------------------------------------------------
