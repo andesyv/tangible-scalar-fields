@@ -776,6 +776,8 @@ void TileRenderer::display()
 	auto shaderProgram_shade = shaderProgram("shade");
 
 	shaderProgram_shade->setUniform("backgroundColor", viewer()->backgroundColor());
+	shaderProgram_shade->setUniform("sobelEdgeColor", viewer()->sobelEdgeColor());
+
 
 	if (!m_renderPointCircles && m_selected_tile_style == 0) {
 		shaderProgram_shade->setUniform("pointChartTexture", 0);
@@ -1088,6 +1090,7 @@ void TileRenderer::renderGUI() {
 			// then it can happen, that we can no longer compute the lighting normal for the corresponding border.
 			ImGui::SliderFloat("Border Width", &m_borderWidth, 0.01f, 0.99f);
 			ImGui::Checkbox("Show Border", &m_showBorder);
+			ImGui::Checkbox("Sobel Edges", &m_sobelEdgeColoring);
 			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
 		}
 
@@ -1157,6 +1160,9 @@ void TileRenderer::setShaderDefines() {
 
 	if (m_renderFresnelReflectance)
 		defines += "#define RENDER_FRESNEL_REFLECTANCE\n";
+
+	if (m_sobelEdgeColoring)
+		defines += "#define RENDER_SOBEL_EDGE_COLORING\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{

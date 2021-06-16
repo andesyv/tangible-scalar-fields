@@ -37,6 +37,7 @@ namespace molumes
 		glm::vec3 samplePointColor() const;
 		glm::vec3 gridColor() const;
 		glm::vec3 tileColor() const;
+		glm::vec3 sobelEdgeColor() const;
 
 		float scaleFactor() const;
 
@@ -58,6 +59,7 @@ namespace molumes
 		void setSamplePointColor(const glm::vec3& c);
 		void setGridColor(const glm::vec3& c);
 		void setTileColor(const glm::vec3& c);
+		void setSobelEdgeColor(const glm::vec3& c);
 
 		void setScaleFactor(const float s);
 
@@ -112,6 +114,7 @@ namespace molumes
 		glm::vec3 m_samplePointColor = glm::vec3(0.5f, 0.5f, 0.5f);		// gray
 		glm::vec3 m_gridColor = glm::vec3(0, 0, 0);						// black
 		glm::vec3 m_tileColor = glm::vec3(1, 1, 1);						// white
+		glm::vec3 m_sobelEdgeColor = glm::vec3(0.15f, 0.15f, 0.15f);	// gray
 
 		float m_scaleFactor = 1.0f; //used to calculate correct size of elements whose size is set by the user
 

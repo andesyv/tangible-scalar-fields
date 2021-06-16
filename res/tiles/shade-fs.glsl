@@ -12,6 +12,7 @@ layout(std430, binding = 6) buffer valueMaxBuffer
 };
 
 uniform vec3 backgroundColor;
+uniform vec3 sobelEdgeColor;
 
 uniform sampler2D pointChartTexture;
 uniform sampler2D pointCircleTexture;
@@ -82,6 +83,31 @@ void main()
         vec4 gridCol = texelFetch(gridTexture, ivec2(gl_FragCoord.xy), 0).rgba;
         col = over(gridCol, col);
     #endif
+
+	// emphasize edges ---------------------------------------------------------------------------
+	#ifdef RENDER_SOBEL_EDGE_COLORING
+
+		// convert 8-neighborhood too gray-scale colors
+		float gray_00 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2(-1, -1)), 0).rgb);
+		float gray_01 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2( 0, -1)), 0).rgb);
+		float gray_02 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2( 1, -1)), 0).rgb);
+	
+		float gray_10 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2(-1,  0)), 0).rgb);
+		float gray_11 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2( 0,  0)), 0).rgb);
+		float gray_12 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2( 1,  0)), 0).rgb);
+
+		float gray_20 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2(-1,  1)), 0).rgb);
+		float gray_21 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2( 0,  1)), 0).rgb);
+		float gray_22 = rgb2gray(texelFetch(tilesTexture, ivec2(gl_FragCoord.xy + ivec2( 1,  1)), 0).rgb);
+	
+		// calculate horizontal and vertical Sobel 
+		float mHorizontal = gray_00 + 2*gray_01 + gray_02 - gray_20 - 2*gray_21 - gray_22;
+		float mVertical = gray_00 + 2*gray_10 + gray_20 - gray_02 - 2*gray_12 - gray_22;
+	
+		// combine both Sobels and use it to epmhasize edges
+		float pHV = sqrt(pow(mHorizontal, 2) + pow(mVertical, 2));
+		col.rgb = mix(col.rgb, sobelEdgeColor, pHV);
+	#endif
 
     colorTexture = col;
 }

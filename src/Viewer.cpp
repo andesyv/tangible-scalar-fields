@@ -238,6 +238,11 @@ glm::vec3 Viewer::tileColor() const
 	return m_tileColor;
 }
 
+glm::vec3 Viewer::sobelEdgeColor() const
+{
+	return m_sobelEdgeColor;
+}
+
 float Viewer::scaleFactor() const
 {
 	return m_scaleFactor;
@@ -278,6 +283,10 @@ void molumes::Viewer::setTileColor(const glm::vec3 & c)
 	m_tileColor = c;
 }
 
+void molumes::Viewer::setSobelEdgeColor(const glm::vec3 & c)
+{
+	m_sobelEdgeColor = c;
+}
 
 void molumes::Viewer::setScaleFactor(const float s)
 {
@@ -780,6 +789,7 @@ void Viewer::mainMenu()
 		ImGui::ColorEdit3("Point Color", (float*)&m_samplePointColor);
 		ImGui::ColorEdit3("Grid Color", (float*)&m_gridColor);
 		ImGui::ColorEdit3("Tile Color", (float*)&m_tileColor);
+		ImGui::ColorEdit3("Sobel Edge Color", (float*)&m_sobelEdgeColor);
 
 		if (ImGui::BeginMenu("Viewport"))
 		{

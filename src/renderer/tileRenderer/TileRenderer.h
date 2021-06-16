@@ -206,6 +206,7 @@ namespace molumes
 		bool m_renderAnalyticalAO = true;
 		bool m_renderMomochromeTiles = false;
 		bool m_renderFresnelReflectance = true;
+		bool m_sobelEdgeColoring = false;
 
 		// ------------------------------------------------------------------------------------------
 
