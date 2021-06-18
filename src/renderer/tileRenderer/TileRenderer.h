@@ -84,6 +84,9 @@ namespace molumes
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
+
+		std::unique_ptr<globjects::Texture> m_tileTextureArray = nullptr;
+
 		//---------------------------------------------------------------------------------------
 
 		//SSBO
@@ -193,6 +196,11 @@ namespace molumes
 		float m_fresnelBias = 0.1f;
 		float m_fresnelPow = 0.3f;
 
+		// textured tiles default values according to google maps thumbnails
+		glm::uint m_tileTextureWidth = 96;
+		glm::uint  m_tileTextureHeight = 64;
+		int m_numberTextureTiles = 360;			// total number of tile we want to load
+
 		// define booleans
 		bool m_renderPointCircles = true;
 		bool m_renderDiscrepancy = false;
@@ -207,6 +215,7 @@ namespace molumes
 		bool m_renderMomochromeTiles = false;
 		bool m_renderFresnelReflectance = true;
 		bool m_sobelEdgeColoring = false;
+		bool m_tileTexturing = false;
 
 		// ------------------------------------------------------------------------------------------
 

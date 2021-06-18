@@ -23,6 +23,7 @@ in float tileSizeScreenSpace;
 
 uniform sampler2D accumulateTexture;
 uniform sampler2D tilesDiscrepancyTexture;
+uniform sampler2DArray tileTextureArray;
 
 // 1D color map parameters
 uniform sampler1D colorMapTexture;
@@ -119,6 +120,29 @@ void main()
     hexTilesTexture.rgb = texelFetch(colorMapTexture, colorTexelCoord, 0).rgb;
 #endif 
 
+	// horizontal and vertical space between hexagons (https://www.redblobgames.com/grids/hexagons/)
+    float horizontal_space = tileSizeScreenSpace * 1.5f;
+	float vertical_space = sqrt(3)*tileSizeScreenSpace;
+
+	// vertical offset for each second row of hexagon grid
+    float vertical_offset = mod(hex.x, 2) == 0 ? vertical_space : vertical_space/2.0f;
+
+	// x,y of center of tile
+    vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset); 
+
+#ifdef RENDER_TEXTURED_TILES 
+	// calculate the index within the texture array
+	int tileTextureArrayIndex = int(hex.x + (18-hex.y)*20);		// DEBUG: 20 elements per row, 18 elements per column
+
+	// calculate texture coordinates within the tile
+	vec2 tileTextureCoords = (gl_FragCoord.xy-vec2(tileCenter2D))/tileSizeScreenSpace;	// calculate texture coordinates that span from [-1,1]
+	tileTextureCoords.x = (tileTextureCoords.x + 1.0f) / 2.0f;							// then, transform from [-1,1] to [0,1]
+	tileTextureCoords.y = 1.0f - (tileTextureCoords.y + 1.0f) / 2.0f;					// then, transform from [-1,1] to [0,1] and flip y-axis by subtracting it from 1.0f
+
+	// combine both coordinates and access texture array
+	hexTilesTexture.rgb = texture(tileTextureArray, vec3(tileTextureCoords, tileTextureArrayIndex)).rgb;
+#endif
+
 #ifdef RENDER_MONOCHROME_TILES
 	hexTilesTexture.rgb = tileColor;
 #endif
@@ -137,16 +161,6 @@ void main()
     vec3 lightingNormal = vec3(0.0f,0.0f,0.0f);
     vec3 fragmentPos = vec3(gl_FragCoord);
     float kdeHeight = 0.0f;
-
-	// horizontal and vertical space between hexagons (https://www.redblobgames.com/grids/hexagons/)
-    float horizontal_space = tileSizeScreenSpace * 1.5f;
-	float vertical_space = sqrt(3)*tileSizeScreenSpace;
-
-    // vertical offset for each second row of hexagon grid
-    float vertical_offset = mod(hex.x, 2) == 0 ? vertical_space : vertical_space/2.0f;
-
-    // x,y of center of tile
-    vec2 tileCenter2D = vec2(hex.x * horizontal_space + boundsScreenSpace[2] + tileSizeScreenSpace, hex.y * vertical_space + boundsScreenSpace[3] + vertical_offset);
 
 	//Corner Of Hexagon (z=0)
     vec3 leftBottomCorner = vec3(tileCenter2D + vec2(-tileSizeScreenSpace/2.0f, -vertical_space/2.0f), 0.0f);     

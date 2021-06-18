@@ -114,6 +114,34 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_colorMapTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_colorMapTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+	//tile textures array
+	m_tileTextureArray = Texture::create(GL_TEXTURE_2D_ARRAY);
+	m_tileTextureArray->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	m_tileTextureArray->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	m_tileTextureArray->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	m_tileTextureArray->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	// allocate storage according to default values
+	m_tileTextureArray->storage3D(1, GL_RGBA32F, m_tileTextureWidth, m_tileTextureHeight, m_numberTextureTiles);
+	
+	for (int i = 1; i <= m_numberTextureTiles; i++) {
+	
+		std::vector<unsigned char> tileTextureImage;	
+		std::string filePath = "./dat/tileTextures/tileTexture_" + std::to_string(i) + ".png";
+
+		uint error = lodepng::decode(tileTextureImage, m_tileTextureWidth, m_tileTextureHeight, filePath);
+	
+		if (error)
+			globjects::debug() << "Could not load " << filePath << "!";
+		else
+		{
+			m_tileTextureArray->subImage3D( 0, 0, 0, /*Z-offset*/ i-1, m_tileTextureWidth, m_tileTextureHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&tileTextureImage.front());
+		}
+	}
+
+	m_colorMapTexture->generateMipmap();
+
+
 	for (auto& d : std::filesystem::directory_iterator("./dat"))
 	{
 		std::filesystem::path csvPath(d);
@@ -672,6 +700,12 @@ void TileRenderer::display()
 			shaderProgram_tiles->setUniform("textureWidth", m_ColorMapWidth);
 		}
 
+		if(m_tileTexturing)
+		{ 
+			m_tileTextureArray->bindActive(6);
+			shaderProgram_tiles->setUniform("tileTextureArray", 6);
+		}
+
 		m_vaoQuad->bind();
 
 		shaderProgram_tiles->use();
@@ -679,6 +713,11 @@ void TileRenderer::display()
 		shaderProgram_tiles->release();
 
 		m_vaoQuad->unbind();
+
+		if(m_tileTexturing)
+		{
+			m_tileTextureArray->unbindActive(6);
+		}
 
 		if (m_colorMapLoaded)
 		{
@@ -1092,6 +1131,7 @@ void TileRenderer::renderGUI() {
 			ImGui::Checkbox("Show Border", &m_showBorder);
 			ImGui::Checkbox("Sobel Edges", &m_sobelEdgeColoring);
 			ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
+			ImGui::Checkbox("Texture Tiles", &m_tileTexturing);
 		}
 
 		ImGui::Checkbox("Show Normal Buffer", &m_renderNormalBuffer);
@@ -1163,6 +1203,9 @@ void TileRenderer::setShaderDefines() {
 
 	if (m_sobelEdgeColoring)
 		defines += "#define RENDER_SOBEL_EDGE_COLORING\n";
+
+	if(m_tileTexturing)
+		defines += "#define RENDER_TEXTURED_TILES\n";
 
 	if (defines != m_shaderSourceDefines->string())
 	{
