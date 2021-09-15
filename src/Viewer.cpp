@@ -74,7 +74,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	m_fontTexture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	m_fontTexture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	m_fontTexture->image2D(0, GL_RGBA, ivec2(width,height), 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-	io.Fonts->TexID = (ImTextureID) m_fontTexture->id();
+	io.Fonts->TexID = reinterpret_cast<ImTextureID>(static_cast<std::size_t>(m_fontTexture->id()));
 	
 	ImGuiStyle& style = ImGui::GetStyle();
 	/*
@@ -182,8 +182,8 @@ void Viewer::display()
 	glViewport(0, 0, viewportSize().x, viewportSize().y);
 
 	// update screen dimensions
-	m_windowWidth = viewportSize().x;
-	m_windowHeight = viewportSize().y;
+	m_windowWidth = static_cast<float>(viewportSize().x);
+	m_windowHeight = static_cast<float>(viewportSize().y);
 	
 	for (auto& r : m_renderers)
 	{
@@ -337,11 +337,11 @@ mat4 Viewer::modelLightTransform() const
 
 void Viewer::saveImage(const std::string & filename)
 {
-	ivec2 size = viewportSize();
+	uvec2 size{viewportSize()};
 	std::vector<unsigned char> image(size.x*size.y * 4);
 	std::vector<unsigned char> flipped(size.x*size.y * 4);
 
-	glReadPixels(0, 0, size.x, size.y, GL_RGBA, GL_UNSIGNED_BYTE, (void*)&image.front());
+	glReadPixels(0, 0, static_cast<int>(size.x), static_cast<int>(size.y), GL_RGBA, GL_UNSIGNED_BYTE, (void*)&image.front());
 
 	for (uint y = 0; y < size.y; y++)
 	{
@@ -608,7 +608,7 @@ void Viewer::endFrame()
 
 	//		ImGui::Begin("Information");
 	ImGui::SameLine(ImGui::GetWindowWidth() - 220.0f);
-	ImGui::PlotLines(s.c_str(), framerates, frameratesList.size(), 0, 0, 0.0f, 200.0f,ImVec2(128.0f,0.0f));
+	ImGui::PlotLines(s.c_str(), framerates, static_cast<int>(frameratesList.size()), 0, 0, 0.0f, 200.0f,ImVec2(128.0f,0.0f));
 	//		ImGui::End();
 
 	ImGui::EndMainMenuBar();

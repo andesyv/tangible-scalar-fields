@@ -1012,7 +1012,7 @@ void TileRenderer::renderGUI() {
 			viewer()->setModelTransform(modelTransform);
 
 			// store diameter of current scatter plot and initialize light position
-			viewer()->m_scatterPlotDiameter = sqrt(pow(boundingBoxSize.x, 2) + pow(boundingBoxSize.y, 2));
+			viewer()->m_scatterPlotDiameter = sqrt(pow(boundingBoxSize.x, 2.f) + pow(boundingBoxSize.y, 2.f));
 
 			// initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------
 			glm::mat4 viewTransform = viewer()->viewTransform();
@@ -1236,7 +1236,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	// Calculates the discrepancy of this data.
 	// Assumes the data is [0,1) for valid sample range.
 	// Assmues samplesX.size() == samplesY.size()
-	int numSamples = samplesX.size();
+	std::size_t numSamples = samplesX.size();
 
 	std::vector<float> sortedX(numSamples, 0.0f);
 	std::vector<float> sortedY(numSamples, 0.0f);
@@ -1249,7 +1249,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 
 	std::vector<float> discrepancies(tile->numTiles, 0.0f);
 
-	float eps = 0.05;
+	float eps = 0.05f;
 
 	//std::cout << "Discrepancy: " << numSamples << " Samples; " << numSquares << " Tiles" << '\n';
 
@@ -1260,7 +1260,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	start = std::clock();
 
 	//Step 1: Count how many elements belong to each tile
-	for (int i = 0; i < numSamples; i++) {
+	for (std::size_t i = 0; i < numSamples; i++) {
 
 		float sampleX = samplesX[i];
 		float sampleY = samplesY[i];
@@ -1278,9 +1278,9 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	int prefixSum = 0;
 	int sampleCount = 0;
 	int maxSampleCount = 0;
-	for (int i = 0; i < tile->numTiles; i++) {
-		sampleCount = pointsInTilesPrefixSum[i];
-		pointsInTilesPrefixSum[i] = prefixSum;
+	for (std::size_t i = 0; i < static_cast<std::size_t>(tile->numTiles); i++) {
+		sampleCount = static_cast<int>(pointsInTilesPrefixSum[i]);
+		pointsInTilesPrefixSum[i] = static_cast<float>(prefixSum);
 		prefixSum += sampleCount;
 		maxSampleCount = max(maxSampleCount, sampleCount);
 	}
@@ -1294,7 +1294,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 	// 1D array with "buckets" according to prefix Sum of tile
 	// also set the bounding box of points inside tile
 	std::vector<float> pointsInTilesRunningPrefixSum(pointsInTilesPrefixSum);
-	for (int i = 0; i < numSamples; i++) {
+	for (std::size_t i = 0; i < numSamples; i++) {
 
 		float sampleX = samplesX[i];
 		float sampleY = samplesY[i];
@@ -1302,7 +1302,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		int squareIndex1D = tile->mapPointToTile1D(vec2(sampleX, sampleY));
 
 		// put sample in correct position and increment prefix sum
-		int sampleIndex = pointsInTilesRunningPrefixSum[squareIndex1D]++;
+		int sampleIndex = static_cast<int>(pointsInTilesRunningPrefixSum[squareIndex1D]++);
 		sortedX[sampleIndex] = sampleX;
 		sortedY[sampleIndex] = sampleY;
 
@@ -1341,8 +1341,8 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 		for (int i = 0; i < tile->numTiles; i++) {
 
 			float maxDifference = 0.0f;
-			const int startPoint = pointsInTilesPrefixSum[i];
-			const int stopPoint = pointsInTilesPrefixSum[i] + pointsInTilesCount[i];
+			const int startPoint = static_cast<int>(pointsInTilesPrefixSum[i]);
+			const int stopPoint = static_cast<int>(pointsInTilesPrefixSum[i] + pointsInTilesCount[i]);
 
 			//use the addition and not PrefixSum[i+1] so we can easily get the last boundary
 			for (int j = startPoint; j < stopPoint; j++) {
@@ -1384,7 +1384,7 @@ std::vector<float> TileRenderer::calculateDiscrepancy2D(const std::vector<float>
 
 			// account for tiles with few points
 			//maxDifference = (1 - m_discrepancy_lowCount) * maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2));
-			maxDifference = min(maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2)), 1.0f);
+			maxDifference = min(maxDifference + m_discrepancy_lowCount * (1 - pow((pointsInTilesCount[i] / float(maxSampleCount)), 2.f)), 1.0f);
 
 
 			discrepancies[i] = maxDifference;

@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 	viewer->setModelTransform(modelTransform);
 
 
-	glfwSwapInterval(0);
+	glfwSwapInterval(1); // Set to 0 for "UNLIMITED FRAMES!!"
 
 	// Main loop
 	while (!glfwWindowShouldClose(window))

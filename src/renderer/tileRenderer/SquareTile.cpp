@@ -105,8 +105,8 @@ void SquareTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 {
 
 	// get maximum value of X,Y in accumulateTexture-Space
-	m_tile_cols = ceil(boundingBoxSize.x / tileSizeWS);
-	m_tile_rows = ceil(boundingBoxSize.y / tileSizeWS);
+	m_tile_cols = static_cast<int>(ceil(boundingBoxSize.x / tileSizeWS));
+	m_tile_rows = static_cast<int>(ceil(boundingBoxSize.y / tileSizeWS));
 	numTiles = m_tile_rows * m_tile_cols;
 	m_tileMaxX = m_tile_cols - 1;
 	m_tileMaxY = m_tile_rows - 1;

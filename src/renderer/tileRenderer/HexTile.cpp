@@ -127,7 +127,7 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	// we assume flat topped hexagons
 	// we use "Offset Coordinates"
 	horizontal_space = tileSizeWS * 1.5f;
-	vertical_space = sqrt(3)*tileSizeWS;
+	vertical_space = sqrt(3.f)*tileSizeWS;
 
 	// the rectangles used to map points to hexagons are
 	// half as high as the hexagon
@@ -138,24 +138,24 @@ void HexTile::calculateNumberOfTiles(vec3 boundingBoxSize, vec3 minBounds)
 	//number of hex columns
 	//+1 because else the floor operation could return 0 
 	float cols_tmp = 1 + (boundingBoxSize.x / horizontal_space);
-	m_tile_cols = floor(cols_tmp);
+	m_tile_cols = static_cast<int>(floor(cols_tmp));
 	if ((cols_tmp - m_tile_cols) * horizontal_space >= tileSizeWS) {
 		m_tile_cols += 1;
 	}
 
 	//number of hex rows
 	float rows_tmp = 1 + (boundingBoxSize.y / vertical_space);
-	m_tile_rows = floor(rows_tmp);
+	m_tile_rows = static_cast<int>(floor(rows_tmp));
 	if ((rows_tmp - m_tile_rows) * vertical_space >= vertical_space / 2) {
 		m_tile_rows += 1;
 	}
 
 	//max index of rect columns
 	if (m_tile_cols % 2 == 1) {
-		max_rect_col = ceil(m_tile_cols*1.5f) - 1;
+		max_rect_col = static_cast<int>(ceil(m_tile_cols*1.5f)) - 1;
 	}
 	else {
-		max_rect_col = ceil(m_tile_cols*1.5f);
+		max_rect_col = static_cast<int>(ceil(m_tile_cols*1.5f));
 	}
 
 	//max index of rect rows
