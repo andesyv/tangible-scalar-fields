@@ -70,6 +70,8 @@ namespace molumes
 
 		void saveImage(const std::string & filename);
 
+		bool m_perspective = true;
+
 	private:
 
 		void beginFrame();

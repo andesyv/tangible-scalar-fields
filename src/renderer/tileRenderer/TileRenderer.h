@@ -32,6 +32,7 @@ namespace molumes
 	{
 	public:
 		TileRenderer(Viewer *viewer);
+		void setEnabled(bool enabled) override;
 		~TileRenderer();
 		virtual void display();
 

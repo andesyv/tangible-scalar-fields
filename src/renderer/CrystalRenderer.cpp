@@ -104,6 +104,13 @@ CrystalRenderer::CrystalRenderer(Viewer* viewer) : Renderer(viewer)
 		});
 }
 
+void CrystalRenderer::setEnabled(bool enabled) {
+	Renderer::setEnabled(enabled);
+
+	if (enabled)
+		viewer()->m_perspective = true;
+}
+
 void CrystalRenderer::display()
 {
 	const auto currentState = State::currentState();

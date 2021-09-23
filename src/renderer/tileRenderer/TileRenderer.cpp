@@ -197,6 +197,14 @@ TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 	m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 }
 
+void molumes::TileRenderer::setEnabled(bool enabled)
+{
+	Renderer::setEnabled(enabled);
+
+	if (enabled)
+		viewer()->m_perspective = false;
+}
+
 //Destructor
 molumes::TileRenderer::~TileRenderer()
 {

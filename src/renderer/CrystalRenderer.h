@@ -17,6 +17,7 @@ namespace molumes
 	{
 	public:
 		CrystalRenderer(Viewer *viewer);
+		void setEnabled(bool enabled) override;
 		virtual void display() override;
 
 	private:

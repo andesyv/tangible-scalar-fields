@@ -41,7 +41,7 @@ namespace molumes
 	public:
 		Renderer(Viewer* viewer);
 		Viewer * viewer();
-		void setEnabled(bool enabled);
+		virtual void setEnabled(bool enabled);
 		bool isEnabled() const;
 		virtual void reloadShaders();
 		virtual void display() = 0;
