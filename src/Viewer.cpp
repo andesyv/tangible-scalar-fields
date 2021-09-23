@@ -16,6 +16,7 @@
 #include "CameraInteractor.h"
 #include "renderer/BoundingBoxRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
+#include "renderer/CrystalRenderer.h"
 #include "Scene.h" 
 #include "CSV/Table.h"
 #include <fstream>
@@ -154,8 +155,8 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 	glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
 	m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-	//m_renderers.emplace_back(std::make_unique<SphereRenderer>(this));
 	m_renderers.emplace_back(std::make_unique<TileRenderer>(this));
+	m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this));
 
 	// remove the following line to disable the bounding box renderer---------
 	//m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
@@ -584,7 +585,7 @@ void Viewer::beginFrame()
 	}
 
 	io.MouseWheel = m_mouseWheel;
-	// m_mouseWheel = 0.0f;
+	m_mouseWheel = 0.0f;
 
 	// Hide OS mouse cursor if ImGui is drawing it
 	glfwSetInputMode(m_window, GLFW_CURSOR, io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
