@@ -10,10 +10,11 @@ namespace molumes
 	{
 	public:
 		CameraInteractor(Viewer * viewer);
-		virtual void framebufferSizeEvent(int width, int height);
-		virtual void keyEvent(int key, int scancode, int action, int mods);
-		virtual void mouseButtonEvent(int button, int action, int mods);
-		virtual void cursorPosEvent(double xpos, double ypos);
+		virtual void framebufferSizeEvent(int width, int height) override;
+		virtual void keyEvent(int key, int scancode, int action, int mods) override;
+		virtual void mouseButtonEvent(int button, int action, int mods) override;
+		virtual void cursorPosEvent(double xpos, double ypos) override;
+		virtual void scrollEvent(double xoffset, double yoffset) override;
 		virtual void display();
 
 		void resetProjectionTransform();
@@ -37,8 +38,8 @@ namespace molumes
 		bool m_benchmark = false;
 		double m_startTime = 0.0;
 		glm::uint m_frameCount = 0;
-		double m_xPrevious = 0.0, m_yPrevious = 0.0;
-		double m_xCurrent = 0.0, m_yCurrent = 0.0;
+		glm::dvec2 m_mousePrevious{0.0}, m_mouseCurrent{0.0};
+		glm::dvec2 m_scrollCurrent{0.0}, m_scrollPrevious{0.0};
 	};
 
 }

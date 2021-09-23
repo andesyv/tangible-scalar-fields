@@ -54,9 +54,8 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS)
 	{
 		m_light = true;
-		m_xPrevious = m_xCurrent;
-		m_yPrevious = m_yCurrent;
-		cursorPosEvent(m_xCurrent, m_yCurrent);
+		m_mousePrevious = m_mouseCurrent;
+		cursorPosEvent(m_mouseCurrent.x, m_mouseCurrent.x);
 	}
 	else if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_RELEASE)
 	{
@@ -117,20 +116,17 @@ void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
 		m_rotating = true;
-		m_xPrevious = m_xCurrent;
-		m_yPrevious = m_yCurrent;
+		m_mousePrevious = m_mouseCurrent;
 	}
 	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
 		m_scaling = true;
-		m_xPrevious = m_xCurrent;
-		m_yPrevious = m_yCurrent;
+		m_mousePrevious = m_mouseCurrent;
 	}
 	else if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS)
 	{
 		m_panning = true;
-		m_xPrevious = m_xCurrent;
-		m_yPrevious = m_yCurrent;
+		m_mousePrevious = m_mouseCurrent;
 	}
 	else
 	{
@@ -142,12 +138,12 @@ void CameraInteractor::mouseButtonEvent(int button, int action, int mods)
 
 void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 {
-	m_xCurrent = xpos;
-	m_yCurrent = ypos;
+	m_mouseCurrent.x = xpos;
+	m_mouseCurrent.y = ypos;
 
 	if (m_light)
 	{
-		vec3 v = arcballVector(m_xCurrent, m_yCurrent);
+		vec3 v = arcballVector(m_mouseCurrent.x, m_mouseCurrent.y);
 		mat4 viewTransform = viewer()->viewTransform();
 
 		// 5 times the distance to the object in center) -----------------------------------------------------------------------
@@ -156,36 +152,38 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		//----------------------------------------------------------------------------------------------------------------------	
 	}
 
-	//if (m_rotating)
-	//{
-	//	if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
-	//	{
-	//		vec3 va = arcballVector(m_xPrevious, m_yPrevious);
-	//		vec3 vb = arcballVector(m_xCurrent, m_yCurrent);
-	//
-	//		if (va != vb)
-	//		{
-	//			float angle = acos(max(-1.0f, min(1.0f, dot(va, vb))));
-	//			vec3 axis = cross(va, vb);
-	//
-	//			mat4 viewTransform = viewer()->viewTransform();
-	//			mat4 inverseViewTransform = inverse(viewTransform);
-	//			vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
-	//
-	//			mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
-	//			viewer()->setViewTransform(newViewTransform);
-	//		}
-	//	}
-	//
-	//}
+	const bool nequal = any(notEqual(m_mouseCurrent, m_mousePrevious));
+
+	if (m_rotating)
+	{
+		if (nequal)
+		{
+			vec3 va = arcballVector(m_mousePrevious.x, m_mousePrevious.y);
+			vec3 vb = arcballVector(m_mouseCurrent.x, m_mouseCurrent.y);
+	
+			if (va != vb)
+			{
+				float angle = acos(max(-1.0f, min(1.0f, dot(va, vb))));
+				vec3 axis = cross(va, vb);
+	
+				mat4 viewTransform = viewer()->viewTransform();
+				mat4 inverseViewTransform = inverse(viewTransform);
+				vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
+	
+				mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
+				viewer()->setViewTransform(newViewTransform);
+			}
+		}
+	
+	}
 
 	if (m_scaling)
 	{
-		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
+		if (nequal)
 		{
 			ivec2 viewportSize = viewer()->viewportSize();
-			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
-			vec2 vb = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
+			vec2 va = vec2{2.f, -2.f}*vec2{m_mousePrevious} / vec2{viewportSize} + vec2{-1.f, 1.f};
+			vec2 vb = vec2{2.f, -2.f}*vec2{m_mouseCurrent} / vec2{viewportSize} + vec2{-1.f, 1.f};
 			vec2 d = vb - va;
 
 			float l = std::abs(d.x) > std::abs(d.y) ? d.x : d.y;
@@ -210,12 +208,12 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 	if (m_panning)
 	{
-		if (m_xCurrent != m_xPrevious || m_yCurrent != m_yPrevious)
+		if (nequal)
 		{
 			ivec2 viewportSize = viewer()->viewportSize();
 			float aspect = float(viewportSize.x) / float(viewportSize.y);
-			vec2 va = vec2(2.0f*float(m_xPrevious) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yPrevious) / float(viewportSize.y) + 1.0f);
-			vec2 vb = vec2(2.0f*float(m_xCurrent) / float(viewportSize.x) - 1.0f, -2.0f*float(m_yCurrent) / float(viewportSize.y) + 1.0f);
+			vec2 va = vec2{2.f, -2.f}*vec2{m_mousePrevious} / vec2{viewportSize} + vec2{-1.f, 1.f};
+			vec2 vb = vec2{2.f, -2.f}*vec2{m_mouseCurrent} / vec2{viewportSize} + vec2{-1.f, 1.f};
 			vec2 d = vb - va;
 
 			mat4 viewTransform = viewer()->viewTransform();
@@ -224,9 +222,20 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		}
 	}
 
-	m_xPrevious = m_xCurrent;
-	m_yPrevious = m_yCurrent;
+	m_mousePrevious = m_mouseCurrent;
 
+}
+
+void CameraInteractor::scrollEvent(double xoffset, double yoffset) {
+	m_scrollCurrent += dvec2{xoffset, yoffset};
+
+	const auto deltaScroll = m_scrollCurrent.x + m_scrollCurrent.y - m_scrollPrevious.x - m_scrollPrevious.y;
+	if (0.001 < std::abs(deltaScroll))
+	{
+		const auto newView = translate(mat4(1.0), vec3(0.f, 0.f, deltaScroll))*viewer()->viewTransform();
+		viewer()->setViewTransform(newView);
+		m_scrollPrevious = m_scrollCurrent;
+	}
 }
 
 void CameraInteractor::display()

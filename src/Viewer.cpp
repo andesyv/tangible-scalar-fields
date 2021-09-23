@@ -511,6 +511,11 @@ void Viewer::scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 
 		// clamp to adjust to GUI slider
 		viewer->m_scrollWheelSigma = clamp(viewer->m_scrollWheelSigma, 0.1f, 1.0f);
+
+		for (auto& i : viewer->m_interactors)
+		{
+			i->scrollEvent(xoffset, yoffset);
+		}
 	}
 }
 
@@ -579,7 +584,7 @@ void Viewer::beginFrame()
 	}
 
 	io.MouseWheel = m_mouseWheel;
-	m_mouseWheel = 0.0f;
+	// m_mouseWheel = 0.0f;
 
 	// Hide OS mouse cursor if ImGui is drawing it
 	glfwSetInputMode(m_window, GLFW_CURSOR, io.MouseDrawCursor ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_NORMAL);
