@@ -3,25 +3,22 @@
 in vec3 inPos;
 
 uniform int num_cols = 4;
+uniform int num_rows = 4;
 uniform mat4 MVP = mat4(1.0);
-uniform float tile_spacing = 1.0;
+uniform float horizontal_space = 1.0;
+uniform float vertical_space = 1.0;
+uniform mat4 disp_mat = mat4(1.0);
 
 flat out uint vs_id;
 
 void main() {
     //calculate position of hexagon center - in double height coordinates!
     //https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
-    float row;
-    float col = mod(gl_VertexID,num_cols);
 
-    if(mod(col,2) == 0){
-        row = floor(gl_VertexID/num_cols) * 2;
-    }
-    else{
-        row = (floor(gl_VertexID/num_cols) * 2) - 1;
-    }
+    float col = mod(gl_InstanceID,num_cols);
+    float row = floor(gl_InstanceID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
 
-    vs_id = gl_VertexID;
+    vs_id = gl_InstanceID;
 
 //    mat4 trans = mat4(1.0);
 //    trans[3].xyz = vec3(col, row, 0.0);
@@ -31,5 +28,6 @@ void main() {
 //
 //    gl_Position =  vec4(col * horizontal_space + minBounds_Off.x + tileSize, row * vertical_space/2.0f + minBounds_Off.y + vertical_space, 0.0f, 1.0f);
 
-    gl_Position = vec4(col * (tile_spacing * (7.0 / 4.0)), row * tile_spacing, 0.0, 1.0);
+//    gl_Position = vec4((col - 0.5 * (num_cols-1)) * horizontal_space, vertical_space * 0.5 * (row - num_rows + (num_cols != 1 ? 1.5 : 1.0)), 0.0, 1.0);
+    gl_Position = disp_mat * vec4(col, row, 0.0, 1.0);
 }
