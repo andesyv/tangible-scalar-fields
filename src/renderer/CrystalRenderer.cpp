@@ -86,11 +86,18 @@ constexpr auto CUBEVERTICES = std::to_array({
 		-1.0f, 1.0f, 1.0f,
 		1.0f,-1.0f, 1.0f});
 
+constexpr auto CENTERVERTICES = std::to_array({
+    0.f, 0.f, 0.f,
+    0.f, 0.f, 0.f,
+    0.f, 0.f, 0.f,
+    0.f, 0.f, 0.f
+});
+
 CrystalRenderer::CrystalRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	m_vao = std::make_unique<VertexArray>(); /// Apparantly exactly the same as VertexArray::create();
 	m_vertexBuffer = Buffer::create();
-	m_vertexBuffer->setData(CUBEVERTICES, GL_STATIC_DRAW);
+	m_vertexBuffer->setData(CENTERVERTICES, GL_STATIC_DRAW);
 
 	const auto binding = m_vao->binding(0);
 	binding->setAttribute(0);
@@ -100,6 +107,7 @@ CrystalRenderer::CrystalRenderer(Viewer* viewer) : Renderer(viewer)
 
 	createShaderProgram("crystal", {
 		{ GL_VERTEX_SHADER, "./res/crystal/crystal-vs.glsl" },
+        { GL_GEOMETRY_SHADER, "./res/crystal/crystal-gs.glsl" },
 		{ GL_FRAGMENT_SHADER, "./res/crystal/crystal-fs.glsl" }
 		});
 }
@@ -115,21 +123,41 @@ void CrystalRenderer::display()
 {
 	const auto currentState = State::currentState();
 
+    static bool wireframe = true;
+    static float tileScale = 1.0f;
+    static float tileSpacing = 0.87f;
+
+    if (ImGui::BeginMenu("Crystal"))
+    {
+        ImGui::Checkbox("Wireframe", &wireframe);
+        ImGui::SliderFloat("Tile scale", &tileScale, 0.f, 4.f);
+        ImGui::SliderFloat("Tile spacing", &tileSpacing, 0.f, 4.f);
+
+        ImGui::EndMenu();
+    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+
 	const auto shader = shaderProgram("crystal");
 	if (!shader)
 		return;
 	
 	viewer()->setModelTransform(mat4{1.f}); // Setting the model matrix to identity because something keeps fucking it up
 	const mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
+    const auto count = static_cast<GLsizei>(CENTERVERTICES.size());
 
 	shader->use();
 	shader->setUniform("MVP", modelViewProjectionMatrix);
+    shader->setUniform("POINT_COUNT", count);
+    shader->setUniform("tile_spacing", tileSpacing);
+    shader->setUniform("tile_scale", tileScale);
+
 	
 	m_vao->bind();
-	m_vao->drawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(CUBEVERTICES.size()));
+	m_vao->drawArrays(GL_POINTS, 0, count);
 	m_vao->unbind();
 
-	shader->release();
+	globjects::Program::release();
 
 	currentState->apply();
 }

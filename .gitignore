@@ -17,3 +17,6 @@ imgui.ini
 
 # VS Code files
 /.vscode
+
+# CLion files
+/.idea
