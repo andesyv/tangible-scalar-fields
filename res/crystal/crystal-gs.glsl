@@ -1,7 +1,7 @@
 #version 450
 
 layout(points) in;
-layout(triangle_strip, max_vertices = 10) out;
+layout(triangle_strip, max_vertices = 12) out;
 
 uniform sampler2D accumulateTexture;
 
@@ -78,18 +78,22 @@ void main()
 //        // position of tile center in screen space
 //        tileCenterSS = getScreenSpacePosOfPoint(MVP, vec2(gl_in[0].gl_Position), windowWidth, windowHeight);
 
-        //Emit 10 vertices for triangulated hexagon
         emitHexagonVertex(0);
         emitHexagonCenterVertex();
         emitHexagonVertex(1);
         emitHexagonVertex(2);
+        EndPrimitive();
+
+        emitHexagonVertex(2);
         emitHexagonCenterVertex();
         emitHexagonVertex(3);
         emitHexagonVertex(4);
+        EndPrimitive();
+
+        emitHexagonVertex(4);
         emitHexagonCenterVertex();
         emitHexagonVertex(5);
-        emitHexagonVertex(6);
-
+        emitHexagonVertex(0);
         EndPrimitive();
 //    }
 }

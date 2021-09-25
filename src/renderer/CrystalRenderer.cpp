@@ -48,44 +48,6 @@ using namespace gl;
 // 	ET* m_bindable;
 // };
 
-//constexpr auto CUBEVERTICES = std::to_array({
-//		-1.0f,-1.0f,-1.0f,
-//		-1.0f,-1.0f, 1.0f,
-//		-1.0f, 1.0f, 1.0f,
-//		1.0f, 1.0f,-1.0f,
-//		-1.0f,-1.0f,-1.0f,
-//		-1.0f, 1.0f,-1.0f,
-//		1.0f,-1.0f, 1.0f,
-//		-1.0f,-1.0f,-1.0f,
-//		1.0f,-1.0f,-1.0f,
-//		1.0f, 1.0f,-1.0f,
-//		1.0f,-1.0f,-1.0f,
-//		-1.0f,-1.0f,-1.0f,
-//		-1.0f,-1.0f,-1.0f,
-//		-1.0f, 1.0f, 1.0f,
-//		-1.0f, 1.0f,-1.0f,
-//		1.0f,-1.0f, 1.0f,
-//		-1.0f,-1.0f, 1.0f,
-//		-1.0f,-1.0f,-1.0f,
-//		-1.0f, 1.0f, 1.0f,
-//		-1.0f,-1.0f, 1.0f,
-//		1.0f,-1.0f, 1.0f,
-//		1.0f, 1.0f, 1.0f,
-//		1.0f,-1.0f,-1.0f,
-//		1.0f, 1.0f,-1.0f,
-//		1.0f,-1.0f,-1.0f,
-//		1.0f, 1.0f, 1.0f,
-//		1.0f,-1.0f, 1.0f,
-//		1.0f, 1.0f, 1.0f,
-//		1.0f, 1.0f,-1.0f,
-//		-1.0f, 1.0f,-1.0f,
-//		1.0f, 1.0f, 1.0f,
-//		-1.0f, 1.0f,-1.0f,
-//		-1.0f, 1.0f, 1.0f,
-//		1.0f, 1.0f, 1.0f,
-//		-1.0f, 1.0f, 1.0f,
-//		1.0f,-1.0f, 1.0f});
-
 constexpr auto CENTERVERTICES = std::to_array({
                                                       0.f, 0.f, 0.f
                                               });
@@ -132,6 +94,7 @@ void CrystalRenderer::display() {
         ImGui::EndMenu();
     }
 
+    glEnable(GL_CULL_FACE);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
     const auto shader = shaderProgram("crystal");
@@ -149,19 +112,20 @@ void CrystalRenderer::display() {
      * This makes the shader part much simpler to read.
      */
     const mat4 mTrans = translate(
-                                mat4{1.f},
-                                vec3{
-                                        -0.5f * static_cast<float>(num_cols - 1),
-                                        (num_cols != 1 ? 1.5f : 1.f) - static_cast<float>(num_rows),
-                                        0.f
-                                }
-                        );
+            mat4{1.f},
+            vec3{
+                    -0.5f * static_cast<float>(num_cols - 1),
+                    (num_cols != 1 ? 1.5f : 1.f) - static_cast<float>(num_rows),
+                    0.f
+            }
+    );
     const mat4 mScale = glm::scale(
             mat4{1.f},
             vec3{horizontal_space, vertical_space * 0.5f, 1.f}
     );
     const mat4 model = mScale * mTrans;
-    viewer()->setModelTransform(mat4{1.f}); // Setting the model matrix to identity because something keeps fucking it up
+    viewer()->setModelTransform(
+            mat4{1.f}); // Setting the model matrix to identity because something keeps fucking it up
     const mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
 
     shader->use();
