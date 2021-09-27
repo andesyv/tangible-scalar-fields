@@ -19,6 +19,7 @@
 
 #include <globjects/globjects.h>
 #include <globjects/logging.h>
+#include <globjects/State.h>
 
 #include "Scene.h"
 #include "CSV/Table.h"
@@ -36,6 +37,9 @@ void error_callback(int errnum, const char * errmsg)
 	globjects::critical() << errnum << ": " << errmsg << std::endl;
 }
 
+typedef std::pair<GLenum, std::string> ESPair;
+#define ESTR(x) ESPair{x, #x}
+
 int main(int argc, char *argv[])
 {
 	// Initialize GLFW
@@ -51,6 +55,7 @@ int main(int argc, char *argv[])
 	glfwWindowHint(GLFW_DOUBLEBUFFER, true);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 	glfwWindowHint(GLFW_SAMPLES, 8);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 
 	// Create a context and, if valid, make it current
 	GLFWwindow * window = glfwCreateWindow(1280, 720, "molumes", NULL, NULL);
@@ -72,7 +77,7 @@ int main(int argc, char *argv[])
 	});
 
 	// Enable debug logging
-	globjects::DebugMessage::enable();
+    //	globjects::DebugMessage::enable();
 	
 	globjects::debug()
 		<< "OpenGL Version:  " << glbinding::aux::ContextInfo::version() << std::endl
@@ -82,8 +87,48 @@ int main(int argc, char *argv[])
 	//std::string fileName = "./dat/6b0x.pdb";
 	std::string fileName = "";
 
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // If you want to ensure the error happens exactly after the error on the same thread.
+    glDebugMessageCallback([](GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam){
+        static const std::map<GLenum, std::string> SOURCES{
+                ESTR(GL_DEBUG_SOURCE_API),
+                ESTR(GL_DEBUG_SOURCE_WINDOW_SYSTEM),
+                ESTR(GL_DEBUG_SOURCE_SHADER_COMPILER),
+                ESTR(GL_DEBUG_SOURCE_THIRD_PARTY),
+                ESTR(GL_DEBUG_SOURCE_APPLICATION),
+                ESTR(GL_DEBUG_SOURCE_OTHER)
+        };
+
+        static const std::map<GLenum, std::string> TYPES{
+                ESTR(GL_DEBUG_TYPE_ERROR),
+                ESTR(GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR),
+                ESTR(GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR),
+                ESTR(GL_DEBUG_TYPE_PORTABILITY),
+                ESTR(GL_DEBUG_TYPE_PERFORMANCE),
+                ESTR(GL_DEBUG_TYPE_MARKER),
+                ESTR(GL_DEBUG_TYPE_PUSH_GROUP),
+                ESTR(GL_DEBUG_TYPE_POP_GROUP),
+                ESTR(GL_DEBUG_TYPE_OTHER)
+        };
+
+        static const std::map<GLenum, std::string> SEVERITIES{
+                ESTR(GL_DEBUG_SEVERITY_HIGH),
+                ESTR(GL_DEBUG_SEVERITY_MEDIUM),
+                ESTR(GL_DEBUG_SEVERITY_LOW),
+                ESTR(GL_DEBUG_SEVERITY_NOTIFICATION)
+        };
+
+        const auto [sourceStr, typeStr, severityStr] = std::tie(SOURCES.at(source), TYPES.at(type), SEVERITIES.at(severity));
+        if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
+            std::cout << "GL_DEBUG: (source: " << sourceStr << ", type: " << typeStr << ", severity: " << severityStr << ", message: " << message << std::endl;
+            assert(severity != GL_DEBUG_SEVERITY_HIGH);
+        }
+    }, nullptr);
+
 	if (argc > 1)
 		fileName = std::string(argv[1]);
+
+    auto defaultState = State::currentState();
 
 	auto scene = std::make_unique<Scene>();
 	//scene->table()->load(fileName);
@@ -102,6 +147,7 @@ int main(int argc, char *argv[])
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
+//        defaultState->apply();
 		glfwPollEvents();
 		viewer->display();
 		//glFinish();
