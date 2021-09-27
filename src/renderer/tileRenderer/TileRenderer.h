@@ -33,13 +33,11 @@ namespace molumes
 	public:
 		TileRenderer(Viewer *viewer);
 		void setEnabled(bool enabled) override;
-		~TileRenderer();
 		virtual void display();
 
 	private:
-
 		Tile* tile = nullptr;
-		std::unordered_map<std::string, Tile*> tile_processors;
+		std::unordered_map<std::string, std::shared_ptr<Tile>> tile_processors;
 
 		// INITIAL POINT DATA ----------------------------------------------------------------------
 		std::unique_ptr<globjects::VertexArray> m_vao = std::make_unique<globjects::VertexArray>();

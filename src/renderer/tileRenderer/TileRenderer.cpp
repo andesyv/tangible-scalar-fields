@@ -34,8 +34,8 @@ using namespace globjects;
 TileRenderer::TileRenderer(Viewer* viewer) : Renderer(viewer)
 {
 	// initialise tile objects
-	tile_processors["square"] = new SquareTile(this);
-	tile_processors["hexagon"] = new HexTile(this);
+	tile_processors["square"] = std::move(std::make_shared<SquareTile>(this));
+	tile_processors["hexagon"] = std::move(std::make_shared<HexTile>(this));
 
 	Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
 
@@ -205,17 +205,6 @@ void molumes::TileRenderer::setEnabled(bool enabled)
 		viewer()->m_perspective = false;
 }
 
-//Destructor
-molumes::TileRenderer::~TileRenderer()
-{
-	if (tile_processors.count("square") > 0) {
-		delete tile_processors["square"];
-	}
-	if (tile_processors.count("hexagon") > 0) {
-		delete tile_processors["hexagon"];
-	}
-}
-
 
 void TileRenderer::display()
 {
@@ -275,12 +264,15 @@ void TileRenderer::display()
 		//set tile processor
 		switch (m_selected_tile_style) {
 		case 1:
-			tile = tile_processors["square"];
+            tile = tile_processors["square"].get();
+            viewer()->m_tile = tile_processors["square"];
 			break;
 		case 2:
-			tile = tile_processors["hexagon"];
+            tile = tile_processors["hexagon"].get();
+            viewer()->m_tile = tile_processors["hexagon"];
 			break;
 		default:
+            viewer()->m_tile = {};
 			tile = nullptr;
 			break;
 		}

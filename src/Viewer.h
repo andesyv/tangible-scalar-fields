@@ -15,12 +15,13 @@
 #include <globjects/Shader.h>
 #include <imgui.h>
 
-#include "Scene.h"
 #include "Interactor.h"
 #include "renderer/Renderer.h"
 
 namespace molumes
 {
+    class Tile;
+    class Scene;
 
 	class Viewer
 	{
@@ -71,6 +72,7 @@ namespace molumes
 		void saveImage(const std::string & filename);
 
 		bool m_perspective = true;
+        std::weak_ptr<Tile> m_tile;
 
 	private:
 

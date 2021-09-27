@@ -17,7 +17,7 @@
 #include "renderer/BoundingBoxRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "renderer/CrystalRenderer.h"
-#include "Scene.h" 
+#include "Scene.h"
 #include "CSV/Table.h"
 #include <fstream>
 #include <sstream>
