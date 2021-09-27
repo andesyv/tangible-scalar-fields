@@ -31,9 +31,9 @@ namespace molumes
 	class TileRenderer : public Renderer
 	{
 	public:
-		TileRenderer(Viewer *viewer);
+		explicit TileRenderer(Viewer *viewer);
 		void setEnabled(bool enabled) override;
-		virtual void display();
+		void display() override;
 
 	private:
 		Tile* tile = nullptr;
@@ -102,18 +102,18 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
 
-		glm::ivec2 m_framebufferSize;
+		glm::ivec2 m_framebufferSize{};
 
 
 		// LIGHTING -----------------------------------------------------------------------
-		glm::vec3 ambientMaterial;
-		glm::vec3 diffuseMaterial;
-		glm::vec3 specularMaterial;
-		float shininess;
+		glm::vec3 ambientMaterial{};
+		glm::vec3 diffuseMaterial{};
+		glm::vec3 specularMaterial{};
+		float shininess{};
 
 
 		// TILES CALC----------------------------------------------------------------
-		void calculateTileTextureSize(const glm::mat4 inverseModelViewProjectionMatrix);
+		void calculateTileTextureSize(const glm::mat4& inverseModelViewProjectionMatrix);
 
 
 		// GUI ----------------------------------------------------------------------------
@@ -122,10 +122,10 @@ namespace molumes
 		void setShaderDefines();
 
 		// items for ImGui Combo
-		std::string m_guiFileNames = { 'N', 'o', 'n', 'e', '\0' };
+		std::string m_guiFileNames = "None";
 		std::vector<std::string>  m_fileNames = { "None" };
 
-		std::string m_guiColumnNames = { 'N', 'o', 'n', 'e', '\0' };
+		std::string m_guiColumnNames = "None";
 
 		// store combo ID of selected file
 		int m_fileDataID = 0;
@@ -146,8 +146,8 @@ namespace molumes
 
 		// Tiles Parameters
 		// [none=0, square=1, hexagon=2]
-		int m_selected_tile_style = 2;
-		int m_selected_tile_style_tmp = m_selected_tile_style;
+		int m_selected_tile_style = -1;
+		int m_selected_tile_style_tmp = 2;
 
 		// tileSize adjustable by user
 		float m_tileSize = 20.0f;
@@ -206,7 +206,7 @@ namespace molumes
 		bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
 		bool m_renderGrid = false;
 		bool m_renderKDE = false;
-		bool m_renderTileNormals = true;
+		bool m_renderTileNormals = false;
 		bool m_smoothTileNormals = false;
 		bool m_renderNormalBuffer = false;
 		bool m_renderDepthBuffer = false;
@@ -220,7 +220,7 @@ namespace molumes
 
 		// INTERVAL MAPPING--------------------------------------------------------------------------
 		//maps value x from [a,b] --> [0,c]
-		float mapInterval(float x, float a, float b, int c);
+		static float mapInterval(float x, float a, float b, int c);
 
 		// DISCREPANCY------------------------------------------------------------------------------
 

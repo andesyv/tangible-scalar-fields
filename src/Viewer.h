@@ -69,7 +69,7 @@ namespace molumes
 		void setLightTransform(const glm::mat4& m);
 		void setProjectionTransform(const glm::mat4& m);
 
-		void saveImage(const std::string & filename);
+		void saveImage(const std::string & filename) const;
 
 		bool m_perspective = true;
         std::weak_ptr<Tile> m_tile;

@@ -49,6 +49,15 @@ using namespace gl;
 // 	ET* m_bindable;
 // };
 
+const auto stateGuard = []() {
+    return std::shared_ptr<State>{State::currentState().release(), [](State *p) {
+        if (p != nullptr) {
+            p->apply();
+            delete p;
+        }
+    }};
+};
+
 constexpr auto CENTERVERTICES = std::to_array({
                                                       0.f, 0.f, 0.f
                                               });
@@ -79,12 +88,7 @@ void CrystalRenderer::setEnabled(bool enabled) {
 }
 
 void CrystalRenderer::display() {
-    const auto currentState = std::shared_ptr<State>{State::currentState().release(), [](State* p){
-        if (p != nullptr) {
-            p->apply();
-            delete p;
-        }
-    }};
+    const auto state = stateGuard();
 
     static bool wireframe = true;
     static float tileScale = 1.0f;
@@ -100,11 +104,7 @@ void CrystalRenderer::display() {
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
     const auto tile = viewer()->m_tile;
-    int count = 9;
-    if (!tile.expired()) {
-        const auto tileInstance = tile.lock();
-        count = tileInstance->numTiles;
-    }
+    const int count = tile.expired() ? 0 : tile.lock()->numTiles;
     if (count < 1)
         return;
 
@@ -136,7 +136,8 @@ void CrystalRenderer::display() {
             vec3{horizontal_space, vertical_space * 0.5f, 1.f}
     );
     const mat4 model = mScale * mTrans;
-    const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() * viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
+    const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() *
+                                           viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
     shader->use();
     shader->setUniform("MVP", modelViewProjectionMatrix);
