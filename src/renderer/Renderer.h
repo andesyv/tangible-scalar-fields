@@ -1,25 +1,21 @@
 #pragma once
-#include <list>
-#include <utility>
-#include <initializer_list>
-#include <memory>
-#include <unordered_map>
+
 #include <set>
+#include <memory>
+#include <string>
+#include <unordered_map>
 
-#include <glm/glm.hpp>
-#include <glbinding/gl/gl.h>
-#include <glbinding/gl/enum.h>
-#include <glbinding/gl/functions.h>
+#include <glbinding/gl/types.h>
+#include <glm/fwd.hpp>
 
-#include <globjects/VertexArray.h>
-#include <globjects/VertexAttributeBinding.h>
-#include <globjects/Buffer.h>
-#include <globjects/Program.h>
-#include <globjects/Shader.h>
-#include <globjects/Texture.h>
-#include <globjects/base/File.h>
-#include <globjects/NamedString.h>
-#include <globjects/base/StaticStringSource.h>
+namespace globjects{
+    class File;
+    class Shader;
+    class Program;
+    class Texture;
+    class AbstractStringSource;
+    class NamedString;
+}
 
 namespace molumes
 {
@@ -34,7 +30,7 @@ namespace molumes
 			std::set< std::unique_ptr< globjects::AbstractStringSource> > m_sources;
 			std::set< std::unique_ptr< globjects::NamedString> > m_strings;
 			std::set< std::unique_ptr< globjects::Shader > > m_shaders;
-			std::unique_ptr< globjects::Program > m_program = std::make_unique<globjects::Program>();
+			std::unique_ptr< globjects::Program > m_program;
 		};
 
 

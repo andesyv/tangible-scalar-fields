@@ -15,6 +15,8 @@ if (MSVC)
     target_compile_options(molumes PRIVATE /experimental:external /external:anglebrackets /external:I ./lib /external:W0 /WX)
 endif()
 
+set(CMAKE_BUILD_PARALLEL_LEVEL 8)
+
 add_subdirectory(src)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT molumes)
 

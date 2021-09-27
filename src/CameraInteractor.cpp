@@ -1,23 +1,12 @@
 #include "CameraInteractor.h"
+#include "Viewer.h"
 
 #include <iostream>
 #include <algorithm>
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
-#include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/constants.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include <glbinding/gl/gl.h>
-#include <glbinding/gl/enum.h>
-#include <glbinding/gl/functions.h>
-
-#include "Viewer.h"
+#include <globjects/logging.h>
+#include <imgui.h>
 
 using namespace molumes;
 using namespace glm;

@@ -1,14 +1,27 @@
 #include "TileRenderer.h"
-#include <globjects/State.h>
+
 #include <filesystem>
 #include <imgui.h>
 #include <omp.h>
-#include "../../Viewer.h"
-#include "../../Scene.h"
 #include <lodepng.h>
-
 #include <ctime>
+#include <memory>
 
+#include <glbinding/gl/gl.h>
+
+#include <globjects/State.h>
+#include <globjects/VertexArray.h>
+#include <globjects/VertexAttributeBinding.h>
+#include <globjects/Buffer.h>
+#include <globjects/Program.h>
+#include <globjects/Shader.h>
+#include <globjects/Framebuffer.h>
+#include <globjects/Renderbuffer.h>
+#include <globjects/Texture.h>
+#include <globjects/base/File.h>
+#include <globjects/TextureHandle.h>
+#include <globjects/NamedString.h>
+#include <globjects/base/StaticStringSource.h>
 
 #ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
@@ -18,6 +31,13 @@
 #endif
 
 #define GLM_ENABLE_EXPERIMENTAL
+
+#include "Tile.h"
+#include "SquareTile.h"
+#include "HexTile.h"
+#include "../../Viewer.h"
+#include "../../Scene.h"
+#include "../../CSV/Table.h"
 
 using namespace molumes;
 using namespace gl;

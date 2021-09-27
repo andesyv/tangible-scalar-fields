@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include "CSV/Table.h"
 
 namespace molumes
 {

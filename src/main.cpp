@@ -2,12 +2,9 @@
 
 #include <glbinding/Version.h>
 #include <glbinding/Binding.h>
-#include <glbinding/FunctionCall.h>
-#include <glbinding/CallbackMask.h>
+#include <glbinding/gl/enum.h>
 
 #include <glbinding-aux/ContextInfo.h>
-#include <glbinding-aux/Meta.h>
-#include <glbinding-aux/types_to_string.h>
 #include <glbinding-aux/ValidVersions.h>
 
 #define GLFW_INCLUDE_NONE
@@ -23,6 +20,8 @@
 #include <globjects/globjects.h>
 #include <globjects/logging.h>
 #include <globjects/State.h>
+#include <globjects/base/File.h>
+#include <globjects/NamedString.h>
 
 #include "Scene.h"
 #include "CSV/Table.h"

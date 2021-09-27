@@ -1,10 +1,9 @@
 #include "HexTile.h"
-#include <iostream>
-#include <omp.h>
-#include <sstream>
 
-#include <cstdio>
-#include <ctime>
+#include <iostream>
+
+#include <glbinding/gl/enum.h>
+#include <globjects/Program.h>
 
 using namespace molumes;
 using namespace gl;

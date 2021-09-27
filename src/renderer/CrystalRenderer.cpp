@@ -1,16 +1,18 @@
 #include "CrystalRenderer.h"
 #include "../Viewer.h"
-
-#include <iostream>
-#include <array>
-// #include <glbinding/gl/gl.h>
-#include <glbinding/gl/enum.h>
-// #include <glbinding/gl/functions.h>
-#include <globjects/VertexArray.h>
-#include <globjects/State.h>
-#include <glm/glm.hpp>
-#include <glm/gtx/string_cast.hpp>
 #include "tileRenderer/Tile.h"
+
+#include <array>
+
+#include <glbinding/gl/enum.h>
+#include <globjects/globjects.h>
+#include <globjects/base/AbstractStringSource.h>
+#include <globjects/base/File.h>
+#include <globjects/State.h>
+#include <globjects/VertexAttributeBinding.h>
+#include <globjects/NamedString.h>
+#include <glm/gtx/string_cast.hpp>
+#include <imgui.h>
 
 using namespace molumes;
 using namespace globjects;

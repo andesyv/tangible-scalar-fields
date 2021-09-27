@@ -4,6 +4,23 @@
 #include <iostream>
 #include <filesystem>
 
+#include <list>
+#include <utility>
+#include <initializer_list>
+#include <memory>
+#include <unordered_map>
+
+#include <glm/glm.hpp>
+#include <glbinding/gl/gl.h>
+
+#include <globjects/VertexArray.h>
+#include <globjects/Buffer.h>
+#include <globjects/Program.h>
+#include <globjects/Shader.h>
+#include <globjects/Texture.h>
+#include <globjects/NamedString.h>
+#include <globjects/base/StaticStringSource.h>
+
 using namespace molumes;
 using namespace gl;
 using namespace glm;

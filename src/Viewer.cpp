@@ -1,6 +1,8 @@
 #include "Viewer.h"
 
 #include <iostream>
+#include <list>
+#include <sstream>
 
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -11,13 +13,25 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 
+#include <lodepng.h>
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <glbinding/gl/enum.h>
+#include <glbinding/gl/bitfield.h>
+#include <glbinding/gl/functions.h>
+#include <globjects/globjects.h>
+#include <globjects/base/File.h>
+#include <globjects/base/StaticStringSource.h>
+#include <globjects/VertexAttributeBinding.h>
+#include <globjects/NamedString.h>
+#include <imgui.h>
+
 #include "CameraInteractor.h"
 #include "renderer/BoundingBoxRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "renderer/CrystalRenderer.h"
 #include "Scene.h"
-#include <list>
-#include <lodepng.h>
+#include "CSV/Table.h"
 
 using namespace molumes;
 using namespace gl;

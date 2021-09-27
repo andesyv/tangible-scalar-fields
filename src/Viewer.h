@@ -2,26 +2,27 @@
 
 #include <memory>
 #include <vector>
+#include <string>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <globjects/Texture.h>
-#include <globjects/VertexArray.h>
-#include <globjects/VertexAttributeBinding.h>
-#include <globjects/Buffer.h>
-#include <globjects/Program.h>
-#include <globjects/Shader.h>
-#include <imgui.h>
 
-#include "Interactor.h"
-#include "renderer/Renderer.h"
+namespace globjects{
+    class File;
+    class Shader;
+    class Program;
+    class Texture;
+    class Buffer;
+    class VertexArray;
+}
 
 namespace molumes
 {
     class Tile;
     class Scene;
+    class Renderer;
+    class Interactor;
 
 	class Viewer
 	{
