@@ -10,6 +10,7 @@
 #include <globjects/State.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include "tileRenderer/Tile.h"
 
 using namespace molumes;
 using namespace globjects;
@@ -78,18 +79,19 @@ void CrystalRenderer::setEnabled(bool enabled) {
 }
 
 void CrystalRenderer::display() {
-    const auto currentState = State::currentState();
+    const auto currentState = std::shared_ptr<State>{State::currentState().release(), [](State* p){
+        if (p != nullptr) {
+            p->apply();
+            delete p;
+        }
+    }};
 
     static bool wireframe = true;
     static float tileScale = 1.0f;
-    static float tileSpacing = 0.87f;
-    static int count = 9;
 
     if (ImGui::BeginMenu("Crystal")) {
         ImGui::Checkbox("Wireframe", &wireframe);
         ImGui::SliderFloat("Tile scale", &tileScale, 0.f, 4.f);
-        ImGui::SliderFloat("Tile spacing", &tileSpacing, 0.f, 4.f);
-        ImGui::SliderInt("Hex Count", &count, 1, 100);
 
         ImGui::EndMenu();
     }
@@ -97,9 +99,19 @@ void CrystalRenderer::display() {
     glEnable(GL_CULL_FACE);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
+    const auto tile = viewer()->m_tile;
+    int count = 9;
+    if (!tile.expired()) {
+        const auto tileInstance = tile.lock();
+        count = tileInstance->numTiles;
+    }
+    if (count < 1)
+        return;
+
     const auto shader = shaderProgram("crystal");
     if (!shader)
         return;
+
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
     const auto num_rows = (count - 1) / num_cols + 1;
@@ -124,9 +136,7 @@ void CrystalRenderer::display() {
             vec3{horizontal_space, vertical_space * 0.5f, 1.f}
     );
     const mat4 model = mScale * mTrans;
-    viewer()->setModelTransform(
-            mat4{1.f}); // Setting the model matrix to identity because something keeps fucking it up
-    const mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
+    const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() * viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
     shader->use();
     shader->setUniform("MVP", modelViewProjectionMatrix);
@@ -142,6 +152,4 @@ void CrystalRenderer::display() {
     m_vao->unbind();
 
     globjects::Program::release();
-
-    currentState->apply();
 }
