@@ -94,10 +94,12 @@ void CrystalRenderer::display() {
 
     static bool wireframe = false;
     static float tileScale = 1.0f;
+    static float tileHeight = 1.0f;
 
     if (ImGui::BeginMenu("Crystal")) {
         ImGui::Checkbox("Wireframe", &wireframe);
         ImGui::SliderFloat("Tile scale", &tileScale, 0.f, 4.f);
+        ImGui::SliderFloat("Height", &tileHeight, 0.01f, 1.f);
 
         ImGui::EndMenu();
     }
@@ -160,6 +162,7 @@ void CrystalRenderer::display() {
     shader->setUniform("horizontal_space", horizontal_space);
     shader->setUniform("vertical_space", vertical_space);
     shader->setUniform("disp_mat", model);
+    shader->setUniform("height", tileHeight);
 
     m_vao->drawArraysInstanced(GL_POINTS, 0, 1, count);
     m_vao->unbind();

@@ -4,11 +4,11 @@ layout(points) in;
 layout(triangle_strip, max_vertices = 12) out;
 
 in VS_OUT {
-    flat uint id;
-    flat ivec2 texPos;
+    uint id;
+    ivec2 texPos;
+    float value;
 } gs_in[];
 
-layout(binding = 0) uniform sampler2D accumulateTexture;
 uniform float tile_scale = 0.6;
 uniform mat4 MVP = mat4(1.0);
 
@@ -46,15 +46,8 @@ void emitHexagonCenterVertex(){
 
 void main()
 {
-
-    ivec2 tilePosInAccTexture = gs_in[0].texPos;
-//    accCoords = tilePosInAccTexture;
-
     gs_out.id = gs_in[0].id;
-
-    // get value from accumulate texture
-    float hexValue = texelFetch(accumulateTexture, tilePosInAccTexture, 0).r;
-    gs_out.value = hexValue;
+    gs_out.value = gs_in[0].value;
 
     //left top, left bottom, bottom, right bottom, right top, top
 //    if(mod(tilePosInAccTexture.x, 2) == 0){
@@ -74,7 +67,7 @@ void main()
 //    neighbourValues[5] = texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y+1), 0).r;
 
     // we dont want to render the grid for empty hexs
-    if(hexValue < 1)
+    if(gs_in[0].value < 1)
         return;
 
         // tile size in screen space

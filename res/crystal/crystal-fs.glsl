@@ -16,7 +16,9 @@ uniform int POINT_COUNT = 1;
 out vec4 fragColor;
 
 void main() {
-//    vec3 col = vec3(float(gs_id) / POINT_COUNT, mod(float(gs_id), POINT_COUNT / 2), mod(float(gs_id), POINT_COUNT / 3));
-    float val = fs_in.value / 10.0;
-    fragColor = vec4(vec3(val), 1.0);
+    // hexagon-tiles-fs.glsl: 109
+    const float max = uintBitsToFloat(maxAccumulate) + 1;
+
+    vec3 col = vec3(fs_in.value / max, fract(2.3 * fs_in.value / max), fract(2.4 * fs_in.value / max));
+    fragColor = vec4(col, 1.0);
 }
