@@ -63,7 +63,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_pointChartTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_pointCircleTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesDiscrepanciesTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
+		std::shared_ptr<globjects::Texture> m_tileAccumulateTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_normalsAndDepthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
@@ -77,7 +77,7 @@ namespace molumes
 		//---------------------------------------------------------------------------------------
 
 		//SSBO
-		std::unique_ptr<globjects::Buffer> m_valueMaxBuffer = std::make_unique<globjects::Buffer>();
+		std::shared_ptr<globjects::Buffer> m_valueMaxBuffer;
 		std::unique_ptr<globjects::Buffer> m_tileNormalsBuffer = std::make_unique<globjects::Buffer>();
 
 		// FRAMEBUFFER -------------------------------------------------------------------------

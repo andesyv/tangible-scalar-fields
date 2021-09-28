@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <tuple>
+#include <utility>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -15,6 +17,14 @@ namespace globjects{
     class Texture;
     class Buffer;
     class VertexArray;
+    class Texture;
+}
+
+template <typename ... Ts>
+bool all_t_weak_ptr(const std::tuple<Ts...>& tuple) {
+    return std::apply([](Ts const&... tupleArgs){
+        return (!tupleArgs.expired() && ...);
+    }, tuple);
 }
 
 namespace molumes
@@ -73,7 +83,15 @@ namespace molumes
 		void saveImage(const std::string & filename) const;
 
 		bool m_perspective = true;
-        std::weak_ptr<Tile> m_tile;
+
+        struct SharedResources {
+            std::weak_ptr<Tile> tile;
+            std::weak_ptr<globjects::Texture> tileAccumulateTexture;
+            std::weak_ptr<globjects::Buffer> tileAccumulateMax;
+
+            [[nodiscard]] auto as_tuple() const { return std::make_tuple(tile, tileAccumulateTexture, tileAccumulateMax); }
+            explicit operator bool() const { return all_t_weak_ptr(as_tuple()); }
+        } m_sharedResources;
 
 	private:
 

@@ -92,7 +92,7 @@ void CrystalRenderer::setEnabled(bool enabled) {
 void CrystalRenderer::display() {
     const auto state = stateGuard();
 
-    static bool wireframe = true;
+    static bool wireframe = false;
     static float tileScale = 1.0f;
 
     if (ImGui::BeginMenu("Crystal")) {
@@ -105,8 +105,13 @@ void CrystalRenderer::display() {
     glEnable(GL_CULL_FACE);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
-    const auto tile = viewer()->m_tile;
-    const int count = tile.expired() ? 0 : tile.lock()->numTiles;
+    // Borrow resources from tileRenderer
+    /// Borrowing like this prevents CrystalRenderer to gain ownership, but ensures resources are valid while drawing
+    auto resources = viewer()->m_sharedResources;
+    if (!resources)
+        return;
+
+    const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
     if (count < 1)
         return;
 
@@ -120,6 +125,8 @@ void CrystalRenderer::display() {
     const float scale = tileScale / static_cast<float>(num_cols);
     const float horizontal_space = scale * 1.5f;
     const float vertical_space = std::sqrt(3.f) * scale;
+    auto accumulateTexture = resources.tileAccumulateTexture.lock();
+    auto accumulateMax = resources.tileAccumulateMax.lock();
     /* This looks a bit scary, but it's just doing whatever this line:
      * gl_Position = vec4((col - 0.5 * (num_cols-1)) * horizontal_space, vertical_space * 0.5 * (row - num_rows + (num_cols != 1 ? 1.5 : 1.0)), 0.0, 1.0);
      * was doing in the shader, which just moves the hex grid to be centered in the bounding box cube.
@@ -141,6 +148,9 @@ void CrystalRenderer::display() {
     const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() *
                                            viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
+    accumulateTexture->bindActive(0);
+    accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+
     shader->use();
     shader->setUniform("MVP", modelViewProjectionMatrix);
     shader->setUniform("POINT_COUNT", count);
@@ -153,6 +163,9 @@ void CrystalRenderer::display() {
 
     m_vao->drawArraysInstanced(GL_POINTS, 0, 1, count);
     m_vao->unbind();
+
+    accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 1);
+    accumulateTexture->unbindActive(0);
 
     globjects::Program::release();
 }

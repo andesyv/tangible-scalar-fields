@@ -59,6 +59,8 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     m_vaoQuad->unbind();
 
     // shader storage buffer object for current maximum accumulated value and maximum alpha value of point circle blending
+    m_valueMaxBuffer = std::move(std::make_shared<globjects::Buffer>());
+    viewer->m_sharedResources.tileAccumulateMax = m_valueMaxBuffer;
     m_valueMaxBuffer->setStorage(sizeof(uint) * 2, nullptr, gl::GL_NONE_BIT);
 
     m_shaderSourceDefines = StaticStringSource::create("");
@@ -112,8 +114,11 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     m_tilesDiscrepanciesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE,
                                                   GL_CLAMP_TO_EDGE, 0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA,
                                                   GL_UNSIGNED_BYTE, nullptr);
-    m_tileAccumulateTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+    // Convert to shared ptr so it can be shared across multiple renderers:
+    auto tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                                               0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    m_tileAccumulateTexture = std::move(std::shared_ptr<Texture>{tex.release()});
+    viewer->m_sharedResources.tileAccumulateTexture = m_tileAccumulateTexture;
 
     m_tilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                      GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -289,14 +294,14 @@ void TileRenderer::display() {
         switch (m_selected_tile_style) {
             case 1:
                 tile = tile_processors["square"].get();
-                viewer()->m_tile = tile_processors["square"];
+                viewer()->m_sharedResources.tile = tile_processors["square"];
                 break;
             case 2:
                 tile = tile_processors["hexagon"].get();
-                viewer()->m_tile = tile_processors["hexagon"];
+                viewer()->m_sharedResources.tile = tile_processors["hexagon"];
                 break;
             default:
-                viewer()->m_tile = {};
+                viewer()->m_sharedResources.tile = {};
                 tile = nullptr;
                 break;
         }

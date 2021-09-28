@@ -3,19 +3,21 @@
 layout(points) in;
 layout(triangle_strip, max_vertices = 12) out;
 
-uniform sampler2D accumulateTexture;
+in VS_OUT {
+    flat uint id;
+    flat ivec2 texPos;
+} gs_in[];
 
+layout(binding = 0) uniform sampler2D accumulateTexture;
 uniform float tile_scale = 0.6;
 uniform mat4 MVP = mat4(1.0);
 
 const float PI = 3.1415926;
 
-flat in uint vs_id[];
-flat out uint gs_id;
-
-//in VS_OUT {
-//    vec2 accTexPosition;
-//} gs_in[];
+out GS_OUT {
+    flat uint id;
+    flat float value;
+} gs_out;
 
 //in screen space
 //out float tileSizeSS;
@@ -27,8 +29,8 @@ flat out uint gs_id;
 // continue agains clock circle (i = 1 = right Top)
 void emitHexagonVertex(int i){
     //flat-topped
-    float angle_deg = 60 * i;
-    float angle_rad = PI / 180 * angle_deg;
+    float angle_deg = -60.0 * i;
+    float angle_rad = PI / 180.0 * angle_deg;
 
     // Offset from center of point + grid width
     vec4 offset = vec4(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0, 0.0);
@@ -45,13 +47,14 @@ void emitHexagonCenterVertex(){
 void main()
 {
 
-//    ivec2 tilePosInAccTexture = ivec2(gs_in[0].accTexPosition);
+    ivec2 tilePosInAccTexture = gs_in[0].texPos;
 //    accCoords = tilePosInAccTexture;
 
-    gs_id = vs_id[0];
+    gs_out.id = gs_in[0].id;
 
     // get value from accumulate texture
-//    float hexValue = texelFetch(accumulateTexture, tilePosInAccTexture, 0).r;
+    float hexValue = texelFetch(accumulateTexture, tilePosInAccTexture, 0).r;
+    gs_out.value = hexValue;
 
     //left top, left bottom, bottom, right bottom, right top, top
 //    if(mod(tilePosInAccTexture.x, 2) == 0){
@@ -71,7 +74,8 @@ void main()
 //    neighbourValues[5] = texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y+1), 0).r;
 
     // we dont want to render the grid for empty hexs
-//    if(hexValue > 0){
+    if(hexValue < 1)
+        return;
 
         // tile size in screen space
 //        tileSizeSS = getScreenSpaceSize(MVP, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
@@ -95,5 +99,4 @@ void main()
         emitHexagonVertex(5);
         emitHexagonVertex(0);
         EndPrimitive();
-//    }
 }

@@ -65,9 +65,10 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
 {
 	globjects::debug() << "Creating shader program " << name << " ...";
 
-	ShaderProgram program;
+    /// Aggregate initialization is pretty neat:
+	ShaderProgram program{ .m_program = std::move(Program::create()) };
 
-	for (auto i : shaderIncludes)
+	for (const auto& i : shaderIncludes)
 	{
 		globjects::debug() << "Loading include file " << i << " ...";
 
@@ -80,7 +81,7 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
 		program.m_strings.insert(std::move(string));
 	}
 
-	for (auto i : shaders)
+	for (const auto& i : shaders)
 	{
 		globjects::debug() << "Loading shader file " << i.second << " ...";
 
