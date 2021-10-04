@@ -13,6 +13,7 @@
 #include <globjects/NamedString.h>
 #include <glm/gtx/string_cast.hpp>
 #include <imgui.h>
+#include <glbinding/gl/bitfield.h>
 
 using namespace molumes;
 using namespace globjects;
@@ -64,13 +65,20 @@ constexpr auto CENTERVERTICES = std::to_array({
                                                       0.f, 0.f, 0.f
                                               });
 
+constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
+
 CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
-    m_vao = std::make_unique<VertexArray>(); /// Apparantly exactly the same as VertexArray::create();
     m_vertexBuffer = Buffer::create();
-    m_vertexBuffer->setData(CENTERVERTICES, GL_STATIC_DRAW);
+//    m_vertexBuffer->setStorage(6 * 3 * sizeof(vec3) * MAX_HEXAGON_SIZE, nullptr, BufferStorageMask::GL_NONE_BIT);
+    m_vertexBuffer->setData(6 * 3 * sizeof(vec4) * MAX_HEXAGON_SIZE, nullptr, GL_DYNAMIC_COPY);
+
+    m_vao = std::make_unique<VertexArray>(); /// Apparantly exactly the same as VertexArray::create();
+    m_dummyVertexBuffer = Buffer::create();
+    m_dummyVertexBuffer->setData(CENTERVERTICES, GL_STATIC_DRAW);
 
     const auto binding = m_vao->binding(0);
     binding->setAttribute(0);
+    m_vertexBuffer->bind(GL_ARRAY_BUFFER);
     binding->setBuffer(m_vertexBuffer.get(), 0, sizeof(vec3));
     binding->setFormat(3, GL_FLOAT);
     m_vao->enable(0);
@@ -80,6 +88,16 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
             {GL_GEOMETRY_SHADER, "./res/crystal/crystal-gs.glsl"},
             {GL_FRAGMENT_SHADER, "./res/crystal/crystal-fs.glsl"}
     });
+
+    createShaderProgram("triangles", {
+            {GL_COMPUTE_SHADER, "./res/crystal/calculate-hexagons-cs.glsl"}
+    });
+
+    createShaderProgram("standard", {
+            {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
+            {GL_FRAGMENT_SHADER, "./res/crystal/standard-fs.glsl"}
+    });
+
 }
 
 void CrystalRenderer::setEnabled(bool enabled) {
@@ -117,9 +135,9 @@ void CrystalRenderer::display() {
     if (count < 1)
         return;
 
-    const auto shader = shaderProgram("crystal");
-    if (!shader)
-        return;
+//    const auto shader = shaderProgram("crystal");
+//    if (!shader)
+//        return;
 
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
@@ -150,25 +168,83 @@ void CrystalRenderer::display() {
     const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() *
                                            viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
-    accumulateTexture->bindActive(0);
-    accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 
-    shader->use();
-    shader->setUniform("MVP", modelViewProjectionMatrix);
-    shader->setUniform("POINT_COUNT", count);
-    shader->setUniform("num_cols", num_cols);
-    shader->setUniform("num_rows", num_rows);
-    shader->setUniform("tile_scale", scale);
-    shader->setUniform("horizontal_space", horizontal_space);
-    shader->setUniform("vertical_space", vertical_space);
-    shader->setUniform("disp_mat", model);
-    shader->setUniform("height", tileHeight);
+    // Hexagonal face pass:
+//    {
+//        accumulateTexture->bindActive(0);
+//        accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+//        m_vertexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+//
+//        shader->use();
+//        shader->setUniform("MVP", modelViewProjectionMatrix);
+//        shader->setUniform("POINT_COUNT", count);
+//        shader->setUniform("num_cols", num_cols);
+//        shader->setUniform("num_rows", num_rows);
+//        shader->setUniform("tile_scale", scale);
+//        shader->setUniform("horizontal_space", horizontal_space);
+//        shader->setUniform("vertical_space", vertical_space);
+//        shader->setUniform("disp_mat", model);
+//        shader->setUniform("height", tileHeight);
+//
+//        m_vao->drawArraysInstanced(GL_POINTS, 0, 1, count);
+//        m_vao->unbind();
+//
+//        m_vertexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 2);
+//        accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 1);
+//        accumulateTexture->unbindActive(0);
+//    }
+    m_vertexBuffer->setData(6 * 3 * sizeof(vec4) * MAX_HEXAGON_SIZE, nullptr, GL_DYNAMIC_COPY);
 
-    m_vao->drawArraysInstanced(GL_POINTS, 0, 1, count);
-    m_vao->unbind();
+    // Calculate triangles:
+    {
+        const auto& shader = shaderProgram("triangles");
+        if (!shader)
+            return;
 
-    accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 1);
-    accumulateTexture->unbindActive(0);
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0/3.0))), 1u);
+
+        m_vertexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+        accumulateTexture->bindActive(1);
+        accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+
+        shader->use();
+        shader->setUniform("num_cols", num_cols);
+        shader->setUniform("num_rows", num_rows);
+        shader->setUniform("height", tileHeight);
+        shader->setUniform("tile_scale", scale);
+        shader->setUniform("disp_mat", model);
+        shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
+
+        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+
+        accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
+        accumulateTexture->unbindActive(1);
+        m_vertexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+    }
+
+    // Render triangles:
+    {
+        const auto& shader = shaderProgram("standard");
+        if (!shader)
+            return;
+
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+        shader->use();
+        shader->setUniform("MVP", modelViewProjectionMatrix);
+
+        m_vao->bind();
+
+        const auto binding = m_vao->binding(0);
+        binding->setAttribute(0);
+        m_vertexBuffer->bind(GL_ARRAY_BUFFER);
+        binding->setBuffer(m_vertexBuffer.get(), 0, sizeof(vec4));
+        binding->setFormat(4, GL_FLOAT);
+        m_vao->enable(0);
+
+        // Every hexagon is 6 triangles and every triangle is 3
+        m_vao->drawArrays(GL_TRIANGLES, 0, count * 6 * 3);
+    }
 
     globjects::Program::release();
 }

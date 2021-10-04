@@ -22,6 +22,8 @@ namespace molumes
 
 	private:
 		std::unique_ptr<globjects::VertexArray> m_vao;
-		std::unique_ptr<globjects::Buffer> m_vertexBuffer;
+		std::unique_ptr<globjects::Buffer> m_dummyVertexBuffer;
+        std::unique_ptr<globjects::Buffer> m_vertexBuffer;
+
 	};
 }

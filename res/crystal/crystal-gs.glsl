@@ -7,6 +7,7 @@ in VS_OUT {
     uint id;
     ivec2 texPos;
     float value;
+    vec3 vertices[7];
 } gs_in[];
 
 uniform float tile_scale = 0.6;
@@ -18,12 +19,6 @@ out GS_OUT {
     flat uint id;
     flat float value;
 } gs_out;
-
-//in screen space
-//out float tileSizeSS;
-//out vec2 tileCenterSS;
-//out float neighbourValues[6];
-//out vec2 accCoords;
 
 // i = 0 => right Center
 // continue agains clock circle (i = 1 = right Top)
@@ -67,29 +62,60 @@ void main()
 //    neighbourValues[5] = texelFetch(accumulateTexture, ivec2(tilePosInAccTexture.x, tilePosInAccTexture.y+1), 0).r;
 
     // we dont want to render the grid for empty hexs
-    if(gs_in[0].value < 1)
-        return;
+//    if(gs_in[0].value < 1)
+//        return;
 
         // tile size in screen space
 //        tileSizeSS = getScreenSpaceSize(MVP, vec2(tileSize, 0.0f), windowWidth, windowHeight).x;
 //        // position of tile center in screen space
 //        tileCenterSS = getScreenSpacePosOfPoint(MVP, vec2(gl_in[0].gl_Position), windowWidth, windowHeight);
 
-        emitHexagonVertex(0);
-        emitHexagonCenterVertex();
-        emitHexagonVertex(1);
-        emitHexagonVertex(2);
-        EndPrimitive();
 
-        emitHexagonVertex(2);
-        emitHexagonCenterVertex();
-        emitHexagonVertex(3);
-        emitHexagonVertex(4);
-        EndPrimitive();
+//        emitHexagonVertex(0);
+//        emitHexagonCenterVertex();
+//        emitHexagonVertex(1);
+//        emitHexagonVertex(2);
+//        EndPrimitive();
+//
+//        emitHexagonVertex(2);
+//        emitHexagonCenterVertex();
+//        emitHexagonVertex(3);
+//        emitHexagonVertex(4);
+//        EndPrimitive();
+//
+//        emitHexagonVertex(4);
+//        emitHexagonCenterVertex();
+//        emitHexagonVertex(5);
+//        emitHexagonVertex(0);
+//        EndPrimitive();
 
-        emitHexagonVertex(4);
-        emitHexagonCenterVertex();
-        emitHexagonVertex(5);
-        emitHexagonVertex(0);
-        EndPrimitive();
+    gl_Position = MVP * vec4(gs_in[0].vertices[1], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[0], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[2], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[3], 1.0);
+    EmitVertex();
+    EndPrimitive();
+
+    gl_Position = MVP * vec4(gs_in[0].vertices[3], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[0], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[4], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[5], 1.0);
+    EmitVertex();
+    EndPrimitive();
+
+    gl_Position = MVP * vec4(gs_in[0].vertices[5], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[0], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[6], 1.0);
+    EmitVertex();
+    gl_Position = MVP * vec4(gs_in[0].vertices[1], 1.0);
+    EmitVertex();
+    EndPrimitive();
 }
