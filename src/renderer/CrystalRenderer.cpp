@@ -69,19 +69,18 @@ constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
 
 CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
     m_vertexBuffer = Buffer::create();
-//    m_vertexBuffer->setStorage(6 * 3 * sizeof(vec3) * MAX_HEXAGON_SIZE, nullptr, BufferStorageMask::GL_NONE_BIT);
-    m_vertexBuffer->setData(6 * 3 * sizeof(vec4) * MAX_HEXAGON_SIZE, nullptr, GL_DYNAMIC_COPY);
+    m_vertexBuffer->setStorage(6 * 3 * sizeof(vec4) * MAX_HEXAGON_SIZE, nullptr, BufferStorageMask::GL_NONE_BIT);
 
-    m_vao = std::make_unique<VertexArray>(); /// Apparantly exactly the same as VertexArray::create();
+    m_vao = std::make_unique<VertexArray>(); /// Apparently exactly the same as VertexArray::create();
     m_dummyVertexBuffer = Buffer::create();
     m_dummyVertexBuffer->setData(CENTERVERTICES, GL_STATIC_DRAW);
 
-    const auto binding = m_vao->binding(0);
-    binding->setAttribute(0);
-    m_vertexBuffer->bind(GL_ARRAY_BUFFER);
-    binding->setBuffer(m_vertexBuffer.get(), 0, sizeof(vec3));
-    binding->setFormat(3, GL_FLOAT);
-    m_vao->enable(0);
+//    const auto binding = m_vao->binding(0);
+//    binding->setAttribute(0);
+//    m_vertexBuffer->bind(GL_ARRAY_BUFFER);
+//    binding->setBuffer(m_vertexBuffer.get(), 0, sizeof(vec3));
+//    binding->setFormat(3, GL_FLOAT);
+//    m_vao->enable(0);
 
     createShaderProgram("crystal", {
             {GL_VERTEX_SHADER,   "./res/crystal/crystal-vs.glsl"},
@@ -110,20 +109,18 @@ void CrystalRenderer::setEnabled(bool enabled) {
 void CrystalRenderer::display() {
     const auto state = stateGuard();
 
-    static bool wireframe = false;
-    static float tileScale = 1.0f;
-    static float tileHeight = 1.0f;
-
     if (ImGui::BeginMenu("Crystal")) {
-        ImGui::Checkbox("Wireframe", &wireframe);
-        ImGui::SliderFloat("Tile scale", &tileScale, 0.f, 4.f);
-        ImGui::SliderFloat("Height", &tileHeight, 0.01f, 1.f);
+        ImGui::Checkbox("Wireframe", &m_wireframe);
+        if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
+            m_hexagonsUpdated = true;
+        if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
+            m_hexagonsUpdated = true;
 
         ImGui::EndMenu();
     }
 
     glEnable(GL_CULL_FACE);
-    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+    glPolygonMode(GL_FRONT_AND_BACK, m_wireframe ? GL_LINE : GL_FILL);
 
     // Borrow resources from tileRenderer
     /// Borrowing like this prevents CrystalRenderer to gain ownership, but ensures resources are valid while drawing
@@ -131,6 +128,7 @@ void CrystalRenderer::display() {
     if (!resources)
         return;
 
+    static int lastCount = 0;
     const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
     if (count < 1)
         return;
@@ -139,10 +137,14 @@ void CrystalRenderer::display() {
 //    if (!shader)
 //        return;
 
+    if (lastCount != count) {
+        m_hexagonsUpdated = true;
+        lastCount = count;
+    }
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
     const auto num_rows = (count - 1) / num_cols + 1;
-    const float scale = tileScale / static_cast<float>(num_cols);
+    const float scale = m_tileScale / static_cast<float>(num_cols);
     const float horizontal_space = scale * 1.5f;
     const float vertical_space = std::sqrt(3.f) * scale;
     auto accumulateTexture = resources.tileAccumulateTexture.lock();
@@ -168,40 +170,13 @@ void CrystalRenderer::display() {
     const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() *
                                            viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
-
-    // Hexagonal face pass:
-//    {
-//        accumulateTexture->bindActive(0);
-//        accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-//        m_vertexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
-//
-//        shader->use();
-//        shader->setUniform("MVP", modelViewProjectionMatrix);
-//        shader->setUniform("POINT_COUNT", count);
-//        shader->setUniform("num_cols", num_cols);
-//        shader->setUniform("num_rows", num_rows);
-//        shader->setUniform("tile_scale", scale);
-//        shader->setUniform("horizontal_space", horizontal_space);
-//        shader->setUniform("vertical_space", vertical_space);
-//        shader->setUniform("disp_mat", model);
-//        shader->setUniform("height", tileHeight);
-//
-//        m_vao->drawArraysInstanced(GL_POINTS, 0, 1, count);
-//        m_vao->unbind();
-//
-//        m_vertexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 2);
-//        accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 1);
-//        accumulateTexture->unbindActive(0);
-//    }
-    m_vertexBuffer->setData(6 * 3 * sizeof(vec4) * MAX_HEXAGON_SIZE, nullptr, GL_DYNAMIC_COPY);
-
     // Calculate triangles:
-    {
-        const auto& shader = shaderProgram("triangles");
+    if (m_hexagonsUpdated) {
+        const auto &shader = shaderProgram("triangles");
         if (!shader)
             return;
 
-        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0/3.0))), 1u);
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
 
         m_vertexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         accumulateTexture->bindActive(1);
@@ -210,7 +185,7 @@ void CrystalRenderer::display() {
         shader->use();
         shader->setUniform("num_cols", num_cols);
         shader->setUniform("num_rows", num_rows);
-        shader->setUniform("height", tileHeight);
+        shader->setUniform("height", m_tileHeight);
         shader->setUniform("tile_scale", scale);
         shader->setUniform("disp_mat", model);
         shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
@@ -224,11 +199,14 @@ void CrystalRenderer::display() {
 
     // Render triangles:
     {
-        const auto& shader = shaderProgram("standard");
+        const auto &shader = shaderProgram("standard");
         if (!shader)
             return;
 
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        if (m_hexagonsUpdated) {
+            glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+            m_hexagonsUpdated = false;
+        }
 
         shader->use();
         shader->setUniform("MVP", modelViewProjectionMatrix);
