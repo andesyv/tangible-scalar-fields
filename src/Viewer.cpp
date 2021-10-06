@@ -764,6 +764,9 @@ void Viewer::mainMenu() {
             ImGui::EndMenu();
         }
 
+        if (ImGui::Button(m_focusRenderer == 0 ? "Switch to 3D view" : "Switch to 2D view"))
+            enumerateFocusRenderer();
+
         ImGui::EndMenu();
     }
 }
@@ -774,4 +777,10 @@ const char *Viewer::GetClipboardText(void *user_data) {
 
 void Viewer::SetClipboardText(void *user_data, const char *text) {
     glfwSetClipboardString((GLFWwindow *) user_data, text);
+}
+
+void Viewer::enumerateFocusRenderer() {
+    m_renderers.at(m_focusRenderer)->setEnabled(false);
+    m_focusRenderer = !m_focusRenderer;
+    m_renderers.at(m_focusRenderer)->setEnabled(true);
 }

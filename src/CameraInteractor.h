@@ -32,6 +32,7 @@ namespace molumes
 		float m_distance = 2.0f*sqrt(3.0f);
 		bool m_perspective = true;
 
+        bool m_ctrl = false;
 		bool m_light = false;
 		bool m_rotating = false;
 		bool m_scaling = false;

@@ -80,9 +80,13 @@ namespace molumes
 		void setLightTransform(const glm::mat4& m);
 		void setProjectionTransform(const glm::mat4& m);
 
+        void enumerateFocusRenderer();
+
 		void saveImage(const std::string & filename) const;
 
 		bool m_perspective = true;
+        bool m_cameraRotateAllowed = false;
+        unsigned int m_focusRenderer = 0;
 
         struct SharedResources {
             std::weak_ptr<Tile> tile;

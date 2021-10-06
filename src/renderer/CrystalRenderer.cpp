@@ -140,6 +140,10 @@ void CrystalRenderer::display() {
     if (lastCount != count) {
         m_hexagonsUpdated = true;
         lastCount = count;
+        // If count has changed, recreate and resize buffer. (expensive operation, so we only do this whenever the count changes)
+        /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
+        m_vertexBuffer = Buffer::create();
+        m_vertexBuffer->setStorage(6 * 3 * static_cast<GLsizeiptr>(sizeof(vec4)) * count, nullptr, BufferStorageMask::GL_NONE_BIT);
     }
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));

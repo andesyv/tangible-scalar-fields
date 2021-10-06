@@ -40,6 +40,10 @@ void CameraInteractor::framebufferSizeEvent(int width, int height)
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 {
+    if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_PRESS)
+        m_ctrl = true;
+    else if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_RELEASE)
+        m_ctrl = false;
 	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS)
 	{
 		m_light = true;
@@ -54,41 +58,19 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	{
 		resetViewTransform();
 	}
-	else if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
+	else if ((key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && action == GLFW_PRESS)
 	{
-		mat4 viewTransform = viewer()->viewTransform();
-		mat4 inverseViewTransform = inverse(viewTransform);
-		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 1.0, 0.0, 0.0);
+        const ivec2 dir{int{key == GLFW_KEY_RIGHT} - int{key == GLFW_KEY_LEFT}, int{key == GLFW_KEY_UP} - int{key == GLFW_KEY_DOWN}};
+        if (dir.y == 0 && m_ctrl)
+            viewer()->enumerateFocusRenderer();
+        else if (viewer()->m_cameraRotateAllowed) {
+            mat4 viewTransform = viewer()->viewTransform();
+            mat4 inverseViewTransform = inverse(viewTransform);
+            vec4 transformedAxis = inverseViewTransform * vec4(dir.y, dir.x, 0.0, 0.0);
 
-		mat4 newViewTransform = rotate(viewTransform, -0.5f*quarter_pi<float>(), vec3(transformedAxis));
-		viewer()->setViewTransform(newViewTransform);
-	}
-	else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
-	{
-		mat4 viewTransform = viewer()->viewTransform();
-		mat4 inverseViewTransform = inverse(viewTransform);
-		vec4 transformedAxis = inverseViewTransform * vec4(0.0, 1.0, 0.0, 0.0);
-
-		mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
-		viewer()->setViewTransform(newViewTransform);
-	}
-	else if (key == GLFW_KEY_UP && action == GLFW_RELEASE)
-	{
-		mat4 viewTransform = viewer()->viewTransform();
-		mat4 inverseViewTransform = inverse(viewTransform);
-		vec4 transformedAxis = inverseViewTransform * vec4(1.0, 0.0, 0.0, 0.0);
-
-		mat4 newViewTransform = rotate(viewTransform, -0.5f*quarter_pi<float>(), vec3(transformedAxis));
-		viewer()->setViewTransform(newViewTransform);
-	}
-	else if (key == GLFW_KEY_DOWN && action == GLFW_RELEASE)
-	{
-		mat4 viewTransform = viewer()->viewTransform();
-		mat4 inverseViewTransform = inverse(viewTransform);
-		vec4 transformedAxis = inverseViewTransform * vec4(1.0, 0.0, 0.0, 0.0);
-
-		mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
-		viewer()->setViewTransform(newViewTransform);
+            mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
+            viewer()->setViewTransform(newViewTransform);
+        }
 	}
 	else if (key == GLFW_KEY_B && action == GLFW_RELEASE)
 	{
@@ -143,7 +125,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 	const bool nequal = any(notEqual(m_mouseCurrent, m_mousePrevious));
 
-	if (m_rotating)
+	if (m_rotating && viewer()->m_cameraRotateAllowed)
 	{
 		if (nequal)
 		{
@@ -271,6 +253,7 @@ void CameraInteractor::display()
 	if (m_perspective != globalPerspective) {
 		m_perspective = viewer()->m_perspective = globalPerspective;
 
+        resetViewTransform();
 		resetProjectionTransform();
 	}
 	
