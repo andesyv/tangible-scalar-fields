@@ -23,6 +23,8 @@ layout(std430, binding = 2) buffer valueMaxBuffer
 };
 
 const float PI = 3.1415926;
+const float HEX_ANGLE = PI / 180.0 * 60.0;
+
 //const ivec2 NEIGHBORS[6] = ivec2[6](
 //    ivec2(2, 0), ivec2(1,-1), ivec2(-1,-1),
 //    ivec2(-2, 0), ivec2(-1, 1), ivec2(1, 1)
@@ -56,8 +58,7 @@ void main() {
     // hexagon-tiles-fs.glsl: 109
     const float max = uintBitsToFloat(maxAccumulate) + 1;
 
-    float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1]
-//    float depth = 2.0 * float(hexID) / float(POINT_COUNT) - 1.0;
+    float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
@@ -68,55 +69,50 @@ void main() {
     // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
     // Triangles are 3 vertices, so skip by 3 for each local invocation
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + gl_LocalInvocationID.y * 3 * gl_WorkGroupSize.x + hexID * 3 * gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+    const bool innerGroup = gl_LocalInvocationID.y == 0;
 
-    if (gl_LocalInvocationID.y == 0) { // Hexagon triangles:
+    // Just in case we're going to skip some triangles:
+    vertices[triangleIndex] = vec4(0.0);
+    vertices[triangleIndex+1] = vec4(0.0);
+    vertices[triangleIndex+2] = vec4(0.0);
+
+    if (innerGroup) { // Hexagon triangles:
         vertices[triangleIndex] = centerPos;
-
-        for (uint i = 0; i < 2u; ++i) {
-            float angle_deg = 60.0 * float(gl_LocalInvocationID.x + i);
-            float angle_rad = PI / 180.0 * angle_deg;
-
-            // Offset from center of point + grid width
-            vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
-
-            vertices[triangleIndex + i + 1] = vec4(centerPos.xyz + offset, 1.0);
-        }
     } else { // Neighbor triangles
         // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
         const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
+        const bool gridEdge = (neighbor.x < 0 || neighbor.y < 0 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
+
+        // Grid edge:
+//        if (gridEdge)
+//            return;
 
         // get value from accumulate texture
         // Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
         ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
-        float neighborHexValue = texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
+        float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
 
         float neighborDepth = 2.0 * height * neighborHexValue / max - height;
 
-        vertices[triangleIndex] = vec4(0.0);
-        vertices[triangleIndex+1] = vec4(0.0);
-        vertices[triangleIndex+2] = vec4(0.0);
+        // Skip "empty" triangles
+        if (abs(depth - neighborDepth) < 0.01)
+            return;
 
-//        if (neighbor.x < 0 || neighbor.y < 0 || num_cols < neighbor.x || num_rows < neighbor.y)
-//            return;
-
-
-//            return;
 
         vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, neighborDepth, 1.0);
         neighborPos /= neighborPos.w;
 
-        float ad = 60.0 * float(gl_LocalInvocationID.x + 3);
-        float ar = PI / 180.0 * ad;
+        float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
         vertices[triangleIndex] = vec4(neighborPos.xyz + vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.), 1.0);
+    }
 
-        for (uint i = 0u; i < 2u; ++i) {
-            float angle_deg = 60.0 * float(gl_LocalInvocationID.x + i);
-            float angle_rad = PI / 180.0 * angle_deg;
+    for (uint i = 0; i < 2u; ++i) {
+        float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + i);
 
-            // Offset from center of point + grid width
-            vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+        // Offset from center of point + grid width
+        vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
 
-            vertices[triangleIndex + (2 - i)] = vec4(centerPos.xyz + offset, 1.0);
-        }
+        uint ti = triangleIndex + (innerGroup ? (i + 1) : (2 - i));
+        vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
 }

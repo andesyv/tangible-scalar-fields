@@ -3,7 +3,6 @@
 #include "tileRenderer/Tile.h"
 
 #include <array>
-#include <iostream>
 
 #include <glbinding/gl/enum.h>
 #include <globjects/globjects.h>
@@ -63,10 +62,6 @@ const auto stateGuard = []() {
     }};
 };
 
-constexpr auto CENTERVERTICES = std::to_array({
-                                                      0.f, 0.f, 0.f
-                                              });
-
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
 
 CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
@@ -74,15 +69,6 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
     m_vertexBuffer->setStorage(6 * 3 * sizeof(vec4) * MAX_HEXAGON_SIZE, nullptr, BufferStorageMask::GL_NONE_BIT);
 
     m_vao = std::make_unique<VertexArray>(); /// Apparently exactly the same as VertexArray::create();
-    m_dummyVertexBuffer = Buffer::create();
-    m_dummyVertexBuffer->setData(CENTERVERTICES, GL_STATIC_DRAW);
-
-//    const auto binding = m_vao->binding(0);
-//    binding->setAttribute(0);
-//    m_vertexBuffer->bind(GL_ARRAY_BUFFER);
-//    binding->setBuffer(m_vertexBuffer.get(), 0, sizeof(vec3));
-//    binding->setFormat(3, GL_FLOAT);
-//    m_vao->enable(0);
 
     createShaderProgram("crystal", {
             {GL_VERTEX_SHADER,   "./res/crystal/crystal-vs.glsl"},
@@ -110,7 +96,6 @@ void CrystalRenderer::setEnabled(bool enabled) {
 
 void CrystalRenderer::display() {
     const auto state = stateGuard();
-//    static int count = 0;
 
     if (ImGui::BeginMenu("Crystal")) {
         ImGui::Checkbox("Wireframe", &m_wireframe);
@@ -118,7 +103,6 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
-//        ImGui::SliderInt("Count", &count, 0, 100);
 
         ImGui::EndMenu();
     }
@@ -137,9 +121,6 @@ void CrystalRenderer::display() {
     if (count < 1)
         return;
 
-//    const auto shader = shaderProgram("crystal");
-//    if (!shader)
-//        return;
 
     if (lastCount != count) {
         m_hexagonsUpdated = true;
@@ -147,8 +128,8 @@ void CrystalRenderer::display() {
         // If count has changed, recreate and resize buffer. (expensive operation, so we only do this whenever the count changes)
         /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
         m_vertexBuffer = Buffer::create();
-        m_vertexCount = static_cast<int>(3 * calculateTriangleCount(count));
-        m_vertexBuffer->setStorage(count * 6 * 2 * 3 * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, BufferStorageMask::GL_NONE_BIT);
+        m_vertexBuffer->setStorage(count * 6 * 2 * 3 * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr,
+                                   BufferStorageMask::GL_NONE_BIT);
     }
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
@@ -180,7 +161,7 @@ void CrystalRenderer::display() {
                                            viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
     // Calculate triangles:
-//    if (m_hexagonsUpdated) {
+    if (m_hexagonsUpdated) {
         const auto &shader = shaderProgram("triangles");
         if (!shader)
             return;
@@ -204,7 +185,7 @@ void CrystalRenderer::display() {
         accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
         accumulateTexture->unbindActive(1);
         m_vertexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
-//    }
+    }
 
     // Render triangles:
     {
@@ -212,11 +193,10 @@ void CrystalRenderer::display() {
         if (!shader)
             return;
 
-//        if (m_hexagonsUpdated) {
-//            glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-//            m_hexagonsUpdated = false;
-//        }
-        glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+        if (m_hexagonsUpdated) {
+            glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+            m_hexagonsUpdated = false;
+        }
 
         shader->use();
         shader->setUniform("MVP", modelViewProjectionMatrix);
@@ -243,7 +223,6 @@ uint CrystalRenderer::calculateTriangleCount(int hexCount) {
 
 glm::uint CrystalRenderer::calculateEdgeCount(int hexCount) {
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(hexCount)));
-    const auto num_rows = (hexCount - 1) / num_cols + 1;
 
     uint sum{0};
     for (int i{0}; i < hexCount; ++i) {
@@ -251,7 +230,7 @@ glm::uint CrystalRenderer::calculateEdgeCount(int hexCount) {
         // This has also confused me to the point where I no longer know how this code works, but it just works. :)
 
         const int col = i % num_cols;
-        const int row = (i/num_cols) * 2 - (col % 2);
+        const int row = (i / num_cols) * 2 - (col % 2);
 
         const auto center_l = 0 < col;
         const auto center_r = 0 < row;
