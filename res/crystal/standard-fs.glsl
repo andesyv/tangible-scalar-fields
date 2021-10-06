@@ -1,14 +1,11 @@
 #version 450
 
-in flat uint id_vs;
-
 out vec4 fragColor;
 
+float linearizeDepth(float ndc, float near, float far) {
+    return (2.0 * near * far) / (far + near - ndc * (far - near));
+}
+
 void main() {
-    const float max = 10.0;
-    uint id_triangle = id_vs / 6;
-    if (9000 < id_vs)
-        discard;
-    vec3 col = vec3(float(id_triangle) / max, fract(2.3 * float(id_triangle) / max), fract(2.4 * float(id_triangle) / max));
-    fragColor = vec4(col, 1.0);
+    fragColor = vec4(vec3(max(1.0 - linearizeDepth(gl_FragCoord.z, 0.1, 1.0), 0.0)), 1.0);
 }
