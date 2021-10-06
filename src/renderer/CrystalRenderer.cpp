@@ -110,7 +110,7 @@ void CrystalRenderer::setEnabled(bool enabled) {
 
 void CrystalRenderer::display() {
     const auto state = stateGuard();
-    static int count = 0;
+//    static int count = 0;
 
     if (ImGui::BeginMenu("Crystal")) {
         ImGui::Checkbox("Wireframe", &m_wireframe);
@@ -118,7 +118,7 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
-        ImGui::SliderInt("Count", &count, 0, 100);
+//        ImGui::SliderInt("Count", &count, 0, 100);
 
         ImGui::EndMenu();
     }
@@ -133,7 +133,7 @@ void CrystalRenderer::display() {
         return;
 
     static int lastCount = 0;
-//    const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
+    const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
     if (count < 1)
         return;
 
@@ -148,7 +148,7 @@ void CrystalRenderer::display() {
         /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
         m_vertexBuffer = Buffer::create();
         m_vertexCount = static_cast<int>(3 * calculateTriangleCount(count));
-        m_vertexBuffer->setStorage(m_vertexCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, BufferStorageMask::GL_NONE_BIT);
+        m_vertexBuffer->setStorage(count * 6 * 2 * 3 * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, BufferStorageMask::GL_NONE_BIT);
     }
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
@@ -180,7 +180,7 @@ void CrystalRenderer::display() {
                                            viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
 
     // Calculate triangles:
-    if (m_hexagonsUpdated) {
+//    if (m_hexagonsUpdated) {
         const auto &shader = shaderProgram("triangles");
         if (!shader)
             return;
@@ -204,7 +204,7 @@ void CrystalRenderer::display() {
         accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
         accumulateTexture->unbindActive(1);
         m_vertexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
-    }
+//    }
 
     // Render triangles:
     {
@@ -212,10 +212,11 @@ void CrystalRenderer::display() {
         if (!shader)
             return;
 
-        if (m_hexagonsUpdated) {
-            glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-            m_hexagonsUpdated = false;
-        }
+//        if (m_hexagonsUpdated) {
+//            glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+//            m_hexagonsUpdated = false;
+//        }
+        glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
         shader->use();
         shader->setUniform("MVP", modelViewProjectionMatrix);
@@ -229,7 +230,7 @@ void CrystalRenderer::display() {
         binding->setFormat(4, GL_FLOAT);
         m_vao->enable(0);
 
-        m_vao->drawArrays(GL_TRIANGLES, 0, m_vertexCount);
+        m_vao->drawArrays(GL_TRIANGLES, 0, count * 6 * 2 * 3);
     }
 
     globjects::Program::release();

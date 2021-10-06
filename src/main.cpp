@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
                 if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
                     std::cout << "GL_DEBUG: (source: " << sourceStr << ", type: " << typeStr << ", severity: "
                               << severityStr << ", message: " << message << std::endl;
-                    assert(severity != GL_DEBUG_SEVERITY_HIGH);
+//                    assert(severity != GL_DEBUG_SEVERITY_HIGH);
                 }
             }, nullptr);
 
