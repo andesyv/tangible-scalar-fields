@@ -1,6 +1,7 @@
 #version 450
 
-layout(local_size_x = 6) in;
+// 6 triangles per hex, and every triangle (might) have a neighbour = 6 * 2
+layout(local_size_x = 6, local_size_y = 2) in;
 
 layout(std430, binding = 0) buffer genVertexBuffer
 {
@@ -22,6 +23,15 @@ layout(std430, binding = 2) buffer valueMaxBuffer
 };
 
 const float PI = 3.1415926;
+//const ivec2 NEIGHBORS[6] = ivec2[6](
+//    ivec2(2, 0), ivec2(1,-1), ivec2(-1,-1),
+//    ivec2(-2, 0), ivec2(-1, 1), ivec2(1, 1)
+//);
+const ivec2 NEIGHBORS[6] = ivec2[6](
+    ivec2(0.0, 2.0), ivec2(-1.0, 1.0), ivec2(-1.0,-1.0),
+    ivec2(0.0, -2.0), ivec2(1.0, -1.0), ivec2(1.0, 1.0)
+);
+
 
 void main() {
     // Common for whole work group:
@@ -46,25 +56,56 @@ void main() {
     // hexagon-tiles-fs.glsl: 109
     const float max = uintBitsToFloat(maxAccumulate) + 1;
 
-    float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1]
+//    float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1]
+    float depth = 2.0 * float(hexID) / float(POINT_COUNT) - 1.0;
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
 
 
     // Individual for each work group:
+
     // Triangles are 3 vertices, and a hexagon is 6 triangles, so skip by 6*3 per hexagon.
     // Triangles are 3 vertices, so skip by 3 for each local invocation
-    const uint triangleIndex = hexID * 3 * 6 + gl_LocalInvocationID.x * 3;
+    const uint triangleIndex = hexID * 3 * 6 + gl_LocalInvocationID.x * 3 + gl_WorkGroupSize.x * gl_LocalInvocationID.y;
 
-    vertices[triangleIndex] = centerPos;
-    for (uint i = 0; i < 2u; ++i) {
-        float angle_deg = 60.0 * float(gl_LocalInvocationID.x + i);
-        float angle_rad = PI / 180.0 * angle_deg;
+    if (gl_LocalInvocationID.y == 0) { // Hexagon triangles:
+        vertices[triangleIndex] = centerPos;
 
-        // Offset from center of point + grid width
-        vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+        for (uint i = 0; i < 2u; ++i) {
+            float angle_deg = 60.0 * float(gl_LocalInvocationID.x + i);
+            float angle_rad = PI / 180.0 * angle_deg;
 
-        vertices[triangleIndex + i + 1] = vec4(centerPos.xyz + offset, 1.0);
+            // Offset from center of point + grid width
+            vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+
+            vertices[triangleIndex + i + 1] = vec4(centerPos.xyz + offset, 1.0);
+        }
+    } else { // Neighbor triangles
+        // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
+        const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
+        vertices[triangleIndex] = vec4(0.0);
+        vertices[triangleIndex+1] = vec4(0.0);
+        vertices[triangleIndex+2] = vec4(0.0);
+
+        if (neighbor.x < 0 || neighbor.y < 0 || num_cols < neighbor.x || num_rows < neighbor.y)
+            return;
+
+        if (0 < gl_LocalInvocationID.x)
+            return;
+
+        vertices[triangleIndex] = centerPos;
+
+        for (uint i = 0; i < 2u; ++i) {
+            float angle_deg = -60.0 * float(gl_LocalInvocationID.x + i);
+            float angle_rad = PI / 180.0 * angle_deg;
+
+            // Offset from center of point + grid width
+            vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+
+            vertices[triangleIndex + i + 1] = vec4(centerPos.xyz + offset, 1.0);
+        }
+
+        return;
     }
 }

@@ -3,6 +3,7 @@
 #include "tileRenderer/Tile.h"
 
 #include <array>
+#include <iostream>
 
 #include <glbinding/gl/enum.h>
 #include <globjects/globjects.h>
@@ -14,6 +15,7 @@
 #include <glm/gtx/string_cast.hpp>
 #include <imgui.h>
 #include <glbinding/gl/bitfield.h>
+#include <format>
 
 using namespace molumes;
 using namespace globjects;
@@ -108,6 +110,7 @@ void CrystalRenderer::setEnabled(bool enabled) {
 
 void CrystalRenderer::display() {
     const auto state = stateGuard();
+    static int count = 0;
 
     if (ImGui::BeginMenu("Crystal")) {
         ImGui::Checkbox("Wireframe", &m_wireframe);
@@ -115,6 +118,7 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
+        ImGui::SliderInt("Count", &count, 0, 100);
 
         ImGui::EndMenu();
     }
@@ -129,7 +133,7 @@ void CrystalRenderer::display() {
         return;
 
     static int lastCount = 0;
-    const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
+//    const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
     if (count < 1)
         return;
 
@@ -143,7 +147,8 @@ void CrystalRenderer::display() {
         // If count has changed, recreate and resize buffer. (expensive operation, so we only do this whenever the count changes)
         /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
         m_vertexBuffer = Buffer::create();
-        m_vertexBuffer->setStorage(6 * 3 * static_cast<GLsizeiptr>(sizeof(vec4)) * count, nullptr, BufferStorageMask::GL_NONE_BIT);
+        m_vertexCount = static_cast<int>(3 * calculateTriangleCount(count));
+        m_vertexBuffer->setStorage(m_vertexCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, BufferStorageMask::GL_NONE_BIT);
     }
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
@@ -224,9 +229,34 @@ void CrystalRenderer::display() {
         binding->setFormat(4, GL_FLOAT);
         m_vao->enable(0);
 
-        // Every hexagon is 6 triangles and every triangle is 3
-        m_vao->drawArrays(GL_TRIANGLES, 0, count * 6 * 3);
+        m_vao->drawArrays(GL_TRIANGLES, 0, m_vertexCount);
     }
 
     globjects::Program::release();
+}
+
+uint CrystalRenderer::calculateTriangleCount(int hexCount) {
+    /// Probably better calculation: total triangles = 6 * 2 * hexCount - grid_edges * 2
+    return calculateEdgeCount(hexCount) * 2 + 6 * hexCount;
+}
+
+glm::uint CrystalRenderer::calculateEdgeCount(int hexCount) {
+    const auto num_cols = static_cast<int>(std::ceil(std::sqrt(hexCount)));
+    const auto num_rows = (hexCount - 1) / num_cols + 1;
+
+    uint sum{0};
+    for (int i{0}; i < hexCount; ++i) {
+        // I've flipped the x and y-axis in the compute-shader, making the coordinates flipped.
+        // This has also confused me to the point where I no longer know how this code works, but it just works. :)
+
+        const int col = i % num_cols;
+        const int row = (i/num_cols) * 2 - (col % 2);
+
+        const auto center_l = 0 < col;
+        const auto center_r = 0 < row;
+
+        sum += uint{center_l} + uint{center_r} + uint{center_l && center_r};
+    }
+
+    return sum;
 }

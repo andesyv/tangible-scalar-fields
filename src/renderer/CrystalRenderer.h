@@ -29,5 +29,9 @@ namespace molumes {
         float m_tileScale = 1.0f;
         float m_tileHeight = 1.0f;
         bool m_hexagonsUpdated = true;
+        int m_vertexCount = 0;
+
+        static glm::uint calculateTriangleCount(int hexCount);
+        static glm::uint calculateEdgeCount(int hexCount);
     };
 }
