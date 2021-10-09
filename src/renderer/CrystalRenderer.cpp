@@ -6,6 +6,9 @@
 #include <format>
 #include <algorithm>
 #include <utility>
+#include <iterator>
+#include <deque>
+#include <tuple>
 
 #include <glbinding/gl/enum.h>
 #include <globjects/globjects.h>
@@ -72,6 +75,24 @@ constexpr auto VERTEXSTORAGEMASK = BufferStorageMask::GL_MAP_PERSISTENT_BIT | Bu
 template <typename T>
 bool isReady(const std::future<T>& f) {
     return f.wait_for(std::chrono::nanoseconds{0}) == std::future_status::ready;
+}
+
+template <std::forward_iterator It, typename F>
+auto filter(It begin, It end, F&& predicate) {
+    using T = decltype(*(It{}));
+    std::vector<std::remove_cvref_t<T>> out;
+    out.reserve(std::distance(begin, end));
+    std::copy_if(begin, end, std::back_inserter(out), predicate);
+    return out;
+}
+
+template <std::forward_iterator It, typename F>
+auto map(It begin, It end, F&& predicate) {
+    using T = decltype(predicate(It{}));
+    std::vector<std::remove_cvref_t<T>> out;
+    out.reserve(std::distance(begin, end));
+    std::transform(begin, end, std::back_inserter(out), predicate);
+    return out;
 }
 
 CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
@@ -243,7 +264,7 @@ void CrystalRenderer::display() {
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
             const auto vCount = count * 6 * 2 * 3;
             const auto memPtr = reinterpret_cast<vec4*>(m_vertexBuffer->map(GL_READ_ONLY));
-            m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing, std::vector<vec4>{memPtr, memPtr + vCount}, m_vertexBuffer));
+            m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing, std::vector<vec4>{memPtr, memPtr + vCount}, m_vertexBuffer, m_tileHeight));
             assert(m_vertexBuffer->unmap());
         }
     }
@@ -298,24 +319,85 @@ void CrystalRenderer::resizeVertexBuffer(int hexCount) {
 //    m_vertexDataPtr = PersistentStoragePtr<glm::vec4>{m_vertexBuffer.get()};
 }
 
-std::optional<std::vector<vec4>> CrystalRenderer::geometryPostProcessing(const std::vector<vec4>& vertices, const std::weak_ptr<Buffer>& bufferPtr) {
+auto scalarCross2D(const vec2& a, const vec2& b) {
+    const auto c = cross(vec3{a, 0.f}, vec3{b, 0.f});
+    return c.x + c.y + c.z;
+}
+
+auto angleBetween(const vec2& a, const vec2& b) {
+    return 0 < scalarCross2D(a, b) ? dot(a,b) : two_pi<float>() - dot(a,b);
+}
+
+std::optional<std::vector<vec4>> CrystalRenderer::geometryPostProcessing(const std::vector<vec4>& vertices, const std::weak_ptr<Buffer>& bufferPtr, float tileHeight) {
+    constexpr float EPS = 0.1f;
+
     // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
     // In which case we don't need this thread anymore.
-    if (bufferPtr.expired())
-        return {};
+    if (bufferPtr.expired() || vertices.size() < 2)
+        return std::nullopt;
 
     // Filter out empty vertices
-    std::vector<vec4> data;
-    data.reserve(vertices.size());
-    std::copy_if(vertices.begin(), vertices.end(), std::back_inserter(data), [](const auto& v){ return 0.1f < v.w; });
+    auto data = filter(vertices.begin(), vertices.end(), [](const auto& v){ return EPS < v.w; });
 
-    // Do stuff:..
-    if (bufferPtr.expired())
-        return {};
+    // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
+    std::vector<std::pair<vec2, uint>> nonEmptyValues;
+    uint first = 0;
+    nonEmptyValues.reserve(data.size());
+    for (uint i = 0; i < data.size(); ++i) {
+        const auto& v = data[i];
+        if (-tileHeight < v.z) {
+            nonEmptyValues.emplace_back(vec2{v.x, v.y}, i);
+            // Also find smallest (for graham scan later)
+            if (data[i].y < data[first].y && data[i].x < data[first].x)
+                first = static_cast<uint>(nonEmptyValues.size() - 1);
+        }
+    }
+    // Make sure smallest is first
+    if (1 < nonEmptyValues.size())
+        std::swap(nonEmptyValues[0], nonEmptyValues[first]);
 
-    return data;
-//    // After everything is done, create new buffer with new vertex data and return it
-//    std::shared_ptr<Buffer> newBuffer = Buffer::create();
-//    newBuffer->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), data.data(), VERTEXSTORAGEMASK);
-//    return std::make_pair(std::move(newBuffer), vCount);
+    // NB: Only works on 0 < size()
+    auto nonEmptyValuesPolarAngled = map(nonEmptyValues.begin(), nonEmptyValues.end(), [&nonEmptyValues](const auto& v) -> std::tuple<vec2, uint, float> {
+        const auto& [p, i] = v;
+        constexpr auto compareDir = vec2{0.f, -1.f};
+
+        if (nonEmptyValues[0].second == i) {
+            return std::make_tuple(p, i, 0.f);
+        } else {
+            const auto dir{normalize(p - nonEmptyValues[0].first)};
+            return std::make_tuple(p, i, angleBetween(compareDir, dir));
+        }
+    });
+
+    // Sort points on polar angle
+    std::sort(nonEmptyValuesPolarAngled.begin(), nonEmptyValuesPolarAngled.end(), [](const auto& a, const auto& b){
+        return std::get<2>(a) < std::get<2>(b);
+    });
+
+    // Graham scan implementation:
+    std::deque<std::tuple<vec2, uint, float>> convexHullStack{};
+    for (const auto& [p, i, polar_angle] : nonEmptyValuesPolarAngled) {
+        // While we have enough points in our stack...
+        while (2 < convexHullStack.size()) {
+            const auto last = std::get<0>(convexHullStack[0]);
+            const auto second_last = std::get<0>(convexHullStack[1]);
+            const auto a = normalize(p - last);
+            const auto b = normalize(last - second_last);
+            // If the new point forms a clockwise turn with the last points in the stack,
+            // pop the last point from the stack
+            if (angleBetween(b, a) < 0.f)
+                convexHullStack.pop_front();
+            else
+                break;
+        }
+
+        convexHullStack.emplace_front(p, i, polar_angle);
+    }
+
+    // Optimization idea: Since the hull is sorted by polar angles, we knot roughly where to find a hull edge based on its angle.
+    // So we can use a divide and conquer search instead of searching through all of them. (ex. recursively)
+
+    // Filter out all points in 
+
+    return bufferPtr.expired() ? std::nullopt : std::make_optional(data);
 }

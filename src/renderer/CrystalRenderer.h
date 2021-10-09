@@ -38,6 +38,6 @@ namespace molumes {
         static glm::uint calculateTriangleCount(int hexCount);
         static glm::uint calculateEdgeCount(int hexCount);
         void resizeVertexBuffer(int hexCount);
-        static std::optional<std::vector<glm::vec4>> geometryPostProcessing(const std::vector<glm::vec4>& vertices, const std::weak_ptr<globjects::Buffer>& bufferPtr);
+        static std::optional<std::vector<glm::vec4>> geometryPostProcessing(const std::vector<glm::vec4>& vertices, const std::weak_ptr<globjects::Buffer>& bufferPtr, float tileHeight);
     };
 }
