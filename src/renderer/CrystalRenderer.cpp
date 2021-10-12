@@ -96,20 +96,26 @@ auto map(It begin, It end, F&& predicate) {
     return out;
 }
 
-auto scalarCross2D(const vec2& a, const vec2& b) {
-    const auto c = cross(vec3{a, 0.f}, vec3{b, 0.f});
-    return c.x + c.y + c.z;
+auto scalarCross2D(const dvec2& a, const dvec2& b) {
+    const auto c = cross(dvec3{a, 0.0}, dvec3{b, 0.0});
+    return c.z;
 }
 
-auto angleBetween(const vec2& a, const vec2& b) {
-    return 0 < scalarCross2D(a, b) ? dot(a,b) : two_pi<float>() - dot(a,b);
+bool ccw(const dvec2& a, const dvec2& b, double epsilon = 0.001f) {
+    return epsilon < scalarCross2D(a,b);
+}
+
+double dotBetween(const dvec2& a, const dvec2& b) {
+    // 0.25 * [-1,1] + 0.25 -> [0,0.5]
+    // -0.25 * [1,-1] + 0.75 -> [0.5,1]
+    return ccw(a,b) ? (0.25 * dot(a,b) + 0.25) : (-0.25 * dot(a,b) + 0.75);
 }
 
 //bool insideHull(const vec3& p, const std::vector)
 
-std::optional<std::pair<std::vector<vec4>, std::vector<vec2>>>
+std::optional<std::pair<std::vector<vec4>, std::vector<vec4>>>
 geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Buffer> &bufferPtr, float tileHeight) {
-    constexpr float EPS = 0.1f;
+    constexpr double EPS = 0.000001;
 
     // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
     // In which case we don't need this thread anymore.
@@ -119,36 +125,49 @@ geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Bu
     // Filter out empty vertices
     auto data = filter(vertices.begin(), vertices.end(), [](const auto &v) { return EPS < v.w; });
 
+    // TODO: Handle case with 0-1 size nonEmptyValues
+
     // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
-    std::vector<std::pair<vec2, uint>> nonEmptyValues;
+    std::vector<std::pair<dvec2, uint>> nonEmptyValues;
     uint first = 0;
+    dvec2 mi{std::numeric_limits<float>::max()}, ma{std::numeric_limits<float>::min()};
     nonEmptyValues.reserve(data.size());
     for (uint i = 0; i < data.size(); ++i) {
         const auto &v = data[i];
+        const auto w = dvec2{v.x, v.y};
+        mi = min(w, mi);
+        ma = max(w, ma);
+
         if (-tileHeight < v.z) {
-            nonEmptyValues.emplace_back(vec2{v.x, v.y}, i);
-    // Also find smallest (for graham scan later)
-            if (data[i].y < data[first].y && data[i].x < data[first].x)
+            nonEmptyValues.emplace_back(w, i);
+            // Also find smallest (for graham scan later)
+            if (data[i].y < data[first].y && data[i].x + EPS < data[first].x) // y' < y && x' <= x
                 first = static_cast<uint>(nonEmptyValues.size() - 1);
         }
     }
+    const auto boundingCenter = 0.5 * mi + 0.5 * ma;
+
     // Make sure smallest is first
     if (1 < nonEmptyValues.size())
         std::swap(nonEmptyValues[0], nonEmptyValues[first]);
+    // Set comparison direction, the start of the polar angle circle, to be the first point
+    const auto compareDir = normalize(nonEmptyValues[0].first - boundingCenter);
 
     // NB: Only works on 0 < size()
-    auto nonEmptyValuesPolarAngled = map(nonEmptyValues.begin(), nonEmptyValues.end(),
-                                         [&nonEmptyValues](const std::pair<vec2, uint> &v) -> std::tuple<vec2, uint, float> {
-                                             const auto&[p, i] = v;
-                                             constexpr auto compareDir = vec2{0.f, -1.f};
-
-                                             if (nonEmptyValues[0].second == i) {
-                                                 return std::make_tuple(p, i, 0.f);
-                                             } else {
-                                                 const auto dir{normalize(p - nonEmptyValues[0].first)};
-                                                 return std::make_tuple(p, i, angleBetween(compareDir, dir));
-                                             }
-                                         });
+    std::vector<std::tuple<dvec2, uint, double>> nonEmptyValuesPolarAngled;
+    nonEmptyValuesPolarAngled.reserve(nonEmptyValues.size());
+    for (const auto& [p, i] : nonEmptyValues) {
+        if (nonEmptyValues[0].second == i) {
+            nonEmptyValuesPolarAngled.emplace_back(p, i, 0.f);
+        } else {
+            const auto dir = p - boundingCenter;
+            const auto dir_len = length(dir);
+            if (EPS < dir_len) {
+                const auto pa = dotBetween(compareDir, dir * (1. / dir_len));
+                nonEmptyValuesPolarAngled.emplace_back(p, i, pa);
+            }
+        }
+    }
 
     // Sort points on polar angle
     std::sort(nonEmptyValuesPolarAngled.begin(), nonEmptyValuesPolarAngled.end(), [](const auto &a, const auto &b) {
@@ -156,24 +175,74 @@ geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Bu
     });
 
     // Graham scan implementation:
-    std::deque<std::tuple<vec2, uint, float>> convexHullStack{};
+    std::deque<std::tuple<dvec2, uint, double>> convexHullStack{};
     for (const auto&[p, i, polar_angle]: nonEmptyValuesPolarAngled) {
-        // While we have enough points in our stack...
-        while (2 < convexHullStack.size()) {
+        // Skip empty/near-empty increments:
+        if (!convexHullStack.empty()) {
             const auto last = std::get<0>(convexHullStack[0]);
-            const auto second_last = std::get<0>(convexHullStack[1]);
-            const auto a = normalize(p - last);
-            const auto b = normalize(last - second_last);
-            // If the new point forms a clockwise turn with the last points in the stack,
-            // pop the last point from the stack
-            if (angleBetween(b, a) < 0.f)
-                convexHullStack.pop_front();
-            else
-                break;
+            const auto b = p - last;
+
+            if (length(b) < EPS)
+                continue;
         }
 
+        bool invalidPoint = false;
+        // While we have enough points in our stack...
+        while (1 < convexHullStack.size()) {
+            const auto last = std::get<0>(convexHullStack[0]);
+            const auto second_last = std::get<0>(convexHullStack[1]);
+            auto a = last - second_last;
+            const auto la = length(a);
+            auto b = p - last;
+            const auto lb = length(b);
+
+            if (la < EPS || lb < EPS) {
+                invalidPoint = true;
+                break;
+            }
+            a *= 1.0 / la;
+            b *= 1.0 / lb;
+
+            // If the new point forms a clockwise turn with the last points in the stack,
+            // pop the last point from the stack
+            if (ccw(a, b, EPS))
+                break;
+            else
+                convexHullStack.pop_front();
+        }
+        if (invalidPoint)
+            continue;
+
+        // Since points are sorted on polar coordinates and empty increments are skipped,
+        // no point that arrives here should give an empty increment
         convexHullStack.emplace_front(p, i, polar_angle);
     }
+
+    // My Graham scan implementation isn't perfect, so traverse hull once more and fix concave edges
+    auto end = convexHullStack.rend();
+//    for (auto last{convexHullStack.rbegin()}, it{convexHullStack.rbegin()+1}; it != end; last = it, ++it) {
+//        auto next = it + 1;
+//        if (next == end) break; // Early break
+//
+//        const auto curr_p = std::get<0>(*it);
+//        const auto last_p = std::get<0>(*last);
+//        const auto a = normalize(curr_p - last_p);
+//
+//        for (; next != end; ++next) {
+//            const auto next_p = std::get<0>(*next);
+//            /// Should be safe to normalize as we've discarded zero-length vectors previously
+//            const auto b = normalize(next_p - curr_p);
+//
+//            if (ccw(a,b))
+//                break;
+//        }
+//
+//        // If we skipped some points, update range by "deleting" them.
+//        if (1 < std::distance(it, next)) {
+//            // Delete them by moving the range after the skip to the start of the skip. And update end
+//            end = std::move(next, end, it+1);
+//        }
+//    }
 
     // Optimization idea: Since the hull is sorted by polar angles, we knot roughly where to find a hull edge based on its angle.
     // So we can use a divide and conquer search instead of searching through all of them. (ex. recursively)
@@ -182,7 +251,10 @@ geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Bu
     // Hull is in clockwise order, meaning any points inside the hull should make a clockwise turn in respect to the hull
     // Any point who doesn't make a clockwise turn is outside the hull
 
-    const auto hullList = map(convexHullStack.begin(), convexHullStack.end(), [](const auto& t){ return std::get<0>(t); });
+    const auto hullList = map(convexHullStack.rbegin(), end, [tileHeight](const auto& t){
+        const auto p = std::get<0>(t);
+        return glm::vec4{p.x, p.y, -tileHeight, 1.f};
+    });
 
     return bufferPtr.expired() ? std::nullopt : std::make_optional(std::make_pair(data, hullList));
 }
@@ -363,8 +435,8 @@ void CrystalRenderer::display() {
             const auto binding = m_vao->binding(0);
             binding->setAttribute(0);
             m_hullBuffer->bind(GL_ARRAY_BUFFER);
-            binding->setBuffer(m_hullBuffer.get(), 0, sizeof(vec2));
-            binding->setFormat(2, GL_FLOAT);
+            binding->setBuffer(m_hullBuffer.get(), 0, sizeof(vec4));
+            binding->setFormat(4, GL_FLOAT);
             m_vao->enable(0);
 
             m_vao->drawArrays(GL_LINE_STRIP, 0, m_hullSize);
@@ -395,7 +467,7 @@ void CrystalRenderer::display() {
             m_drawingCount = static_cast<int>(vertices.size());
 
             m_hullBuffer = Buffer::create();
-            m_hullBuffer->setStorage(static_cast<GLsizeiptr>(hull.size() * sizeof(vec2)), hull.data(), VERTEXSTORAGEMASK);
+            m_hullBuffer->setStorage(static_cast<GLsizeiptr>(hull.size() * sizeof(vec4)), hull.data(), VERTEXSTORAGEMASK);
             m_hullSize = static_cast<int>(hull.size());
         }
     }
