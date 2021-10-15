@@ -103,7 +103,7 @@ auto scalarCross2D(const dvec2& a, const dvec2& b) {
 }
 
 bool ccw(const dvec2& a, const dvec2& b, double epsilon = 0.001f) {
-    return epsilon < scalarCross2D(a,b);
+    return -epsilon < scalarCross2D(a,b);
 }
 
 double dotBetween(const dvec2& a, const dvec2& b) {
@@ -189,7 +189,7 @@ geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Bu
 
         bool invalidPoint = false;
         // While we have enough points in our stack...
-        while (1 < convexHullStack.size()) {
+        while (2 <= convexHullStack.size()) {
             const auto last = std::get<0>(convexHullStack[0]);
             const auto second_last = std::get<0>(convexHullStack[1]);
             auto a = last - second_last;
@@ -197,16 +197,17 @@ geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Bu
             auto b = p - last;
             const auto lb = length(b);
 
-            if (la < EPS || lb < EPS) {
-                invalidPoint = true;
-                break;
-            }
-            a *= 1.0 / la;
-            b *= 1.0 / lb;
+//                if (la < EPS || lb < EPS) {
+//                    invalidPoint = true;
+//                    break;
+//                }
+            // Don't need to normalize, as I only use the cross product to check sign
+//                a *= 1.0 / la;
+//                b *= 1.0 / lb;
 
             // If the new point forms a clockwise turn with the last points in the stack,
             // pop the last point from the stack
-            if (ccw(a, b, EPS))
+            if (!ccw(a, b, EPS))
                 break;
             else
                 convexHullStack.pop_front();
@@ -221,6 +222,7 @@ geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<Bu
 
     // My Graham scan implementation isn't perfect, so traverse hull once more and fix concave edges
     auto end = convexHullStack.rend();
+    // TODO: Only need to fix start / end point
 //    for (auto last{convexHullStack.rbegin()}, it{convexHullStack.rbegin()+1}; it != end; last = it, ++it) {
 //        auto next = it + 1;
 //        if (next == end) break; // Early break
@@ -457,7 +459,7 @@ void CrystalRenderer::display() {
             const auto vCount = count * 6 * 2 * 3;
             const auto memPtr = reinterpret_cast<vec4*>(m_computeBuffer->mapRange(0, vCount * static_cast<GLsizeiptr>(sizeof(vec4)), GL_MAP_READ_BIT));
             if (memPtr != nullptr)
-                m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing, std::vector<vec4>{memPtr + 0, memPtr + vCount}, m_computeBuffer, m_tileHeight, hullRate));
+                m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing, std::vector<vec4>{memPtr + 0, memPtr + vCount}, m_computeBuffer, m_tileHeight));
             assert(m_computeBuffer->unmap());
         } else {
             std::cout << "Error: Sync Object was " << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" :  "GL_TIMEOUT_EXPIRED") << std::endl;
