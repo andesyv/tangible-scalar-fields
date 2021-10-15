@@ -9,6 +9,7 @@
 #include <iterator>
 #include <deque>
 #include <tuple>
+#include <iostream>
 
 #include <glbinding/gl/enum.h>
 #include <globjects/globjects.h>
@@ -365,7 +366,7 @@ void CrystalRenderer::display() {
 
         const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
 
-        m_vertexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+        m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         accumulateTexture->bindActive(1);
         accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
 
@@ -381,7 +382,11 @@ void CrystalRenderer::display() {
 
         accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
         accumulateTexture->unbindActive(1);
-        m_vertexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+        m_computeBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+
+        // Share resource with m_vertexBuffer, orphaning the old buffer
+        m_vertexBuffer = m_computeBuffer;
+        m_drawingCount = count * 6 * 2 * 3;
 
         /** Returning data from GPU:
          * 1. Memory barrier
@@ -447,12 +452,15 @@ void CrystalRenderer::display() {
 
     // Background memory management:
     if (syncObject) {
-        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 10000);
+        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
             const auto vCount = count * 6 * 2 * 3;
-            const auto memPtr = reinterpret_cast<vec4*>(m_vertexBuffer->map(GL_READ_ONLY));
-            m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing, std::vector<vec4>{memPtr, memPtr + vCount}, m_vertexBuffer, m_tileHeight));
-            assert(m_vertexBuffer->unmap());
+            const auto memPtr = reinterpret_cast<vec4*>(m_computeBuffer->mapRange(0, vCount * static_cast<GLsizeiptr>(sizeof(vec4)), GL_MAP_READ_BIT));
+            if (memPtr != nullptr)
+                m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing, std::vector<vec4>{memPtr + 0, memPtr + vCount}, m_computeBuffer, m_tileHeight, hullRate));
+            assert(m_computeBuffer->unmap());
+        } else {
+            std::cout << "Error: Sync Object was " << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" :  "GL_TIMEOUT_EXPIRED") << std::endl;
         }
     }
 
@@ -461,7 +469,7 @@ void CrystalRenderer::display() {
         auto result = m_workerResult.get();
         if (result) {
             const auto& [vertices, hull] = *result;
-            // Orphan that buffer!
+            // Create new buffer subset (unlinking m_computeBuffer)
             m_vertexBuffer = Buffer::create();
             m_vertexBuffer->setStorage( static_cast<GLsizeiptr>(vertices.size() * sizeof(vec4)), vertices.data(), VERTEXSTORAGEMASK);
             m_drawingCount = static_cast<int>(vertices.size());
@@ -502,11 +510,12 @@ void CrystalRenderer::resizeVertexBuffer(int hexCount) {
     const auto vCount = hexCount * 6 * 2 * 3;
     // Make sure the buffer can be read from
 
-    m_vertexBuffer = Buffer::create();
+    m_computeBuffer = Buffer::create();
     /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
-    m_vertexBuffer->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, VERTEXSTORAGEMASK);
+    m_computeBuffer->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, VERTEXSTORAGEMASK);
+    assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) == vCount * static_cast<GLsizeiptr>(sizeof(vec4))); // Check that requested size == actual size
 
-    m_vertexBuffer->bind(GL_SHADER_STORAGE_BUFFER);
+    m_computeBuffer->bind(GL_SHADER_STORAGE_BUFFER);
 //    m_vertexBuffer->map(GL_READ_WRITE)
 //    m_vertexDataPtr = PersistentStoragePtr<glm::vec4>{m_vertexBuffer.get()};
 }

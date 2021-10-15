@@ -26,7 +26,8 @@ namespace molumes {
 
     private:
         std::unique_ptr<globjects::VertexArray> m_vao;
-        std::shared_ptr<globjects::Buffer> m_vertexBuffer; // Using shared_ptr to check if shared resource is same
+        // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
+        std::shared_ptr<globjects::Buffer> m_computeBuffer, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::future<std::optional<std::pair<std::vector<glm::vec4>, std::vector<glm::vec4>>>> m_workerResult;
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
 
