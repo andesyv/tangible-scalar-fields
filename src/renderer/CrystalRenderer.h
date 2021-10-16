@@ -32,6 +32,7 @@ namespace molumes {
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
 
         bool m_wireframe = false;
+        bool m_renderHull = true;
         float m_tileScale = 1.0f;
         float m_tileHeight = 1.0f;
         bool m_hexagonsUpdated = true;
