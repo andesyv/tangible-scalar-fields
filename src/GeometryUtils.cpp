@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <tuple>
+#include <iostream>
 
 #include <glm/glm.hpp>
 
@@ -27,7 +28,25 @@ namespace molumes {
         return ccw(a, b) ? (-0.25 * dot(a, b) + 0.25) : (0.25 * dot(a, b) + 0.75);
     }
 
-//bool insideHull(const vec3& p, const std::vector)
+    // Hull is in clockwise order, meaning any points inside the hull should make a clockwise turn in respect to the hull
+    // Any point who doesn't make a clockwise turn is outside the hull
+    bool insideHull(const vec2& p, const std::vector<vec2>& convexHull) {
+        for (auto it{convexHull.begin()}; it != convexHull.end(); ++it) {
+            const auto next = it + 1 == convexHull.end() ? convexHull.begin() : it + 1;
+
+            const auto a = *it - p;
+            const auto b = *next - *it;
+
+            if (!ccw(a, b, EPS))
+                return false;
+        }
+        return true;
+    }
+
+    template <typename It>
+    bool includes(It beg, It end, const typename std::iterator_traits<It>::value_type& val) {
+        return std::find(beg, end, val) != end;
+    }
 
     std::optional<std::pair<std::vector<vec4>, std::vector<vec4>>>
     geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<globjects::Buffer> &bufferPtr,
@@ -38,13 +57,19 @@ namespace molumes {
             return std::nullopt;
 
         // Filter out empty vertices
-        auto data = filter(vertices.begin(), vertices.end(), [](const auto &v) { return EPS < v.w; });
+        std::vector<vec4> data;
+        data.reserve(vertices.size());
+        for (auto it{vertices.begin()}; it != vertices.end() && it +1 != vertices.end() && it +2!= vertices.end(); it += 3)
+            if (std::all_of(it, it + 3, [](const auto& p){ return EPS < p.w; }))
+                data.insert(data.end(), it, it+3);
 
         // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
         std::vector<std::pair<dvec2, uint>> nonEmptyValues;
+        std::vector<uint> emptyValues;
         uint first = 0;
         dvec2 mi{std::numeric_limits<float>::max()}, ma{std::numeric_limits<float>::min()};
         nonEmptyValues.reserve(data.size());
+        emptyValues.reserve(data.size());
         for (uint i = 0; i < data.size(); ++i) {
             const auto &v = data[i];
             const auto w = dvec2{v.x, v.y};
@@ -57,6 +82,8 @@ namespace molumes {
                 const auto &oldSmallest = std::get<0>(nonEmptyValues[first]);
                 if (w.y < oldSmallest.y || w.y < oldSmallest.y + EPS && w.x < oldSmallest.x) // y' < y && x' <= x
                     first = static_cast<uint>(nonEmptyValues.size() - 1);
+            } else {
+                emptyValues.push_back(i);
             }
         }
         const auto boundingCenter = 0.5 * mi + 0.5 * ma;
@@ -72,9 +99,13 @@ namespace molumes {
             return std::get<0>(t);
         }), boundingCenter);
 
-        // Filter out all points outside of hull
-        // Hull is in clockwise order, meaning any points inside the hull should make a clockwise turn in respect to the hull
-        // Any point who doesn't make a clockwise turn is outside the hull
+        // Filter out all points outside of hull from empty values
+        // Non-empty values will always be inside the hull
+        for (int i{static_cast<int>(data.size())-3}; -1 < i; i -= 3) {
+            const auto it = data.begin() + i;
+            if (std::any_of(it, it + 3, [&convexHull](const auto& p){ return !insideHull(vec2{p}, convexHull); }))
+                data.erase(it, it +3);
+        }
 
         const auto hullListConverted = map(convexHull.begin(), convexHull.end(), [tileHeight](const auto &v) {
             return vec4{v.x, v.y, -tileHeight, 1.f};
@@ -136,7 +167,7 @@ namespace molumes {
             convexHullStack.push_front(p);
         }
 
-        return map(convexHullStack.rbegin(), convexHullStack.rend(),
+        return map(convexHullStack.rbegin(), convexHullStack.rend()-1,
                    [](const auto &p) {
                        return glm::vec2{p.x, p.y};
                    });
