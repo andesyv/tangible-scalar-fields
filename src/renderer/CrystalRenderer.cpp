@@ -275,9 +275,9 @@ void CrystalRenderer::display() {
                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                    GL_MAP_READ_BIT));
             if (memPtr != nullptr)
-                m_workerResult = std::move(std::async(std::launch::async, geometryPostProcessing,
-                                                      std::vector<vec4>{memPtr + 0, memPtr + vCount}, m_computeBuffer,
-                                                      m_tileHeight));
+                m_workerResult = std::move(m_worker.queue_job(geometryPostProcessing, std::vector<vec4>{memPtr + 0, memPtr + vCount},
+                                   std::move(std::weak_ptr{m_computeBuffer}),
+                                   m_tileHeight));
             assert(m_computeBuffer->unmap());
         } else {
             std::cout << "Error: Sync Object was "

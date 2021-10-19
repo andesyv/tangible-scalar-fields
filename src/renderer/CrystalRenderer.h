@@ -5,6 +5,8 @@
 #include <optional>
 
 #include "Renderer.h"
+#include "WorkerThread.h"
+#include "../GeometryUtils.h"
 
 namespace globjects {
     class VertexArray;
@@ -30,6 +32,8 @@ namespace molumes {
         std::shared_ptr<globjects::Buffer> m_computeBuffer, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::future<std::optional<std::pair<std::vector<glm::vec4>, std::vector<glm::vec4>>>> m_workerResult;
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
+        using WorkerThreadT = decltype(worker_manager_from_function(geometryPostProcessing));
+        WorkerThreadT m_worker{};
 
         bool m_wireframe = false;
         bool m_renderHull = true;

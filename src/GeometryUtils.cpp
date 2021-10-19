@@ -30,7 +30,7 @@ namespace molumes {
 
     // Hull is in clockwise order, meaning any points inside the hull should make a clockwise turn in respect to the hull
     // Any point who doesn't make a clockwise turn is outside the hull
-    bool insideHull(const vec2& p, const std::vector<vec2>& convexHull) {
+    bool insideHull(const vec2 &p, const std::vector<vec2> &convexHull) {
         for (auto it{convexHull.begin()}; it != convexHull.end(); ++it) {
             const auto next = it + 1 == convexHull.end() ? convexHull.begin() : it + 1;
 
@@ -43,8 +43,8 @@ namespace molumes {
         return true;
     }
 
-    template <typename It>
-    bool includes(It beg, It end, const typename std::iterator_traits<It>::value_type& val) {
+    template<typename It>
+    bool includes(It beg, It end, const typename std::iterator_traits<It>::value_type &val) {
         return std::find(beg, end, val) != end;
     }
 
@@ -59,9 +59,12 @@ namespace molumes {
         // Filter out empty vertices
         std::vector<vec4> data;
         data.reserve(vertices.size());
-        for (auto it{vertices.begin()}; it != vertices.end() && it +1 != vertices.end() && it +2!= vertices.end(); it += 3)
-            if (std::all_of(it, it + 3, [](const auto& p){ return EPS < p.w; }))
-                data.insert(data.end(), it, it+3);
+        for (auto it{vertices.begin()};
+             it != vertices.end() && it + 1 != vertices.end() && it + 2 != vertices.end(); it += 3)
+            if (std::all_of(it, it + 3, [](const auto &p) { return EPS < p.w; }))
+                data.insert(data.end(), it, it + 3);
+
+        if (bufferPtr.expired()) return std::nullopt;
 
         // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
         std::vector<std::pair<dvec2, uint>> nonEmptyValues;
@@ -97,15 +100,19 @@ namespace molumes {
         // Create convex hull
         const auto convexHull = createConvexHull(map(nonEmptyValues.begin(), nonEmptyValues.end(), [](const auto &t) {
             return std::get<0>(t);
-        }), boundingCenter);
+        }), boundingCenter, bufferPtr);
+
+        if (bufferPtr.expired()) return std::nullopt;
 
         // Filter out all points outside of hull from empty values
         // Non-empty values will always be inside the hull
-        for (int i{static_cast<int>(data.size())-3}; -1 < i; i -= 3) {
+        for (int i{static_cast<int>(data.size()) - 3}; -1 < i; i -= 3) {
             const auto it = data.begin() + i;
-            if (std::any_of(it, it + 3, [&convexHull](const auto& p){ return !insideHull(vec2{p}, convexHull); }))
-                data.erase(it, it +3);
+            if (std::any_of(it, it + 3, [&convexHull](const auto &p) { return !insideHull(vec2{p}, convexHull); }))
+                data.erase(it, it + 3);
         }
+
+        if (bufferPtr.expired()) return std::nullopt;
 
         const auto hullListConverted = map(convexHull.begin(), convexHull.end(), [tileHeight](const auto &v) {
             return vec4{v.x, v.y, -tileHeight, 1.f};
@@ -114,9 +121,12 @@ namespace molumes {
         return bufferPtr.expired() ? std::nullopt : std::make_optional(std::make_pair(data, hullListConverted));
     }
 
-    std::vector<glm::vec2> createConvexHull(const std::vector<glm::dvec2> &points, glm::dvec2 boundingCenter) {
+    std::vector<glm::vec2> createConvexHull(const std::vector<glm::dvec2> &points, glm::dvec2 boundingCenter,
+                                            const std::weak_ptr<globjects::Buffer> &bufferPtr) {
         // Set comparison direction, the start of the polar angle circle, to be the first point
         const auto compareDir = normalize(points[0] - boundingCenter);
+
+        if (bufferPtr.expired()) return {};
 
         std::vector<std::pair<dvec2, double>> nonEmptyValuesPolarAngled;
         nonEmptyValuesPolarAngled.reserve(points.size());
@@ -131,10 +141,14 @@ namespace molumes {
             }
         }
 
+        if (bufferPtr.expired()) return {};
+
         // Sort points on polar angle
         std::sort(nonEmptyValuesPolarAngled.begin(), nonEmptyValuesPolarAngled.end(), [](const auto &a, const auto &b) {
             return std::get<1>(a) < std::get<1>(b);
         });
+
+        if (bufferPtr.expired()) return {};
 
         // Graham scan implementation:
         std::deque<dvec2> convexHullStack{};
@@ -165,9 +179,11 @@ namespace molumes {
             // Since points are sorted on polar coordinates and empty increments are skipped,
             // no point that arrives here should give an empty increment
             convexHullStack.push_front(p);
+
+            if (bufferPtr.expired()) return {};
         }
 
-        return map(convexHullStack.rbegin(), convexHullStack.rend()-1,
+        return map(convexHullStack.rbegin(), convexHullStack.rend() - 1,
                    [](const auto &p) {
                        return glm::vec2{p.x, p.y};
                    });
