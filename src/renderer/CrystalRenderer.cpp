@@ -180,6 +180,8 @@ void CrystalRenderer::display() {
         if (!shader)
             return;
 
+        m_workerControlFlag = std::make_shared<bool>(true);
+
         const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
 
         m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
@@ -276,7 +278,7 @@ void CrystalRenderer::display() {
                                                                                    GL_MAP_READ_BIT));
             if (memPtr != nullptr)
                 m_workerResult = std::move(m_worker.queue_job(geometryPostProcessing, std::vector<vec4>{memPtr + 0, memPtr + vCount},
-                                   std::move(std::weak_ptr{m_computeBuffer}),
+                                   std::move(std::weak_ptr{m_workerControlFlag}),
                                    m_tileHeight));
             assert(m_computeBuffer->unmap());
         } else {

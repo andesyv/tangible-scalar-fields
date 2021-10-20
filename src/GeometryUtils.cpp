@@ -49,11 +49,11 @@ namespace molumes {
     }
 
     std::optional<std::pair<std::vector<vec4>, std::vector<vec4>>>
-    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<globjects::Buffer> &bufferPtr,
+    geometryPostProcessing(const std::vector<vec4> &vertices, std::weak_ptr<bool> controlFlag,
                            float tileHeight) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
-        if (bufferPtr.expired() || vertices.size() < 2)
+        if (controlFlag.expired() || vertices.size() < 2)
             return std::nullopt;
 
         // Filter out empty vertices
@@ -64,7 +64,7 @@ namespace molumes {
             if (std::all_of(it, it + 3, [](const auto &p) { return EPS < p.w; }))
                 data.insert(data.end(), it, it + 3);
 
-        if (bufferPtr.expired()) return std::nullopt;
+        if (controlFlag.expired()) return std::nullopt;
 
         // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
         std::vector<std::pair<dvec2, uint>> nonEmptyValues;
@@ -91,7 +91,7 @@ namespace molumes {
         }
         const auto boundingCenter = 0.5 * mi + 0.5 * ma;
 
-        if (bufferPtr.expired() || nonEmptyValues.size() < 2)
+        if (controlFlag.expired() || nonEmptyValues.size() < 2)
             return std::nullopt;
 
         // Make sure smallest is first
@@ -100,9 +100,9 @@ namespace molumes {
         // Create convex hull
         const auto convexHull = createConvexHull(map(nonEmptyValues.begin(), nonEmptyValues.end(), [](const auto &t) {
             return std::get<0>(t);
-        }), boundingCenter, bufferPtr);
+        }), boundingCenter, controlFlag);
 
-        if (bufferPtr.expired()) return std::nullopt;
+        if (controlFlag.expired()) return std::nullopt;
 
         // Filter out all points outside of hull from empty values
         // Non-empty values will always be inside the hull
@@ -112,21 +112,21 @@ namespace molumes {
                 data.erase(it, it + 3);
         }
 
-        if (bufferPtr.expired()) return std::nullopt;
+        if (controlFlag.expired()) return std::nullopt;
 
         const auto hullListConverted = map(convexHull.begin(), convexHull.end(), [tileHeight](const auto &v) {
             return vec4{v.x, v.y, -tileHeight, 1.f};
         });
 
-        return bufferPtr.expired() ? std::nullopt : std::make_optional(std::make_pair(data, hullListConverted));
+        return controlFlag.expired() ? std::nullopt : std::make_optional(std::make_pair(data, hullListConverted));
     }
 
     std::vector<glm::vec2> createConvexHull(const std::vector<glm::dvec2> &points, glm::dvec2 boundingCenter,
-                                            const std::weak_ptr<globjects::Buffer> &bufferPtr) {
+                                            const std::weak_ptr<bool>& controlFlag) {
         // Set comparison direction, the start of the polar angle circle, to be the first point
         const auto compareDir = normalize(points[0] - boundingCenter);
 
-        if (bufferPtr.expired()) return {};
+        if (controlFlag.expired()) return {};
 
         std::vector<std::pair<dvec2, double>> nonEmptyValuesPolarAngled;
         nonEmptyValuesPolarAngled.reserve(points.size());
@@ -141,14 +141,14 @@ namespace molumes {
             }
         }
 
-        if (bufferPtr.expired()) return {};
+        if (controlFlag.expired()) return {};
 
         // Sort points on polar angle
         std::sort(nonEmptyValuesPolarAngled.begin(), nonEmptyValuesPolarAngled.end(), [](const auto &a, const auto &b) {
             return std::get<1>(a) < std::get<1>(b);
         });
 
-        if (bufferPtr.expired()) return {};
+        if (controlFlag.expired()) return {};
 
         // Graham scan implementation:
         std::deque<dvec2> convexHullStack{};
@@ -180,7 +180,7 @@ namespace molumes {
             // no point that arrives here should give an empty increment
             convexHullStack.push_front(p);
 
-            if (bufferPtr.expired()) return {};
+            if (controlFlag.expired()) return {};
         }
 
         return map(convexHullStack.rbegin(), convexHullStack.rend() - 1,

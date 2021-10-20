@@ -5,7 +5,7 @@
 #include <optional>
 
 #include "Renderer.h"
-#include "WorkerThread.h"
+#include "../WorkerThread.h"
 #include "../GeometryUtils.h"
 
 namespace globjects {
@@ -34,6 +34,7 @@ namespace molumes {
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
         using WorkerThreadT = decltype(worker_manager_from_function(geometryPostProcessing));
         WorkerThreadT m_worker{};
+        std::shared_ptr<bool> m_workerControlFlag; // Weird to have a pointer to a bool, but I'm only using this as a signal to the worker thread
 
         bool m_wireframe = false;
         bool m_renderHull = true;

@@ -38,9 +38,6 @@ void error_callback(int errnum, const char *errmsg) {
     globjects::critical() << errnum << ": " << errmsg << std::endl;
 }
 
-typedef std::pair<GLenum, std::string> ESPair;
-#define ESTR(x) ESPair{x, #x}
-
 int main(int argc, char *argv[]) {
     // Initialize GLFW
     if (!glfwInit())
@@ -92,32 +89,33 @@ int main(int argc, char *argv[]) {
     glDebugMessageCallback(
             [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message,
                const void *userParam) {
+                using ESPair = std::pair<GLenum, std::string>;
                 static const std::map<GLenum, std::string> SOURCES{
-                        ESTR(GL_DEBUG_SOURCE_API),
-                        ESTR(GL_DEBUG_SOURCE_WINDOW_SYSTEM),
-                        ESTR(GL_DEBUG_SOURCE_SHADER_COMPILER),
-                        ESTR(GL_DEBUG_SOURCE_THIRD_PARTY),
-                        ESTR(GL_DEBUG_SOURCE_APPLICATION),
-                        ESTR(GL_DEBUG_SOURCE_OTHER)
+                        ESPair{GL_DEBUG_SOURCE_API, "GL_DEBUG_SOURCE_API"},
+                        ESPair{GL_DEBUG_SOURCE_WINDOW_SYSTEM, "GL_DEBUG_SOURCE_WINDOW_SYSTEM"},
+                        ESPair{GL_DEBUG_SOURCE_SHADER_COMPILER, "GL_DEBUG_SOURCE_SHADER_COMPILER"},
+                        ESPair{GL_DEBUG_SOURCE_THIRD_PARTY, "GL_DEBUG_SOURCE_THIRD_PARTY"},
+                        ESPair{GL_DEBUG_SOURCE_APPLICATION, "GL_DEBUG_SOURCE_APPLICATION"},
+                        ESPair{GL_DEBUG_SOURCE_OTHER, "GL_DEBUG_SOURCE_OTHER"}
                 };
 
                 static const std::map<GLenum, std::string> TYPES{
-                        ESTR(GL_DEBUG_TYPE_ERROR),
-                        ESTR(GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR),
-                        ESTR(GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR),
-                        ESTR(GL_DEBUG_TYPE_PORTABILITY),
-                        ESTR(GL_DEBUG_TYPE_PERFORMANCE),
-                        ESTR(GL_DEBUG_TYPE_MARKER),
-                        ESTR(GL_DEBUG_TYPE_PUSH_GROUP),
-                        ESTR(GL_DEBUG_TYPE_POP_GROUP),
-                        ESTR(GL_DEBUG_TYPE_OTHER)
+                        ESPair{GL_DEBUG_TYPE_ERROR, "GL_DEBUG_TYPE_ERROR"},
+                        ESPair{GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR, "GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR"},
+                        ESPair{GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR, "GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR"},
+                        ESPair{GL_DEBUG_TYPE_PORTABILITY, "GL_DEBUG_TYPE_PORTABILITY"},
+                        ESPair{GL_DEBUG_TYPE_PERFORMANCE, "GL_DEBUG_TYPE_PERFORMANCE"},
+                        ESPair{GL_DEBUG_TYPE_MARKER, "GL_DEBUG_TYPE_MARKER"},
+                        ESPair{GL_DEBUG_TYPE_PUSH_GROUP, "GL_DEBUG_TYPE_PUSH_GROUP"},
+                        ESPair{GL_DEBUG_TYPE_POP_GROUP, "GL_DEBUG_TYPE_POP_GROUP"},
+                        ESPair{GL_DEBUG_TYPE_OTHER, "GL_DEBUG_TYPE_OTHER"}
                 };
 
                 static const std::map<GLenum, std::string> SEVERITIES{
-                        ESTR(GL_DEBUG_SEVERITY_HIGH),
-                        ESTR(GL_DEBUG_SEVERITY_MEDIUM),
-                        ESTR(GL_DEBUG_SEVERITY_LOW),
-                        ESTR(GL_DEBUG_SEVERITY_NOTIFICATION)
+                        ESPair{GL_DEBUG_SEVERITY_HIGH, "GL_DEBUG_SEVERITY_HIGH"},
+                        ESPair{GL_DEBUG_SEVERITY_MEDIUM, "GL_DEBUG_SEVERITY_MEDIUM"},
+                        ESPair{GL_DEBUG_SEVERITY_LOW, "GL_DEBUG_SEVERITY_LOW"},
+                        ESPair{GL_DEBUG_SEVERITY_NOTIFICATION, "GL_DEBUG_SEVERITY_NOTIFICATION"}
                 };
 
                 const auto[sourceStr, typeStr, severityStr] = std::tie(SOURCES.at(source), TYPES.at(type),

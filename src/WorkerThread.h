@@ -22,15 +22,16 @@ namespace molumes {
 
         static void do_jobs(bool &working, std::queue<JobT> &jobs, std::mutex& jobs_lock) {
             while (working) {
-                if (!jobs.empty()) {
-                    JobT job;
-                    {
-                        std::lock_guard<std::mutex> guard{jobs_lock};
-                        job = std::move(jobs.front());
+                while (!jobs.empty()) {
+                    jobs_lock.lock();
+                    if (!jobs.empty()) {
+                        auto [func, args, promise] = std::move(jobs.front());
                         jobs.pop();
+                        jobs_lock.unlock();
+                        promise.set_value(std::apply(func, args));
+                    } else {
+                        jobs_lock.unlock();
                     }
-                    auto& [func, args, promise] = job;
-                    promise.set_value(std::apply(func, args));
                 }
 
                 std::this_thread::sleep_for(std::chrono::steady_clock::duration{1000000});
@@ -51,7 +52,7 @@ namespace molumes {
 
     template<typename F, typename R, typename ... Args>
     constexpr auto worker_manager_from_function(std::function < R(Args...) > && funcWrapper) {
-        return WorkerThread<F, R, Args...>{};
+        return WorkerThread<F, R, std::decay_t<Args>...>{};
     }
 
     template<typename F>
