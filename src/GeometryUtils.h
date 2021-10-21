@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <optional>
 #include <memory>
+#include <compare>
+#include <set>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -112,6 +114,9 @@ namespace molumes {
 
         return out;
     }
+
+    std::pair<std::vector<glm::vec4>, std::vector<unsigned int>> getVertexIndexPairs(const std::vector<glm::vec4>& vertices);
+    std::set<std::pair<unsigned int, unsigned int>> getEdges(const std::vector<unsigned int>& indices);
 
     // Graham scan implementation (first point should be start point / bounds max)
     std::vector<glm::vec2> createConvexHull(const std::vector<glm::dvec2>& points, glm::dvec2 boundingCenter = {}, const std::weak_ptr<bool>& controlFlag = {});

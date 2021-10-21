@@ -3,6 +3,7 @@
 #include <deque>
 #include <tuple>
 #include <iostream>
+#include <map>
 
 #include <glm/glm.hpp>
 
@@ -57,24 +58,29 @@ namespace molumes {
             return std::nullopt;
 
         // Filter out empty vertices
-        std::vector<vec4> data;
-        data.reserve(vertices.size());
-        for (auto it{vertices.begin()};
-             it != vertices.end() && it + 1 != vertices.end() && it + 2 != vertices.end(); it += 3)
-            if (std::all_of(it, it + 3, [](const auto &p) { return EPS < p.w; }))
-                data.insert(data.end(), it, it + 3);
+        const auto filterEmpties = [](const auto& points) {
+            std::vector<vec4> data;
+            data.reserve(points.size());
+            for (auto it{points.begin()};
+                 it != points.end() && it + 1 != points.end() && it + 2 != points.end(); it += 3)
+                if (std::all_of(it, it + 3, [](const auto &p) { return EPS < p.w; }))
+                    data.insert(data.end(), it, it + 3);
+
+            return data;
+        };
+
 
         if (controlFlag.expired()) return std::nullopt;
 
+        auto [uniqueVs, indices] = getVertexIndexPairs(filterEmpties(vertices));
+
         // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
         std::vector<std::pair<dvec2, uint>> nonEmptyValues;
-        std::vector<uint> emptyValues;
         uint first = 0;
         dvec2 mi{std::numeric_limits<float>::max()}, ma{std::numeric_limits<float>::min()};
-        nonEmptyValues.reserve(data.size());
-        emptyValues.reserve(data.size());
-        for (uint i = 0; i < data.size(); ++i) {
-            const auto &v = data[i];
+        nonEmptyValues.reserve(indices.size());
+        for (uint i = 0; i < indices.size(); ++i) {
+            const auto &v = uniqueVs.at(indices.at(i));
             const auto w = dvec2{v.x, v.y};
             mi = min(w, mi);
             ma = max(w, ma);
@@ -85,8 +91,6 @@ namespace molumes {
                 const auto &oldSmallest = std::get<0>(nonEmptyValues[first]);
                 if (w.y < oldSmallest.y || w.y < oldSmallest.y + EPS && w.x < oldSmallest.x) // y' < y && x' <= x
                     first = static_cast<uint>(nonEmptyValues.size() - 1);
-            } else {
-                emptyValues.push_back(i);
             }
         }
         const auto boundingCenter = 0.5 * mi + 0.5 * ma;
@@ -106,11 +110,16 @@ namespace molumes {
 
         // Filter out all points outside of hull from empty values
         // Non-empty values will always be inside the hull
-        for (int i{static_cast<int>(data.size()) - 3}; -1 < i; i -= 3) {
-            const auto it = data.begin() + i;
-            if (std::all_of(it, it + 3, [&convexHull](const auto &p) { return !insideHull(vec2{p}, convexHull); }))
-                data.erase(it, it + 3);
+        for (int i{static_cast<int>(indices.size()) - 3}; -1 < i; i -= 3) {
+            const auto it = indices.begin() + i;
+            if (std::all_of(it, it + 3, [&convexHull, &uniqueVs = uniqueVs](const auto &j) { // &uniqueVs = uniqueVs is a temporary fix until C++23 fixes structured bindings
+                const auto p = vec2{uniqueVs.at(j)};
+                return !insideHull(p, convexHull);
+            }))
+                indices.erase(it, it + 3);
         }
+
+        uniqueVs = map(indices.begin(), indices.end(), [&uniqueVs = uniqueVs](auto i){ return uniqueVs.at(i); });
 
         if (controlFlag.expired()) return std::nullopt;
 
@@ -118,7 +127,8 @@ namespace molumes {
             return vec4{v.x, v.y, -tileHeight, 1.f};
         });
 
-        return controlFlag.expired() ? std::nullopt : std::make_optional(std::make_pair(data, hullListConverted));
+
+        return controlFlag.expired() ? std::nullopt : std::make_optional(std::make_pair(uniqueVs, hullListConverted));
     }
 
     std::vector<glm::vec2> createConvexHull(const std::vector<glm::dvec2> &points, glm::dvec2 boundingCenter,
@@ -187,5 +197,63 @@ namespace molumes {
                    [](const auto &p) {
                        return glm::vec2{p.x, p.y};
                    });
+    }
+
+    template <typename T, int N>
+    std::weak_ordering compareVec(const vec<N, T>& as, const vec<N, T>& bs, unsigned int i = 0, float epsilon = 0.0001f) {
+        return N <= i ? std::weak_ordering::equivalent : (as[i] < bs[i] + epsilon && bs[i] < as[i] + epsilon) ?
+            compareVec(as, bs, i+1, epsilon) :
+            ((as[i] < bs[i]) ? std::weak_ordering::less : std::weak_ordering::greater);
+    }
+
+    struct Vec4Comparitor {
+        auto operator()(const vec4& lhs, const vec4& rhs) const {
+            return compareVec(lhs, rhs) == std::weak_ordering::less;
+        }
+    };
+
+    std::pair<std::vector<vec4>, std::vector<unsigned int>>
+    getVertexIndexPairs(const std::vector<vec4> &vertices) {
+        std::vector<vec4> uniqueVertices;
+        uniqueVertices.reserve(vertices.size());
+        std::vector<unsigned int> indices;
+        indices.reserve(vertices.size());
+
+        std::map<vec4, unsigned int, Vec4Comparitor> lookupMap;
+
+        for (const auto& v : vertices) {
+            const auto pos = lookupMap.find(v);
+            if (pos != lookupMap.end()) {
+                indices.push_back(pos->second);
+            } else {
+                uniqueVertices.push_back(v);
+                const auto i = static_cast<unsigned int>(lookupMap.size());
+                indices.push_back(i);
+                lookupMap.emplace(v, i);
+            }
+        }
+
+        uniqueVertices.shrink_to_fit();
+        indices.shrink_to_fit();
+
+        return std::make_pair(uniqueVertices, indices);
+    }
+
+    auto sortedEdge(auto a, auto b) {
+        return a < b ? std::make_pair(a, b) : std::make_pair(b,a);
+    }
+
+    std::set<std::pair<unsigned int, unsigned int>> getEdges(const std::vector<unsigned int> &indices) {
+        std::set<std::pair<unsigned int, unsigned int>> edges;
+        for (uint i{0}; i+2 < indices.size(); i+=3) {
+            for (const auto& edge : {
+                sortedEdge(indices.at(i), indices.at(i+1)),
+                sortedEdge(indices.at(i+1), indices.at(i+2)),
+                sortedEdge(indices.at(i+2), indices.at(i))
+            })
+                edges.insert(edge);
+        }
+
+        return edges;
     }
 }
