@@ -30,6 +30,9 @@ CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 
 void CameraInteractor::framebufferSizeEvent(int width, int height)
 {
+    if (width < 1 || height < 1)
+        return;
+
 	float aspect = float(width) / float(height);
 
 	if (m_perspective)

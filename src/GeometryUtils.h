@@ -117,7 +117,7 @@ namespace molumes {
     std::vector<glm::vec2> createConvexHull(const std::vector<glm::dvec2>& points, glm::dvec2 boundingCenter = {}, const std::weak_ptr<bool>& controlFlag = {});
 
     std::optional<std::pair<std::vector<glm::vec4>, std::vector<glm::vec4>>>
-    geometryPostProcessing(const std::vector<glm::vec4> &vertices, std::weak_ptr<bool> controlFlag,
+    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag,
                            float tileHeight);
 }
 

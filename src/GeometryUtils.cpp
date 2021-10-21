@@ -49,7 +49,7 @@ namespace molumes {
     }
 
     std::optional<std::pair<std::vector<vec4>, std::vector<vec4>>>
-    geometryPostProcessing(const std::vector<vec4> &vertices, std::weak_ptr<bool> controlFlag,
+    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<bool>& controlFlag,
                            float tileHeight) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
@@ -108,7 +108,7 @@ namespace molumes {
         // Non-empty values will always be inside the hull
         for (int i{static_cast<int>(data.size()) - 3}; -1 < i; i -= 3) {
             const auto it = data.begin() + i;
-            if (std::any_of(it, it + 3, [&convexHull](const auto &p) { return !insideHull(vec2{p}, convexHull); }))
+            if (std::all_of(it, it + 3, [&convexHull](const auto &p) { return !insideHull(vec2{p}, convexHull); }))
                 data.erase(it, it + 3);
         }
 

@@ -22,7 +22,7 @@ namespace molumes {
 
         static void do_jobs(bool &working, std::queue<JobT> &jobs, std::mutex& jobs_lock) {
             while (working) {
-                while (!jobs.empty()) {
+                while (working && !jobs.empty()) {
                     jobs_lock.lock();
                     if (!jobs.empty()) {
                         auto [func, args, promise] = std::move(jobs.front());
@@ -47,6 +47,12 @@ namespace molumes {
 
         WorkerThread() {
             m_thread = std::thread{do_jobs, std::ref(m_working), std::ref(m_jobs), std::ref(m_jobs_lock)};
+        }
+
+        ~WorkerThread() {
+            m_working = false; // Warn worker to stop
+            if (m_thread.joinable())
+                m_thread.join(); // Wait for worker thread to be finished before completely freeing resources.
         }
     };
 
