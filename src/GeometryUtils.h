@@ -118,6 +118,9 @@ namespace molumes {
     std::optional<std::pair<std::vector<glm::vec4>, std::vector<glm::vec4>>>
     geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag,
                            float tileHeight);
+
+    std::optional<std::vector<glm::uint>>
+    getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag, float tileHeight);
 }
 
 #endif //MOLUMES_GEOMETRYUTILS_H

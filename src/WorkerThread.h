@@ -13,11 +13,14 @@
 namespace molumes {
     template<typename F, typename R, typename ... Args> requires std::invocable<F, Args...>
     class WorkerThread {
+    public:
+        using JobT = std::tuple<F, std::tuple<Args...>, std::promise<R>>;
+        using ResultT = std::future<R>;
+
     private:
         std::thread m_thread{};
         bool m_working = true;
         std::mutex m_jobs_lock;
-        using JobT = std::tuple<F, std::tuple<Args...>, std::promise<R>>;
         std::queue<JobT> m_jobs;
 
         static void do_jobs(bool &working, std::queue<JobT> &jobs, std::mutex& jobs_lock) {

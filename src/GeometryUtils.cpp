@@ -65,6 +65,17 @@ namespace molumes {
         }
     };
 
+    auto getHexagonPositions(const std::vector<vec4>& vertices) {
+        constexpr auto stride = 3u * 6u * 2u;
+        std::vector<vec4> centers;
+        centers.reserve(vertices.size() / stride);
+        // hexID * 3 * 6 * 2
+        // First vertex in every stride offset is the center
+        for (uint i{0}; i < vertices.size(); i+=stride)
+            centers.push_back(vertices.at(i));
+        return centers;
+    }
+
     std::pair<std::vector<vec4>, std::vector<unsigned int>>
     getVertexIndexPairs(const std::vector<vec4> &vertices) {
         std::vector<vec4> uniqueVertices;
@@ -113,12 +124,12 @@ namespace molumes {
 
     // Graham scan implementation (first point should be start point / bounds max)
     std::vector<std::pair<glm::vec2, unsigned int>>
-    createConvexHull(const std::vector<std::pair<glm::dvec2, unsigned int>> &points, const std::set<std::pair<unsigned int, unsigned int>>& edges, glm::dvec2 boundingCenter = {},
+    createConvexHull(const std::vector<std::pair<glm::dvec2, unsigned int>> &points, glm::dvec2 boundingCenter = {},
                      const std::weak_ptr<bool> &controlFlag = {}) {
         // Set comparison direction, the start of the polar angle circle, to be the first point
         const auto compareDir = normalize(points[0].first - boundingCenter);
 
-        if (controlFlag.expired() || points.empty() || edges.empty()) return {};
+        if (controlFlag.expired() || points.empty()) return {};
 
         std::vector<std::tuple<dvec2, double, unsigned int>> nonEmptyValuesPolarAngled;
         nonEmptyValuesPolarAngled.reserve(points.size());
@@ -162,7 +173,7 @@ namespace molumes {
 
                 // If the new point forms a clockwise turn with the last points in the stack,
                 // pop the last point from the stack
-                if (!ccw(a, b, EPS) && edges.contains(sortedEdge(i, convexHullStack[1].second)))
+                if (!ccw(a, b, EPS))
                 // Only pop last edge if new edge is a "valid" edge
                     convexHullStack.pop_front();
                 else
@@ -173,8 +184,7 @@ namespace molumes {
             // no point that arrives here should give an empty increment
 
             // Only add points that has a connected edge (or if there are no edges yet)
-//            if (convexHullStack.empty() || edges.contains(sortedEdge(i, convexHullStack[0].second)))
-                convexHullStack.emplace_front(p, i);
+            convexHullStack.emplace_front(p, i);
 
             if (controlFlag.expired()) return {};
         }
@@ -187,28 +197,64 @@ namespace molumes {
     }
 
     std::vector<std::pair<glm::vec2, unsigned int>>
-    crawlAlongEdges(const std::vector<std::pair<glm::dvec2, unsigned int>> &points, const std::set<std::pair<unsigned int, unsigned int>>& edges, glm::dvec2 boundingCenter = {},
-                     const std::weak_ptr<bool> &controlFlag = {}) {
-        std::vector<std::pair<glm::vec2, unsigned int>> result;
-        result.reserve(points.size());
-        result.emplace_back(points.front());
-        result.emplace_back(*std::find_if(edges.begin(), edges.end(), [&points](const auto& e){ return e.first == points.front().second; }));
+    crawlAlongEdges(const std::vector<std::pair<glm::dvec2, unsigned int>> &nonEmptyPoints, const std::set<std::pair<unsigned int, unsigned int>>& edges, glm::dvec2 boundingCenter = {},
+                    const std::weak_ptr<bool> &controlFlag = {}) {
+        std::vector<std::pair<glm::dvec2, unsigned int>> result;
+        result.reserve(nonEmptyPoints.size());
+        result.emplace_back(nonEmptyPoints.front());
 
-        for (unsigned int i{0}; i < 10; ++i) {
-            unsigned int k = (result.end() - 2)->second;
-            unsigned int j = result.back().second;
-            const auto a = 
-            auto upper = edges.upper_bound(sortedEdge(j+1u, 0));
-            upper = upper == edges.end() ? edges.end() : upper - 1;
-            auto lower = i == 0 ? edges.begin() : edges.lower_bound(sortedEdge(j-1u, 0u-1u));
+        std::map<unsigned int, glm::dvec2> sortedPoints;
+        std::transform(nonEmptyPoints.begin(), nonEmptyPoints.end(), std::inserter(sortedPoints, sortedPoints.end()), [](const auto& p){
+           return std::make_pair(p.second, p.first);
+        });
+        // Random start edge:
+//        result.emplace_back(*std::find_if(edges.begin(), edges.end(), [&nonEmptyPoints](const auto& e){ return e.first == nonEmptyPoints.front().second; }));
 
-            auto nextEdge = lower;
-            auto smallestAngle = glm::two_pi<float>();
-            for (auto it{lower+1}; it != upper; ++it) {
-                float angle = dotBetween()
-                if ()
+        const auto findEligibleEdges = [&edges, &sortedPoints](unsigned int i){
+            return filter(edges.begin(), edges.end(), [i, &sortedPoints](const auto& e){ return (e.first == i || e.second == i) && sortedPoints.contains(e.first) && sortedPoints.contains(e.second); });
+        };
+
+        for (unsigned int i{0}; i < 40; ++i) {
+            const auto p_last = 1 < result.size() ? result.at(result.size()-2).first : boundingCenter;
+            const auto [p_current, j] = result.back();
+            auto a = p_current - p_last;
+            const auto la = length(a);
+            assert(EPS < la);
+            a *= 1.0 / la;
+
+//            auto upperIt = edges.upper_bound(sortedEdge(j + 1u, 0u));
+//            upperIt = upperIt == edges.end() ? edges.end() : upperIt;
+//            auto lowerIt = edges.lower_bound(sortedEdge(j, 0u));
+            const auto connectedEdges = findEligibleEdges(j);
+
+            auto nextEdge = connectedEdges.begin();
+            auto smallestAngle = glm::two_pi<double>();
+            for (auto it{connectedEdges.begin()}; it != connectedEdges.end(); ++it) {
+                const auto k = it->first == j ? it->second : it->first;
+                // If edge nonEmptyPoints back to first, skip that one
+                if (1 < result.size() && k == result.at(result.size()-2).second)
+                    continue;
+
+                const auto p_next = sortedPoints.at(k);
+                auto b = p_next - p_current;
+                const auto lb = length(b);
+                if (lb < EPS)
+                    continue;
+                b *= 1.0 / lb;
+
+                const auto angle = dotBetween(a, b);
+                if (angle < smallestAngle) {
+                    smallestAngle = angle;
+                    nextEdge = it;
+                }
             }
+
+            const auto k = nextEdge->first == j ? nextEdge->second : nextEdge->first;
+            result.emplace_back(sortedPoints.at(k), k);
+//            sortedPoints.erase(k);
         }
+
+        return map(result.begin(), result.end(), [](const auto& p){ return std::make_pair(static_cast<vec2>(p.first), p.second); });
     }
 
     std::optional<std::pair<std::vector<vec4>, std::vector<vec4>>>
@@ -219,8 +265,10 @@ namespace molumes {
         if (controlFlag.expired() || vertices.size() < 2)
             return std::nullopt;
 
+        const auto hexPositions = getHexagonPositions(vertices);
+
         // Filter out empty vertices
-        const auto filterEmpties = [](const auto &points) {
+        const auto filterEmptiesPoints = [](const auto &points) {
             std::vector<vec4> data;
             data.reserve(points.size());
             for (auto it{points.begin()};
@@ -234,20 +282,20 @@ namespace molumes {
 
         if (controlFlag.expired()) return std::nullopt;
 
-        auto[uniqueVs, indices] = getVertexIndexPairs(filterEmpties(vertices));
+//        auto[uniqueVs, indices] = getVertexIndexPairs(filterEmptiesPoints(vertices));
 
         // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
         std::vector<std::pair<dvec2, uint>> nonEmptyValues;
         uint first = 0;
         dvec2 mi{std::numeric_limits<float>::max()}, ma{std::numeric_limits<float>::min()};
-        nonEmptyValues.reserve(indices.size());
-        for (unsigned int i: indices) {
-            const auto &v = uniqueVs.at(i);
-            const auto w = dvec2{v.x, v.y};
+        nonEmptyValues.reserve(hexPositions.size());
+        for (uint i{0}; i < hexPositions.size(); ++i) {
+            const auto& p = hexPositions.at(i);
+            const auto w = dvec2{p.x, p.y};
             mi = min(w, mi);
             ma = max(w, ma);
 
-            if (-tileHeight < v.z) {
+            if (-tileHeight < p.z) {
                 nonEmptyValues.emplace_back(w, i);
                 // Also find smallest (for graham scan later)
                 const auto &oldSmallest = std::get<0>(nonEmptyValues[first]);
@@ -263,38 +311,94 @@ namespace molumes {
         // Make sure smallest is first
         std::swap(nonEmptyValues[0], nonEmptyValues[first]);
 
-        const auto edges = getEdges(indices);
+//        const auto edges = getEdges(indices);
 
-        // Create convex hull
-        const auto convexHull = createConvexHull(nonEmptyValues, edges, boundingCenter, controlFlag);
+        // Create convex hull from hexagon positions
+        const auto convexHull = createConvexHull(nonEmptyValues, boundingCenter, controlFlag);
+//        const auto convexHull = crawlAlongEdges(nonEmptyValues, edges, boundingCenter, controlFlag);
+
+        // https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
 
         if (controlFlag.expired()) return std::nullopt;
 
         const auto fst = [](const auto &h) { return h.first; };
+//
+//        // Filter out all points outside of hull from empty values
+//        // Non-empty values will always be inside the hull
+//        for (int i{static_cast<int>(indices.size()) - 3}; -1 < i; i -= 3) {
+//            const auto it = indices.begin() + i;
+//            if (std::all_of(it, it + 3, [hull = map(convexHull.begin(), convexHull.end(), fst), &uniqueVs = uniqueVs](
+//                    const auto &j) { // &uniqueVs = uniqueVs is a temporary fix until C++23 fixes structured bindings
+//                const auto p = vec2{uniqueVs.at(j)};
+//                return !insideHull(p, hull);
+//            }))
+//                indices.erase(it, it + 3);
+//        }
+//
+//
+//        if (controlFlag.expired()) return std::nullopt;
+//
+//        const auto hullListConverted = map(convexHull.begin(), convexHull.end(),
+//                                           [&uniqueVs = uniqueVs, tileHeight](const auto &v) {
+//                                               const auto &pos = uniqueVs.at(v.second);
+//                                               return vec4{pos.x, pos.y, -tileHeight, 1.f};
+//                                           });
+//
+//        uniqueVs = map(indices.begin(), indices.end(), [&uniqueVs = uniqueVs](auto i) { return uniqueVs.at(i); });
+//
+//        return controlFlag.expired() ? std::nullopt : std::make_optional(std::make_pair(uniqueVs, hullListConverted));
+        return std::nullopt;
+    }
 
-        // Filter out all points outside of hull from empty values
-        // Non-empty values will always be inside the hull
-        for (int i{static_cast<int>(indices.size()) - 3}; -1 < i; i -= 3) {
-            const auto it = indices.begin() + i;
-            if (std::all_of(it, it + 3, [hull = map(convexHull.begin(), convexHull.end(), fst), &uniqueVs = uniqueVs](
-                    const auto &j) { // &uniqueVs = uniqueVs is a temporary fix until C++23 fixes structured bindings
-                const auto p = vec2{uniqueVs.at(j)};
-                return !insideHull(p, hull);
-            }))
-                indices.erase(it, it + 3);
-        }
+    std::optional<std::vector<uint>>
+    getHexagonConvexHull(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag,
+                           float tileHeight) {
+        // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
+        // In which case we don't need this thread anymore.
+        if (controlFlag.expired() || vertices.size() < 2)
+            return std::nullopt;
 
+        const auto hexPositions = getHexagonPositions(vertices);
 
         if (controlFlag.expired()) return std::nullopt;
 
-        const auto hullListConverted = map(convexHull.begin(), convexHull.end(),
-                                           [&uniqueVs = uniqueVs, tileHeight](const auto &v) {
-                                               const auto &pos = uniqueVs.at(v.second);
-                                               return vec4{pos.x, pos.y, -tileHeight, 1.f};
-                                           });
+        // Find the points which has a non-zero value of z (z height is hex-value, meaning empty ones are empty hexes)
+        std::vector<std::pair<dvec2, uint>> nonEmptyValues;
+        uint first = 0;
+        dvec2 mi{std::numeric_limits<float>::max()}, ma{std::numeric_limits<float>::min()};
+        nonEmptyValues.reserve(hexPositions.size());
+        for (uint i{0}; i < hexPositions.size(); ++i) {
+            const auto& p = hexPositions.at(i);
+            const auto w = dvec2{p.x, p.y};
+            mi = min(w, mi);
+            ma = max(w, ma);
 
-        uniqueVs = map(indices.begin(), indices.end(), [&uniqueVs = uniqueVs](auto i) { return uniqueVs.at(i); });
+            if (-tileHeight < p.z) {
+                nonEmptyValues.emplace_back(w, i);
+                // Also find smallest (for graham scan later)
+                const auto &oldSmallest = std::get<0>(nonEmptyValues[first]);
+                if (w.y < oldSmallest.y || w.y < oldSmallest.y + EPS && w.x < oldSmallest.x) // y' < y && x' <= x
+                    first = static_cast<uint>(nonEmptyValues.size() - 1);
+            }
+        }
+        const auto boundingCenter = 0.5 * mi + 0.5 * ma;
 
-        return controlFlag.expired() ? std::nullopt : std::make_optional(std::make_pair(uniqueVs, hullListConverted));
+        if (controlFlag.expired() || nonEmptyValues.size() < 2)
+            return std::nullopt;
+
+        // Make sure smallest is first
+        std::swap(nonEmptyValues[0], nonEmptyValues[first]);
+
+//        const auto edges = getEdges(indices);
+
+        // Create convex hull from hexagon positions
+        const auto convexHull = createConvexHull(nonEmptyValues, boundingCenter, controlFlag);
+//        const auto convexHull = crawlAlongEdges(nonEmptyValues, edges, boundingCenter, controlFlag);
+
+        // https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
+
+        auto hexIds = map(convexHull.begin(), convexHull.end(), [](const auto& p){ return p.second; });
+        std::sort(hexIds.begin(), hexIds.end());
+        return controlFlag.expired() ? std::nullopt : std::make_optional(hexIds);
     }
 }

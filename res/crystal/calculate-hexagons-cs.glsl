@@ -25,10 +25,6 @@ layout(std430, binding = 2) buffer valueMaxBuffer
 const float PI = 3.1415926;
 const float HEX_ANGLE = PI / 180.0 * 60.0;
 
-//const ivec2 NEIGHBORS[6] = ivec2[6](
-//    ivec2(2, 0), ivec2(1,-1), ivec2(-1,-1),
-//    ivec2(-2, 0), ivec2(-1, 1), ivec2(1, 1)
-//);
 const ivec2 NEIGHBORS[6] = ivec2[6](
     ivec2(1, 1), ivec2(0, 2), ivec2(-1, 1),
     ivec2(-1,-1), ivec2(0, -2), ivec2(1, -1)
