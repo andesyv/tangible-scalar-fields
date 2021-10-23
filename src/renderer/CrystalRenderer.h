@@ -31,8 +31,8 @@ namespace molumes {
         // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
         std::shared_ptr<globjects::Buffer> m_computeBuffer, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
-        using WorkerThreadT = decltype(worker_manager_from_function(getHexagonConvexHull));
-        WorkerThreadT::ResultT m_workerResult;
+        using WorkerThreadT = decltype(worker_manager_from_functions(getHexagonConvexHull, geometryPostProcessing));
+        std::get<0>(WorkerThreadT::ResultTypes) m_workerResult;
         WorkerThreadT m_worker{};
         std::shared_ptr<bool> m_workerControlFlag; // Weird to have a pointer to a bool, but I'm only using this as a signal to the worker thread
         std::vector<glm::vec4> m_vertices;

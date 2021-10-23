@@ -339,26 +339,26 @@ void CrystalRenderer::display() {
 
 
 
-            // Wait for edge extruding until final geometry cleanup:
-            if (syncObject) {
-                const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
-                if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-                    const auto vCount = count * 6 * 2 * 3 * 2;
-                    const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
-                                                                                              static_cast<GLsizeiptr>(sizeof(vec4)),
-                                                                                           GL_MAP_READ_BIT));
-                    if (memPtr != nullptr) {
-                        m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
-                        m_workerResult = std::move(m_worker.queue_job(geometryPostProcessing, m_vertices,
-                                                                      std::move(std::weak_ptr{m_workerControlFlag}),
-                                                                      m_tileHeight));
-                    }
-                    assert(m_computeBuffer->unmap());
-                } else {
-                    std::cout << "Error: Sync Object was "
-                              << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
-                }
-            }
+//            // Wait for edge extruding until final geometry cleanup:
+//            if (syncObject) {
+//                const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
+//                if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
+//                    const auto vCount = count * 6 * 2 * 3 * 2;
+//                    const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
+//                                                                                              static_cast<GLsizeiptr>(sizeof(vec4)),
+//                                                                                           GL_MAP_READ_BIT));
+//                    if (memPtr != nullptr) {
+//                        m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
+//                        m_workerResult = std::move(m_worker.queue_job(geometryPostProcessing, m_vertices,
+//                                                                      std::move(std::weak_ptr{m_workerControlFlag}),
+//                                                                      m_tileHeight));
+//                    }
+//                    assert(m_computeBuffer->unmap());
+//                } else {
+//                    std::cout << "Error: Sync Object was "
+//                              << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
+//                }
+//            }
         }
     }
 
