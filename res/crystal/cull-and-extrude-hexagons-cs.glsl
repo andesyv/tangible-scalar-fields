@@ -93,10 +93,8 @@ void main() {
     if (!insideHull) {
         // Mark all this hex's vertices as invalid (rest of worker group will also do this)
         for (uint i = 0; i < 3; ++i)
-            vertices[triangleIndex + i] = vec4(0.0);
-        return;
+            vertices[triangleIndex + i].w = 0.0; // Don't wan't to mark xyz = 0, because neighbor might sample this one out of order
     }
-    return;
 
     const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
     const bool gridEdge = (neighbor.x < 0 || neighbor.y < 0 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
@@ -104,19 +102,33 @@ void main() {
 //    if (gridEdge)
 //        return;
 
-    vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, 0.0, 1.0); // Don't care about depth for hull projection
+//    const int col = int(hexID % num_cols);
+//    const int row = int(hexID/num_cols) * 2 - (col % 2 == 0 ? 0 : 1);
+    // row + 0:1 = floor(hexId/num_cols) * 2
+    // (row + 0:1) / 2 = floor(hexId/num_cols)
+//    uint neighborHexID = (neighbor.y / 2) * num_cols + neighbor.x;
+//    const uint neighborCenterIndex = neighborHexID * 3 * gl_WorkGroupSize.x * 2;
+
+//    vec4 neighborPos = vertices[neighborCenterIndex];
+    vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, 0.0, 1.0);
     neighborPos /= neighborPos.w;
 
-    // Only edge if this hex is inside hull but neighbour isn't
+    // Only edge if this hex is inside hull but neighbour isn't, OR if the neighbour is but this isn't
     // https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
-    if (isInsideHull(neighborPos))
+
+    const bool neighborInsideHull = isInsideHull(neighborPos);
+    const bool isEdge = bool(int(insideHull) ^ int(neighborInsideHull));
+    if (!isEdge)
         return;
+
+    const bool isNeighbor = neighborInsideHull;
 
     // Mark the edges generated from the triangle generation pass as invalid (they're being moved to the end)
     for (uint i = 0; i < 3; ++i)
         vertices[edgeTriangleIndex + i] = vec4(0.0);
+    return;
 
-    const float extrudeDepth = height + extrude_factor;
+    const float extrudeDepth = -height - extrude_factor;
 
     float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
     vertices[boundingEdgeTriangleIndex] = vec4(neighborPos.xy + vec2(tile_scale * cos(ar), tile_scale * sin(ar)), extrudeDepth, 1.0);

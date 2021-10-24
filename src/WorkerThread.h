@@ -91,6 +91,7 @@ namespace molumes {
 
         ~WorkerThread() {
             m_working = false; // Warn worker to stop
+            assert(m_thread.joinable());
             if (m_thread.joinable())
                 m_thread.join(); // Wait for worker thread to be finished before completely freeing resources.
         }
