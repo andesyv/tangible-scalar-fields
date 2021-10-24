@@ -3,6 +3,7 @@
 #include <memory>
 #include <future>
 #include <optional>
+#include <tuple>
 
 #include "Renderer.h"
 #include "../WorkerThread.h"
@@ -32,7 +33,7 @@ namespace molumes {
         std::shared_ptr<globjects::Buffer> m_computeBuffer, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
         using WorkerThreadT = decltype(worker_manager_from_functions(getHexagonConvexHull, geometryPostProcessing));
-        std::get<0>(WorkerThreadT::ResultTypes) m_workerResult;
+        std::tuple_element<0, WorkerThreadT::ResultTypes>::type m_workerResult;
         WorkerThreadT m_worker{};
         std::shared_ptr<bool> m_workerControlFlag; // Weird to have a pointer to a bool, but I'm only using this as a signal to the worker thread
         std::vector<glm::vec4> m_vertices;

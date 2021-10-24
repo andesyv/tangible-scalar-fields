@@ -280,7 +280,7 @@ void CrystalRenderer::display() {
                                                                                    GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
-                m_workerResult = std::move(m_worker.queue_job(getHexagonConvexHull, m_vertices,
+                m_workerResult = std::move(m_worker.queue_job<0>(getHexagonConvexHull, m_vertices,
                                    std::move(std::weak_ptr{m_workerControlFlag}),
                                    m_tileHeight));
             }
@@ -293,74 +293,74 @@ void CrystalRenderer::display() {
         syncObject = {};
     }
 
-    // If worker is done, run a new compute-shader call to remove outside hexes and extrude edges
-    if (m_workerResult.valid() && isReady(m_workerResult)) {
-        auto result = m_workerResult.get();
-        if (result) {
-            const auto hull = *result;
-
-            std::vector<glm::vec4> hullVertices;
-            hullVertices.reserve(hull.size());
-            for (auto i : hull)
-                hullVertices.push_back(m_vertices.at(i));
-            m_hullBuffer = Buffer::create();
-            m_hullBuffer->setStorage(static_cast<GLsizeiptr>(hullVertices.size() * sizeof(vec4)), hullVertices.data(),
-                                     VERTEXSTORAGEMASK);
-            m_hullSize = static_cast<int>(hullVertices.size());
-
-
-            const auto &shader = shaderProgram("edge-extrusion");
-            if (!shader)
-                return;
-
-            const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
-
-            m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
-            accumulateTexture->bindActive(1);
-            accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
-
-            shader->use();
-            shader->setUniform("num_cols", num_cols);
-            shader->setUniform("num_rows", num_rows);
-            shader->setUniform("height", m_tileHeight);
-            shader->setUniform("tile_scale", scale);
-            shader->setUniform("disp_mat", model);
-            shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
-
-            glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
-
-            accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
-            accumulateTexture->unbindActive(1);
-            m_computeBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
-
-            // We are going to use the buffer to read from, but also to
-            glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
-            syncObject = std::move(Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE));
-
-
-
-//            // Wait for edge extruding until final geometry cleanup:
-//            if (syncObject) {
-//                const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
-//                if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-//                    const auto vCount = count * 6 * 2 * 3 * 2;
-//                    const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
-//                                                                                              static_cast<GLsizeiptr>(sizeof(vec4)),
-//                                                                                           GL_MAP_READ_BIT));
-//                    if (memPtr != nullptr) {
-//                        m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
-//                        m_workerResult = std::move(m_worker.queue_job(geometryPostProcessing, m_vertices,
-//                                                                      std::move(std::weak_ptr{m_workerControlFlag}),
-//                                                                      m_tileHeight));
-//                    }
-//                    assert(m_computeBuffer->unmap());
-//                } else {
-//                    std::cout << "Error: Sync Object was "
-//                              << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
-//                }
-//            }
-        }
-    }
+//    // If worker is done, run a new compute-shader call to remove outside hexes and extrude edges
+//    if (m_workerResult.valid() && isReady(m_workerResult)) {
+//        auto result = m_workerResult.get();
+//        if (result) {
+//            const auto hull = *result;
+//
+//            std::vector<glm::vec4> hullVertices;
+//            hullVertices.reserve(hull.size());
+//            for (auto i : hull)
+//                hullVertices.push_back(m_vertices.at(i));
+//            m_hullBuffer = Buffer::create();
+//            m_hullBuffer->setStorage(static_cast<GLsizeiptr>(hullVertices.size() * sizeof(vec4)), hullVertices.data(),
+//                                     VERTEXSTORAGEMASK);
+//            m_hullSize = static_cast<int>(hullVertices.size());
+//
+//
+//            const auto &shader = shaderProgram("edge-extrusion");
+//            if (!shader)
+//                return;
+//
+//            const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
+//
+//            m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+//            accumulateTexture->bindActive(1);
+//            accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+//
+//            shader->use();
+//            shader->setUniform("num_cols", num_cols);
+//            shader->setUniform("num_rows", num_rows);
+//            shader->setUniform("height", m_tileHeight);
+//            shader->setUniform("tile_scale", scale);
+//            shader->setUniform("disp_mat", model);
+//            shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
+//
+//            glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+//
+//            accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
+//            accumulateTexture->unbindActive(1);
+//            m_computeBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+//
+//            // We are going to use the buffer to read from, but also to
+//            glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+//            syncObject = std::move(Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE));
+//
+//
+//
+////            // Wait for edge extruding until final geometry cleanup:
+////            if (syncObject) {
+////                const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
+////                if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
+////                    const auto vCount = count * 6 * 2 * 3 * 2;
+////                    const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
+////                                                                                              static_cast<GLsizeiptr>(sizeof(vec4)),
+////                                                                                           GL_MAP_READ_BIT));
+////                    if (memPtr != nullptr) {
+////                        m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
+////                        m_workerResult = std::move(m_worker.queue_job(geometryPostProcessing, m_vertices,
+////                                                                      std::move(std::weak_ptr{m_workerControlFlag}),
+////                                                                      m_tileHeight));
+////                    }
+////                    assert(m_computeBuffer->unmap());
+////                } else {
+////                    std::cout << "Error: Sync Object was "
+////                              << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
+////                }
+////            }
+//        }
+//    }
 
     globjects::Program::release();
 }

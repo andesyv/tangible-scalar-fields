@@ -33,63 +33,60 @@ namespace molumes {
         return std::make_tuple(worker_job_from_function(funcs)...);
     }
 
-    template<WorkerJob ... Jobs>
+    template<typename ... Jobs>
     class WorkerThread {
     public:
-        using JobTypes = std::tuple<typename decltype(Jobs)::type...>;
-        using ResultTypes = std::tuple<typename decltype(Jobs)::result_type...>;
-        using JobsQueueType = std::tuple<std::queue<typename decltype(Jobs)::type>...>;
+        using JobTypes = std::tuple<typename Jobs::type...>;
+        using ResultTypes = std::tuple<typename Jobs::result_type...>;
+        using JobsQueueType = std::tuple<std::queue<typename Jobs::type>...>;
 
     private:
         std::thread m_thread{};
         bool m_working = true;
         std::mutex m_jobs_lock;
         JobsQueueType m_jobs;
-//        std::queue<JobT> m_jobs;
+
+        template <typename T>
+        static void process_jobs(bool &working, T& jobs, std::mutex& jobs_lock) {
+            while (working && !jobs.empty()) {
+                jobs_lock.lock();
+                if (!jobs.empty()) {
+                    auto [func, args, promise] = std::move(jobs.front());
+                    jobs.pop();
+                    jobs_lock.unlock();
+                    promise.set_value(std::apply(func, args));
+                } else {
+                    jobs_lock.unlock();
+                }
+            }
+        }
 
         static void do_jobs(bool &working, JobsQueueType &jobs_tuple, std::mutex& jobs_lock) {
-            const auto process_jobs = [&working, &jobs_lock](auto& jobs){
-                while (working && !jobs.empty()) {
-                    jobs_lock.lock();
-                    if (!jobs.empty()) {
-                        auto [func, args, promise] = std::move(jobs.front());
-                        jobs.pop();
-                        jobs_lock.unlock();
-                        promise.set_value(std::apply(func, args));
-                    } else {
-                        jobs_lock.unlock();
-                    }
-                }
-            };
             while (working) {
-                std::apply([&working, &jobs_lock](auto& ... args){ std::make_tuple(process_jobs(args)...); }, jobs_tuple);
+                std::apply([&working, &jobs_lock](auto& ... args){ (process_jobs(working, args, jobs_lock), ...); }, jobs_tuple);
 
                 std::this_thread::sleep_for(std::chrono::steady_clock::duration{1000000});
             }
         }
 
     public:
-        template <typename F, typename R, typename ... Args, typename JobT = WorkerJob<F, R, Args...>>
-        auto queue_job(F func, Args... args) {
+        template <std::size_t I, typename F, typename R, typename ... Args>
+        auto queue_job(F&& func, Args&&... args) {
             std::lock_guard<std::mutex> guard{m_jobs_lock};
-            auto &job = std::get<JobT>(m_jobs).emplace(std::forward<F>(func), std::move(std::forward_as_tuple(args...)), std::promise<R>{});
-//            auto &job = m_jobs.emplace(std::forward<F>(func), std::move(std::forward_as_tuple(args...)), std::promise<R>{});
-            return std::get<2>(job).get_future();
+            // Could never figure out how to match tuple element on function parameters, so just manually setting index for now.
+            auto& job = std::get<I>(m_jobs).emplace(std::forward<F>(func), std::forward_as_tuple(args...), std::promise<R>{});
+            return std::move(std::get<2>(job).get_future());
         }
 
-        template <typename F, typename ... Args>
-        auto queue_job(F func, Args... args) {
-//            using JobT = decltype(worker_job_from_function(func));
-            using R = decltype(func(args...));
-            return queue_job<F, R, Args...>(std::forward<F>(func), std::forward<Args>(args)...);
+        template <std::size_t I, typename F, typename ... Args>
+        auto queue_job(F&& func, Args&&... args) {
+            using R = decltype(std::invoke(std::forward<F>(func), std::forward<Args>(args)...));
+            return queue_job<I, F, R, Args...>(std::forward<F>(func), std::forward<Args>(args)...);
         }
 
         WorkerThread() {
+            static_assert((!std::is_same_v<Jobs, void> && ...));
             m_thread = std::thread{do_jobs, std::ref(m_working), std::ref(m_jobs), std::ref(m_jobs_lock)};
-        }
-
-        explicit WorkerThread(std::tuple<decltype(Jobs)...> args) {
-
         }
 
         ~WorkerThread() {
@@ -99,21 +96,20 @@ namespace molumes {
         }
     };
 
-//    template <WorkerJob ... Jobs>
-//    constexpr auto worker_manager_from_functions_impl(std::tuple<declype(Jobs)...>) {
-//        return WorkerThread<Jobs...>{};
-//    }
+    template <typename ... Ts, std::size_t ... I>
+    constexpr auto worker_manager_from_tuple(std::tuple<Ts...> pack, std::index_sequence<I...>) {
+        return WorkerThread<typename std::tuple_element<I, std::tuple<Ts...>>::type...>{};
+    }
 
-//    template <typename ... Ts>
-//    auto WorkerThreadHelper(Ts... args) {
-//        return WorkerThread{WorkerJob{args}...};
-//    }
+    template <typename ... Ts>
+    constexpr auto worker_manager_from_tuple(std::tuple<Ts...> pack) {
+        return worker_manager_from_tuple(pack, std::make_index_sequence<sizeof...(Ts)>{});
+    }
 
     template <typename ... Fs>
     constexpr auto worker_manager_from_functions(Fs&& ... args) {
-//        const auto packedFuncs = worker_jobs_from_functions(args...);
-//        return std::apply([]<typename ... Ts>(Ts&& ... args){ return WorkerThread<Ts::args_type...>{}; }, packedFuncs);
-        return WorkerThread{worker_jobs_from_functions(args...)};
+        auto packedFuncs = worker_jobs_from_functions(args...);
+        return worker_manager_from_tuple(packedFuncs);
     }
 }
 
