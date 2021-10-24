@@ -15,25 +15,16 @@ uniform mat4 disp_mat = mat4(1.0);
 uniform uint POINT_COUNT = 1u;
 uniform uint HULL_SIZE = 0u;
 uniform float extrude_factor = 0.5;
-//layout(binding = 1) uniform sampler2D accumulateTexture;
-
-//layout(std430, binding = 2) buffer valueMaxBuffer
-//{
-//    uint maxAccumulate;
-//    uint maxPointAlpha;
-//};
 
 layout(std430, binding = 1) buffer hullBuffer
 {
-    uint convex_hull[]; // Should indicate which hexID's are part of the hull.
-//    vec4 convex_hull[];
+//    uint convex_hull[]; // Should indicate which hexID's are part of the hull.
+    vec4 convex_hull[];
 };
-
-uniform atomic_uint edgeOffset;
 
 const float PI = 3.1415926;
 const float HEX_ANGLE = PI / 180.0 * 60.0;
-const float EPSILON = 0.0001;
+const float EPSILON = 0.01;
 
 const ivec2 NEIGHBORS[6] = ivec2[6](
     ivec2(1, 1), ivec2(0, 2), ivec2(-1, 1),
@@ -46,21 +37,21 @@ vec4 getHexCenterPos(uint i) {
 }
 
 float scalarCross2D(vec2 a, vec2 b) {
-    float c = cross(vec3(a, 0.0), vec3(b, 0.0));
+    vec3 c = cross(vec3(a, 0.0), vec3(b, 0.0));
     return c.z;
 }
 
 bool ccw(vec2 a, vec2 b) {
-    return EPSILON <= scalarCross2D(a,b);
+    return EPSILON < scalarCross2D(a,b);
 }
 
 bool isInsideHull(vec4 pos) {
     for (uint i = 0; i < HULL_SIZE; ++i) {
         uint j = (i + 1) % HULL_SIZE;
-        vec2 a = (getHexCenterPos(i) - pos).xy;
-        vec2 b = (getHexCenterPos(j) - getHexCenterPos(i)).xy;
+        vec2 a = (convex_hull[j] - convex_hull[i]).xy;
+        vec2 b = (pos - convex_hull[j]).xy;
 
-        if (!ccw(a,b))
+        if (ccw(a,b))
             return false;
     }
     return true;
@@ -82,15 +73,6 @@ void main() {
     const int col = int(hexID % num_cols);
     const int row = int(hexID/num_cols) * 2 - (col % 2 == 0 ? 0 : 1);
 
-    // get value from accumulate texture
-    ivec2 tilePosInAccTexture = ivec2(col, floor(hexID/num_cols));
-    float hexValue = texelFetch(accumulateTexture, tilePosInAccTexture, 0).r;
-
-    // hexagon-tiles-fs.glsl: 109
-    const float max = uintBitsToFloat(maxAccumulate) + 1;
-
-    float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1]
-
     // vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     //    centerPos /= centerPos.w;
 
@@ -106,7 +88,6 @@ void main() {
     // Triangles are 3 vertices, so skip by 3 for each local invocation
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
     const uint edgeTriangleIndex = triangleIndex + 3 * gl_WorkGroupSize.x;
-    // TODO: Remember to resize buffer to 2x size for this operation:
     const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 3 + (POINT_COUNT + hexID) * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
 
     if (!insideHull) {
@@ -115,6 +96,7 @@ void main() {
             vertices[triangleIndex + i] = vec4(0.0);
         return;
     }
+    return;
 
     const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
     const bool gridEdge = (neighbor.x < 0 || neighbor.y < 0 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
@@ -122,10 +104,11 @@ void main() {
 //    if (gridEdge)
 //        return;
 
-    vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, neighborDepth, 1.0);
+    vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, 0.0, 1.0); // Don't care about depth for hull projection
     neighborPos /= neighborPos.w;
 
     // Only edge if this hex is inside hull but neighbour isn't
+    // https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
     if (isInsideHull(neighborPos))
         return;
 
