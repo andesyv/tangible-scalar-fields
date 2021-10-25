@@ -98,17 +98,15 @@ void main() {
 
     const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
     const bool gridEdge = (neighbor.x < 0 || neighbor.y < 0 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
-    // If this workgroups hex's neighbour is outside the edge, it's definitively part of the contouring edge
-//    if (gridEdge)
-//        return;
 
     vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, 0.0, 1.0);
     neighborPos /= neighborPos.w;
 
+
+    // If this workgroups hex's neighbour is outside the edge, it's definitively part of the contouring edge
+    const bool neighborInsideHull = gridEdge ? false : isInsideHull(neighborPos);
     // Only edge if this hex is inside hull but neighbour isn't, OR if the neighbour is but this isn't
     // https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
-
-    const bool neighborInsideHull = isInsideHull(neighborPos);
     const bool isEdge = bool(int(insideHull) ^ int(neighborInsideHull));
     if (!isEdge)
         return;
@@ -137,10 +135,6 @@ void main() {
         uint ti = boundingEdgeTriangleIndex + 2 - i;
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
-
-//    uint neighborHexID = ((neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1))  / 2) * num_cols + neighbor.x;
-//    const uint neighborCenterIndex = neighborHexID * 3 * gl_WorkGroupSize.x * 2;
-//    const uint boundingEdgeNeighborTriangleIndex = gl_LocalInvocationID.x * 3 + (POINT_COUNT + neighborHexID) * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
 
     float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x);
 

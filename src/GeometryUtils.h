@@ -1,18 +1,12 @@
 #ifndef MOLUMES_GEOMETRYUTILS_H
 #define MOLUMES_GEOMETRYUTILS_H
 
-#include <utility>
 #include <iterator>
-#include <type_traits>
 #include <vector>
 #include <algorithm>
 #include <optional>
 #include <memory>
-#include <compare>
-#include <set>
 
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 namespace globjects {
@@ -20,52 +14,6 @@ namespace globjects {
 }
 
 namespace molumes {
-    template<typename Iter>
-    class cyclic_iterator {
-    public:
-        using difference_type = typename Iter::difference_type;
-
-    private:
-        const Iter _beg;
-        const Iter _end;
-        difference_type _rangeSize;
-
-    public:
-        difference_type i = 0;
-
-        cyclic_iterator(Iter range_begin, Iter range_end, const difference_type &offset)
-                : _beg{std::move(range_begin)}, _end{std::move(range_end)}, i{offset},
-                  _rangeSize{std::distance(_beg, _end)} {}
-
-        cyclic_iterator(const cyclic_iterator &) = default;
-
-        auto operator++() {
-            ++i;
-            return *this;
-        }
-
-        auto operator--() {
-            --i;
-            return *this;
-        }
-
-        auto get_iterator() {
-            return (i < 0 ? _end : _beg) + static_cast<difference_type>(i % _rangeSize);
-        }
-
-        auto operator*() {
-            return *get_iterator();
-        }
-
-        auto operator+(const difference_type &diff) {
-            return cyclic_iterator{_beg, _end, i + diff};
-        }
-
-        auto operator-(const difference_type &diff) {
-            return *this + (-diff);
-        }
-    };
-
     template<std::forward_iterator It, typename F>
     auto filter(It
                 begin,
@@ -99,24 +47,8 @@ namespace molumes {
                 out;
     }
 
-    template<std::forward_iterator It, typename F>
-    auto filter_map(It begin, It end, F &&func) {
-        using T = typename It::value_type; // Only works on iterators with value_type member
-        using K = decltype(*func(T{}));
-        std::vector<std::remove_cvref_t<K>> out;
-        out.reserve(std::distance(begin, end));
-
-        for (auto it{begin}; it != end; ++it) {
-            auto&& v = func(*it);
-            if (v)
-                out.push_back(*v);
-        }
-
-        return out;
-    }
-
     std::optional<std::vector<glm::vec4>>
-    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::vector<unsigned int>& hull, const std::weak_ptr<bool>& controlFlag);
+    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag);
 
     std::optional<std::vector<glm::uint>>
     getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag, float tileHeight);

@@ -3,12 +3,11 @@
 #include <deque>
 #include <tuple>
 #include <iostream>
-#include <map>
+#include <utility>
 
 #include <glm/glm.hpp>
 
 #include <globjects/Buffer.h>
-#include <glm/gtc/constants.hpp>
 
 using namespace glm;
 
@@ -30,96 +29,15 @@ namespace molumes {
         return ccw(a, b) ? (-0.25 * dot(a, b) + 0.25) : (0.25 * dot(a, b) + 0.75);
     }
 
-    // Hull is in clockwise order, meaning any points inside the hull should make a clockwise turn in respect to the hull
-    // Any point who doesn't make a clockwise turn is outside the hull
-    bool insideHull(const vec2 &p, const std::vector<vec2> &convexHull) {
-        for (auto it{convexHull.begin()}; it != convexHull.end(); ++it) {
-            const auto next = it + 1 == convexHull.end() ? convexHull.begin() : it + 1;
-
-            const auto a = *it - p;
-            const auto b = *next - *it;
-
-            if (!ccw(a, b, EPS))
-                return false;
-        }
-        return true;
-    }
-
-    template<typename It>
-    bool includes(It beg, It end, const typename std::iterator_traits<It>::value_type &val) {
-        return std::find(beg, end, val) != end;
-    }
-
-    template<typename T, int N>
-    std::weak_ordering
-    compareVec(const vec<N, T> &as, const vec<N, T> &bs, unsigned int i = 0, float epsilon = 0.0001f) {
-        return N <= i ? std::weak_ordering::equivalent : (as[i] < bs[i] + epsilon && bs[i] < as[i] + epsilon) ?
-                                                         compareVec(as, bs, i + 1, epsilon) :
-                                                         ((as[i] < bs[i]) ? std::weak_ordering::less
-                                                                          : std::weak_ordering::greater);
-    }
-
-    struct Vec4Comparitor {
-        auto operator()(const vec4 &lhs, const vec4 &rhs) const {
-            return compareVec(lhs, rhs) == std::weak_ordering::less;
-        }
-    };
-
-    auto getHexagonPositions(const std::vector<vec4>& vertices) {
+    auto getHexagonPositions(const std::vector<vec4> &vertices) {
         constexpr auto stride = 3u * 6u * 2u;
         std::vector<std::pair<vec4, unsigned int>> centers;
         centers.reserve(vertices.size() / stride);
         // hexID * 3 * 6 * 2
         // First vertex in every stride offset is the center
-        for (uint i{0}; i < vertices.size(); i+=stride)
+        for (uint i{0}; i < vertices.size(); i += stride)
             centers.emplace_back(vertices.at(i), i);
         return centers;
-    }
-
-    std::pair<std::vector<vec4>, std::vector<unsigned int>>
-    getVertexIndexPairs(const std::vector<vec4> &vertices) {
-        std::vector<vec4> uniqueVertices;
-        uniqueVertices.reserve(vertices.size());
-        std::vector<unsigned int> indices;
-        indices.reserve(vertices.size());
-
-        std::map<vec4, unsigned int, Vec4Comparitor> lookupMap;
-
-        for (const auto &v: vertices) {
-            const auto pos = lookupMap.find(v);
-            if (pos != lookupMap.end()) {
-                indices.push_back(pos->second);
-            } else {
-                uniqueVertices.push_back(v);
-                const auto i = static_cast<unsigned int>(lookupMap.size());
-                indices.push_back(i);
-                lookupMap.emplace(v, i);
-            }
-        }
-
-        uniqueVertices.shrink_to_fit();
-        indices.shrink_to_fit();
-
-        return std::make_pair(uniqueVertices, indices);
-    }
-
-    auto sortedEdge(auto a, auto b) {
-        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
-    }
-
-    std::set<std::pair<unsigned int, unsigned int>> getEdges(const std::vector<unsigned int> &indices) {
-        std::set<std::pair<unsigned int, unsigned int>> edges;
-
-        for (uint i{0}; i + 2 < indices.size(); i += 3) {
-            for (const auto &edge: {
-                    sortedEdge(indices.at(i), indices.at(i + 1)),
-                    sortedEdge(indices.at(i + 1), indices.at(i + 2)),
-                    sortedEdge(indices.at(i + 2), indices.at(i))
-            })
-                edges.insert(edge);
-        }
-
-        return edges;
     }
 
     // Graham scan implementation (first point should be start point / bounds max)
@@ -174,7 +92,7 @@ namespace molumes {
                 // If the new point forms a clockwise turn with the last points in the stack,
                 // pop the last point from the stack
                 if (!ccw(a, b, EPS))
-                // Only pop last edge if new edge is a "valid" edge
+                    // Only pop last edge if new edge is a "valid" edge
                     convexHullStack.pop_front();
                 else
                     break;
@@ -207,69 +125,8 @@ namespace molumes {
         return map(convexHullStack.begin(), convexHullStack.end(), [](const auto &h) { return h.second; });
     }
 
-    std::vector<std::pair<glm::vec2, unsigned int>>
-    crawlAlongEdges(const std::vector<std::pair<glm::dvec2, unsigned int>> &nonEmptyPoints, const std::set<std::pair<unsigned int, unsigned int>>& edges, glm::dvec2 boundingCenter = {},
-                    const std::weak_ptr<bool> &controlFlag = {}) {
-        std::vector<std::pair<glm::dvec2, unsigned int>> result;
-        result.reserve(nonEmptyPoints.size());
-        result.emplace_back(nonEmptyPoints.front());
-
-        std::map<unsigned int, glm::dvec2> sortedPoints;
-        std::transform(nonEmptyPoints.begin(), nonEmptyPoints.end(), std::inserter(sortedPoints, sortedPoints.end()), [](const auto& p){
-           return std::make_pair(p.second, p.first);
-        });
-        // Random start edge:
-//        result.emplace_back(*std::find_if(edges.begin(), edges.end(), [&nonEmptyPoints](const auto& e){ return e.first == nonEmptyPoints.front().second; }));
-
-        const auto findEligibleEdges = [&edges, &sortedPoints](unsigned int i){
-            return filter(edges.begin(), edges.end(), [i, &sortedPoints](const auto& e){ return (e.first == i || e.second == i) && sortedPoints.contains(e.first) && sortedPoints.contains(e.second); });
-        };
-
-        for (unsigned int i{0}; i < 40; ++i) {
-            const auto p_last = 1 < result.size() ? result.at(result.size()-2).first : boundingCenter;
-            const auto [p_current, j] = result.back();
-            auto a = p_current - p_last;
-            const auto la = length(a);
-            assert(EPS < la);
-            a *= 1.0 / la;
-
-//            auto upperIt = edges.upper_bound(sortedEdge(j + 1u, 0u));
-//            upperIt = upperIt == edges.end() ? edges.end() : upperIt;
-//            auto lowerIt = edges.lower_bound(sortedEdge(j, 0u));
-            const auto connectedEdges = findEligibleEdges(j);
-
-            auto nextEdge = connectedEdges.begin();
-            auto smallestAngle = glm::two_pi<double>();
-            for (auto it{connectedEdges.begin()}; it != connectedEdges.end(); ++it) {
-                const auto k = it->first == j ? it->second : it->first;
-                // If edge nonEmptyPoints back to first, skip that one
-                if (1 < result.size() && k == result.at(result.size()-2).second)
-                    continue;
-
-                const auto p_next = sortedPoints.at(k);
-                auto b = p_next - p_current;
-                const auto lb = length(b);
-                if (lb < EPS)
-                    continue;
-                b *= 1.0 / lb;
-
-                const auto angle = dotBetween(a, b);
-                if (angle < smallestAngle) {
-                    smallestAngle = angle;
-                    nextEdge = it;
-                }
-            }
-
-            const auto k = nextEdge->first == j ? nextEdge->second : nextEdge->first;
-            result.emplace_back(sortedPoints.at(k), k);
-//            sortedPoints.erase(k);
-        }
-
-        return map(result.begin(), result.end(), [](const auto& p){ return std::make_pair(static_cast<vec2>(p.first), p.second); });
-    }
-
     std::optional<std::vector<vec4>>
-    geometryPostProcessing(const std::vector<vec4> &vertices, const std::vector<unsigned int>& hull, const std::weak_ptr<bool> &controlFlag) {
+    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
         if (controlFlag.expired() || vertices.size() < 3)
@@ -288,16 +145,12 @@ namespace molumes {
             return data;
         };
 
-        auto data = filterEmptiesPoints(vertices);
-//        const auto hullVertices = map(hull.begin(), hull.end(), [&vertices](uint i){ return vec2{vertices.at(i)};});
-//        data = filter(data.begin(), data.end(), [&hullVertices](const auto& p){ return insideHull(vec2{p}, hullVertices); });
-
-        return controlFlag.expired() ? std::nullopt : std::make_optional(data);
+        return controlFlag.expired() ? std::nullopt : std::make_optional(filterEmptiesPoints(vertices));
     }
 
     std::optional<std::vector<uint>>
     getHexagonConvexHull(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag,
-                           float tileHeight) {
+                         float tileHeight) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
         if (controlFlag.expired() || vertices.size() < 2)
@@ -313,7 +166,7 @@ namespace molumes {
         dvec2 mi{std::numeric_limits<float>::max()}, ma{std::numeric_limits<float>::min()};
         nonEmptyValues.reserve(hexPositions.size());
         for (uint i{0}; i < hexPositions.size(); ++i) {
-            const auto& [p, j] = hexPositions.at(i);
+            const auto&[p, j] = hexPositions.at(i);
             const auto w = dvec2{p.x, p.y};
 
             if (-tileHeight + static_cast<float>(EPS) < p.z) {
@@ -335,11 +188,8 @@ namespace molumes {
         // Make sure smallest is first
         std::swap(nonEmptyValues[0], nonEmptyValues[first]);
 
-//        const auto edges = getEdges(indices);
-
         // Create convex hull from hexagon positions
         const auto convexHull = createConvexHull(nonEmptyValues, boundingCenter, controlFlag);
-//        const auto convexHull = crawlAlongEdges(nonEmptyValues, edges, boundingCenter, controlFlag);
 
         return controlFlag.expired() ? std::nullopt : std::make_optional(convexHull);
     }
