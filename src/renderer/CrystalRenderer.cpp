@@ -189,6 +189,8 @@ void CrystalRenderer::display() {
 
         const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
 
+        m_computeBuffer->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
+
         m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         accumulateTexture->bindActive(1);
         accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);

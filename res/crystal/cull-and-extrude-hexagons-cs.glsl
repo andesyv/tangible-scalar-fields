@@ -88,7 +88,7 @@ void main() {
     // Triangles are 3 vertices, so skip by 3 for each local invocation
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
     const uint edgeTriangleIndex = triangleIndex + 3 * gl_WorkGroupSize.x;
-    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 3 + (POINT_COUNT + hexID) * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
+    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x; // gl_WorkGroupSize.y == 2 in previous generation invocation
 
     if (!insideHull) {
         // Mark all this hex's vertices as invalid (rest of worker group will also do this)
@@ -102,14 +102,6 @@ void main() {
 //    if (gridEdge)
 //        return;
 
-//    const int col = int(hexID % num_cols);
-//    const int row = int(hexID/num_cols) * 2 - (col % 2 == 0 ? 0 : 1);
-    // row + 0:1 = floor(hexId/num_cols) * 2
-    // (row + 0:1) / 2 = floor(hexId/num_cols)
-//    uint neighborHexID = (neighbor.y / 2) * num_cols + neighbor.x;
-//    const uint neighborCenterIndex = neighborHexID * 3 * gl_WorkGroupSize.x * 2;
-
-//    vec4 neighborPos = vertices[neighborCenterIndex];
     vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, 0.0, 1.0);
     neighborPos /= neighborPos.w;
 
@@ -126,7 +118,10 @@ void main() {
     // Mark the edges generated from the triangle generation pass as invalid (they're being moved to the end)
     for (uint i = 0; i < 3; ++i)
         vertices[edgeTriangleIndex + i] = vec4(0.0);
-    return;
+
+    // Doesn't work to do edge from neighbor side as neighbor might be outside the grid (never get's run)
+    if (isNeighbor)
+        return;
 
     const float extrudeDepth = -height - extrude_factor;
 
@@ -143,5 +138,19 @@ void main() {
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
 
-    // TODO: Add other side of edge
+//    uint neighborHexID = ((neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1))  / 2) * num_cols + neighbor.x;
+//    const uint neighborCenterIndex = neighborHexID * 3 * gl_WorkGroupSize.x * 2;
+//    const uint boundingEdgeNeighborTriangleIndex = gl_LocalInvocationID.x * 3 + (POINT_COUNT + neighborHexID) * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
+
+    float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x);
+
+    // Offset from center of point + grid width
+    vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+
+    vertices[boundingEdgeTriangleIndex+3] = vec4(centerPos.xyz + offset, 1.0);
+
+    for (uint i = 0; i < 2u; ++i) {
+        angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + 3 + i);
+        vertices[boundingEdgeTriangleIndex + 5 - i] = vec4(neighborPos.xy + vec2(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad)), extrudeDepth, 1.0);
+    }
 }
