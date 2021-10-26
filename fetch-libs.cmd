@@ -25,4 +25,7 @@ git clone https://github.com/ocornut/imgui.git
 rd /S /Q lodepng
 git clone https://github.com/lvandeve/lodepng.git
 
+rd /S /Q portable-file-dialogs
+git clone --branch 0.1.0 https://github.com/samhocevar/portable-file-dialogs.git
+
 cd ..

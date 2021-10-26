@@ -3,12 +3,17 @@ file(GLOB imgui_sources ${CMAKE_SOURCE_DIR}/lib/imgui/*.cpp ${CMAKE_SOURCE_DIR}/
 file(GLOB lodepng_sources ${CMAKE_SOURCE_DIR}/lib/lodepng/lodepng.cpp ${CMAKE_SOURCE_DIR}/lib/lodepng/lodepng.h)
 
 target_sources(molumes PRIVATE ${molumes_sources})
-target_sources(ext PRIVATE ${imgui_sources} ${lodepng_sources})
+target_sources(ext PRIVATE
+		${imgui_sources}
+		${lodepng_sources}
+)
 
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/lib/glm)
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/lib/glbinding)
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/lib/globjects)
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/lib/glfw)
+list(APPEND CMAKE_PREFIX_PATH
+		${CMAKE_SOURCE_DIR}/lib/glm
+		${CMAKE_SOURCE_DIR}/lib/glbinding
+		${CMAKE_SOURCE_DIR}/lib/globjects
+		${CMAKE_SOURCE_DIR}/lib/glfw
+)
  
 find_package(glm REQUIRED)
 find_package(glbinding REQUIRED)
@@ -17,14 +22,20 @@ find_package(glfw3 REQUIRED)
 find_package(Matlab COMPONENTS ENG_LIBRARY)
 find_package(OpenMP)
 
-target_include_directories(molumes PRIVATE ${CMAKE_SOURCE_DIR}/lib/HBAOPlus/include)
-target_include_directories(molumes PRIVATE ${CMAKE_SOURCE_DIR}/lib/imgui/)
-target_include_directories(molumes PRIVATE ${CMAKE_SOURCE_DIR}/lib/lodepng/)
+target_include_directories(molumes PRIVATE
+		${CMAKE_SOURCE_DIR}/lib/HBAOPlus/include
+		${CMAKE_SOURCE_DIR}/lib/imgui/
+		${CMAKE_SOURCE_DIR}/lib/lodepng/
+		${CMAKE_SOURCE_DIR}/lib/tinyfd/
+		${CMAKE_SOURCE_DIR}/lib/portable-file-dialogs/
+)
 
-target_link_libraries(molumes PUBLIC glfw)
-target_link_libraries(molumes PUBLIC glbinding::glbinding )
-target_link_libraries(molumes PUBLIC glbinding::glbinding-aux )
-target_link_libraries(molumes PUBLIC globjects::globjects)
+target_link_libraries(molumes PUBLIC
+		glfw
+		glbinding::glbinding
+		glbinding::glbinding-aux
+		globjects::globjects
+)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(molumes PUBLIC OpenMP::OpenMP_CXX)
 endif()
