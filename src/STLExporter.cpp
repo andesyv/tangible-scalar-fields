@@ -5,6 +5,7 @@
 #include <array>
 #include <filesystem>
 #include <format>
+#include <chrono>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -15,7 +16,9 @@
 #include "renderer/CrystalRenderer.h"
 
 using namespace molumes;
+using namespace glm;
 namespace fs = std::filesystem;
+namespace chr = std::chrono;
 
 STLExporter::STLExporter(Viewer *viewer, CrystalRenderer* crystalRenderer) : m_renderer{crystalRenderer}, Interactor(viewer) {
 
@@ -55,28 +58,34 @@ void STLExporter::exportFile() {
         "All files", "*"}, pfd::opt::none);
 
     auto filepath = fs::path{fileDialog.result()};
-    std::cout << "Filename: " << filepath << std::endl;
 
     // If no file path was supplied, assume saving was cancelled. Abort
     if (filepath.empty())
         return;
 
-    if (filepath.extension() == ".stl-ascii") {
-        std::ofstream ofs{filepath, std::ofstream::trunc | std::ofstream::out};
-        exportAscii(std::move(ofs), filepath.stem() == fs::path{defaultFileName}.stem() ? defaultModelName : filepath.stem().string());
-    } else {
-        // Fix extension if no extension was supplied:
-        if (filepath.extension().empty())
-            filepath.replace_extension(".stl");
+#ifndef NDEBUG
+    try {
+#endif
+        if (filepath.extension() == ".stl-ascii") {
+            std::ofstream ofs{filepath, std::ofstream::trunc | std::ofstream::out};
+            exportAscii(std::move(ofs), filepath.stem() == fs::path{defaultFileName}.stem() ? defaultModelName : filepath.stem().string());
+        } else {
+            // Fix extension if no extension was supplied:
+            if (filepath.extension().empty())
+                filepath.replace_extension(".stl");
 
-        std::ofstream ofs{filepath, std::ofstream::trunc | std::ofstream::out | std::ofstream::binary};
-        exportBinary(std::move(ofs));
+            std::ofstream ofs{filepath, std::ofstream::trunc | std::ofstream::out | std::ofstream::binary};
+            exportBinary(std::move(ofs));
+        }
+#ifndef NDEBUG
     }
-}
+    catch (...) {
+        std::cout << "Failed to write file to " << filepath << std::endl;
+        return;
+    }
+#endif
 
-std::string f_to_s(float num) {
-    char buf[40]; // 40 is probably enough
-    return std::string{buf, buf + std::sprintf(buf, "%e", num)};
+    std::cout << "Successfully exported model as " << filepath << std::endl;
 }
 
 void STLExporter::exportAscii(std::ofstream&& ofs, const std::string& modelName) {
@@ -91,11 +100,11 @@ void STLExporter::exportAscii(std::ofstream&& ofs, const std::string& modelName)
     ofs << "solid " << modelName << std::endl;
 
     for (const auto& [n, v1, v2, v3] : normalVertexPairs) {
-        ofs << std::format("facet normal {} {} {}", f_to_s(n.x), f_to_s(n.y), f_to_s(n.z)) << std::endl;
+        ofs << std::format("facet normal {:e} {:e} {:e}", n.x, n.y, n.z) << std::endl;
         ofs << "    outer loop" << std::endl;
-        ofs << std::format("        vertex {} {} {}", f_to_s(v1.x), f_to_s(v1.y), f_to_s(v1.z)) << std::endl;
-        ofs << std::format("        vertex {} {} {}", f_to_s(v2.x), f_to_s(v2.y), f_to_s(v2.z)) << std::endl;
-        ofs << std::format("        vertex {} {} {}", f_to_s(v3.x), f_to_s(v3.y), f_to_s(v3.z)) << std::endl;
+        ofs << std::format("        vertex {:e} {:e} {:e}", v1.x, v1.y, v1.z) << std::endl;
+        ofs << std::format("        vertex {:e} {:e} {:e}", v2.x, v2.y, v2.z) << std::endl;
+        ofs << std::format("        vertex {:e} {:e} {:e}", v3.x, v3.y, v3.z) << std::endl;
         ofs << "    endloop" << std::endl;
         ofs << "endfacet" << std::endl;
     }
@@ -103,8 +112,69 @@ void STLExporter::exportAscii(std::ofstream&& ofs, const std::string& modelName)
     ofs << "endsolid " << modelName;
 }
 
+auto getCurrentDate() {
+    /// New c++20 calendar library is weird...
+    return chr::year_month_day{chr::floor<chr::days>(chr::current_zone()->to_local(chr::system_clock::now()))};
+}
+
+auto getCurrentTime(auto currentDate) {
+    return chr::hh_mm_ss{chr::system_clock::now() - chr::sys_days{currentDate}};
+}
+
+// Swaps the byte order, switching endianness
+template <typename T>
+T byteswap(T val) {
+    uint8_t buf[sizeof(T)];
+    const auto start = reinterpret_cast<std::uint8_t*>(&val);
+
+    for (auto i {0u}; i < sizeof(T); ++i)
+        buf[sizeof(T)-i-1] = *(start + i);
+
+    return *reinterpret_cast<T*>(buf);
+}
+
+struct BinaryTriangleStruct {
+    float32_t normal[3];
+    float32_t vertex1[3];
+    float32_t vertex2[3];
+    float32_t vertex3[3];
+    uint16_t attributeByteCount = 0;
+};
+
 void STLExporter::exportBinary(std::ofstream&& ofs) {
-    
+    constexpr auto headerSize = 80u;
+
+    if (m_renderer == nullptr)
+        return;
+    const auto vertices = m_renderer->getVertices();
+    if (vertices.empty())
+        return;
+
+    const auto normalVertexPairs = zipNormalsAndVertices(vertices);
+
+    const auto date = getCurrentDate();
+    std::string header = std::format("STL file generated by Molumes software at {:%M:%H} {:%d/%m/%y}. :)", getCurrentTime(date), date);
+    header.resize(headerSize, ' '); // 79 to make room for null-terminator (\0)
+    ofs.write(header.data(), headerSize);
+
+    const auto byteWrite = [&ofs]<typename T>(T data) {
+        data = byteswap(data); // Swap byte-order (switching endianness)
+        ofs.write(reinterpret_cast<const char*>(&data), sizeof(T));
+    };
+
+    const auto triangleCount = static_cast<uint32_t>(normalVertexPairs.size());
+    byteWrite(triangleCount);
+
+    for (const auto& [n, v1, v2, v3] : normalVertexPairs) {
+        const BinaryTriangleStruct triangle{
+            .normal={n.x, n.y, n.z},
+            .vertex1={v1.x, v1.y, v1.z},
+            .vertex2={v2.x, v2.y, v2.z},
+            .vertex3={v3.x, v3.y, v3.z}
+        };
+
+        byteWrite(triangle);
+    }
 }
 
 std::vector<glm::vec3> STLExporter::calculateNormals(const std::vector<glm::vec4>& vertices) {
