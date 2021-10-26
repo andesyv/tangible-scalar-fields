@@ -164,9 +164,9 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-    m_interactors.emplace_back(std::make_unique<STLExporter>(this));
     m_renderers.emplace_back(std::make_unique<TileRenderer>(this));
-    m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this));
+    auto crystalRendererPtr = static_cast<CrystalRenderer*>(m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this)).get());
+    m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
 
     int i = 1;

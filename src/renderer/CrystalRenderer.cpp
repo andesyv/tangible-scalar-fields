@@ -1,7 +1,6 @@
 #include "CrystalRenderer.h"
 #include "../Viewer.h"
 #include "tileRenderer/Tile.h"
-#include "../GeometryUtils.h"
 
 #include <array>
 #include <iostream>

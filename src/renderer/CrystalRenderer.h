@@ -27,6 +27,8 @@ namespace molumes {
 
         void display() override;
 
+        auto getVertices() const { return m_vertices; }
+
 #ifndef NDEBUG
         void reloadShaders() override;
 #endif
