@@ -34,7 +34,7 @@ private: // Type data:
     };
 
     static constexpr auto binaryHeaderSize = 80u;
-    static constexpr auto boundingSize = 15u; // Arbitrary scale number taken from https://3dfizzr.wordpress.com/2013/08/05/how-to-check-you-stl-files-before-3d-printing-them/
+    static constexpr auto boundingSize = 100.f; // Arbitrary scale number. 100 worked fine in PrusaSlicer
 
 public:
     static constexpr auto defaultFileName = "model.stl";
@@ -54,7 +54,7 @@ private:
     void exportAscii(std::ofstream&& ofs, const std::string& modelName = defaultModelName);
     void exportBinary(std::ofstream&& ofs);
 
-    static std::vector<glm::vec3> normalizeRange(const std::vector<glm::vec4>& vertices, float size = static_cast<float>(boundingSize));
+    static std::vector<glm::vec3> normalizeRange(const std::vector<glm::vec4>& vertices, float size = boundingSize);
     static std::vector<glm::vec3> calculateNormals(const std::vector<glm::vec3>& vertices);
     static std::vector<Plane> zipNormalsAndVertices(const std::vector<glm::vec4>& vertices);
 

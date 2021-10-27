@@ -88,7 +88,7 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
-        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f))
+        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f))
             m_hexagonsUpdated = true;
 
         ImGui::EndMenu();
@@ -145,10 +145,13 @@ void CrystalRenderer::display() {
     std::unique_ptr<Sync> syncObject;
 
     // Calculate triangles:
-    if (m_hexagonsUpdated)
+    if (m_hexagonsUpdated) {
         syncObject = generateBaseGeometry(std::move(resources.tileAccumulateTexture.lock()),
                                           std::move(resources.tileAccumulateMax.lock()), count, num_cols, num_rows,
                                           scale, model);
+        std::get<0>(m_workerResults) = {};
+        std::get<1>(m_workerResults) = {};
+    }
 
     // Render triangles:
     {
