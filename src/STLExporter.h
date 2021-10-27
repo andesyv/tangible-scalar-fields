@@ -5,14 +5,37 @@
 
 #include <fstream>
 #include <vector>
+#include <array>
 
+#include <glm/fwd.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 namespace molumes {
 class CrystalRenderer;
 
+/**
+ * @brief Custom STL Exporter utility class
+ * Made with file specs from Wikipedia https://en.wikipedia.org/wiki/STL_(file_format)
+ */
 class STLExporter : public Interactor{
+private: // Type data:
+    struct Plane {
+        glm::vec3 normal;
+        glm::vec3 v1, v2, v3;
+    };
+
+    struct BinaryTriangleStruct {
+        std::array<glm::float32_t, 3> normal{};
+        std::array<glm::float32_t, 3> vertex1{};
+        std::array<glm::float32_t, 3> vertex2{};
+        std::array<glm::float32_t, 3> vertex3{};
+        uint16_t attributeByteCount = 0;
+    };
+
+    static constexpr auto binaryHeaderSize = 80u;
+    static constexpr auto boundingSize = 15u; // Arbitrary scale number taken from https://3dfizzr.wordpress.com/2013/08/05/how-to-check-you-stl-files-before-3d-printing-them/
+
 public:
     static constexpr auto defaultFileName = "model.stl";
     static constexpr auto defaultModelName = "crystal";
@@ -31,13 +54,11 @@ private:
     void exportAscii(std::ofstream&& ofs, const std::string& modelName = defaultModelName);
     void exportBinary(std::ofstream&& ofs);
 
-    struct Plane {
-        glm::vec3 normal;
-        glm::vec3 v1, v2, v3;
-    };
-
-    static std::vector<glm::vec3> calculateNormals(const std::vector<glm::vec4>& vertices);
+    static std::vector<glm::vec3> normalizeRange(const std::vector<glm::vec4>& vertices, float size = static_cast<float>(boundingSize));
+    static std::vector<glm::vec3> calculateNormals(const std::vector<glm::vec3>& vertices);
     static std::vector<Plane> zipNormalsAndVertices(const std::vector<glm::vec4>& vertices);
+
+    static bool validateBinaryFile(const std::string& filename);
 };
 }
 
