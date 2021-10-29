@@ -42,7 +42,7 @@ float scalarCross2D(vec2 a, vec2 b) {
 }
 
 bool ccw(vec2 a, vec2 b) {
-    return EPSILON < scalarCross2D(a,b);
+    return EPSILON <= scalarCross2D(a,b);
 }
 
 bool isInsideHull(vec4 pos) {
@@ -97,7 +97,7 @@ void main() {
     }
 
     const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
-    const bool gridEdge = (neighbor.x < 0 || neighbor.y < 0 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
+    const bool gridEdge = neighbor.x < 0 || neighbor.y < -1 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y;
 
     vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, 0.0, 1.0);
     neighborPos /= neighborPos.w;

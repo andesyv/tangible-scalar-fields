@@ -77,7 +77,7 @@ void main() {
     } else { // Neighbor triangles
         // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
         const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
-        const bool gridEdge = (neighbor.x < 0 || neighbor.y < 0 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
+        const bool gridEdge = (neighbor.x < 0 || neighbor.y < -1 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
 
         // Grid edge:
 //        if (gridEdge)
