@@ -55,7 +55,7 @@ private:
     void exportBinary(std::ofstream&& ofs);
 
     static std::vector<glm::vec3> normalizeRange(const std::vector<glm::vec4>& vertices, float size = boundingSize);
-    static std::vector<glm::vec3> calculateNormals(const std::vector<glm::vec3>& vertices);
+    static std::vector<glm::vec3> calculateNormals(const std::vector<glm::vec3>& vertices, const std::vector<unsigned int>& indices);
     static std::vector<Plane> zipNormalsAndVertices(const std::vector<glm::vec4>& vertices);
 
     static bool validateBinaryFile(const std::string& filename);

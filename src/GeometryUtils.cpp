@@ -4,6 +4,7 @@
 #include <tuple>
 #include <iostream>
 #include <utility>
+#include <map>
 
 #include <glm/glm.hpp>
 
@@ -192,5 +193,50 @@ namespace molumes {
         const auto convexHull = createConvexHull(nonEmptyValues, boundingCenter, controlFlag);
 
         return controlFlag.expired() ? std::nullopt : std::make_optional(convexHull);
+    }
+
+    template<typename T, int N>
+    std::weak_ordering
+    compareVec(const vec<N, T> &as, const vec<N, T> &bs, unsigned int i = 0, float epsilon = 0.0001f) {
+        return N <= i ? std::weak_ordering::equivalent : (as[i] < bs[i] + epsilon && bs[i] < as[i] + epsilon) ?
+                                                         compareVec(as, bs, i + 1, epsilon) :
+                                                         ((as[i] < bs[i]) ? std::weak_ordering::less
+                                                                          : std::weak_ordering::greater);
+    }
+
+    struct Vec4Comparitor {
+        auto operator()(const vec4 &lhs, const vec4 &rhs) const {
+            return compareVec(lhs, rhs) == std::weak_ordering::less;
+        }
+    };
+
+    std::pair<std::vector<vec4>, std::vector<unsigned int>> getVertexIndexPairs(const std::vector<vec4> &vertices) {
+        std::vector<vec4> uniqueVertices;
+        uniqueVertices.reserve(vertices.size());
+        std::vector<unsigned int> indices;
+        indices.reserve(vertices.size());
+
+        std::map<vec4, unsigned int, Vec4Comparitor> lookupMap;
+
+        for (const auto &v: vertices) {
+            const auto pos = lookupMap.find(v);
+            if (pos != lookupMap.end()) {
+                indices.push_back(pos->second);
+            } else {
+                uniqueVertices.push_back(v);
+                const auto i = static_cast<unsigned int>(lookupMap.size());
+                indices.push_back(i);
+                lookupMap.emplace(v, i);
+            }
+        }
+
+        uniqueVertices.shrink_to_fit();
+        indices.shrink_to_fit();
+
+        return std::make_pair(uniqueVertices, indices);
+    }
+
+    auto sortedEdge(auto a, auto b) {
+        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
     }
 }
