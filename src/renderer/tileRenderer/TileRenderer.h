@@ -22,6 +22,7 @@ namespace molumes
 		explicit TileRenderer(Viewer *viewer);
 		void setEnabled(bool enabled) override;
 		void display() override;
+        void fileLoaded(const std::string& filename) override;
 
 	private:
 		Tile* tile = nullptr;
@@ -108,10 +109,10 @@ namespace molumes
 
 		void renderGUI();
 		void setShaderDefines();
+        void updateData();
 
 		// items for ImGui Combo
-		std::string m_guiFileNames = "None";
-		std::vector<std::string>  m_fileNames = { "None" };
+        std::string m_currentFileName = "None";
 
 		std::string m_guiColumnNames = "None";
 

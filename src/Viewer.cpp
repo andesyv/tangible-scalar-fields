@@ -3,6 +3,7 @@
 #include <iostream>
 #include <list>
 #include <sstream>
+#include <filesystem>
 
 #ifdef _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -33,6 +34,10 @@
 #include "renderer/CrystalRenderer.h"
 #include "Scene.h"
 #include "CSV/Table.h"
+
+// windows.h, which portable-file-dialogs includes, defines its own min/max operator which crashes with STL
+#define NOMINMAX
+#include <portable-file-dialogs.h>
 
 using namespace molumes;
 using namespace gl;
@@ -734,6 +739,9 @@ void Viewer::renderUi() {
 
 void Viewer::mainMenu() {
     if (ImGui::BeginMenu("File")) {
+        if (ImGui::MenuItem("Open file", "Ctrl+O"))
+            openFile();
+
         if (ImGui::MenuItem("Screenshot", "F2"))
             m_saveScreenshot = true;
 
@@ -796,4 +804,23 @@ void Viewer::setPerspective(bool bPerspective) {
     auto size = viewportSize();
 
     framebufferSizeCallback(m_window, size.x, size.y);
+}
+
+void Viewer::openFile() {
+    const auto rootPath = std::filesystem::current_path() / "dat";
+    auto fileDialog = pfd::open_file("Open file", rootPath.string(), {"CSV Files", "*.csv"}, pfd::opt::none);
+    const auto result = fileDialog.result();
+    if (result.empty())
+        return;
+
+    auto filepath = std::filesystem::path{result.front()};
+    if (filepath.empty())
+        return;
+
+    const auto filename = filepath.string();
+    // initialize table
+    scene()->table()->load(filename);
+
+    for (auto& r : m_renderers)
+        r->fileLoaded(filename);
 }

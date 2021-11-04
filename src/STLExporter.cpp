@@ -37,12 +37,12 @@ STLExporter::STLExporter(Viewer *viewer, CrystalRenderer* crystalRenderer) : m_r
 }
 
 void STLExporter::keyEvent(int key, int scancode, int action, int mods) {
+    Interactor::keyEvent(key, scancode, action, mods);
+
     if (m_renderer == nullptr || m_renderer->getVertices().empty())
         return;
 
-    if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_PRESS)
-        m_ctrl = true;
-    else if (m_ctrl && key == GLFW_KEY_S && action == GLFW_PRESS)
+    if (m_ctrl && key == GLFW_KEY_S && action == GLFW_PRESS)
         exportFile();
 }
 

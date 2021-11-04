@@ -82,8 +82,10 @@ void CrystalRenderer::display() {
     const auto state = stateGuard();
 
     if (ImGui::BeginMenu("Crystal")) {
-        ImGui::Checkbox("Wireframe", &m_wireframe);
-        ImGui::Checkbox("Render hull", &m_renderHull);
+        if (ImGui::CollapsingHeader("Render stuff:", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Wireframe", &m_wireframe);
+            ImGui::Checkbox("Render hull", &m_renderHull);
+        }
         if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))

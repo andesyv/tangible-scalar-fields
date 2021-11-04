@@ -119,3 +119,5 @@ globjects::Program * Renderer::shaderProgram(const std::string & name)
 	return m_shaderPrograms[name].m_program.get();
 }
 
+void Renderer::fileLoaded(const std::string&) {}
+

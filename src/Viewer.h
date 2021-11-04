@@ -84,6 +84,10 @@ namespace molumes
 
 		void saveImage(const std::string & filename) const;
 
+        void openFile();
+
+        void fileWasLoaded(const std::string& filename);
+
         void setPerspective(bool bPerspective);
 
 		bool m_perspective = false;
@@ -155,6 +159,4 @@ namespace molumes
 		bool m_showUi = true;
 		bool m_saveScreenshot = false;
 	};
-
-
 }

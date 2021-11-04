@@ -1,4 +1,9 @@
 #include "Interactor.h"
+#include "Viewer.h"
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+
 using namespace molumes;
 
 Interactor::Interactor(Viewer* viewer) : m_viewer(viewer)
@@ -27,6 +32,12 @@ void Interactor::framebufferSizeEvent(int width, int height)
 
 void Interactor::keyEvent(int key, int scancode, int action, int mods)
 {
+    if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_PRESS)
+        m_ctrl = true;
+    else if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_RELEASE)
+        m_ctrl = false;
+    else if (m_ctrl && key == GLFW_KEY_O && action == GLFW_PRESS)
+        viewer()->openFile();
 }
 
 void Interactor::mouseButtonEvent(int button, int action, int mods)

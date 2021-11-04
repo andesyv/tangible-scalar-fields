@@ -1,11 +1,12 @@
 #include "TileRenderer.h"
 
-#include <filesystem>
 #include <imgui.h>
 #include <omp.h>
 #include <lodepng.h>
 #include <ctime>
 #include <memory>
+#include <format>
+#include <algorithm>
 
 #include <glbinding/gl/gl.h>
 
@@ -167,25 +168,6 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     }
 
     m_colorMapTexture->generateMipmap();
-
-
-    for (auto &d: std::filesystem::directory_iterator("./dat")) {
-        const std::filesystem::path& csvPath(d);
-
-        if (csvPath.extension().string() == ".csv") {
-            // log CSV files that were found in the "./dat" folder
-            globjects::debug() << "Found CSV file: " << csvPath.string() << " ...";
-            std::string filename = csvPath.filename().string();
-
-            // update collections containing all current CSV files
-            m_guiFileNames += filename + '\0';
-            m_fileNames.push_back(filename);
-        }
-    }
-
-    // When finished loading, auto set the current file to the first entry:
-    if (!m_fileNames.empty())
-        m_fileDataID = 1;
 
     // create Framebuffer
     m_pointFramebuffer = Framebuffer::create();
@@ -965,228 +947,138 @@ void TileRenderer::calculateTileTextureSize(const mat4& inverseModelViewProjecti
 Renders the User interface
 */
 void TileRenderer::renderGUI() {
+    if (!ImGui::BeginMenu("Illuminated Point Plots"))
+        return;
 
-    // boolean variable used to automatically update the data
-    static bool dataChanged = false;
-    ImGui::Begin("Illuminated Point Plots");
-
-    if (ImGui::CollapsingHeader("CSV-Files"), ImGuiTreeNodeFlags_DefaultOpen) {
-
-        ImGui::Combo("Files", &m_fileDataID, m_guiFileNames.c_str());
-
-        if (m_fileDataID != m_oldFileDataID) {
-            //std::cout << "File selection event - " << "File: " << m_fileDataID << "\n";
-
-            // reset column names
-            m_guiColumnNames = "None";
-
-            if (m_fileDataID != 0) {
-
-                // initialize table
-                viewer()->scene()->table()->load("./dat/" + m_fileNames[m_fileDataID]);
-
-                // extract column names and prepare GUI
-                std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
-
-                for (const auto & tempName : tempNames) {
-                    m_guiColumnNames += tempName + '\0';
-                }
-
-                // provide default selections assuming
-                m_xAxisDataID = 1;        // contains the X-values
-                m_yAxisDataID = 2;        // contains the Y-values
-                m_radiusDataID = 3;        // contains the radii
-                m_colorDataID = 4;        // contains the colors
-            }
-
-            // update status
-            m_oldFileDataID = m_fileDataID;
-            dataChanged = true;
-        }
+    if (ImGui::CollapsingHeader("CSV-Files", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const auto formattedStr = std::format("File: {}", m_currentFileName);
+        ImGui::Text(formattedStr.c_str());
 
         // show all column names from selected CSV file
         ImGui::Text("Selected Columns:");
         ImGui::Combo("X-axis", &m_xAxisDataID, m_guiColumnNames.c_str());
         ImGui::Combo("Y-axis", &m_yAxisDataID, m_guiColumnNames.c_str());
 
-        if (ImGui::Button("Update") || dataChanged) {
-            // update buffers according to recent changes -> since combo also contains 'None" we need to subtract 1 from ID
-            viewer()->scene()->table()->updateBuffers(m_xAxisDataID - 1, m_yAxisDataID - 1, m_radiusDataID - 1,
-                                                      m_colorDataID - 1);
-
-            // update VBOs for all four columns
-            m_xColumnBuffer->setData(viewer()->scene()->table()->activeXColumn(), GL_STATIC_DRAW);
-            m_yColumnBuffer->setData(viewer()->scene()->table()->activeYColumn(), GL_STATIC_DRAW);
-            m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
-            m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
-
-
-            // update VAO for all buffers ----------------------------------------------------
-            auto vertexBinding = m_vao->binding(0);
-            vertexBinding->setAttribute(0);
-            vertexBinding->setBuffer(m_xColumnBuffer.get(), 0, sizeof(float));
-            vertexBinding->setFormat(1, GL_FLOAT);
-            m_vao->enable(0);
-
-            vertexBinding = m_vao->binding(1);
-            vertexBinding->setAttribute(1);
-            vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
-            vertexBinding->setFormat(1, GL_FLOAT);
-            m_vao->enable(1);
-
-            // -------------------------------------------------------------------------------
-
-            // Scaling the model's bounding box to the canonical view volume
-            vec3 boundingBoxSize =
-                    viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
-            float maximumSize = std::max({boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z});
-            mat4 modelTransform = scale(vec3(2.0f) / vec3(maximumSize));
-            modelTransform = modelTransform * translate(-0.5f * (viewer()->scene()->table()->minimumBounds() +
-                                                                 viewer()->scene()->table()->maximumBounds()));
-            viewer()->setModelTransform(modelTransform);
-
-            // store diameter of current scatter plot and initialize light position
-            viewer()->m_scatterPlotDiameter = sqrt(pow(boundingBoxSize.x, 2.f) + pow(boundingBoxSize.y, 2.f));
-
-            // initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------
-            glm::mat4 viewTransform = viewer()->viewTransform();
-            glm::vec3 initLightDir = normalize(
-                    glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
-                    glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
-                    glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-            glm::mat4 newLightTransform = glm::inverse(viewTransform) * glm::translate(mat4(1.0f), (5 *
-                                                                                                    viewer()->m_scatterPlotDiameter *
-                                                                                                    initLightDir)) *
-                                          viewTransform;
-            viewer()->setLightTransform(newLightTransform);
-            //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-            // calculate accumulate texture settings - needs to be last step here ------------------------------
-            calculateTileTextureSize(inverse(viewer()->modelViewProjectionTransform()));
-            // -------------------------------------------------------------------------------
-
+        if (ImGui::Button("Update")) {
+            updateData();
         }
+    }
 
-        if (ImGui::CollapsingHeader("Color Maps"), ImGuiTreeNodeFlags_DefaultOpen) {
-            // show all available color-maps
-            ImGui::Combo("Maps", &m_colorMap,
-                         "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
+    if (ImGui::CollapsingHeader("Color Maps", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // show all available color-maps
+        ImGui::Combo("Maps", &m_colorMap,
+                     "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
 
-            // allow the user to load a discrete version of the color map
-            ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap);
+        // allow the user to load a discrete version of the color map
+        ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap);
 
-            // allow the user to load a discrete version of the color map
-            ImGui::Checkbox("Monochrome-Tiles", &m_renderMomochromeTiles);
+        // allow the user to load a discrete version of the color map
+        ImGui::Checkbox("Monochrome-Tiles", &m_renderMomochromeTiles);
 
-            // load new texture if either the texture has changed or the type has changed from discrete to continuous or vice versa
-            if (m_colorMap != m_oldColorMap || m_discreteMap != m_oldDiscreteMap) {
-                if (m_colorMap > 0) {
-                    std::vector<std::string> colorMapFilenames = {"./dat/colormaps/bone_1D.png",
-                                                                  "./dat/colormaps/cubehelix_1D.png",
-                                                                  "./dat/colormaps/gist_earth_1D.png",
-                                                                  "./dat/colormaps/gnuplot2_1D.png",
-                                                                  "./dat/colormaps/grey_1D.png",
-                                                                  "./dat/colormaps/inferno_1D.png",
-                                                                  "./dat/colormaps/magma_1D.png",
-                                                                  "./dat/colormaps/plasma_1D.png",
-                                                                  "./dat/colormaps/PuBuGn_1D.png",
-                                                                  "./dat/colormaps/rainbow_1D.png",
-                                                                  "./dat/colormaps/summer_1D.png",
-                                                                  "./dat/colormaps/virdis_1D.png",
-                                                                  "./dat/colormaps/winter_1D.png",
-                                                                  "./dat/colormaps/wista_1D.png",
-                                                                  "./dat/colormaps/YlGnBu_1D.png",
-                                                                  "./dat/colormaps/YlOrRd_1D.png"};
+        // load new texture if either the texture has changed or the type has changed from discrete to continuous or vice versa
+        if (m_colorMap != m_oldColorMap || m_discreteMap != m_oldDiscreteMap) {
+            if (m_colorMap > 0) {
+                std::vector<std::string> colorMapFilenames = {"./dat/colormaps/bone_1D.png",
+                                                              "./dat/colormaps/cubehelix_1D.png",
+                                                              "./dat/colormaps/gist_earth_1D.png",
+                                                              "./dat/colormaps/gnuplot2_1D.png",
+                                                              "./dat/colormaps/grey_1D.png",
+                                                              "./dat/colormaps/inferno_1D.png",
+                                                              "./dat/colormaps/magma_1D.png",
+                                                              "./dat/colormaps/plasma_1D.png",
+                                                              "./dat/colormaps/PuBuGn_1D.png",
+                                                              "./dat/colormaps/rainbow_1D.png",
+                                                              "./dat/colormaps/summer_1D.png",
+                                                              "./dat/colormaps/virdis_1D.png",
+                                                              "./dat/colormaps/winter_1D.png",
+                                                              "./dat/colormaps/wista_1D.png",
+                                                              "./dat/colormaps/YlGnBu_1D.png",
+                                                              "./dat/colormaps/YlOrRd_1D.png"};
 
-                    uint colorMapWidth, colorMapHeight;
-                    std::vector<unsigned char> colorMapImage;
+                uint colorMapWidth, colorMapHeight;
+                std::vector<unsigned char> colorMapImage;
 
-                    std::string textureName = colorMapFilenames[m_colorMap - 1];
+                std::string textureName = colorMapFilenames[m_colorMap - 1];
 
-                    if (m_discreteMap) {
-                        std::string fileExtension = "_discrete7";
+                if (m_discreteMap) {
+                    std::string fileExtension = "_discrete7";
 
-                        // insert the discrete identifier "_discrete7" before the file extension ".png"
-                        textureName.insert(textureName.length() - 4, fileExtension);
-                    }
-
-                    uint error = lodepng::decode(colorMapImage, colorMapWidth, colorMapHeight, textureName);
-
-                    if (error)
-                        globjects::debug() << "Could not load " << colorMapFilenames[m_colorMap - 1] << "!";
-                    else {
-                        m_colorMapTexture->image1D(0, GL_RGBA, static_cast<GLsizei>(colorMapWidth), 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                                                   (void *) &colorMapImage.front());
-                        m_colorMapTexture->generateMipmap();
-
-                        // store width of texture and mark as loaded
-                        m_ColorMapWidth = static_cast<GLsizei>(colorMapWidth);
-                        m_colorMapLoaded = true;
-                    }
-                } else {
-                    // disable color map
-                    m_colorMapLoaded = false;
+                    // insert the discrete identifier "_discrete7" before the file extension ".png"
+                    textureName.insert(textureName.length() - 4, fileExtension);
                 }
 
-                // update status
-                m_oldColorMap = m_colorMap;
-                m_oldDiscreteMap = m_discreteMap;
+                uint error = lodepng::decode(colorMapImage, colorMapWidth, colorMapHeight, textureName);
+
+                if (error)
+                    globjects::debug() << "Could not load " << colorMapFilenames[m_colorMap - 1] << "!";
+                else {
+                    m_colorMapTexture->image1D(0, GL_RGBA, static_cast<GLsizei>(colorMapWidth), 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                                               (void *) &colorMapImage.front());
+                    m_colorMapTexture->generateMipmap();
+
+                    // store width of texture and mark as loaded
+                    m_ColorMapWidth = static_cast<GLsizei>(colorMapWidth);
+                    m_colorMapLoaded = true;
+                }
+            } else {
+                // disable color map
+                m_colorMapLoaded = false;
             }
+
+            // update status
+            m_oldColorMap = m_colorMap;
+            m_oldDiscreteMap = m_discreteMap;
         }
-
-        if (ImGui::CollapsingHeader("Discrepancy"), ImGuiTreeNodeFlags_DefaultOpen) {
-            ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
-            ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
-            ImGui::Checkbox("Show Discrepancy", &m_renderDiscrepancy_tmp);
-            ImGui::SliderFloat("Ease In", &m_discrepancy_easeIn_tmp, 1.0f, 5.0f);
-            ImGui::SliderFloat("Low Point Count", &m_discrepancy_lowCount_tmp, 0.0f, 1.0f);
-            ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
-        }
-        if (ImGui::CollapsingHeader("Tiles"), ImGuiTreeNodeFlags_DefaultOpen) {
-            const char *tile_styles[]{"none", "square", "hexagon"};
-            ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
-            ImGui::Checkbox("Render Grid", &m_renderGrid);
-            ImGui::SliderFloat("Grid Width", &m_gridWidth, 1.0f, 3.0f);
-            ImGui::SliderFloat("Tile Size", &m_tileSize_tmp, 1.0f, 100.0f);
-
-            // allow for (optional) analytical ambient occlusion of the hex-tiles
-            ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
-            ImGui::SliderFloat("AAO Scaling", &m_aaoScaling, 1.0f, 16.0f);
-
-            // allow for modification of the fresnel factor calculation
-            ImGui::Checkbox("Fresnel Reflectance", &m_renderFresnelReflectance);
-            ImGui::SliderFloat("Fresnel Bias", &m_fresnelBias, 0.0f, 1.0f);
-            ImGui::SliderFloat("Fresnel Power", &m_fresnelPow, 0.0f, 16.0f);
-        }
-
-        if (ImGui::CollapsingHeader("Regression Plane"), ImGuiTreeNodeFlags_DefaultOpen) {
-            ImGui::Checkbox("Render KDE", &m_renderKDE);
-            ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
-            ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
-            ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
-            ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
-            ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
-            ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 1.0f, 20.0f);
-            // the borderWidth cannot go from 0-1
-            // if borderWidth == 1, all inside corner points are at the exact same position (tile center)
-            // and we can not longer decide if a point is in the border or not
-            // if borderWidth == 0, at least one of the inside corner points is at the exact same position as its corresponding outside corner point
-            // then it can happen, that we can no longer compute the lighting normal for the corresponding border.
-            ImGui::SliderFloat("Border Width", &m_borderWidth, 0.01f, 0.99f);
-            ImGui::Checkbox("Show Border", &m_showBorder);
-            ImGui::Checkbox("Sobel Edges", &m_sobelEdgeColoring);
-            ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
-            ImGui::Checkbox("Texture Tiles", &m_tileTexturing);
-        }
-
-        ImGui::Checkbox("Show Normal Buffer", &m_renderNormalBuffer);
-        ImGui::Checkbox("Show Depth Buffer", &m_renderDepthBuffer);
-
-
-        // update status
-        dataChanged = false;
     }
-    ImGui::End();
+
+    if (ImGui::CollapsingHeader("Discrepancy", ImGuiTreeNodeFlags_DefaultOpen)) { /// Stupidest bugfix: Flag was set outside function, making "if" always true...
+        ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
+        ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
+        ImGui::Checkbox("Show Discrepancy", &m_renderDiscrepancy_tmp);
+        ImGui::SliderFloat("Ease In", &m_discrepancy_easeIn_tmp, 1.0f, 5.0f);
+        ImGui::SliderFloat("Low Point Count", &m_discrepancy_lowCount_tmp, 0.0f, 1.0f);
+        ImGui::SliderFloat("Discrepancy Divisor", &m_discrepancyDiv, 1.0f, 3.0f);
+    }
+    if (ImGui::CollapsingHeader("Tiles", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const char *tile_styles[]{"none", "square", "hexagon"};
+        ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
+        ImGui::Checkbox("Render Grid", &m_renderGrid);
+        ImGui::SliderFloat("Grid Width", &m_gridWidth, 1.0f, 3.0f);
+        ImGui::SliderFloat("Tile Size", &m_tileSize_tmp, 1.0f, 100.0f);
+
+        // allow for (optional) analytical ambient occlusion of the hex-tiles
+        ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
+        ImGui::SliderFloat("AAO Scaling", &m_aaoScaling, 1.0f, 16.0f);
+
+        // allow for modification of the fresnel factor calculation
+        ImGui::Checkbox("Fresnel Reflectance", &m_renderFresnelReflectance);
+        ImGui::SliderFloat("Fresnel Bias", &m_fresnelBias, 0.0f, 1.0f);
+        ImGui::SliderFloat("Fresnel Power", &m_fresnelPow, 0.0f, 16.0f);
+    }
+
+    if (ImGui::CollapsingHeader("Regression Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Render KDE", &m_renderKDE);
+        ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
+        ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
+        ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
+        ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
+        ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
+        ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 1.0f, 20.0f);
+        // the borderWidth cannot go from 0-1
+        // if borderWidth == 1, all inside corner points are at the exact same position (tile center)
+        // and we can not longer decide if a point is in the border or not
+        // if borderWidth == 0, at least one of the inside corner points is at the exact same position as its corresponding outside corner point
+        // then it can happen, that we can no longer compute the lighting normal for the corresponding border.
+        ImGui::SliderFloat("Border Width", &m_borderWidth, 0.01f, 0.99f);
+        ImGui::Checkbox("Show Border", &m_showBorder);
+        ImGui::Checkbox("Sobel Edges", &m_sobelEdgeColoring);
+        ImGui::Checkbox("Invert Pyramid", &m_invertPyramid);
+        ImGui::Checkbox("Texture Tiles", &m_tileTexturing);
+    }
+
+    ImGui::Checkbox("Show Normal Buffer", &m_renderNormalBuffer);
+    ImGui::Checkbox("Show Depth Buffer", &m_renderDepthBuffer);
+    ImGui::EndMenu();
 }
 
 
@@ -1435,4 +1327,83 @@ TileRenderer::calculateDiscrepancy2D(const std::vector<float> &samplesX, const s
     //std::cout << "Step4: " << duration << '\n' << '\n';
 
     return discrepancies;
+}
+
+void TileRenderer::fileLoaded(const std::string & filename) {
+    // reset column names
+    m_guiColumnNames = "None";
+
+    // extract column names and prepare GUI
+    std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
+
+    for (const auto & tempName : tempNames) {
+        m_guiColumnNames += tempName + '\0';
+    }
+
+    m_currentFileName = filename;
+
+    // provide default selections assuming
+    m_xAxisDataID = 1;        // contains the X-values
+    m_yAxisDataID = 2;        // contains the Y-values
+    m_radiusDataID = 3;        // contains the radii
+    m_colorDataID = 4;        // contains the colors
+
+    updateData();
+}
+
+void TileRenderer::updateData() {
+    // update buffers according to recent changes -> since combo also contains 'None" we need to subtract 1 from ID
+    viewer()->scene()->table()->updateBuffers(m_xAxisDataID - 1, m_yAxisDataID - 1, m_radiusDataID - 1,
+                                              m_colorDataID - 1);
+
+    // update VBOs for all four columns
+    m_xColumnBuffer->setData(viewer()->scene()->table()->activeXColumn(), GL_STATIC_DRAW);
+    m_yColumnBuffer->setData(viewer()->scene()->table()->activeYColumn(), GL_STATIC_DRAW);
+    m_radiusColumnBuffer->setData(viewer()->scene()->table()->activeRadiusColumn(), GL_STATIC_DRAW);
+    m_colorColumnBuffer->setData(viewer()->scene()->table()->activeColorColumn(), GL_STATIC_DRAW);
+
+
+    // update VAO for all buffers ----------------------------------------------------
+    auto vertexBinding = m_vao->binding(0);
+    vertexBinding->setAttribute(0);
+    vertexBinding->setBuffer(m_xColumnBuffer.get(), 0, sizeof(float));
+    vertexBinding->setFormat(1, GL_FLOAT);
+    m_vao->enable(0);
+
+    vertexBinding = m_vao->binding(1);
+    vertexBinding->setAttribute(1);
+    vertexBinding->setBuffer(m_yColumnBuffer.get(), 0, sizeof(float));
+    vertexBinding->setFormat(1, GL_FLOAT);
+    m_vao->enable(1);
+
+    // -------------------------------------------------------------------------------
+
+    // Scaling the model's bounding box to the canonical view volume
+    vec3 boundingBoxSize =
+            viewer()->scene()->table()->maximumBounds() - viewer()->scene()->table()->minimumBounds();
+    float maximumSize = std::max({boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z});
+    mat4 modelTransform = scale(vec3(2.0f) / vec3(maximumSize));
+    modelTransform = modelTransform * translate(-0.5f * (viewer()->scene()->table()->minimumBounds() +
+                                                         viewer()->scene()->table()->maximumBounds()));
+    viewer()->setModelTransform(modelTransform);
+
+    // store diameter of current scatter plot and initialize light position
+    viewer()->m_scatterPlotDiameter = sqrt(pow(boundingBoxSize.x, 2.f) + pow(boundingBoxSize.y, 2.f));
+
+    // initial position of the light source (azimuth 120 degrees, elevation 45 degrees, 5 times the distance to the object in center) ---------------------------------------------------------
+    glm::mat4 viewTransform = viewer()->viewTransform();
+    glm::vec3 initLightDir = normalize(
+            glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+            glm::rotate(glm::mat4(1.0f), glm::radians(120.0f), glm::vec3(0.0f, 0.0f, 1.0f)) *
+            glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    glm::mat4 newLightTransform = glm::inverse(viewTransform) * glm::translate(mat4(1.0f), (5 *
+                                                                                            viewer()->m_scatterPlotDiameter *
+                                                                                            initLightDir)) *
+                                  viewTransform;
+    viewer()->setLightTransform(newLightTransform);
+    //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    // calculate accumulate texture settings - needs to be last step here ------------------------------
+    calculateTileTextureSize(inverse(viewer()->modelViewProjectionTransform()));
+    // -------------------------------------------------------------------------------
 }

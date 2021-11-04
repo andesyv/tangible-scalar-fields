@@ -41,6 +41,7 @@ namespace molumes
 		bool isEnabled() const;
 		virtual void reloadShaders();
 		virtual void display() = 0;
+        virtual void fileLoaded(const std::string&);
 
 		bool createShaderProgram(const std::string & name, std::initializer_list< std::pair<gl::GLenum, std::string> > shaders, std::initializer_list < std::string> shaderIncludes = {});
 		static std::unique_ptr<globjects::Texture> create2DTexture(gl::GLenum tex, gl::GLenum minFilter, gl::GLenum magFilter, gl::GLenum wrapS, gl::GLenum wrapT, gl::GLint level, gl::GLenum internalFormat, const glm::ivec2 & size, gl::GLint border, gl::GLenum format, gl::GLenum type, const gl::GLvoid * data);

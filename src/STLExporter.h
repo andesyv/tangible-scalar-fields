@@ -48,7 +48,6 @@ public:
     void exportFile();
 
 private:
-    bool m_ctrl = false;
     CrystalRenderer* m_renderer{nullptr};
 
     void exportAscii(std::ofstream&& ofs, const std::string& modelName = defaultModelName);

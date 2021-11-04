@@ -20,6 +20,9 @@ namespace molumes
 		virtual void scrollEvent(double xoffset, double yoffset);
 		virtual void display();
 
+    protected:
+        bool m_ctrl = false;
+
 	private:
 		Viewer* m_viewer;
 		bool m_enabled = true;

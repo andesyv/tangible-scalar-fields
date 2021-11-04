@@ -48,11 +48,9 @@ void CameraInteractor::framebufferSizeEvent(int width, int height)
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 {
-    if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_PRESS)
-        m_ctrl = true;
-    else if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && action == GLFW_RELEASE)
-        m_ctrl = false;
-	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS)
+    Interactor::keyEvent(key, scancode, action, mods);
+
+    if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS)
 	{
 		m_light = true;
 		m_mousePrevious = m_mouseCurrent;
