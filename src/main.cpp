@@ -132,28 +132,30 @@ int main(int argc, char *argv[]) {
 
     auto defaultState = State::currentState();
 
-    auto scene = std::make_unique<Scene>();
-    //scene->table()->load(fileName);
-    auto viewer = std::make_unique<Viewer>(window, scene.get());
+    {
+        auto scene = std::make_unique<Scene>();
+        //scene->table()->load(fileName);
+        auto viewer = std::make_unique<Viewer>(window, scene.get());
 
-    // Scaling the model's bounding box to the canonical view volume
-    vec3 boundingBoxSize = scene->table()->maximumBounds() - scene->table()->minimumBounds();
-    float maximumSize = std::max({boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z});
-    mat4 modelTransform = scale(vec3(2.0f) / vec3(maximumSize));
-    modelTransform =
-            modelTransform * translate(-0.5f * (scene->table()->minimumBounds() + scene->table()->maximumBounds()));
-    viewer->setModelTransform(modelTransform);
+        // Scaling the model's bounding box to the canonical view volume
+        vec3 boundingBoxSize = scene->table()->maximumBounds() - scene->table()->minimumBounds();
+        float maximumSize = std::max({boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z});
+        mat4 modelTransform = scale(vec3(2.0f) / vec3(maximumSize));
+        modelTransform =
+                modelTransform * translate(-0.5f * (scene->table()->minimumBounds() + scene->table()->maximumBounds()));
+        viewer->setModelTransform(modelTransform);
 
 
-    glfwSwapInterval(1); // Set to 0 for "UNLIMITED FRAMES!!"
+        glfwSwapInterval(1); // Set to 0 for "UNLIMITED FRAMES!!"
 
-    // Main loop
-    while (!glfwWindowShouldClose(window)) {
+        // Main loop
+        while (!glfwWindowShouldClose(window)) {
 //        defaultState->apply();
-        glfwPollEvents();
-        viewer->display();
-        //glFinish();
-        glfwSwapBuffers(window);
+            glfwPollEvents();
+            viewer->display();
+            //glFinish();
+            glfwSwapBuffers(window);
+        }
     }
 
     // Destroy window
