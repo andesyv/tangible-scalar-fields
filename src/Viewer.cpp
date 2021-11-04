@@ -806,14 +806,18 @@ void Viewer::setPerspective(bool bPerspective) {
     framebufferSizeCallback(m_window, size.x, size.y);
 }
 
-void Viewer::openFile() {
-    const auto rootPath = std::filesystem::current_path() / "dat";
-    auto fileDialog = pfd::open_file("Open file", rootPath.string(), {"CSV Files", "*.csv"}, pfd::opt::none);
-    const auto result = fileDialog.result();
-    if (result.empty())
-        return;
+void Viewer::openFile(const std::string& path) {
+    std::filesystem::path filepath{path};
+    if (filepath.empty()) {
+        const auto rootPath = std::filesystem::current_path() / "dat";
+        auto fileDialog = pfd::open_file("Open file", rootPath.string(), {"CSV Files", "*.csv"}, pfd::opt::none);
+        const auto result = fileDialog.result();
+        if (result.empty())
+            return;
 
-    auto filepath = std::filesystem::path{result.front()};
+        filepath = std::filesystem::path{result.front()};
+    }
+
     if (filepath.empty())
         return;
 

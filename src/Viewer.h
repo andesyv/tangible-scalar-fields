@@ -84,7 +84,7 @@ namespace molumes
 
 		void saveImage(const std::string & filename) const;
 
-        void openFile();
+        void openFile(const std::string& path = "");
 
         void fileWasLoaded(const std::string& filename);
 

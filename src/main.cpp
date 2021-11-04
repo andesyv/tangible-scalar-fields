@@ -80,8 +80,7 @@ int main(int argc, char *argv[]) {
             << "OpenGL Vendor:   " << glbinding::aux::ContextInfo::vendor() << std::endl
             << "OpenGL Renderer: " << glbinding::aux::ContextInfo::renderer() << std::endl;
 
-    //std::string fileName = "./dat/6b0x.pdb";
-    std::string fileName = "";
+    const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/0_10_sampled_testdata_10.000.csv";
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(
@@ -127,15 +126,14 @@ int main(int argc, char *argv[]) {
                 }
             }, nullptr);
 
-    if (argc > 1)
-        fileName = std::string(argv[1]);
-
     auto defaultState = State::currentState();
 
     {
         auto scene = std::make_unique<Scene>();
         //scene->table()->load(fileName);
         auto viewer = std::make_unique<Viewer>(window, scene.get());
+        if (!fileName.empty())
+            viewer->openFile(fileName);
 
         // Scaling the model's bounding box to the canonical view volume
         vec3 boundingBoxSize = scene->table()->maximumBounds() - scene->table()->minimumBounds();
