@@ -165,7 +165,8 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
     m_renderers.emplace_back(std::make_unique<TileRenderer>(this));
-    auto crystalRendererPtr = static_cast<CrystalRenderer*>(m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this)).get());
+    const auto crystalRendererPtr = static_cast<CrystalRenderer*>(m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this)).get());
+    crystalRendererPtr->setEnabled(false);
     m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
 
@@ -177,6 +178,8 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
         globjects::debug() << "  " << i << " - " << typeid(*r).name();
         ++i;
     }
+
+    setPerspective(false);
 }
 
 void Viewer::display() {
@@ -785,4 +788,12 @@ void Viewer::enumerateFocusRenderer() {
     m_renderers.at(m_focusRenderer)->setEnabled(false);
     m_focusRenderer = !m_focusRenderer;
     m_renderers.at(m_focusRenderer)->setEnabled(true);
+}
+
+void Viewer::setPerspective(bool bPerspective) {
+    m_perspective = bPerspective;
+
+    auto size = viewportSize();
+
+    framebufferSizeCallback(m_window, size.x, size.y);
 }

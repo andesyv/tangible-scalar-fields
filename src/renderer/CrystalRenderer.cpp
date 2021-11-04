@@ -75,7 +75,7 @@ void CrystalRenderer::setEnabled(bool enabled) {
     Renderer::setEnabled(enabled);
 
     if (enabled)
-        viewer()->m_perspective = true;
+        viewer()->setPerspective(true);
 }
 
 void CrystalRenderer::display() {

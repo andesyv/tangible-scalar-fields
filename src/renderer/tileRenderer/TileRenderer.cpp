@@ -230,7 +230,7 @@ void molumes::TileRenderer::setEnabled(bool enabled) {
     Renderer::setEnabled(enabled);
 
     if (enabled)
-        viewer()->m_perspective = false;
+        viewer()->setPerspective(false);
 
     viewer()->m_cameraRotateAllowed = !enabled;
 }

@@ -84,7 +84,9 @@ namespace molumes
 
 		void saveImage(const std::string & filename) const;
 
-		bool m_perspective = true;
+        void setPerspective(bool bPerspective);
+
+		bool m_perspective = false;
         bool m_cameraRotateAllowed = false;
         unsigned int m_focusRenderer = 0;
 

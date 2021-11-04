@@ -14,7 +14,6 @@ using namespace gl;
 
 CameraInteractor::CameraInteractor(Viewer * viewer) : Interactor(viewer)
 {
-	resetProjectionTransform();
 	resetViewTransform();
 
 	globjects::debug() << "Camera interactor usage:" << std::endl;
@@ -34,11 +33,17 @@ void CameraInteractor::framebufferSizeEvent(int width, int height)
         return;
 
 	float aspect = float(width) / float(height);
+    bool newPersp = viewer()->m_perspective;
 
-	if (m_perspective)
+	if (newPersp)
 		viewer()->setProjectionTransform(perspective(m_fov, aspect, m_near, m_far));
 	else
 		viewer()->setProjectionTransform(ortho(-1.0f*aspect, 1.0f*aspect, -1.0f, 1.0f, m_near, m_far));
+
+    if (m_last_perspective != newPersp) {
+        m_last_perspective = newPersp;
+        resetViewTransform();
+    }
 }
 
 void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
@@ -251,39 +256,11 @@ void CameraInteractor::display()
 		ImGui::EndMenu();
 	}
 
-	globalPerspective = static_cast<bool>(projectionOption);
+    bool perspectiveButton = static_cast<bool>(projectionOption);
 
-	if (m_perspective != globalPerspective) {
-		m_perspective = viewer()->m_perspective = globalPerspective;
-
-        resetViewTransform();
-		resetProjectionTransform();
+	if (globalPerspective != perspectiveButton) {
+        viewer()->setPerspective(perspectiveButton);
 	}
-	
-
-	/*
-	if (m_light)
-	{
-		glDepthFunc(GL_ALWAYS);
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(value_ptr(viewer()->projectionTransform()));
-
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(value_ptr(viewer()->modelViewTransform()));
-
-		glColor4f(1.0, 1.0, 1.0, 1.0);
-		glPointSize(7.0);
-		glBegin(GL_POINTS);
-		glVertex3fv(value_ptr(viewer()->worldLightPosition()));
-		glEnd();
-	}*/
-
-}
-
-void CameraInteractor::resetProjectionTransform()
-{
-	vec2 viewportSize = viewer()->viewportSize();
-	framebufferSizeEvent(static_cast<int>(viewportSize.x), static_cast<int>(viewportSize.y));
 }
 
 void CameraInteractor::resetViewTransform()
