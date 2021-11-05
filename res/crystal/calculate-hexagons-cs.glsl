@@ -14,6 +14,10 @@ uniform float height = 1.0;
 uniform float tile_scale = 0.6;
 uniform mat4 disp_mat = mat4(1.0);
 uniform uint POINT_COUNT = 1u;
+uniform bool tileNormalsEnabled = false;
+uniform int maxTexCoordY;
+uniform float tileNormalDisplacementFactor = 1.0;
+
 layout(binding = 1) uniform sampler2D accumulateTexture;
 
 layout(std430, binding = 2) buffer valueMaxBuffer
@@ -22,13 +26,33 @@ layout(std430, binding = 2) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
+layout(std430, binding = 3) buffer tileNormalsBuffer
+{
+    int tileNormals[];
+};
+
+
 const float PI = 3.1415926;
 const float HEX_ANGLE = PI / 180.0 * 60.0;
+const float bufferAccumulationFactor = 100.0; // Uniform constant in hexagon-tile shaders (could be a define)
+const float EPSILON = 0.01;
 
 const ivec2 NEIGHBORS[6] = ivec2[6](
     ivec2(1, 1), ivec2(0, 2), ivec2(-1, 1),
     ivec2(-1,-1), ivec2(0, -2), ivec2(1, -1)
 );
+
+vec3 getRegressionPlaneNormal(ivec2 hexCoord) {
+    vec4 tileNormal;
+    // get accumulated tile normals from buffer
+    for(int i = 0; i < 4; i++){
+        tileNormal[i] = float(tileNormals[int((hexCoord.x*(maxTexCoordY+1) + hexCoord.y) * 5 + i)]);
+    }
+    tileNormal /= bufferAccumulationFactor;// get original value after accumulation
+
+    // LIGHTING NORMAL ------------------------
+    return normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
+}
 
 
 void main() {
@@ -52,12 +76,15 @@ void main() {
     float hexValue = texelFetch(accumulateTexture, tilePosInAccTexture, 0).r;
 
     // hexagon-tiles-fs.glsl: 109
-    const float max = uintBitsToFloat(maxAccumulate) + 1;
+    const float maxAcc = uintBitsToFloat(maxAccumulate) + 1;
 
-    float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1
+    float depth = 2.0 * height * hexValue / maxAcc - height; // [0,maxAccumulate] -> [-1, 1
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
+
+    vec3 normal = tileNormalsEnabled ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
+//    centerPos.xyz += 0.1 * normal;
 
 
     // Individual for each work group:
@@ -88,18 +115,26 @@ void main() {
         ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
         float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
 
-        float neighborDepth = 2.0 * height * neighborHexValue / max - height;
+        float neighborDepth = 2.0 * height * neighborHexValue / maxAcc - height;
 
-        // Skip "empty" triangles
-        if (abs(depth - neighborDepth) < 0.01)
+        // Skip "empty" triangles (can only skip early if we don't use normals)
+        if (!tileNormalsEnabled && abs(depth - neighborDepth) < EPSILON)
             return;
-
 
         vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, neighborDepth, 1.0);
         neighborPos /= neighborPos.w;
 
         float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
-        vertices[triangleIndex] = vec4(neighborPos.xyz + vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.), 1.0);
+        vec3 neighborOffset = vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.);
+        // Regression plane offset
+        if (tileNormalsEnabled) {
+            vec3 neighborNormal = tileNormalsEnabled ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
+            float normalDisplacement = dot(-neighborOffset, neighborNormal) * neighborNormal.z;
+
+            if (!isnan(normalDisplacement))
+                neighborOffset.z += normalDisplacement * tileNormalDisplacementFactor;
+        }
+        vertices[triangleIndex] = vec4(neighborPos.xyz + neighborOffset, 1.0);
     }
 
     for (uint i = 0; i < 2u; ++i) {
@@ -107,8 +142,27 @@ void main() {
 
         // Offset from center of point + grid width
         vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+        if (tileNormalsEnabled) {
+            float normalDisplacement = dot(-offset, normal) * normal.z;
+            if (!isnan(normalDisplacement))
+                offset.z += normalDisplacement * tileNormalDisplacementFactor;
+        }
 
         uint ti = triangleIndex + (innerGroup ? (i + 1) : (2 - i));
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
+    }
+
+    // Additional empty triangle check at the very end if tileNormals are enabled because we can't check for it early
+    if (!innerGroup && tileNormalsEnabled) {
+        float mi = 1000.0;
+        float ma = 1000.0;
+        for (int i = 0; i < 3; ++i) {
+            float height = vertices[triangleIndex + i].z;
+            mi = min(height, mi);
+            ma = max(height, ma);
+        }
+        if (abs(mi - ma) < EPSILON)
+            for (int i = 0; i < 3; ++i)
+                vertices[triangleIndex + i].w = 0.0;
     }
 }

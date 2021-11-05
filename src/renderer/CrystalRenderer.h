@@ -29,6 +29,8 @@ namespace molumes {
 
         auto getVertices() const { return m_vertices; }
 
+        void fileLoaded(const std::string &) override;
+
 #ifndef NDEBUG
         void reloadShaders() override;
 #endif
@@ -47,6 +49,8 @@ namespace molumes {
 
         bool m_wireframe = false;
         bool m_renderHull = true;
+        bool m_tileNormalsEnabled = false;
+        float m_tileNormalsFactor = 1.0;
         float m_tileScale = 1.0f;
         float m_tileHeight = 0.5f;
         float m_extrusionFactor = 0.2f;
@@ -54,8 +58,14 @@ namespace molumes {
         gl::GLsizei m_drawingCount = 0;
         gl::GLsizei m_hullSize = 0;
 
-        [[nodiscard]] std::unique_ptr<globjects::Sync> generateBaseGeometry(std::shared_ptr<globjects::Texture>&& accumulateTexture, std::shared_ptr<globjects::Buffer>&& accumulateMax, int count, int num_cols, int num_rows, float tile_scale, glm::mat4 model);
-        [[nodiscard]] std::unique_ptr<globjects::Sync> cullAndExtrude(int count, int num_cols, int num_rows, float tile_scale, glm::mat4 model);
+        [[nodiscard]] std::unique_ptr<globjects::Sync>
+        generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
+                             std::shared_ptr<globjects::Buffer> &&accumulateMax,
+                             const std::weak_ptr<globjects::Buffer>& tileNormalsRef, int tile_max_y, int count,
+                             int num_cols, int num_rows, float tile_scale, glm::mat4 model);
+
+        [[nodiscard]] std::unique_ptr<globjects::Sync>
+        cullAndExtrude(int count, int num_cols, int num_rows, float tile_scale, glm::mat4 model);
 
         void resizeVertexBuffer(int hexCount);
     };

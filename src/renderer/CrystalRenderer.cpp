@@ -81,10 +81,19 @@ void CrystalRenderer::setEnabled(bool enabled) {
 void CrystalRenderer::display() {
     const auto state = stateGuard();
 
+    auto resources = viewer()->m_sharedResources;
+
     if (ImGui::BeginMenu("Crystal")) {
-        if (ImGui::CollapsingHeader("Render stuff:", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Preview", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Wireframe", &m_wireframe);
             ImGui::Checkbox("Render hull", &m_renderHull);
+        }
+        // Doesn't work unless you actually generate the normal plane from the 2D view
+        if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
+            m_hexagonsUpdated = true;
+        if (m_tileNormalsEnabled) {
+            if (ImGui::SliderFloat("Regression plane factor", &m_tileNormalsFactor, 0.01f, 100.f))
+                m_hexagonsUpdated = true;
         }
         if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
             m_hexagonsUpdated = true;
@@ -101,12 +110,11 @@ void CrystalRenderer::display() {
 
     // Borrow resources from tileRenderer
     /// Borrowing like this prevents CrystalRenderer to gain ownership, but ensures resources are valid while drawing
-    auto resources = viewer()->m_sharedResources;
-    if (!resources)
+    if (!all_t_weak_ptr(std::make_tuple(resources.tile, resources.tileAccumulateTexture, resources.tileAccumulateMax)))
         return;
 
     static int lastCount = 0;
-    const int count = resources.tile.expired() ? 0 : resources.tile.lock()->numTiles;
+    const int count = resources.tile.lock()->numTiles;
     if (count < 1)
         return;
 
@@ -149,7 +157,9 @@ void CrystalRenderer::display() {
     // Calculate triangles:
     if (m_hexagonsUpdated) {
         syncObject = generateBaseGeometry(std::move(resources.tileAccumulateTexture.lock()),
-                                          std::move(resources.tileAccumulateMax.lock()), count, num_cols, num_rows,
+                                          std::move(resources.tileAccumulateMax.lock()),
+                                          m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
+                                          resources.tile.lock()->m_tileMaxY, count, num_cols, num_rows,
                                           scale, model);
         std::get<0>(m_workerResults) = {};
         std::get<1>(m_workerResults) = {};
@@ -278,8 +288,9 @@ void CrystalRenderer::display() {
 
 std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
                                                             std::shared_ptr<globjects::Buffer> &&accumulateMax,
-                                                            int count, int num_cols, int num_rows, float tile_scale,
-                                                            glm::mat4 model) {
+                                                            const std::weak_ptr<globjects::Buffer>& tileNormalsRef,
+                                                            int tile_max_y, int count, int num_cols, int num_rows,
+                                                            float tile_scale, glm::mat4 model) {
     const auto &shader = shaderProgram("triangles");
     if (!shader)
         return {};
@@ -287,12 +298,18 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     m_workerControlFlag = std::make_shared<bool>(true);
 
     const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
+    const bool tileNormalsEnabled = !tileNormalsRef.expired();
+    std::shared_ptr<Buffer> tileNormalsBuffer;
 
     m_computeBuffer->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
 
     m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     accumulateTexture->bindActive(1);
     accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
+    if (tileNormalsEnabled) {
+        tileNormalsBuffer = tileNormalsRef.lock();
+        tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
+    }
 
     shader->use();
     shader->setUniform("num_cols", num_cols);
@@ -301,9 +318,14 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("tile_scale", tile_scale);
     shader->setUniform("disp_mat", model);
     shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
+    shader->setUniform("maxTexCoordY", tile_max_y);
+    shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
+    shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
 
     glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
+    if (tileNormalsEnabled)
+        tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
     accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
     accumulateTexture->unbindActive(1);
     m_computeBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
@@ -371,6 +393,12 @@ void CrystalRenderer::resizeVertexBuffer(int hexCount) {
 
 void CrystalRenderer::reloadShaders() {
     Renderer::reloadShaders();
+
+    m_hexagonsUpdated = true;
+}
+
+void CrystalRenderer::fileLoaded(const std::string &file) {
+    Renderer::fileLoaded(file);
 
     m_hexagonsUpdated = true;
 }

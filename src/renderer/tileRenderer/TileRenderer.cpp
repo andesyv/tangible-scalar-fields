@@ -64,6 +64,8 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     viewer->m_sharedResources.tileAccumulateMax = m_valueMaxBuffer;
     m_valueMaxBuffer->setStorage(sizeof(uint) * 2, nullptr, gl::GL_NONE_BIT);
 
+    viewer->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
+
     m_shaderSourceDefines = StaticStringSource::create("");
     m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
 

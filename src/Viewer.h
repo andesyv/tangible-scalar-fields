@@ -97,9 +97,9 @@ namespace molumes
         struct SharedResources {
             std::weak_ptr<Tile> tile;
             std::weak_ptr<globjects::Texture> tileAccumulateTexture;
-            std::weak_ptr<globjects::Buffer> tileAccumulateMax;
+            std::weak_ptr<globjects::Buffer> tileAccumulateMax, tileNormalsBuffer;
 
-            [[nodiscard]] auto as_tuple() const { return std::make_tuple(tile, tileAccumulateTexture, tileAccumulateMax); }
+            [[nodiscard]] auto as_tuple() const { return std::make_tuple(tile, tileAccumulateTexture, tileAccumulateMax, tileNormalsBuffer); }
             explicit operator bool() const { return all_t_weak_ptr(as_tuple()); }
         } m_sharedResources;
 
