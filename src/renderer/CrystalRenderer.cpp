@@ -108,7 +108,7 @@ void CrystalRenderer::display() {
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f))
-            m_hexagonsUpdated = true;
+            m_hexagonsSecondPartUpdated = true;
 
         ImGui::EndMenu();
     }
@@ -223,10 +223,10 @@ void CrystalRenderer::display() {
             m_vao->drawArrays(GL_LINE_STRIP, 0, static_cast<int>(m_hullSize));
         }
     }
-
     // 1. Hull calculation:
     // Transfer data from GPU to background worker thread (and start worker thread)
     if (syncObject) {
+
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
             const auto vCount = count * 6 * 2 * 3;
@@ -241,6 +241,7 @@ void CrystalRenderer::display() {
                                                                                m_tileHeight));
             }
             assert(m_computeBuffer->unmap());
+            m_computeBuffer->copySubData(m_computeBuffer2.get(), static_cast<GLsizeiptr>(vCount * sizeof(vec4)));
         } else {
             std::cout << "Error: Sync Object was "
                       << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
@@ -264,29 +265,35 @@ void CrystalRenderer::display() {
                                      VERTEXSTORAGEMASK);
             m_hullSize = static_cast<int>(hullVertices.size());
 
-            /// Edge extrusion compute shader drawcall
-            syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
-                                        tile->m_tileMaxY, count, num_cols, num_rows, scale, model);
+            m_hexagonsSecondPartUpdated = true;
+        }
+    }
 
-            // Wait for edge extruding until final geometry cleanup:
-            if (syncObject) {
-                const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
-                if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-                    const auto vCount = count * 6 * 2 * 3 * 2;
-                    const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
-                                                                                              static_cast<GLsizeiptr>(sizeof(vec4)),
-                                                                                           GL_MAP_READ_BIT));
-                    if (memPtr != nullptr)
-                        std::get<1>(m_workerResults) = std::move(
-                                m_worker.queue_job<1>(geometryPostProcessing,
-                                                      std::vector<vec4>{memPtr + 0, memPtr + vCount},
-                                                      std::move(std::weak_ptr{m_workerControlFlag})));
-                    assert(m_computeBuffer->unmap());
-                } else {
-                    std::cout << "Error: Sync Object was "
-                              << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
-                }
-            }
+    if (m_hexagonsSecondPartUpdated) {
+        /// Edge extrusion compute shader drawcall
+        syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
+                                    tile->m_tileMaxY, count, num_cols, num_rows, scale, model);
+
+        std::get<1>(m_workerResults) = {};
+    }
+
+    // Wait for edge extruding until final geometry cleanup:
+    if (syncObject) {
+        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
+        if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
+            const auto vCount = count * 6 * 2 * 3 * 2;
+            const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer2->mapRange(0, vCount *
+                                                                                      static_cast<GLsizeiptr>(sizeof(vec4)),
+                                                                                   GL_MAP_READ_BIT));
+            if (memPtr != nullptr)
+                std::get<1>(m_workerResults) = std::move(
+                        m_worker.queue_job<1>(geometryPostProcessing,
+                                              std::vector<vec4>{memPtr + 0, memPtr + vCount},
+                                              std::move(std::weak_ptr{m_workerControlFlag})));
+            assert(m_computeBuffer2->unmap());
+        } else {
+            std::cout << "Error: Sync Object was "
+                      << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
         }
     }
 
@@ -321,6 +328,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     const bool tileNormalsEnabled = !tileNormalsRef.expired();
     std::shared_ptr<Buffer> tileNormalsBuffer;
 
+    m_computeBuffer2->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
     m_computeBuffer->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
 
     m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
@@ -375,7 +383,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
     const bool tileNormalsEnabled = !tileNormalsRef.expired();
     std::shared_ptr<Buffer> tileNormalsBuffer;
 
-    m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+    m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 
     if (tileNormalsEnabled) {
@@ -401,11 +409,17 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
     if (tileNormalsEnabled)
         tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
     m_hullBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 1);
-    m_computeBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+    m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
 
     // We are going to use the buffer to read from, but also to
-    glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+    m_vertexBuffer = m_computeBuffer2;
+    m_drawingCount = count * 6 * 2 * 3;
+
+    // We are going to use the buffer to read from, but also bind to it
+    glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
     auto syncObject = std::move(Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE));
+    m_hexagonsSecondPartUpdated = false;
+
     return std::move(syncObject);
 }
 
@@ -414,8 +428,10 @@ void CrystalRenderer::resizeVertexBuffer(int hexCount) {
     // Make sure the buffer can be read from
 
     m_computeBuffer = Buffer::create();
+    m_computeBuffer2 = Buffer::create();
     /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
     m_computeBuffer->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, VERTEXSTORAGEMASK);
+    m_computeBuffer2->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, VERTEXSTORAGEMASK);
     assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) ==
            vCount * static_cast<GLsizeiptr>(sizeof(vec4))); // Check that requested size == actual size
 
@@ -430,10 +446,10 @@ void CrystalRenderer::reloadShaders() {
     m_hexagonsUpdated = true;
 }
 
+#endif
+
 void CrystalRenderer::fileLoaded(const std::string &file) {
     Renderer::fileLoaded(file);
 
     m_hexagonsUpdated = true;
 }
-
-#endif

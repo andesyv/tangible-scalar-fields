@@ -64,8 +64,6 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     viewer->m_sharedResources.tileAccumulateMax = m_valueMaxBuffer;
     m_valueMaxBuffer->setStorage(sizeof(uint) * 2, nullptr, gl::GL_NONE_BIT);
 
-    viewer->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
-
     m_shaderSourceDefines = StaticStringSource::create("");
     m_shaderDefines = NamedString::create("/defines.glsl", m_shaderSourceDefines.get());
 
@@ -596,6 +594,12 @@ void TileRenderer::display() {
 
     // render Tile Normals into storage buffer
     if (tile != nullptr && m_renderTileNormals) {
+        if (!m_tileNormalsBuffer) {
+            m_tileNormalsBuffer = std::make_shared<Buffer>();
+            viewer()->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
+            // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
+            m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows), nullptr, GL_STREAM_DRAW);
+        }
         // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
         m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -904,12 +908,6 @@ void TileRenderer::calculateTileTextureSize(const mat4& inverseModelViewProjecti
                                              GL_UNSIGNED_BYTE, nullptr);
         m_tileAccumulateTexture->image2D(0, GL_RGBA32F, ivec2(tile->m_tile_cols, tile->m_tile_rows), 0, GL_RGBA,
                                          GL_UNSIGNED_BYTE, nullptr);
-
-        //allocate tile normals buffer storage
-        m_tileNormalsBuffer->bind(GL_SHADER_STORAGE_BUFFER);
-        // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
-        m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows), nullptr, GL_STREAM_DRAW);
-        m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
 
         //setup grid vertices
         // create m_squareNumCols*m_squareNumRows vertices with position = 0.0f
@@ -1408,4 +1406,6 @@ void TileRenderer::updateData() {
     // calculate accumulate texture settings - needs to be last step here ------------------------------
     calculateTileTextureSize(inverse(viewer()->modelViewProjectionTransform()));
     // -------------------------------------------------------------------------------
+
+    m_tileNormalsBuffer.reset();
 }

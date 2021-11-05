@@ -38,7 +38,7 @@ namespace molumes {
     private:
         std::unique_ptr<globjects::VertexArray> m_vao;
         // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
-        std::shared_ptr<globjects::Buffer> m_computeBuffer, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
+        std::shared_ptr<globjects::Buffer> m_computeBuffer, m_computeBuffer2, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
         using WorkerThreadT = decltype(worker_manager_from_functions(getHexagonConvexHull, geometryPostProcessing));
         WorkerThreadT::ResultTypes m_workerResults;
@@ -56,6 +56,7 @@ namespace molumes {
         float m_tileHeight = 0.5f;
         float m_extrusionFactor = 0.2f;
         bool m_hexagonsUpdated = true;
+        bool m_hexagonsSecondPartUpdated = false;
         gl::GLsizei m_drawingCount = 0;
         gl::GLsizei m_hullSize = 0;
 

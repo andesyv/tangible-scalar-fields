@@ -79,7 +79,7 @@ namespace molumes
 
 		//SSBO
 		std::shared_ptr<globjects::Buffer> m_valueMaxBuffer;
-		std::shared_ptr<globjects::Buffer> m_tileNormalsBuffer = std::make_shared<globjects::Buffer>();
+		std::shared_ptr<globjects::Buffer> m_tileNormalsBuffer;
 
 		// FRAMEBUFFER -------------------------------------------------------------------------
 		std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
