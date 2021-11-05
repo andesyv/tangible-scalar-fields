@@ -124,7 +124,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		mat4 viewTransform = viewer()->viewTransform();
 
 		// 5 times the distance to the object in center) -----------------------------------------------------------------------
-		mat4 lightTransform = inverse(viewTransform)*translate(mat4(1.0f), (5.0f*viewer()->m_scatterPlotDiameter)*v)*viewTransform;
+		mat4 lightTransform = inverse(viewTransform)*translate(mat4(1.0f), viewer()->m_perspective ? -0.5f*v*m_distance : (5.0f*viewer()->m_scatterPlotDiameter)*v)*viewTransform;
 		viewer()->setLightTransform(lightTransform);
 		//----------------------------------------------------------------------------------------------------------------------	
 	}

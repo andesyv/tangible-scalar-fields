@@ -56,9 +56,15 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
             {GL_COMPUTE_SHADER, "./res/crystal/calculate-hexagons-cs.glsl"}
     });
 
-    createShaderProgram("standard", {
+    createShaderProgram("depth", {
             {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
-            {GL_FRAGMENT_SHADER, "./res/crystal/standard-fs.glsl"}
+            {GL_FRAGMENT_SHADER, "./res/crystal/depth-fs.glsl"}
+    });
+
+    createShaderProgram("phong", {
+            {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
+            {GL_GEOMETRY_SHADER, "./res/crystal/phong-gs.glsl"},
+            {GL_FRAGMENT_SHADER, "./res/crystal/phong-fs.glsl"}
     });
 
     createShaderProgram("hull", {
@@ -82,9 +88,11 @@ void CrystalRenderer::display() {
     const auto state = stateGuard();
 
     auto resources = viewer()->m_sharedResources;
+    constexpr std::array<const char*, 2> renderStyles{"depth", "phong"};
 
     if (ImGui::BeginMenu("Crystal")) {
         if (ImGui::CollapsingHeader("Preview", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Combo("Rendering style", &m_renderStyleOption, renderStyles.data(), static_cast<int>(renderStyles.size()));
             ImGui::Checkbox("Wireframe", &m_wireframe);
             ImGui::Checkbox("Render hull", &m_renderHull);
         }
@@ -113,8 +121,9 @@ void CrystalRenderer::display() {
     if (!all_t_weak_ptr(std::make_tuple(resources.tile, resources.tileAccumulateTexture, resources.tileAccumulateMax)))
         return;
 
+    auto tile = resources.tile.lock();
     static int lastCount = 0;
-    const int count = resources.tile.lock()->numTiles;
+    const int count = tile->numTiles;
     if (count < 1)
         return;
 
@@ -150,8 +159,16 @@ void CrystalRenderer::display() {
             vec3{horizontal_space, vertical_space * 0.5f, 1.f}
     );
     const mat4 model = mScale * mTrans;
-    const mat4 modelViewProjectionMatrix = viewer()->projectionTransform() *
-                                           viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
+    const mat4 viewProjectionMatrix = viewer()->projectionTransform() *
+                                      viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
+    const mat4 inverseViewProjectionMatrix = inverse(viewProjectionMatrix);
+    const mat4 lightMatrix = viewer()->lightTransform();
+    const mat4 modelViewMatrix = viewer()->modelViewTransform();
+    const mat4 inverseModelViewMatrix = inverse(modelViewMatrix);
+    vec4 lightPos = lightMatrix * vec4(0., 0., 0., 1.0);
+    lightPos /= lightPos.w;
+//    vec4 viewPos = inverseViewProjectionMatrix * vec4(0.0f, 0.0f, -1.f, 1.0f);
+//    viewPos /= viewPos.w;
     std::unique_ptr<Sync> syncObject;
 
     // Calculate triangles:
@@ -159,7 +176,7 @@ void CrystalRenderer::display() {
         syncObject = generateBaseGeometry(std::move(resources.tileAccumulateTexture.lock()),
                                           std::move(resources.tileAccumulateMax.lock()),
                                           m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
-                                          resources.tile.lock()->m_tileMaxY, count, num_cols, num_rows,
+                                          tile->m_tileMaxY, count, num_cols, num_rows,
                                           scale, model);
         std::get<0>(m_workerResults) = {};
         std::get<1>(m_workerResults) = {};
@@ -167,10 +184,12 @@ void CrystalRenderer::display() {
 
     // Render triangles:
     {
-        const auto &shader = shaderProgram("standard");
+        const auto &shader = shaderProgram(renderStyles.at(m_renderStyleOption));
         if (shader && 0 < m_drawingCount) {
             shader->use();
-            shader->setUniform("MVP", modelViewProjectionMatrix);
+            shader->setUniform("MVP", viewProjectionMatrix);
+            shader->setUniform("lightPos", vec3{lightPos});
+//            shader->setUniform("viewPos", vec3{viewPos});
 
             m_vao->bind();
 
@@ -190,7 +209,7 @@ void CrystalRenderer::display() {
         const auto &shader = shaderProgram("hull");
         if (shader && m_hullBuffer && 0 < m_hullSize) {
             shader->use();
-            shader->setUniform("MVP", modelViewProjectionMatrix);
+            shader->setUniform("MVP", viewProjectionMatrix);
 
             m_vao->bind();
 
