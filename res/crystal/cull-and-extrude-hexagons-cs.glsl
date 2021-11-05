@@ -15,6 +15,9 @@ uniform mat4 disp_mat = mat4(1.0);
 uniform uint POINT_COUNT = 1u;
 uniform uint HULL_SIZE = 0u;
 uniform float extrude_factor = 0.5;
+uniform bool tileNormalsEnabled = false;
+uniform int maxTexCoordY;
+uniform float tileNormalDisplacementFactor = 1.0;
 
 layout(std430, binding = 1) buffer hullBuffer
 {
@@ -22,8 +25,14 @@ layout(std430, binding = 1) buffer hullBuffer
     vec4 convex_hull[];
 };
 
+layout(std430, binding = 3) buffer tileNormalsBuffer
+{
+    int tileNormals[];
+};
+
 const float PI = 3.1415926;
 const float HEX_ANGLE = PI / 180.0 * 60.0;
+const float bufferAccumulationFactor = 100.0; // Uniform constant in hexagon-tile shaders (could be a define)
 const float EPSILON = 0.01;
 
 const ivec2 NEIGHBORS[6] = ivec2[6](
@@ -57,6 +66,18 @@ bool isInsideHull(vec4 pos) {
     return true;
 }
 
+vec3 getRegressionPlaneNormal(ivec2 hexCoord) {
+    vec4 tileNormal;
+    // get accumulated tile normals from buffer
+    for(int i = 0; i < 4; i++){
+        tileNormal[i] = float(tileNormals[int((hexCoord.x*(maxTexCoordY+1) + hexCoord.y) * 5 + i)]);
+    }
+    tileNormal /= bufferAccumulationFactor;// get original value after accumulation
+
+    // LIGHTING NORMAL ------------------------
+    return normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
+}
+
 void main() {
     // Common for whole work group:
     /// Could make one local invocation do all of this common work for the whole group
@@ -66,7 +87,7 @@ void main() {
     gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
     if (POINT_COUNT <= hexID)
-    return;
+        return;
 
     //calculate position of hexagon center - in double height coordinates!
     //https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
@@ -79,6 +100,8 @@ void main() {
     const uint centerIndex = hexID * 3 * gl_WorkGroupSize.x * 2;
     vec4 centerPos = vertices[centerIndex];
     bool insideHull = isInsideHull(centerPos);
+
+    vec3 normal = tileNormalsEnabled ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
 
 
@@ -94,6 +117,9 @@ void main() {
         // Mark all this hex's vertices as invalid (rest of worker group will also do this)
         for (uint i = 0; i < 3; ++i)
             vertices[triangleIndex + i].w = 0.0; // Don't wan't to mark xyz = 0, because neighbor might sample this one out of order
+
+        for (uint i = 0; i < 3; ++i)
+            vertices[edgeTriangleIndex + i] = vec4(0.0);
     }
 
     const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
@@ -114,8 +140,10 @@ void main() {
     const bool isNeighbor = neighborInsideHull;
 
     // Mark the edges generated from the triangle generation pass as invalid (they're being moved to the end)
-    for (uint i = 0; i < 3; ++i)
-        vertices[edgeTriangleIndex + i] = vec4(0.0);
+    if (insideHull) {
+        for (uint i = 0; i < 3; ++i)
+            vertices[edgeTriangleIndex + i] = vec4(0.0);
+    }
 
     // Doesn't work to do edge from neighbor side as neighbor might be outside the grid (never get's run)
     if (isNeighbor)
@@ -131,6 +159,11 @@ void main() {
 
         // Offset from center of point + grid width
         vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+        if (tileNormalsEnabled) {
+            float normalDisplacement = dot(-offset, normal) * normal.z;
+            if (!isnan(normalDisplacement))
+            offset.z += normalDisplacement * tileNormalDisplacementFactor;
+        }
 
         uint ti = boundingEdgeTriangleIndex + 2 - i;
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
@@ -140,6 +173,12 @@ void main() {
 
     // Offset from center of point + grid width
     vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
+
+    if (tileNormalsEnabled) {
+        float normalDisplacement = dot(-offset, normal) * normal.z;
+        if (!isnan(normalDisplacement))
+        offset.z += normalDisplacement * tileNormalDisplacementFactor;
+    }
 
     vertices[boundingEdgeTriangleIndex+3] = vec4(centerPos.xyz + offset, 1.0);
 

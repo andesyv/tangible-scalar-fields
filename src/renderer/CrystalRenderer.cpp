@@ -265,7 +265,8 @@ void CrystalRenderer::display() {
             m_hullSize = static_cast<int>(hullVertices.size());
 
             /// Edge extrusion compute shader drawcall
-            syncObject = cullAndExtrude(count, num_cols, num_rows, scale, model);
+            syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
+                                        tile->m_tileMaxY, count, num_cols, num_rows, scale, model);
 
             // Wait for edge extruding until final geometry cleanup:
             if (syncObject) {
@@ -363,16 +364,24 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 }
 
 std::unique_ptr<globjects::Sync>
-CrystalRenderer::cullAndExtrude(int count, int num_cols,
+CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
+                                int tile_max_y, int count, int num_cols,
                                 int num_rows, float tile_scale, glm::mat4 model) {
     const auto &shader = shaderProgram("edge-extrusion");
     if (!shader)
         return {};
 
     const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
+    const bool tileNormalsEnabled = !tileNormalsRef.expired();
+    std::shared_ptr<Buffer> tileNormalsBuffer;
 
     m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+
+    if (tileNormalsEnabled) {
+        tileNormalsBuffer = tileNormalsRef.lock();
+        tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
+    }
 
     shader->use();
     shader->setUniform("num_cols", num_cols);
@@ -383,9 +392,14 @@ CrystalRenderer::cullAndExtrude(int count, int num_cols,
     shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
     shader->setUniform("HULL_SIZE", static_cast<GLuint>(m_hullSize));
     shader->setUniform("extrude_factor", m_extrusionFactor);
+    shader->setUniform("maxTexCoordY", tile_max_y);
+    shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
+    shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
 
     glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
+    if (tileNormalsEnabled)
+        tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
     m_hullBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 1);
     m_computeBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 0);
 

@@ -66,7 +66,8 @@ namespace molumes {
                              int num_cols, int num_rows, float tile_scale, glm::mat4 model);
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
-        cullAndExtrude(int count, int num_cols, int num_rows, float tile_scale, glm::mat4 model);
+        cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
+                       int tile_max_y, int count, int num_cols, int num_rows, float tile_scale, glm::mat4 model);
 
         void resizeVertexBuffer(int hexCount);
     };
