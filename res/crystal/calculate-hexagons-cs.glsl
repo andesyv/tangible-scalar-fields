@@ -17,6 +17,8 @@ uniform uint POINT_COUNT = 1u;
 uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
+uniform bool mirrorMesh = false;
+uniform bool mirrorFlip = false;
 
 layout(binding = 1) uniform sampler2D accumulateTexture;
 
@@ -35,7 +37,7 @@ layout(std430, binding = 3) buffer tileNormalsBuffer
 const float PI = 3.1415926;
 const float HEX_ANGLE = PI / 180.0 * 60.0;
 const float bufferAccumulationFactor = 100.0; // Uniform constant in hexagon-tile shaders (could be a define)
-const float EPSILON = 0.01;
+const float EPSILON = 0.001;
 
 const ivec2 NEIGHBORS[6] = ivec2[6](
     ivec2(1, 1), ivec2(0, 2), ivec2(-1, 1),
@@ -78,7 +80,12 @@ void main() {
     // hexagon-tiles-fs.glsl: 109
     const float maxAcc = uintBitsToFloat(maxAccumulate) + 1;
 
-    float depth = 2.0 * height * hexValue / maxAcc - height; // [0,maxAccumulate] -> [-1, 1
+    float depth;
+    if (mirrorMesh) {
+        depth = (mirrorFlip ? -1.0 : 1.0) * height * hexValue / maxAcc;
+    } else {
+        depth = 2.0 * height * hexValue / maxAcc - height; // [0,maxAccumulate] -> [-1, 1]
+    }
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
@@ -115,7 +122,12 @@ void main() {
         ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
         float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
 
-        float neighborDepth = 2.0 * height * neighborHexValue / maxAcc - height;
+        float neighborDepth;
+        if (mirrorMesh) {
+            neighborDepth = (mirrorFlip ? -1.0 : 1.0) * height * neighborHexValue / maxAcc;
+        } else {
+            neighborDepth = 2.0 * height * neighborHexValue / maxAcc - height;
+        }
 
         // Skip "empty" triangles (can only skip early if we don't use normals)
         if (!tileNormalsEnabled && abs(depth - neighborDepth) < EPSILON)
@@ -148,7 +160,7 @@ void main() {
                 offset.z += normalDisplacement * tileNormalDisplacementFactor;
         }
 
-        uint ti = triangleIndex + (innerGroup ? (i + 1) : (2 - i));
+        uint ti = triangleIndex + ((innerGroup ^^ mirrorFlip) ? (i + 1) : (2 - i));
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
 

@@ -88,6 +88,7 @@ void CrystalRenderer::display() {
     const auto state = stateGuard();
 
     auto resources = viewer()->m_sharedResources;
+    bool bufferNeedsResize = false;
     constexpr std::array<const char*, 2> renderStyles{"depth", "phong"};
 
     if (ImGui::BeginMenu("Crystal")) {
@@ -110,6 +111,11 @@ void CrystalRenderer::display() {
         if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f))
             m_hexagonsSecondPartUpdated = true;
 
+        if (ImGui::Checkbox("Mirror mesh", &m_mirrorMesh)) {
+            bufferNeedsResize = true;
+            m_hexagonsUpdated = true;
+        }
+
         ImGui::EndMenu();
     }
 
@@ -127,8 +133,10 @@ void CrystalRenderer::display() {
     if (count < 1)
         return;
 
+    bufferNeedsResize = bufferNeedsResize || lastCount != count;
 
-    if (lastCount != count) {
+
+    if (bufferNeedsResize) {
         m_hexagonsUpdated = true;
         lastCount = count;
         m_drawingCount = count * 6 * 2 * 3;
@@ -201,6 +209,8 @@ void CrystalRenderer::display() {
             m_vao->enable(0);
 
             m_vao->drawArrays(GL_TRIANGLES, 0, m_drawingCount);
+            if (m_mirrorMesh) // Draw underside as well:
+                m_vao->drawArrays(GL_TRIANGLES, getDrawingCount(count) * 2, m_drawingCount);
         }
     }
 
@@ -226,10 +236,9 @@ void CrystalRenderer::display() {
     // 1. Hull calculation:
     // Transfer data from GPU to background worker thread (and start worker thread)
     if (syncObject) {
-
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = count * 6 * 2 * 3;
+            const auto vCount = getDrawingCount(count);
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                    GL_MAP_READ_BIT));
@@ -265,11 +274,12 @@ void CrystalRenderer::display() {
                                      VERTEXSTORAGEMASK);
             m_hullSize = static_cast<int>(hullVertices.size());
 
-            m_hexagonsSecondPartUpdated = true;
+//            m_hexagonsSecondPartUpdated = true;
         }
     }
 
     if (m_hexagonsSecondPartUpdated) {
+        return;
         /// Edge extrusion compute shader drawcall
         syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
                                     tile->m_tileMaxY, count, num_cols, num_rows, scale, model);
@@ -279,6 +289,7 @@ void CrystalRenderer::display() {
 
     // Wait for edge extruding until final geometry cleanup:
     if (syncObject) {
+        return;
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
             const auto vCount = count * 6 * 2 * 3 * 2;
@@ -299,6 +310,7 @@ void CrystalRenderer::display() {
 
     // 2. Final geometry processing
     if (std::get<1>(m_workerResults).valid() && isReady(std::get<1>(m_workerResults))) {
+        return;
         auto result = std::get<1>(m_workerResults).get();
         if (result) {
             m_vertices = *result;
@@ -331,7 +343,6 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     m_computeBuffer2->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
     m_computeBuffer->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
 
-    m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     accumulateTexture->bindActive(1);
     accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
     if (tileNormalsEnabled) {
@@ -349,8 +360,16 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("maxTexCoordY", tile_max_y);
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
+    shader->setUniform("mirrorMesh", m_mirrorMesh);
 
-    glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+    for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
+        // When mirroring, this compute-shader renders to the whole buffer in two steps, when not this compute-shader renders to half
+        const auto bufferSize = getBufferSize(count) / 2;
+        m_computeBuffer->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
+        shader->setUniform("mirrorFlip", static_cast<bool>(i));
+
+        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+    }
 
     if (tileNormalsEnabled)
         tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
@@ -360,7 +379,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 
     // Share resource with m_vertexBuffer, orphaning the old buffer
     m_vertexBuffer = m_computeBuffer;
-    m_drawingCount = count * 6 * 2 * 3;
+    m_drawingCount = getDrawingCount(count);
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
@@ -424,16 +443,16 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 }
 
 void CrystalRenderer::resizeVertexBuffer(int hexCount) {
-    const auto vCount = hexCount * 6 * 2 * 3 * 2; // * 2 at the end there to make room for extrusions
+    const auto bufferSize = getBufferSize(hexCount);
     // Make sure the buffer can be read from
 
     m_computeBuffer = Buffer::create();
     m_computeBuffer2 = Buffer::create();
     /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
-    m_computeBuffer->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, VERTEXSTORAGEMASK);
-    m_computeBuffer2->setStorage(vCount * static_cast<GLsizeiptr>(sizeof(vec4)), nullptr, VERTEXSTORAGEMASK);
-    assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) ==
-           vCount * static_cast<GLsizeiptr>(sizeof(vec4))); // Check that requested size == actual size
+    m_computeBuffer->setStorage(bufferSize, nullptr, VERTEXSTORAGEMASK);
+    m_computeBuffer2->setStorage(bufferSize, nullptr, VERTEXSTORAGEMASK);
+    assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) == bufferSize &&
+           m_computeBuffer2->getParameter(GL_BUFFER_SIZE) == bufferSize); // Check that requested size == actual size
 
     m_computeBuffer->bind(GL_SHADER_STORAGE_BUFFER);
 }
