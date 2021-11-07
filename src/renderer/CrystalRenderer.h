@@ -5,6 +5,8 @@
 #include <optional>
 #include <tuple>
 
+#include <glm/mat4x4.hpp>
+
 #include "Renderer.h"
 #include "../WorkerThread.h"
 #include "../GeometryUtils.h"
@@ -60,6 +62,7 @@ namespace molumes {
         gl::GLsizei m_drawingCount = 0;
         gl::GLsizei m_hullSize = 0;
         bool m_mirrorMesh = false;
+        glm::mat4 m_modelMatrix{1.f};
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
         generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
@@ -69,11 +72,12 @@ namespace molumes {
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
         cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
-                       int tile_max_y, int count, int num_cols, int num_rows, float tile_scale, glm::mat4 model);
+                       int tile_max_y, int count, int num_cols, int num_rows, float tile_scale, glm::mat4 disp_mat);
 
         void resizeVertexBuffer(int hexCount);
 
         static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
         auto getBufferSize(int count) const { return static_cast<gl::GLsizeiptr>(getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1) * sizeof(glm::vec4)); } // * 2 to make room for extrusions
+        glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
     };
 }

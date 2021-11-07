@@ -75,6 +75,10 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
     createShaderProgram("edge-extrusion", {
             {GL_COMPUTE_SHADER, "./res/crystal/cull-and-extrude-hexagons-cs.glsl"}
     });
+
+    createShaderProgram("scale", {
+            {GL_COMPUTE_SHADER, "./res/crystal/scale-vertices-cs.glsl"}
+    });
 }
 
 void CrystalRenderer::setEnabled(bool enabled) {
@@ -166,9 +170,9 @@ void CrystalRenderer::display() {
             mat4{1.f},
             vec3{horizontal_space, vertical_space * 0.5f, 1.f}
     );
-    const mat4 model = mScale * mTrans;
+    const mat4 normalizationTransformation = mScale * mTrans;
     const mat4 viewProjectionMatrix = viewer()->projectionTransform() *
-                                      viewer()->viewTransform(); // Skipping model matrix as it's supplied another way anyway.
+                                      viewer()->viewTransform(); // Skipping normalizationTransformation matrix as it's supplied another way anyway.
     const mat4 inverseViewProjectionMatrix = inverse(viewProjectionMatrix);
     const mat4 lightMatrix = viewer()->lightTransform();
     const mat4 modelViewMatrix = viewer()->modelViewTransform();
@@ -185,7 +189,8 @@ void CrystalRenderer::display() {
                                           std::move(resources.tileAccumulateMax.lock()),
                                           m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
                                           tile->m_tileMaxY, count, num_cols, num_rows,
-                                          scale, model);
+                                          scale, normalizationTransformation);
+        m_modelMatrix = getModelMatrix(); // While we're creating the new model, set the model matrix to the scaling / translating one
         std::get<0>(m_workerResults) = {};
         std::get<1>(m_workerResults) = {};
     }
@@ -195,7 +200,7 @@ void CrystalRenderer::display() {
         const auto &shader = shaderProgram(renderStyles.at(m_renderStyleOption));
         if (shader && 0 < m_drawingCount) {
             shader->use();
-            shader->setUniform("MVP", viewProjectionMatrix);
+            shader->setUniform("MVP", viewProjectionMatrix * m_modelMatrix);
             shader->setUniform("lightPos", vec3{lightPos});
 //            shader->setUniform("viewPos", vec3{viewPos});
 
@@ -279,7 +284,7 @@ void CrystalRenderer::display() {
     if (m_hexagonsSecondPartUpdated) {
         /// Edge extrusion compute shader drawcall
         syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
-                                    tile->m_tileMaxY, count, num_cols, num_rows, scale, model);
+                                    tile->m_tileMaxY, count, num_cols, num_rows, scale, normalizationTransformation);
 
         std::get<1>(m_workerResults) = {};
     }
@@ -348,9 +353,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->use();
     shader->setUniform("num_cols", num_cols);
     shader->setUniform("num_rows", num_rows);
-    shader->setUniform("height", m_tileHeight);
     shader->setUniform("tile_scale", tile_scale);
-    shader->setUniform("extrude_factor", m_extrusionFactor);
     shader->setUniform("disp_mat", model);
     shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
     shader->setUniform("maxTexCoordY", tile_max_y);
@@ -389,48 +392,79 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 std::unique_ptr<globjects::Sync>
 CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
                                 int tile_max_y, int count, int num_cols,
-                                int num_rows, float tile_scale, glm::mat4 model) {
-    const auto &shader = shaderProgram("edge-extrusion");
-    if (!shader)
-        return {};
+                                int num_rows, float tile_scale, glm::mat4 disp_mat) {
+    // Extrude / cull:
+    {
+        const auto &shader = shaderProgram("edge-extrusion");
+        if (!shader)
+            return {};
 
-    const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
-    const bool tileNormalsEnabled = !tileNormalsRef.expired();
-    std::shared_ptr<Buffer> tileNormalsBuffer;
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
+        const bool tileNormalsEnabled = !tileNormalsRef.expired();
+        std::shared_ptr<Buffer> tileNormalsBuffer;
 
-    m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+        m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 
-    if (tileNormalsEnabled) {
-        tileNormalsBuffer = tileNormalsRef.lock();
-        tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
+        if (tileNormalsEnabled) {
+            tileNormalsBuffer = tileNormalsRef.lock();
+            tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
+        }
+
+        shader->use();
+        shader->setUniform("num_cols", num_cols);
+        shader->setUniform("num_rows", num_rows);
+        shader->setUniform("tile_scale", tile_scale);
+        shader->setUniform("disp_mat", disp_mat);
+        shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
+        shader->setUniform("HULL_SIZE", static_cast<GLuint>(m_hullSize));
+        shader->setUniform("extrude_factor", m_extrusionFactor);
+        shader->setUniform("maxTexCoordY", tile_max_y);
+        shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
+        shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
+        shader->setUniform("mirrorMesh", m_mirrorMesh);
+
+        for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
+            const auto bufferSize = getBufferSize(count) / (m_mirrorMesh ? 2 : 1);
+            m_computeBuffer2->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
+            shader->setUniform("mirrorFlip", static_cast<bool>(i));
+
+            glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+        }
+
+        if (tileNormalsEnabled)
+            tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
+        m_hullBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 1);
+        m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    shader->use();
-    shader->setUniform("num_cols", num_cols);
-    shader->setUniform("num_rows", num_rows);
-    shader->setUniform("height", m_tileHeight);
-    shader->setUniform("tile_scale", tile_scale);
-    shader->setUniform("disp_mat", model);
-    shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
-    shader->setUniform("HULL_SIZE", static_cast<GLuint>(m_hullSize));
-    shader->setUniform("extrude_factor", m_extrusionFactor);
-    shader->setUniform("maxTexCoordY", tile_max_y);
-    shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
-    shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
-    shader->setUniform("mirrorMesh", m_mirrorMesh);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
-        const auto bufferSize = getBufferSize(count) / (m_mirrorMesh ? 2 : 1);
-        m_computeBuffer2->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
-        shader->setUniform("mirrorFlip", static_cast<bool>(i));
+    // Scale with disp_mat matrix:
+    {
+        const auto& shader = shaderProgram("scale");
+        if (!shader)
+            return {};
 
-        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+        const auto triangleCount = getDrawingCount(count) * 2 / 3;
+        // Note: Might do weird stuff if GPU cannot instantiate enough threads...
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(triangleCount, 1.0 / 3.0))), 1u);
+
+        shader->use();
+        shader->setUniform("triangleCount", triangleCount);
+
+        for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
+            const auto bufferSize = getBufferSize(count) / (m_mirrorMesh ? 2 : 1);
+            m_computeBuffer2->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
+
+            const mat4 MVP = getModelMatrix(i == 0);
+            shader->setUniform("MVP", MVP);
+
+            glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+        }
+        m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
-    if (tileNormalsEnabled)
-        tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
-    m_hullBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 1);
-    m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+    m_modelMatrix = mat4{1.f}; // Reset disp_mat matrix after finished transforming disp_mat
 
     // We are going to use the buffer to read from, but also to
     m_vertexBuffer = m_computeBuffer2;
@@ -473,4 +507,9 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
     Renderer::fileLoaded(file);
 
     m_hexagonsUpdated = true;
+}
+
+mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
+    return translate(scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
+                     vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? 0.5f : -0.5f)});
 }

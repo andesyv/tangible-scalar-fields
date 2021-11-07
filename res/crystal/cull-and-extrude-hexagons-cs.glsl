@@ -9,7 +9,6 @@ layout(std430, binding = 0) buffer vertexBuffer
 
 uniform int num_cols = 4;
 uniform int num_rows = 4;
-uniform float height = 1.0;
 uniform float tile_scale = 0.6;
 uniform float extrude_factor = 0.5;
 uniform mat4 disp_mat = mat4(1.0);

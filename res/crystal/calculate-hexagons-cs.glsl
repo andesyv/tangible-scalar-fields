@@ -10,9 +10,7 @@ layout(std430, binding = 0) buffer genVertexBuffer
 
 uniform int num_cols = 4;
 uniform int num_rows = 4;
-uniform float height = 1.0;
 uniform float tile_scale = 0.6;
-uniform float extrude_factor = 0.5;
 uniform mat4 disp_mat = mat4(1.0);
 uniform uint POINT_COUNT = 1u;
 uniform bool tileNormalsEnabled = false;
@@ -85,7 +83,6 @@ void main() {
     if (mirrorMesh) {
         depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
     } else {
-//        depth = (height + height - extrude_factor) * hexValue / maxAcc - height + extrude_factor; // [0,maxAccumulate] -> [-1, 1]
         depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
     }
 
@@ -128,7 +125,6 @@ void main() {
         if (mirrorMesh) {
             neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
         } else {
-//            neighborDepth = (height + height - extrude_factor) * neighborHexValue / maxAcc - height + extrude_factor;
             neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
         }
 
