@@ -109,7 +109,7 @@ void CrystalRenderer::display() {
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f))
-            m_hexagonsSecondPartUpdated = true;
+            m_hexagonsUpdated = true;
 
         if (ImGui::Checkbox("Mirror mesh", &m_mirrorMesh)) {
             bufferNeedsResize = true;
@@ -146,7 +146,7 @@ void CrystalRenderer::display() {
 
     const auto num_cols = static_cast<int>(std::ceil(std::sqrt(count)));
     const auto num_rows = (count - 1) / num_cols + 1;
-    const float scale = m_tileScale / static_cast<float>(num_cols);
+    const float scale = 1.f / static_cast<float>(num_cols);
     const float horizontal_space = scale * 1.5f;
     const float vertical_space = std::sqrt(3.f) * scale;
     /* This looks a bit scary, but it's just doing whatever this line:
@@ -209,8 +209,6 @@ void CrystalRenderer::display() {
             m_vao->enable(0);
 
             m_vao->drawArrays(GL_TRIANGLES, 0, m_drawingCount);
-            if (m_mirrorMesh) // Draw underside as well:
-                m_vao->drawArrays(GL_TRIANGLES, getDrawingCount(count) * 2, m_drawingCount);
         }
     }
 
@@ -238,7 +236,7 @@ void CrystalRenderer::display() {
     if (syncObject) {
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = getDrawingCount(count);
+            const auto vCount = getDrawingCount(count); // When mesh is mirrored, only need upper vertices for hull
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                    GL_MAP_READ_BIT));
@@ -247,10 +245,10 @@ void CrystalRenderer::display() {
                 std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull, m_vertices,
                                                                                std::move(std::weak_ptr{
                                                                                        m_workerControlFlag}),
-                                                                               m_tileHeight));
+                                                                               m_mirrorMesh ? 0.f : 1.f));
             }
             assert(m_computeBuffer->unmap());
-            m_computeBuffer->copySubData(m_computeBuffer2.get(), static_cast<GLsizeiptr>(vCount * sizeof(vec4)));
+            m_computeBuffer->copySubData(m_computeBuffer2.get(), static_cast<GLsizeiptr>(vCount * sizeof(vec4) * (m_mirrorMesh ? 4 : 1)));
         } else {
             std::cout << "Error: Sync Object was "
                       << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
@@ -274,12 +272,11 @@ void CrystalRenderer::display() {
                                      VERTEXSTORAGEMASK);
             m_hullSize = static_cast<int>(hullVertices.size());
 
-//            m_hexagonsSecondPartUpdated = true;
+            m_hexagonsSecondPartUpdated = true;
         }
     }
 
     if (m_hexagonsSecondPartUpdated) {
-        return;
         /// Edge extrusion compute shader drawcall
         syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
                                     tile->m_tileMaxY, count, num_cols, num_rows, scale, model);
@@ -289,10 +286,9 @@ void CrystalRenderer::display() {
 
     // Wait for edge extruding until final geometry cleanup:
     if (syncObject) {
-        return;
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = count * 6 * 2 * 3 * 2;
+            const auto vCount = getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1); // Make sure to map whole buffer this time.
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer2->mapRange(0, vCount *
                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                    GL_MAP_READ_BIT));
@@ -310,7 +306,6 @@ void CrystalRenderer::display() {
 
     // 2. Final geometry processing
     if (std::get<1>(m_workerResults).valid() && isReady(std::get<1>(m_workerResults))) {
-        return;
         auto result = std::get<1>(m_workerResults).get();
         if (result) {
             m_vertices = *result;
@@ -355,6 +350,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("num_rows", num_rows);
     shader->setUniform("height", m_tileHeight);
     shader->setUniform("tile_scale", tile_scale);
+    shader->setUniform("extrude_factor", m_extrusionFactor);
     shader->setUniform("disp_mat", model);
     shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
     shader->setUniform("maxTexCoordY", tile_max_y);
@@ -379,7 +375,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 
     // Share resource with m_vertexBuffer, orphaning the old buffer
     m_vertexBuffer = m_computeBuffer;
-    m_drawingCount = getDrawingCount(count);
+    m_drawingCount = getDrawingCount(count) * (m_mirrorMesh ? 4 : 1);
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
@@ -402,7 +398,6 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
     const bool tileNormalsEnabled = !tileNormalsRef.expired();
     std::shared_ptr<Buffer> tileNormalsBuffer;
 
-    m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
 
     if (tileNormalsEnabled) {
@@ -422,8 +417,15 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
     shader->setUniform("maxTexCoordY", tile_max_y);
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
+    shader->setUniform("mirrorMesh", m_mirrorMesh);
 
-    glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+    for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
+        const auto bufferSize = getBufferSize(count) / (m_mirrorMesh ? 2 : 1);
+        m_computeBuffer2->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
+        shader->setUniform("mirrorFlip", static_cast<bool>(i));
+
+        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
+    }
 
     if (tileNormalsEnabled)
         tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
@@ -432,7 +434,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 
     // We are going to use the buffer to read from, but also to
     m_vertexBuffer = m_computeBuffer2;
-    m_drawingCount = count * 6 * 2 * 3;
+    m_drawingCount = getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1);
 
     // We are going to use the buffer to read from, but also bind to it
     glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);

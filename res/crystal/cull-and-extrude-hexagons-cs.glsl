@@ -11,13 +11,15 @@ uniform int num_cols = 4;
 uniform int num_rows = 4;
 uniform float height = 1.0;
 uniform float tile_scale = 0.6;
+uniform float extrude_factor = 0.5;
 uniform mat4 disp_mat = mat4(1.0);
 uniform uint POINT_COUNT = 1u;
 uniform uint HULL_SIZE = 0u;
-uniform float extrude_factor = 0.5;
 uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
+uniform bool mirrorMesh = false;
+uniform bool mirrorFlip = false;
 
 layout(std430, binding = 1) buffer hullBuffer
 {
@@ -149,7 +151,12 @@ void main() {
     if (isNeighbor)
         return;
 
-    const float extrudeDepth = -height - extrude_factor;
+    float extrudeDepth;
+    if (mirrorMesh) {
+        extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
+    } else {
+        extrudeDepth = -extrude_factor - 1.0;
+    }
 
     float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
     vertices[boundingEdgeTriangleIndex] = vec4(neighborPos.xy + vec2(tile_scale * cos(ar), tile_scale * sin(ar)), extrudeDepth, 1.0);
@@ -162,10 +169,10 @@ void main() {
         if (tileNormalsEnabled) {
             float normalDisplacement = dot(-offset, normal) * normal.z;
             if (!isnan(normalDisplacement))
-            offset.z += normalDisplacement * tileNormalDisplacementFactor;
+                offset.z += normalDisplacement * tileNormalDisplacementFactor;
         }
 
-        uint ti = boundingEdgeTriangleIndex + 2 - i;
+        uint ti = boundingEdgeTriangleIndex + (mirrorFlip ? 1 + i : 2 - i);
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
 
@@ -183,7 +190,7 @@ void main() {
     vertices[boundingEdgeTriangleIndex+3] = vec4(centerPos.xyz + offset, 1.0);
 
     for (uint i = 0; i < 2u; ++i) {
-        angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + 3 + i);
+        angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + (mirrorFlip ? 4 - i : 3 + i));
         vertices[boundingEdgeTriangleIndex + 5 - i] = vec4(neighborPos.xy + vec2(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad)), extrudeDepth, 1.0);
     }
 }

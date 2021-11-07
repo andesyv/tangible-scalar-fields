@@ -12,6 +12,7 @@ uniform int num_cols = 4;
 uniform int num_rows = 4;
 uniform float height = 1.0;
 uniform float tile_scale = 0.6;
+uniform float extrude_factor = 0.5;
 uniform mat4 disp_mat = mat4(1.0);
 uniform uint POINT_COUNT = 1u;
 uniform bool tileNormalsEnabled = false;
@@ -82,9 +83,10 @@ void main() {
 
     float depth;
     if (mirrorMesh) {
-        depth = (mirrorFlip ? -1.0 : 1.0) * height * hexValue / maxAcc;
+        depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
     } else {
-        depth = 2.0 * height * hexValue / maxAcc - height; // [0,maxAccumulate] -> [-1, 1]
+//        depth = (height + height - extrude_factor) * hexValue / maxAcc - height + extrude_factor; // [0,maxAccumulate] -> [-1, 1]
+        depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
     }
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
@@ -124,9 +126,10 @@ void main() {
 
         float neighborDepth;
         if (mirrorMesh) {
-            neighborDepth = (mirrorFlip ? -1.0 : 1.0) * height * neighborHexValue / maxAcc;
+            neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
         } else {
-            neighborDepth = 2.0 * height * neighborHexValue / maxAcc - height;
+//            neighborDepth = (height + height - extrude_factor) * neighborHexValue / maxAcc - height + extrude_factor;
+            neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
         }
 
         // Skip "empty" triangles (can only skip early if we don't use normals)
@@ -160,6 +163,7 @@ void main() {
                 offset.z += normalDisplacement * tileNormalDisplacementFactor;
         }
 
+        // Flip triangle winding order when on inner group and when flipping the mesh
         uint ti = triangleIndex + ((innerGroup ^^ mirrorFlip) ? (i + 1) : (2 - i));
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
