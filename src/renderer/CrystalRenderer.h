@@ -68,7 +68,7 @@ namespace molumes {
         generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
                              std::shared_ptr<globjects::Buffer> &&accumulateMax,
                              const std::weak_ptr<globjects::Buffer>& tileNormalsRef, int tile_max_y, int count,
-                             int num_cols, int num_rows, float tile_scale, glm::mat4 model);
+                             int num_cols, int num_rows, float tile_scale, glm::mat4 disp_mat);
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
         cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,

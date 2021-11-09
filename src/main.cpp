@@ -126,8 +126,6 @@ int main(int argc, char *argv[]) {
                 }
             }, nullptr);
 
-    // TODO: https://stackoverflow.com/questions/49368575/pixel-path-performance-warning-pixel-transfer-is-synchronized-with-3d-rendering
-
     auto defaultState = State::currentState();
 
     {

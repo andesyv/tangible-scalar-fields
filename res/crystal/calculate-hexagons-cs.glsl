@@ -17,7 +17,6 @@ uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
-uniform bool mirrorFlip = false;
 
 layout(binding = 1) uniform sampler2D accumulateTexture;
 
@@ -59,13 +58,16 @@ vec3 getRegressionPlaneNormal(ivec2 hexCoord) {
 void main() {
     // Common for whole work group:
     /// Could make one local invocation do all of this common work for the whole group
-    const uint hexID =
+    uint hexID =
         gl_WorkGroupID.x +
         gl_WorkGroupID.y * gl_NumWorkGroups.x +
         gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if (POINT_COUNT <= hexID)
+    if ((mirrorMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
+
+    const bool mirrorFlip = POINT_COUNT <= hexID;
+    hexID = hexID % POINT_COUNT;
 
     //calculate position of hexagon center - in double height coordinates!
     //https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
@@ -90,14 +92,15 @@ void main() {
     centerPos /= centerPos.w;
 
     vec3 normal = tileNormalsEnabled ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
-//    centerPos.xyz += 0.1 * normal;
 
+
+    const uint bufferSize = POINT_COUNT * 6 * 2 * 3 * 2;
 
     // Individual for each work group:
 
     // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
     // Triangles are 3 vertices, so skip by 3 for each local invocation
-    const uint triangleIndex = gl_LocalInvocationID.x * 3 + gl_LocalInvocationID.y * 3 * gl_WorkGroupSize.x + hexID * 3 * gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+    const uint triangleIndex = gl_LocalInvocationID.x * 3 + gl_LocalInvocationID.y * 3 * gl_WorkGroupSize.x + hexID * 3 * gl_WorkGroupSize.x * gl_WorkGroupSize.y + (mirrorFlip ? bufferSize : 0);
     const bool innerGroup = gl_LocalInvocationID.y == 0;
 
     // Just in case we're going to skip some triangles:

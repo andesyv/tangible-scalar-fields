@@ -738,6 +738,8 @@ void Viewer::renderUi() {
 }
 
 void Viewer::mainMenu() {
+    static bool vsync = true;
+
     if (ImGui::BeginMenu("File")) {
         if (ImGui::MenuItem("Open file", "Ctrl+O"))
             openFile();
@@ -776,6 +778,9 @@ void Viewer::mainMenu() {
 
             ImGui::EndMenu();
         }
+
+        if (ImGui::Checkbox("VSync", &vsync))
+            glfwSwapInterval(vsync ? 1 : 0);
 
         if (ImGui::Button(m_focusRenderer == 0 ? "Switch to 3D view" : "Switch to 2D view"))
             enumerateFocusRenderer();

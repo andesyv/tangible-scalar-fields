@@ -32,8 +32,6 @@ const auto stateGuard = []() {
 };
 
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
-constexpr auto VERTEXSTORAGEMASK = BufferStorageMask::GL_MAP_PERSISTENT_BIT |
-                                   BufferStorageMask::GL_MAP_READ_BIT /*| BufferStorageMask::GL_MAP_WRITE_BIT | BufferStorageMask::GL_MAP_COHERENT_BIT*/;
 
 // Waits for as little as it can and checks if the future is ready.
 template<typename T>
@@ -45,6 +43,7 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
     resizeVertexBuffer(MAX_HEXAGON_SIZE);
 
     m_vao = std::make_unique<VertexArray>(); /// Apparently exactly the same as VertexArray::create();
+    m_computeBuffer2 = Buffer::create();
 
     createShaderProgram("crystal", {
             {GL_VERTEX_SHADER,   "./res/crystal/crystal-vs.glsl"},
@@ -93,11 +92,12 @@ void CrystalRenderer::display() {
 
     auto resources = viewer()->m_sharedResources;
     bool bufferNeedsResize = false;
-    constexpr std::array<const char*, 2> renderStyles{"depth", "phong"};
+    constexpr std::array<const char *, 2> renderStyles{"depth", "phong"};
 
     if (ImGui::BeginMenu("Crystal")) {
         if (ImGui::CollapsingHeader("Preview", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Combo("Rendering style", &m_renderStyleOption, renderStyles.data(), static_cast<int>(renderStyles.size()));
+            ImGui::Combo("Rendering style", &m_renderStyleOption, renderStyles.data(),
+                         static_cast<int>(renderStyles.size()));
             ImGui::Checkbox("Wireframe", &m_wireframe);
             ImGui::Checkbox("Render hull", &m_renderHull);
         }
@@ -222,7 +222,7 @@ void CrystalRenderer::display() {
         const auto &shader = shaderProgram("hull");
         if (shader && m_hullBuffer && 0 < m_hullSize) {
             shader->use();
-            shader->setUniform("MVP", viewProjectionMatrix);
+            shader->setUniform("MVP", viewProjectionMatrix * getModelMatrix());
 
             m_vao->bind();
 
@@ -241,19 +241,29 @@ void CrystalRenderer::display() {
     if (syncObject) {
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = getDrawingCount(count); // When mesh is mirrored, only need upper vertices for hull
+            const auto vCount = getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1);
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                    GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
+                // Temporarily save all vertices:
                 m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
-                std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull, m_vertices,
+                std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull,
+                                                                               std::vector<vec4>{m_vertices.begin(),
+                                                                                                 m_vertices.begin() +
+                                                                                                 static_cast<long long>(
+                                                                                                         m_vertices.size() /
+                                                                                                         (m_mirrorMesh
+                                                                                                          ? 4 : 2))},
                                                                                std::move(std::weak_ptr{
                                                                                        m_workerControlFlag}),
                                                                                m_mirrorMesh ? 0.f : 1.f));
             }
             assert(m_computeBuffer->unmap());
-            m_computeBuffer->copySubData(m_computeBuffer2.get(), static_cast<GLsizeiptr>(vCount * sizeof(vec4) * (m_mirrorMesh ? 4 : 1)));
+            // Orphaning buffer and uploading data while waiting for async multithreaded operation to finish:
+            /// Further optimization using PBO's: https://stackoverflow.com/questions/49368575/pixel-path-performance-warning-pixel-transfer-is-synchronized-with-3d-rendering
+            /// https://on-demand.gputechconf.com/gtc/2012/presentations/S0356-GTC2012-Texture-Transfers.pdf
+            m_computeBuffer2->setData(m_vertices, GL_STREAM_DRAW);
         } else {
             std::cout << "Error: Sync Object was "
                       << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
@@ -274,7 +284,7 @@ void CrystalRenderer::display() {
                 hullVertices.push_back(m_vertices.at(i));
             m_hullBuffer = Buffer::create();
             m_hullBuffer->setStorage(static_cast<GLsizeiptr>(hullVertices.size() * sizeof(vec4)), hullVertices.data(),
-                                     VERTEXSTORAGEMASK);
+                                     GL_NONE_BIT);
             m_hullSize = static_cast<int>(hullVertices.size());
 
             m_hexagonsSecondPartUpdated = true;
@@ -293,10 +303,11 @@ void CrystalRenderer::display() {
     if (syncObject) {
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1); // Make sure to map whole buffer this time.
+            const auto vCount =
+                    getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1); // Make sure to map whole buffer this time.
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer2->mapRange(0, vCount *
-                                                                                      static_cast<GLsizeiptr>(sizeof(vec4)),
-                                                                                   GL_MAP_READ_BIT));
+                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
+                                                                                    GL_MAP_READ_BIT));
             if (memPtr != nullptr)
                 std::get<1>(m_workerResults) = std::move(
                         m_worker.queue_job<1>(geometryPostProcessing,
@@ -316,8 +327,7 @@ void CrystalRenderer::display() {
             m_vertices = *result;
             // Create new buffer subset (unlinking m_computeBuffer)
             m_vertexBuffer = Buffer::create();
-            m_vertexBuffer->setStorage(static_cast<GLsizeiptr>(m_vertices.size() * sizeof(vec4)), m_vertices.data(),
-                                       VERTEXSTORAGEMASK);
+            m_vertexBuffer->setStorage(static_cast<GLsizeiptr>(m_vertices.size() * sizeof(vec4)), m_vertices.data(), BufferStorageMask::GL_NONE_BIT);
             m_drawingCount = static_cast<int>(m_vertices.size());
         }
     }
@@ -327,22 +337,22 @@ void CrystalRenderer::display() {
 
 std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
                                                             std::shared_ptr<globjects::Buffer> &&accumulateMax,
-                                                            const std::weak_ptr<globjects::Buffer>& tileNormalsRef,
+                                                            const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
                                                             int tile_max_y, int count, int num_cols, int num_rows,
-                                                            float tile_scale, glm::mat4 model) {
+                                                            float tile_scale, glm::mat4 disp_mat) {
     const auto &shader = shaderProgram("triangles");
     if (!shader)
         return {};
 
     m_workerControlFlag = std::make_shared<bool>(true);
 
-    const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
+    const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh ? 2 * count : count, 1.0 / 3.0))), 1u);
     const bool tileNormalsEnabled = !tileNormalsRef.expired();
     std::shared_ptr<Buffer> tileNormalsBuffer;
 
-    m_computeBuffer2->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
     m_computeBuffer->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
 
+    m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     accumulateTexture->bindActive(1);
     accumulateMax->bindBase(GL_SHADER_STORAGE_BUFFER, 2);
     if (tileNormalsEnabled) {
@@ -354,21 +364,14 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("num_cols", num_cols);
     shader->setUniform("num_rows", num_rows);
     shader->setUniform("tile_scale", tile_scale);
-    shader->setUniform("disp_mat", model);
+    shader->setUniform("disp_mat", disp_mat);
     shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
     shader->setUniform("maxTexCoordY", tile_max_y);
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
     shader->setUniform("mirrorMesh", m_mirrorMesh);
 
-    for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
-        // When mirroring, this compute-shader renders to the whole buffer in two steps, when not this compute-shader renders to half
-        const auto bufferSize = getBufferSize(count) / 2;
-        m_computeBuffer->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
-        shader->setUniform("mirrorFlip", static_cast<bool>(i));
-
-        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
-    }
+    glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
     if (tileNormalsEnabled)
         tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
@@ -399,12 +402,12 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         if (!shader)
             return {};
 
-        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(count, 1.0 / 3.0))), 1u);
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh ? 2 * count : count, 1.0 / 3.0))), 1u);
         const bool tileNormalsEnabled = !tileNormalsRef.expired();
         std::shared_ptr<Buffer> tileNormalsBuffer;
 
+        m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
-
         if (tileNormalsEnabled) {
             tileNormalsBuffer = tileNormalsRef.lock();
             tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
@@ -423,13 +426,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
         shader->setUniform("mirrorMesh", m_mirrorMesh);
 
-        for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
-            const auto bufferSize = getBufferSize(count) / (m_mirrorMesh ? 2 : 1);
-            m_computeBuffer2->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
-            shader->setUniform("mirrorFlip", static_cast<bool>(i));
-
-            glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
-        }
+        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
         if (tileNormalsEnabled)
             tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
@@ -441,26 +438,26 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 
     // Scale with disp_mat matrix:
     {
-        const auto& shader = shaderProgram("scale");
+        const auto &shader = shaderProgram("scale");
         if (!shader)
             return {};
 
         const auto triangleCount = getDrawingCount(count) * 2 / 3;
         // Note: Might do weird stuff if GPU cannot instantiate enough threads...
-        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(triangleCount, 1.0 / 3.0))), 1u);
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh ? 2 * triangleCount : triangleCount, 1.0 / 3.0))), 1u);
+        const mat4 MVP[2] = {getModelMatrix(false), getModelMatrix(true)};
 
         shader->use();
+
+        m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+
         shader->setUniform("triangleCount", triangleCount);
+        shader->setUniform("mirrorMesh", m_mirrorMesh);
+        shader->setUniform("MVP", MVP[0]);
+        shader->setUniform("MVP2", MVP[1]);
 
-        for (int i = 0; i < (m_mirrorMesh ? 2 : 1); ++i) {
-            const auto bufferSize = getBufferSize(count) / (m_mirrorMesh ? 2 : 1);
-            m_computeBuffer2->bindRange(GL_SHADER_STORAGE_BUFFER, 0, i * bufferSize, bufferSize);
+        glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
-            const mat4 MVP = getModelMatrix(i == 0);
-            shader->setUniform("MVP", MVP);
-
-            glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
-        }
         m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -479,16 +476,17 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 }
 
 void CrystalRenderer::resizeVertexBuffer(int hexCount) {
+    constexpr auto VERTEXSTORAGEMASK = BufferStorageMask::GL_MAP_PERSISTENT_BIT |
+                                       BufferStorageMask::GL_MAP_READ_BIT /*| BufferStorageMask::GL_MAP_WRITE_BIT | BufferStorageMask::GL_MAP_COHERENT_BIT*/;
+
     const auto bufferSize = getBufferSize(hexCount);
     // Make sure the buffer can be read from
 
+
     m_computeBuffer = Buffer::create();
-    m_computeBuffer2 = Buffer::create();
     /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
     m_computeBuffer->setStorage(bufferSize, nullptr, VERTEXSTORAGEMASK);
-    m_computeBuffer2->setStorage(bufferSize, nullptr, VERTEXSTORAGEMASK);
-    assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) == bufferSize &&
-           m_computeBuffer2->getParameter(GL_BUFFER_SIZE) == bufferSize); // Check that requested size == actual size
+    assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) == bufferSize); // Check that requested size == actual size
 
     m_computeBuffer->bind(GL_SHADER_STORAGE_BUFFER);
 }
@@ -511,5 +509,5 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
 
 mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
     return translate(scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
-                     vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? 0.5f : -0.5f)});
+                     vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? -0.5f : 0.5f)});
 }

@@ -18,7 +18,6 @@ uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
-uniform bool mirrorFlip = false;
 
 layout(std430, binding = 1) buffer hullBuffer
 {
@@ -82,13 +81,18 @@ vec3 getRegressionPlaneNormal(ivec2 hexCoord) {
 void main() {
     // Common for whole work group:
     /// Could make one local invocation do all of this common work for the whole group
-    const uint hexID =
+    uint hexID =
     gl_WorkGroupID.x +
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
     gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if (POINT_COUNT <= hexID)
+    if ((mirrorMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
+
+    const bool mirrorFlip = POINT_COUNT <= hexID;
+    hexID = hexID % POINT_COUNT;
+
+    const uint bufferSize = POINT_COUNT * 6 * 2 * 3 * 2;
 
     //calculate position of hexagon center - in double height coordinates!
     //https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
@@ -98,21 +102,19 @@ void main() {
     // vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     //    centerPos /= centerPos.w;
 
-    const uint centerIndex = hexID * 3 * gl_WorkGroupSize.x * 2;
+    const uint centerIndex = hexID * 3 * gl_WorkGroupSize.x * 2 + (mirrorFlip ? bufferSize : 0);
     vec4 centerPos = vertices[centerIndex];
     bool insideHull = isInsideHull(centerPos);
 
     vec3 normal = tileNormalsEnabled ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
-
-
     // Individual for each work group:
 
     // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
     // Triangles are 3 vertices, so skip by 3 for each local invocation
-    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 3 * gl_WorkGroupSize.x * 2; // gl_WorkGroupSize.y == 2 in previous generation invocation
+    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 3 * gl_WorkGroupSize.x * 2 + (mirrorFlip ? bufferSize : 0); // gl_WorkGroupSize.y == 2 in previous generation invocation
     const uint edgeTriangleIndex = triangleIndex + 3 * gl_WorkGroupSize.x;
-    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x; // gl_WorkGroupSize.y == 2 in previous generation invocation
+    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? bufferSize : 0); // gl_WorkGroupSize.y == 2 in previous generation invocation
 
     if (!insideHull) {
         // Mark all this hex's vertices as invalid (rest of worker group will also do this)
