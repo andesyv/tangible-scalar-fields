@@ -1332,13 +1332,13 @@ TileRenderer::calculateDiscrepancy2D(const std::vector<float> &samplesX, const s
 void TileRenderer::fileLoaded(const std::string & filename) {
     // reset column names
     m_guiColumnNames = "None";
+    m_guiColumnNames += '\0'; /// Trailing null-terminators in string literals apparently gets truncated by STL
 
     // extract column names and prepare GUI
     std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
 
-    for (const auto & tempName : tempNames) {
+    for (const auto & tempName : tempNames)
         m_guiColumnNames += tempName + '\0';
-    }
 
     m_currentFileName = filename;
 
