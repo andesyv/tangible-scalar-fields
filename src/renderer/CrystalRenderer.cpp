@@ -4,6 +4,7 @@
 
 #include <array>
 #include <iostream>
+#include <chrono>
 
 #include <glbinding/gl/enum.h>
 #include <globjects/globjects.h>
@@ -32,6 +33,7 @@ const auto stateGuard = []() {
 };
 
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
+constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds{5}).count());
 
 // Waits for as little as it can and checks if the future is ready.
 template<typename T>
@@ -123,6 +125,12 @@ void CrystalRenderer::display() {
         ImGui::EndMenu();
     }
 
+#ifndef NDEBUG
+    constexpr static auto debugGroupMessage = "Application debug group:";
+    glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, static_cast<GLsizei>(std::strlen(debugGroupMessage)), debugGroupMessage);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, true);
+#endif
+
     glEnable(GL_CULL_FACE);
     glPolygonMode(GL_FRONT_AND_BACK, m_wireframe ? GL_LINE : GL_FILL);
 
@@ -196,7 +204,7 @@ void CrystalRenderer::display() {
     }
 
     // Render triangles:
-    {
+    if (m_vertexBuffer) {
         const auto &shader = shaderProgram(renderStyles.at(m_renderStyleOption));
         if (shader && 0 < m_drawingCount) {
             shader->use();
@@ -239,7 +247,7 @@ void CrystalRenderer::display() {
     // 1. Hull calculation:
     // Transfer data from GPU to background worker thread (and start worker thread)
     if (syncObject) {
-        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
+        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
             const auto vCount = getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1);
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
@@ -259,10 +267,22 @@ void CrystalRenderer::display() {
                                                                                        m_workerControlFlag}),
                                                                                m_mirrorMesh ? 0.f : 1.f));
             }
-            assert(m_computeBuffer->unmap());
+            if (!m_computeBuffer->unmap())
+                throw std::runtime_error{"Failed to unmap GPU buffer!"};
+            /**
+             * Using a sync object here forces a sync between the GPU and the CPU, making the GPU have to wait for the
+             * CPU on the next frame, limiting this operation to the framerate of the program (60 fps). There are
+             * multiple workarounds for this problem:
+             * 1. The most logical solution would be to move the convex hull algorithm to be run on the GPU, removing
+             * the need to pass data back to the CPU in the first place.
+             * 2. Using orphaning to create new buffers without invalidating current drawing operations. The problem
+             * with this approach is that it heavily relies on driver implementation to make it as efficient as possible.
+             * 3. Using a triple-buffer-round-robin setup to pass data without stalling. Tedious to implement.
+             * https://stackoverflow.com/questions/49368575/pixel-path-performance-warning-pixel-transfer-is-synchronized-with-3d-rendering
+             * https://on-demand.gputechconf.com/gtc/2012/presentations/S0356-GTC2012-Texture-Transfers.pdf
+             * https://www.seas.upenn.edu/~pcozzi/OpenGLInsights/OpenGLInsights-AsynchronousBufferTransfers.pdf
+             */
             // Orphaning buffer and uploading data while waiting for async multithreaded operation to finish:
-            /// Further optimization using PBO's: https://stackoverflow.com/questions/49368575/pixel-path-performance-warning-pixel-transfer-is-synchronized-with-3d-rendering
-            /// https://on-demand.gputechconf.com/gtc/2012/presentations/S0356-GTC2012-Texture-Transfers.pdf
             m_computeBuffer2->setData(m_vertices, GL_STREAM_DRAW);
         } else {
             std::cout << "Error: Sync Object was "
@@ -301,7 +321,7 @@ void CrystalRenderer::display() {
 
     // Wait for edge extruding until final geometry cleanup:
     if (syncObject) {
-        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
+        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
             const auto vCount =
                     getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1); // Make sure to map whole buffer this time.
@@ -313,7 +333,8 @@ void CrystalRenderer::display() {
                         m_worker.queue_job<1>(geometryPostProcessing,
                                               std::vector<vec4>{memPtr + 0, memPtr + vCount},
                                               std::move(std::weak_ptr{m_workerControlFlag})));
-            assert(m_computeBuffer2->unmap());
+            if (!m_computeBuffer2->unmap())
+                throw std::runtime_error{"Failed to unmap GPU buffer!"};
         } else {
             std::cout << "Error: Sync Object was "
                       << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
@@ -333,6 +354,11 @@ void CrystalRenderer::display() {
     }
 
     globjects::Program::release();
+
+#ifndef NDEBUG
+    glPopDebugGroup();
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, false);
+#endif
 }
 
 std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,

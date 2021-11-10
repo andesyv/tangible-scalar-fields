@@ -52,7 +52,9 @@ int main(int argc, char *argv[]) {
     glfwWindowHint(GLFW_DOUBLEBUFFER, true);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 8);
+#ifndef NDEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
 
     // Create a context and, if valid, make it current
     GLFWwindow *window = glfwCreateWindow(1280, 720, "molumes", NULL, NULL);
@@ -72,6 +74,9 @@ int main(int argc, char *argv[]) {
         return glfwGetProcAddress(name);
     });
 
+    const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/0_10_sampled_testdata_10.000.csv";
+
+#ifndef NDEBUG
     // Enable debug logging
     //	globjects::DebugMessage::enable();
 
@@ -80,7 +85,6 @@ int main(int argc, char *argv[]) {
             << "OpenGL Vendor:   " << glbinding::aux::ContextInfo::vendor() << std::endl
             << "OpenGL Renderer: " << glbinding::aux::ContextInfo::renderer() << std::endl;
 
-    const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/0_10_sampled_testdata_10.000.csv";
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(
@@ -119,12 +123,12 @@ int main(int argc, char *argv[]) {
 
                 const auto[sourceStr, typeStr, severityStr] = std::tie(SOURCES.at(source), TYPES.at(type),
                                                                        SEVERITIES.at(severity));
-                if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
-                    std::cout << "GL_DEBUG: (source: " << sourceStr << ", type: " << typeStr << ", severity: "
-                              << severityStr << ", message: " << message << std::endl;
+                std::cout << "GL_DEBUG: (source: " << sourceStr << ", type: " << typeStr << ", severity: "
+                          << severityStr << ", message: " << message << std::endl;
 //                    assert(severity != GL_DEBUG_SEVERITY_HIGH);
-                }
             }, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, false);
+#endif
 
     auto defaultState = State::currentState();
 
