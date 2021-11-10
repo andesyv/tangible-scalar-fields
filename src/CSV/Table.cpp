@@ -2,24 +2,10 @@
 
 #include "Table.h"
 
-#include <fstream>
 #include <string>
-#include <sstream>
-#include <cstdlib>
-#include <iterator>
-#include <iostream>
 #include <limits>
 #include <unordered_map>
-#include <array>
-#include <algorithm> 
-#include <cctype>
-#include <locale>
-#include <globjects/globjects.h>
-#include <globjects/logging.h>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
-
+#include <string_view>
 
 using namespace molumes;
 using namespace glm;
@@ -28,6 +14,23 @@ using namespace glm;
 #include <engine.h>
 
 #endif
+
+auto stripSign(const std::string_view& str) {
+    return (str.starts_with('-') || str.starts_with('+')) ? str.substr(1) : str;
+}
+
+bool isInteger(const std::string_view& str) {
+    const auto& s = stripSign(str);
+    return std::all_of(s.begin(), s.end(), [](char c){ return std::isdigit(c); });
+}
+
+bool isFloat(const std::string_view& str) {
+    auto separator = str.find_first_of(".,");
+    if (separator == std::string_view::npos)
+        return false;
+
+    return isInteger(str.substr(0, separator)) && isInteger(str.substr(separator+1));
+}
 
 Table::Table()
 {
@@ -57,9 +60,12 @@ void Table::load(const std::string& filename)
 	rapidcsv::Document loadedDocument(m_filename, rapidcsv::LabelParams(0, -1));
 	m_csvDocument = loadedDocument;
 
-
 	// get titles of all columns
 	m_columnNames = m_csvDocument.GetColumnNames();
+    std::erase_if(m_columnNames, [this](const auto& name){
+        const auto& col = m_csvDocument.GetColumn<std::string>(name);
+        return col.empty() || !isFloat(col.front()) && !isInteger(col.front());
+    });
 
 	// clear buffers if they already contain data ----------
 	m_activeXColumn.clear();
@@ -70,9 +76,9 @@ void Table::load(const std::string& filename)
 	m_tableData.clear();
 
 	// fill table with column vectors
-	for (int i = 0; i < m_csvDocument.GetColumnCount(); i++)
+	for (const auto& col : m_columnNames)
 	{
-		m_tableData.push_back(m_csvDocument.GetColumn<float >(m_columnNames[i]));
+        m_tableData.push_back(m_csvDocument.GetColumn<float>(col));
 	}
 }
 
