@@ -270,7 +270,7 @@ void CrystalRenderer::display() {
                 m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
                 const auto[upper, lower] = m_mirrorMesh ? std::pair{m_valueThreshold, -m_valueThreshold} : (m_cutMesh
                                                                                                             ? std::pair{
-                                m_cutValue + m_cutWidth * 0.5f, m_cutValue - m_cutWidth * 0.5f} : std::pair{
+                                2.0f * m_cutValue + m_cutWidth - 1.f, 2.0f * m_cutValue - m_cutWidth - 1.f} : std::pair{
                                 -1.f + m_valueThreshold * 2.f, -1.f});
                 std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull,
                                                                                m_vertices,
@@ -322,46 +322,46 @@ void CrystalRenderer::display() {
         }
     }
 
-//    if (m_hexagonsSecondPartUpdated) {
-//        /// Edge extrusion compute shader drawcall
-//        syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
-//                                    tile->m_tileMaxY, count, num_cols, num_rows, scale, normalizationTransformation);
-//
-//        std::get<1>(m_workerResults) = {};
-//    }
-//
-//    // Wait for edge extruding until final geometry cleanup:
-//    if (syncObject) {
-//        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
-//        if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-//            const auto vCount = getBufferPointCount(count);
-//            const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer2->mapRange(0, vCount *
-//                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
-//                                                                                    GL_MAP_READ_BIT));
-//            if (memPtr != nullptr)
-//                std::get<1>(m_workerResults) = std::move(
-//                        m_worker.queue_job<1>(geometryPostProcessing,
-//                                              std::vector<vec4>{memPtr + 0, memPtr + vCount},
-//                                              std::move(std::weak_ptr{m_workerControlFlag})));
-//            if (!m_computeBuffer2->unmap())
-//                throw std::runtime_error{"Failed to unmap GPU buffer!"};
-//        } else {
-//            std::cout << "Error: Sync Object was "
-//                      << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
-//        }
-//    }
-//
-//    // 2. Final geometry processing
-//    if (std::get<1>(m_workerResults).valid() && isReady(std::get<1>(m_workerResults))) {
-//        auto result = std::get<1>(m_workerResults).get();
-//        if (result) {
-//            m_vertices = *result;
-//            // Create new buffer subset (unlinking m_computeBuffer)
-//            m_vertexBuffer = Buffer::create();
-//            m_vertexBuffer->setStorage(static_cast<GLsizeiptr>(m_vertices.size() * sizeof(vec4)), m_vertices.data(), BufferStorageMask::GL_NONE_BIT);
-//            m_drawingCount = static_cast<int>(m_vertices.size());
-//        }
-//    }
+    if (m_hexagonsSecondPartUpdated) {
+        /// Edge extrusion compute shader drawcall
+        syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
+                                    tile->m_tileMaxY, count, num_cols, num_rows, scale, normalizationTransformation);
+
+        std::get<1>(m_workerResults) = {};
+    }
+
+    // Wait for edge extruding until final geometry cleanup:
+    if (syncObject) {
+        const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
+        if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
+            const auto vCount = getBufferPointCount(count);
+            const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer2->mapRange(0, vCount *
+                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
+                                                                                    GL_MAP_READ_BIT));
+            if (memPtr != nullptr)
+                std::get<1>(m_workerResults) = std::move(
+                        m_worker.queue_job<1>(geometryPostProcessing,
+                                              std::vector<vec4>{memPtr + 0, memPtr + vCount},
+                                              std::move(std::weak_ptr{m_workerControlFlag})));
+            if (!m_computeBuffer2->unmap())
+                throw std::runtime_error{"Failed to unmap GPU buffer!"};
+        } else {
+            std::cout << "Error: Sync Object was "
+                      << (syncResult == GL_WAIT_FAILED ? "GL_WAIT_FAILED" : "GL_TIMEOUT_EXPIRED") << std::endl;
+        }
+    }
+
+    // 2. Final geometry processing
+    if (std::get<1>(m_workerResults).valid() && isReady(std::get<1>(m_workerResults))) {
+        auto result = std::get<1>(m_workerResults).get();
+        if (result) {
+            m_vertices = *result;
+            // Create new buffer subset (unlinking m_computeBuffer)
+            m_vertexBuffer = Buffer::create();
+            m_vertexBuffer->setStorage(static_cast<GLsizeiptr>(m_vertices.size() * sizeof(vec4)), m_vertices.data(), BufferStorageMask::GL_NONE_BIT);
+            m_drawingCount = static_cast<int>(m_vertices.size());
+        }
+    }
 
     globjects::Program::release();
 
@@ -443,7 +443,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         if (!shader)
             return {};
 
-        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh ? 2 * count : count, 1.0 / 3.0))), 1u);
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh || m_cutMesh ? 2 * count : count, 1.0 / 3.0))), 1u);
         const bool tileNormalsEnabled = !tileNormalsRef.expired();
         std::shared_ptr<Buffer> tileNormalsBuffer;
 
@@ -466,6 +466,8 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
         shader->setUniform("mirrorMesh", m_mirrorMesh);
+        shader->setUniform("cutMesh", m_cutMesh);
+        shader->setUniform("cutValue", m_cutValue);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
@@ -493,7 +495,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
         shader->setUniform("triangleCount", triangleCount);
-        shader->setUniform("mirrorMesh", m_mirrorMesh);
+        shader->setUniform("mirrorOrCutMesh", m_mirrorMesh || m_cutMesh);
         shader->setUniform("MVP", MVP[0]);
         shader->setUniform("MVP2", MVP[1]);
 
@@ -549,6 +551,9 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
 }
 
 mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
-    return translate(scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
-                     vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? -0.5f : 0.5f)});
+    if (m_cutMesh)
+        return scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, m_tileHeight});
+    else
+        return translate(scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
+                         vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? -0.5f : 0.5f)});
 }

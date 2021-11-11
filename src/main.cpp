@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
                                                                        SEVERITIES.at(severity));
                 std::cout << "GL_DEBUG: (source: " << sourceStr << ", type: " << typeStr << ", severity: "
                           << severityStr << ", message: " << message << std::endl;
-//                    assert(severity != GL_DEBUG_SEVERITY_HIGH);
+                    assert(severity != GL_DEBUG_SEVERITY_HIGH);
             }, nullptr);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, false);
 #endif

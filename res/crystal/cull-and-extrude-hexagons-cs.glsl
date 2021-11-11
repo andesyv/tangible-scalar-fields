@@ -18,6 +18,8 @@ uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
+uniform bool cutMesh = false;
+uniform float cutValue = 0.5;
 
 layout(std430, binding = 1) buffer hullBuffer
 {
@@ -86,7 +88,7 @@ void main() {
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
     gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirrorMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
+    if ((mirrorMesh || cutMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
@@ -153,11 +155,12 @@ void main() {
         return;
 
     float extrudeDepth;
-    if (mirrorMesh) {
+    if (mirrorMesh)
         extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
-    } else {
+    else if (cutMesh)
+        extrudeDepth = 2.0 * cutValue - 1.0; // (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
+    else
         extrudeDepth = -extrude_factor - 1.0;
-    }
 
     float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
     vertices[boundingEdgeTriangleIndex] = vec4(neighborPos.xy + vec2(tile_scale * cos(ar), tile_scale * sin(ar)), extrudeDepth, 1.0);
