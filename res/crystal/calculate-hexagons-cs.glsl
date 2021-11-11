@@ -17,6 +17,7 @@ uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
+uniform float valueThreshold = 0.0;
 
 layout(binding = 1) uniform sampler2D accumulateTexture;
 

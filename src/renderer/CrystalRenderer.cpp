@@ -103,6 +103,8 @@ void CrystalRenderer::display() {
             ImGui::Checkbox("Wireframe", &m_wireframe);
             ImGui::Checkbox("Render hull", &m_renderHull);
         }
+        if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
+            m_hexagonsUpdated = true;
         // Doesn't work unless you actually generate the normal plane from the 2D view
         if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
             m_hexagonsUpdated = true;
@@ -256,16 +258,13 @@ void CrystalRenderer::display() {
             if (memPtr != nullptr) {
                 // Temporarily save all vertices:
                 m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
+                const auto[upper, lower] = m_mirrorMesh ? std::pair{m_valueThreshold, -m_valueThreshold} : std::pair{
+                        -1.f + m_valueThreshold * 2.f, -1.f};
                 std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull,
-                                                                               std::vector<vec4>{m_vertices.begin(),
-                                                                                                 m_vertices.begin() +
-                                                                                                 static_cast<long long>(
-                                                                                                         m_vertices.size() /
-                                                                                                         (m_mirrorMesh
-                                                                                                          ? 4 : 2))},
+                                                                               m_vertices,
                                                                                std::move(std::weak_ptr{
                                                                                        m_workerControlFlag}),
-                                                                               m_mirrorMesh ? 0.f : 1.f));
+                                                                               upper, lower));
             }
             if (!m_computeBuffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer!"};
@@ -396,6 +395,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
     shader->setUniform("mirrorMesh", m_mirrorMesh);
+    shader->setUniform("valueThreshold", m_valueThreshold);
 
     glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 

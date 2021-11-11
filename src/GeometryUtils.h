@@ -51,7 +51,7 @@ namespace molumes {
     geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag);
 
     std::optional<std::vector<glm::uint>>
-    getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag, float tileHeight);
+    getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag, float upperThreshold, float lowerThreshold);
 
     std::pair<std::vector<glm::vec4>, std::vector<unsigned int>> getVertexIndexPairs(const std::vector<glm::vec4> &vertices);
 }

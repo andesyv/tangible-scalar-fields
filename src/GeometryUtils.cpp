@@ -151,7 +151,7 @@ namespace molumes {
 
     std::optional<std::vector<uint>>
     getHexagonConvexHull(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag,
-                         float tileHeight) {
+                         float upperThreshold, float lowerThreshold) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
         if (controlFlag.expired() || vertices.size() < 2)
@@ -170,7 +170,7 @@ namespace molumes {
             const auto&[p, j] = hexPositions.at(i);
             const auto w = dvec2{p.x, p.y};
 
-            if (-tileHeight + static_cast<float>(EPS) < p.z) {
+            if (upperThreshold + static_cast<float>(EPS) < p.z || p.z < lowerThreshold - static_cast<float>(EPS)) {
                 mi = min(w, mi);
                 ma = max(w, ma);
 
