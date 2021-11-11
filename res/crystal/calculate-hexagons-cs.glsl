@@ -17,7 +17,10 @@ uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
+uniform bool cutMesh = false;
 uniform float valueThreshold = 0.0;
+uniform float cutValue = 0.5;
+uniform float cutWidth = 0.1;
 
 layout(binding = 1) uniform sampler2D accumulateTexture;
 
@@ -64,7 +67,7 @@ void main() {
         gl_WorkGroupID.y * gl_NumWorkGroups.x +
         gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirrorMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
+    if ((mirrorMesh || cutMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
@@ -81,13 +84,16 @@ void main() {
 
     // hexagon-tiles-fs.glsl: 109
     const float maxAcc = uintBitsToFloat(maxAccumulate) + 1;
+    const float cutMin = 2.0 * cutValue - 1.0 - cutWidth;
+    const float cutMax = 2.0 * cutValue - 1.0 + cutWidth;
 
     float depth;
-    if (mirrorMesh) {
+    if (mirrorMesh)
         depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
-    } else {
+    else if (cutMesh)
+        depth = mirrorFlip ? (hexValue < EPSILON ? cutMin : min(2.0 * hexValue / maxAcc - 1.0, cutMin)) : max(2.0 * hexValue / maxAcc - 1.0, cutMax);
+    else
         depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
-    }
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
@@ -126,11 +132,12 @@ void main() {
         float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
 
         float neighborDepth;
-        if (mirrorMesh) {
+        if (mirrorMesh)
             neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
-        } else {
+        else if (cutMesh)
+            neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
+        else
             neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
-        }
 
         // Skip "empty" triangles (can only skip early if we don't use normals)
         if (!tileNormalsEnabled && abs(depth - neighborDepth) < EPSILON)

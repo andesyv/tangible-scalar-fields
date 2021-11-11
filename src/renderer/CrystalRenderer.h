@@ -58,11 +58,14 @@ namespace molumes {
         float m_tileNormalsFactor = 1.0;
         float m_extrusionFactor = 0.2f;
         float m_valueThreshold = 0.f;
+        float m_cutValue = 0.5f;
+        float m_cutWidth = 0.1f;
         bool m_hexagonsUpdated = true;
         bool m_hexagonsSecondPartUpdated = false;
         gl::GLsizei m_drawingCount = 0;
         gl::GLsizei m_hullSize = 0;
         bool m_mirrorMesh = false;
+        bool m_cutMesh = false;
         glm::mat4 m_modelMatrix{1.f};
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
@@ -78,7 +81,8 @@ namespace molumes {
         void resizeVertexBuffer(int hexCount);
 
         static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
-        auto getBufferSize(int count) const { return static_cast<gl::GLsizeiptr>(getDrawingCount(count) * 2 * (m_mirrorMesh ? 2 : 1) * sizeof(glm::vec4)); } // * 2 to make room for extrusions
+        auto getBufferPointCount(int count) const { return getDrawingCount(count) * 2 * (m_mirrorMesh || m_cutMesh ? 2 : 1); }
+        auto getBufferSize(int count) const { return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4)); } // * 2 to make room for extrusions
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
     };
 }
