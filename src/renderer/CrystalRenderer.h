@@ -38,6 +38,13 @@ namespace molumes {
 #endif
 
     private:
+        enum GeometryMode : int {
+            Normal = 0,
+            Mirror,
+            Cut,
+            Concave
+        };
+
         std::unique_ptr<globjects::VertexArray> m_vao;
         // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
         std::shared_ptr<globjects::Buffer> m_computeBuffer, m_computeBuffer2, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
@@ -64,8 +71,7 @@ namespace molumes {
         bool m_hexagonsSecondPartUpdated = false;
         gl::GLsizei m_drawingCount = 0;
         gl::GLsizei m_hullSize = 0;
-        bool m_mirrorMesh = false;
-        bool m_cutMesh = false;
+        int m_geometryMode = 0;
         glm::mat4 m_modelMatrix{1.f};
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
@@ -81,7 +87,7 @@ namespace molumes {
         void resizeVertexBuffer(int hexCount);
 
         static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
-        auto getBufferPointCount(int count) const { return getDrawingCount(count) * 2 * (m_mirrorMesh || m_cutMesh ? 2 : 1); }
+        auto getBufferPointCount(int count) const { return getDrawingCount(count) * 2 * (static_cast<GeometryMode>(m_geometryMode) != Normal ? 2 : 1); }
         auto getBufferSize(int count) const { return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4)); } // * 2 to make room for extrusions
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
     };

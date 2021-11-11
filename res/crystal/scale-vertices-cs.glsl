@@ -8,7 +8,7 @@ layout(std430, binding = 0) buffer vertexBuffer
 };
 
 uniform int triangleCount = 0;
-uniform bool mirrorOrCutMesh = false;
+uniform bool mirroredMesh = false;
 uniform mat4 MVP = mat4(1.0);
 uniform mat4 MVP2 = mat4(1.0);
 
@@ -18,7 +18,7 @@ void main() {
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
     gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirrorOrCutMesh ? 2 * triangleCount : triangleCount) <= id)
+    if ((mirroredMesh ? 2 * triangleCount : triangleCount) <= id)
         return;
 
     const bool mirrorFlip = triangleCount <= id;

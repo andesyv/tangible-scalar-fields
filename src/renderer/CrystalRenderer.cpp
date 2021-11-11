@@ -33,7 +33,8 @@ const auto stateGuard = []() {
 };
 
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
-constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds{5}).count());
+constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::milliseconds{5}).count());
 
 // Waits for as little as it can and checks if the future is ready.
 template<typename T>
@@ -103,22 +104,25 @@ void CrystalRenderer::display() {
             ImGui::Checkbox("Wireframe", &m_wireframe);
             ImGui::Checkbox("Render hull", &m_renderHull);
         }
-        if (m_cutMesh) {
-            if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
-                m_hexagonsUpdated = true;
-            if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
-                m_hexagonsUpdated = true;
-        } else {
-            if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
-                m_hexagonsUpdated = true;
-        }
-        if (!m_cutMesh && ImGui::Checkbox("Mirror mesh", &m_mirrorMesh)) {
+        const static auto geometryModeLabels = "Normal\0Mirror mesh\0Cut mesh\0Concave mesh";
+        if (ImGui::Combo("Geometry mode", &m_geometryMode, geometryModeLabels)) {
             bufferNeedsResize = true;
             m_hexagonsUpdated = true;
         }
-        if (!m_mirrorMesh && ImGui::Checkbox("Cut mesh", &m_cutMesh)) {
-            bufferNeedsResize = true;
-            m_hexagonsUpdated = true;
+
+        switch (static_cast<GeometryMode>(m_geometryMode)) {
+            case Cut:
+                if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
+                    m_hexagonsUpdated = true;
+                if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
+                    m_hexagonsUpdated = true;
+                break;
+            case Normal:
+            case Mirror:
+            default:
+                if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
+                    m_hexagonsUpdated = true;
+                break;
         }
         // Doesn't work unless you actually generate the normal plane from the 2D view
         if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
@@ -131,7 +135,8 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
-        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f))
+        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f) &&
+            static_cast<GeometryMode>(m_geometryMode) != Cut)
             m_hexagonsUpdated = true;
 
         ImGui::EndMenu();
@@ -139,7 +144,8 @@ void CrystalRenderer::display() {
 
 #ifndef NDEBUG
     constexpr static auto debugGroupMessage = "Application debug group:";
-    glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, static_cast<GLsizei>(std::strlen(debugGroupMessage)), debugGroupMessage);
+    glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, static_cast<GLsizei>(std::strlen(debugGroupMessage)),
+                     debugGroupMessage);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, true);
 #endif
 
@@ -268,15 +274,27 @@ void CrystalRenderer::display() {
             if (memPtr != nullptr) {
                 // Temporarily save all vertices:
                 m_vertices = std::vector<vec4>{memPtr + 0, memPtr + vCount};
-                const auto[upper, lower] = m_mirrorMesh ? std::pair{m_valueThreshold, -m_valueThreshold} : (m_cutMesh
-                                                                                                            ? std::pair{
-                                2.0f * m_cutValue + m_cutWidth - 1.f, 2.0f * m_cutValue - m_cutWidth - 1.f} : std::pair{
-                                -1.f + m_valueThreshold * 2.f, -1.f});
+                const std::vector<vec4> halfVertices{
+                        m_vertices.begin(), m_vertices.begin() + m_vertices.size() / 2};
+                float upper{-1.f + m_valueThreshold * 2.f}, lower{-1.f};
+                switch (m_geometryMode) {
+                    case Mirror:
+                        upper = m_valueThreshold;
+                        lower = -m_valueThreshold;
+                        break;
+                    case Cut:
+                        upper = 2.0f * m_cutValue + m_cutWidth - 1.f;
+                        lower = 2.0f * m_cutValue - m_cutWidth - 1.f;
+                        break;
+                }
                 std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull,
-                                                                               m_vertices,
+                                                                               static_cast<GeometryMode>(m_geometryMode) ==
+                                                                               Normal ||
+                                                                               static_cast<GeometryMode>(m_geometryMode) ==
+                                                                               Concave ? halfVertices : m_vertices,
                                                                                std::move(std::weak_ptr{
-                                                                                       m_workerControlFlag}),
-                                                                               upper, lower));
+                                                                                       m_workerControlFlag}), upper,
+                                                                               lower));
             }
             if (!m_computeBuffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer!"};
@@ -358,7 +376,8 @@ void CrystalRenderer::display() {
             m_vertices = *result;
             // Create new buffer subset (unlinking m_computeBuffer)
             m_vertexBuffer = Buffer::create();
-            m_vertexBuffer->setStorage(static_cast<GLsizeiptr>(m_vertices.size() * sizeof(vec4)), m_vertices.data(), BufferStorageMask::GL_NONE_BIT);
+            m_vertexBuffer->setStorage(static_cast<GLsizeiptr>(m_vertices.size() * sizeof(vec4)), m_vertices.data(),
+                                       BufferStorageMask::GL_NONE_BIT);
             m_drawingCount = static_cast<int>(m_vertices.size());
         }
     }
@@ -382,7 +401,9 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 
     m_workerControlFlag = std::make_shared<bool>(true);
 
-    const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh || m_cutMesh ? 2 * count : count, 1.0 / 3.0))), 1u);
+    const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(
+            static_cast<GeometryMode>(m_geometryMode) != Normal ?
+            2 * count : count, 1.0 / 3.0))), 1u);
     const bool tileNormalsEnabled = !tileNormalsRef.expired();
     std::shared_ptr<Buffer> tileNormalsBuffer;
 
@@ -405,11 +426,13 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("maxTexCoordY", tile_max_y);
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
-    shader->setUniform("mirrorMesh", m_mirrorMesh);
-    shader->setUniform("cutMesh", m_cutMesh);
+    shader->setUniform("mirrorMesh", static_cast<GeometryMode>(m_geometryMode) == Mirror);
+    shader->setUniform("cutMesh", static_cast<GeometryMode>(m_geometryMode) == Cut);
+    shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
     shader->setUniform("valueThreshold", m_valueThreshold);
     shader->setUniform("cutValue", m_cutValue);
     shader->setUniform("cutWidth", m_cutWidth);
+    shader->setUniform("extrude_factor", m_extrusionFactor);
 
     glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
@@ -422,7 +445,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     // Share resource with m_vertexBuffer, orphaning the old buffer
     m_vertexBuffer = m_computeBuffer;
     // Probably the line that causes weird normals in phong renderer: (side faces may be uninitialized)
-    m_drawingCount = getDrawingCount(count) * (m_mirrorMesh || m_cutMesh ? 4 : 1);
+    m_drawingCount = getDrawingCount(count) * (static_cast<GeometryMode>(m_geometryMode) != Normal ? 4 : 1);
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
@@ -443,7 +466,9 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         if (!shader)
             return {};
 
-        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(m_mirrorMesh || m_cutMesh ? 2 * count : count, 1.0 / 3.0))), 1u);
+        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(
+                static_cast<GeometryMode>(m_geometryMode) != Normal
+                ? 2 * count : count, 1.0 / 3.0))), 1u);
         const bool tileNormalsEnabled = !tileNormalsRef.expired();
         std::shared_ptr<Buffer> tileNormalsBuffer;
 
@@ -465,8 +490,9 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         shader->setUniform("maxTexCoordY", tile_max_y);
         shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
-        shader->setUniform("mirrorMesh", m_mirrorMesh);
-        shader->setUniform("cutMesh", m_cutMesh);
+        shader->setUniform("mirrorMesh", static_cast<GeometryMode>(m_geometryMode) == Mirror);
+        shader->setUniform("cutMesh", static_cast<GeometryMode>(m_geometryMode) == Cut);
+        shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
         shader->setUniform("cutValue", m_cutValue);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
@@ -487,7 +513,8 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 
         const auto triangleCount = getDrawingCount(count) * 2 / 3;
         // Note: Might do weird stuff if GPU cannot instantiate enough threads...
-        const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(getBufferPointCount(count) / 3, 1.0 / 3.0))), 1u);
+        const auto invocationSpace = std::max(
+                static_cast<GLuint>(std::ceil(std::pow(getBufferPointCount(count) / 3, 1.0 / 3.0))), 1u);
         const mat4 MVP[2] = {getModelMatrix(false), getModelMatrix(true)};
 
         shader->use();
@@ -495,7 +522,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
         shader->setUniform("triangleCount", triangleCount);
-        shader->setUniform("mirrorOrCutMesh", m_mirrorMesh || m_cutMesh);
+        shader->setUniform("mirroredMesh", static_cast<GeometryMode>(m_geometryMode) != Normal);
         shader->setUniform("MVP", MVP[0]);
         shader->setUniform("MVP2", MVP[1]);
 
@@ -551,9 +578,10 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
 }
 
 mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
-    if (m_cutMesh)
+    if (static_cast<GeometryMode>(m_geometryMode) == Cut)
         return scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, m_tileHeight});
     else
-        return translate(scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
-                         vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? -0.5f : 0.5f)});
+        return translate(
+                scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
+                vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? -0.5f : 0.5f)});
 }

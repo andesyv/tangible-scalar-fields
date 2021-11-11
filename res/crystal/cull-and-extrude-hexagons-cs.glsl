@@ -19,6 +19,7 @@ uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
 uniform bool cutMesh = false;
+uniform bool concaveMesh = false;
 uniform float cutValue = 0.5;
 
 layout(std430, binding = 1) buffer hullBuffer
@@ -88,7 +89,7 @@ void main() {
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
     gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirrorMesh || cutMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
+    if ((mirrorMesh || cutMesh || concaveMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
     const bool mirrorFlip = POINT_COUNT <= hexID;

@@ -18,9 +18,11 @@ uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
 uniform bool cutMesh = false;
+uniform bool concaveMesh = false;
 uniform float valueThreshold = 0.0;
 uniform float cutValue = 0.5;
 uniform float cutWidth = 0.1;
+uniform float extrude_factor = 0.0;
 
 layout(binding = 1) uniform sampler2D accumulateTexture;
 
@@ -67,7 +69,7 @@ void main() {
         gl_WorkGroupID.y * gl_NumWorkGroups.x +
         gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirrorMesh || cutMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
+    if ((mirrorMesh || cutMesh || concaveMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
