@@ -342,7 +342,8 @@ void CrystalRenderer::display() {
 
     if (m_hexagonsSecondPartUpdated) {
         /// Edge extrusion compute shader drawcall
-        syncObject = cullAndExtrude(m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
+        syncObject = cullAndExtrude(std::move(resources.tileAccumulateTexture.lock()),
+                                    m_tileNormalsEnabled ? resources.tileNormalsBuffer : std::weak_ptr<Buffer>{},
                                     tile->m_tileMaxY, count, num_cols, num_rows, scale, normalizationTransformation);
 
         std::get<1>(m_workerResults) = {};
@@ -457,7 +458,8 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 }
 
 std::unique_ptr<globjects::Sync>
-CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
+CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulateTexture,
+                                const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
                                 int tile_max_y, int count, int num_cols,
                                 int num_rows, float tile_scale, glm::mat4 disp_mat) {
     // Extrude / cull:
@@ -474,6 +476,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         m_hullBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+        accumulateTexture->bindActive(2);
         if (tileNormalsEnabled) {
             tileNormalsBuffer = tileNormalsRef.lock();
             tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
@@ -499,6 +502,7 @@ CrystalRenderer::cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNorm
 
         if (tileNormalsEnabled)
             tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
+        accumulateTexture->unbindActive(2);
         m_hullBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 1);
         m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }

@@ -100,7 +100,7 @@ void main() {
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
 
-    vec3 normal = tileNormalsEnabled ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
+    vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
 
     const uint bufferSize = POINT_COUNT * 6 * 2 * 3 * 2;
@@ -152,7 +152,7 @@ void main() {
         vec3 neighborOffset = vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.);
         // Regression plane offset
         if (tileNormalsEnabled) {
-            vec3 neighborNormal = tileNormalsEnabled ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
+            vec3 neighborNormal = tileNormalsEnabled && EPSILON < neighborHexValue ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
             float normalDisplacement = dot(-neighborOffset, neighborNormal) * neighborNormal.z;
 
             if (!isnan(normalDisplacement))

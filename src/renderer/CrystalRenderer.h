@@ -15,6 +15,7 @@ namespace globjects {
     class VertexArray;
 
     class Buffer;
+
     class Sync;
 }
 
@@ -34,7 +35,9 @@ namespace molumes {
         void fileLoaded(const std::string &) override;
 
 #ifndef NDEBUG
+
         void reloadShaders() override;
+
 #endif
 
     private:
@@ -77,18 +80,25 @@ namespace molumes {
         [[nodiscard]] std::unique_ptr<globjects::Sync>
         generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
                              std::shared_ptr<globjects::Buffer> &&accumulateMax,
-                             const std::weak_ptr<globjects::Buffer>& tileNormalsRef, int tile_max_y, int count,
+                             const std::weak_ptr<globjects::Buffer> &tileNormalsRef, int tile_max_y, int count,
                              int num_cols, int num_rows, float tile_scale, glm::mat4 disp_mat);
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
-        cullAndExtrude(const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
+        cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulateTexture,
+                       const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
                        int tile_max_y, int count, int num_cols, int num_rows, float tile_scale, glm::mat4 disp_mat);
 
         void resizeVertexBuffer(int hexCount);
 
         static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
-        auto getBufferPointCount(int count) const { return getDrawingCount(count) * 2 * (static_cast<GeometryMode>(m_geometryMode) != Normal ? 2 : 1); }
-        auto getBufferSize(int count) const { return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4)); } // * 2 to make room for extrusions
+
+        auto getBufferPointCount(int count) const {
+            return getDrawingCount(count) * 2 * (static_cast<GeometryMode>(m_geometryMode) != Normal ? 2 : 1);
+        }
+
+        auto getBufferSize(int count) const {
+            return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4));
+        } // * 2 to make room for extrusions
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
     };
 }

@@ -28,6 +28,8 @@ layout(std430, binding = 1) buffer hullBuffer
     vec4 convex_hull[];
 };
 
+layout(binding = 2) uniform sampler2D accumulateTexture;
+
 layout(std430, binding = 3) buffer tileNormalsBuffer
 {
     int tileNormals[];
@@ -102,6 +104,9 @@ void main() {
     const int col = int(hexID % num_cols);
     const int row = int(hexID/num_cols) * 2 - (col % 2 == 0 ? 0 : 1);
 
+    ivec2 tilePosInAccTexture = ivec2(col, floor(hexID/num_cols));
+    float hexValue = texelFetch(accumulateTexture, tilePosInAccTexture, 0).r;
+
     // vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     //    centerPos /= centerPos.w;
 
@@ -109,7 +114,7 @@ void main() {
     vec4 centerPos = vertices[centerIndex];
     bool insideHull = isInsideHull(centerPos);
 
-    vec3 normal = tileNormalsEnabled ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
+    vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
     // Individual for each work group:
 
