@@ -516,6 +516,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
             return {};
 
         const auto triangleCount = getDrawingCount(count) * 2 / 3;
+        const auto mirrored = static_cast<GeometryMode>(m_geometryMode) != Normal;
         // Note: Might do weird stuff if GPU cannot instantiate enough threads...
         const auto invocationSpace = std::max(
                 static_cast<GLuint>(std::ceil(std::pow(getBufferPointCount(count) / 3, 1.0 / 3.0))), 1u);
@@ -526,7 +527,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
         shader->setUniform("triangleCount", triangleCount);
-        shader->setUniform("mirroredMesh", static_cast<GeometryMode>(m_geometryMode) != Normal);
+        shader->setUniform("mirroredMesh", mirrored);
         shader->setUniform("MVP", MVP[0]);
         shader->setUniform("MVP2", MVP[1]);
 
