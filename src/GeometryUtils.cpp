@@ -41,6 +41,92 @@ namespace molumes {
         return centers;
     }
 
+    template<typename T, int N>
+    std::weak_ordering
+    compareVec(const vec<N, T> &as, const vec<N, T> &bs, unsigned int i = 0, float epsilon = 0.0001f) {
+        return N <= i ? std::weak_ordering::equivalent : (as[i] < bs[i] + epsilon && bs[i] < as[i] + epsilon) ?
+                                                         compareVec(as, bs, i + 1, epsilon) :
+                                                         ((as[i] < bs[i]) ? std::weak_ordering::less
+                                                                          : std::weak_ordering::greater);
+    }
+
+    struct vec4_comparator {
+        auto operator()(const vec4 &lhs, const vec4 &rhs) const {
+            return compareVec(lhs, rhs) == std::weak_ordering::less;
+        }
+    };
+
+    std::pair<std::vector<vec4>, std::vector<unsigned int>> getVertexIndexPairs(const std::vector<vec4> &vertices) {
+        std::vector<vec4> uniqueVertices;
+        uniqueVertices.reserve(vertices.size());
+        std::vector<unsigned int> indices;
+        indices.reserve(vertices.size());
+
+        std::map<vec4, unsigned int, vec4_comparator> lookupMap;
+
+        for (const auto &v: vertices) {
+            const auto pos = lookupMap.find(v);
+            if (pos != lookupMap.end()) {
+                indices.push_back(pos->second);
+            } else {
+                uniqueVertices.push_back(v);
+                const auto i = static_cast<unsigned int>(lookupMap.size());
+                indices.push_back(i);
+                lookupMap.emplace(v, i);
+            }
+        }
+
+        uniqueVertices.shrink_to_fit();
+        indices.shrink_to_fit();
+
+        return std::make_pair(uniqueVertices, indices);
+    }
+
+    // Takes a list of indices and returns a map of triangle indices connected to each index
+    auto getConnectedTrianglesFromIndices(const std::vector<unsigned int>& indices) {
+        using Triangle = std::array<unsigned int, 3>;
+        std::map<unsigned int, std::vector<Triangle>> connectedTriangles;
+
+        for (unsigned int i = 0; i+2 < indices.size(); i+=3) {
+            Triangle t{indices.at(i), indices.at(i+1), indices.at(i+2)};
+            for (unsigned int j = 0; j < 3; ++j)
+                connectedTriangles[t[j]].push_back(t);
+        }
+
+        return connectedTriangles;
+    }
+
+    auto displaceFaceEdges(const std::vector<vec4>& vertices, float displacement = 0.f) {
+        auto [uniquePoints, indices] = getVertexIndexPairs(vertices);
+        const auto connectedTriangles = getConnectedTrianglesFromIndices(indices);
+
+        std::vector<vec4> displacedUniquePoints;
+        displacedUniquePoints.reserve(uniquePoints.size());
+
+        for (unsigned int i = 0; i < uniquePoints.size(); ++i) {
+            const auto& triangles = connectedTriangles.at(i);
+            vec3 normal{0.f};
+            for (const auto& t : triangles) {
+                const vec3 tangent = normalize(uniquePoints.at(t[2]) - uniquePoints.at(t[1]));
+                const vec3 bitangent = normalize(uniquePoints.at(t[0]) - uniquePoints.at(t[1]));
+                normal += cross(tangent, bitangent);
+            }
+
+            normal = normalize(normal);
+            if (any(isnan(normal)))
+                normal = vec3{0.f};
+
+            displacedUniquePoints.emplace_back(uniquePoints.at(i) + vec4{normal * displacement, 0.f});
+        }
+
+        // Convert back to normal non-indexed points:
+        return map(indices.begin(), indices.end(), [&displacedUniquePoints](auto i){ return displacedUniquePoints.at(i); });
+    }
+
+    auto sortedEdge(auto a, auto b) {
+        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
+    }
+
     // Graham scan implementation (first point should be start point / bounds max)
     std::vector<unsigned int>
     createConvexHull(const std::vector<std::pair<glm::dvec2, unsigned int>> &points, glm::dvec2 boundingCenter = {},
@@ -127,7 +213,7 @@ namespace molumes {
     }
 
     std::optional<std::vector<vec4>>
-    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag) {
+    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag, bool concave, float concaveExtrusion) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
         if (controlFlag.expired() || vertices.size() < 3)
@@ -146,7 +232,16 @@ namespace molumes {
             return data;
         };
 
-        return controlFlag.expired() ? std::nullopt : std::make_optional(filterEmptiesPoints(vertices));
+        if (concave) {
+            auto uppers = filterEmptiesPoints(std::vector<vec4>{vertices.begin(), vertices.begin() + static_cast<std::vector<vec4>::difference_type>(vertices.size() / 2)});
+            auto lowers = filterEmptiesPoints(std::vector<vec4>{vertices.begin() + static_cast<std::vector<vec4>::difference_type>(vertices.size() / 2), vertices.end()});
+
+            lowers = displaceFaceEdges(lowers, concaveExtrusion);
+
+            uppers.insert(uppers.end(), lowers.begin(), lowers.end());
+            return controlFlag.expired() ? std::nullopt : std::make_optional(uppers);
+        } else
+            return controlFlag.expired() ? std::nullopt : std::make_optional(filterEmptiesPoints(vertices));
     }
 
     std::optional<std::vector<uint>>
@@ -193,50 +288,5 @@ namespace molumes {
         const auto convexHull = createConvexHull(nonEmptyValues, boundingCenter, controlFlag);
 
         return controlFlag.expired() ? std::nullopt : std::make_optional(convexHull);
-    }
-
-    template<typename T, int N>
-    std::weak_ordering
-    compareVec(const vec<N, T> &as, const vec<N, T> &bs, unsigned int i = 0, float epsilon = 0.0001f) {
-        return N <= i ? std::weak_ordering::equivalent : (as[i] < bs[i] + epsilon && bs[i] < as[i] + epsilon) ?
-                                                         compareVec(as, bs, i + 1, epsilon) :
-                                                         ((as[i] < bs[i]) ? std::weak_ordering::less
-                                                                          : std::weak_ordering::greater);
-    }
-
-    struct Vec4Comparitor {
-        auto operator()(const vec4 &lhs, const vec4 &rhs) const {
-            return compareVec(lhs, rhs) == std::weak_ordering::less;
-        }
-    };
-
-    std::pair<std::vector<vec4>, std::vector<unsigned int>> getVertexIndexPairs(const std::vector<vec4> &vertices) {
-        std::vector<vec4> uniqueVertices;
-        uniqueVertices.reserve(vertices.size());
-        std::vector<unsigned int> indices;
-        indices.reserve(vertices.size());
-
-        std::map<vec4, unsigned int, Vec4Comparitor> lookupMap;
-
-        for (const auto &v: vertices) {
-            const auto pos = lookupMap.find(v);
-            if (pos != lookupMap.end()) {
-                indices.push_back(pos->second);
-            } else {
-                uniqueVertices.push_back(v);
-                const auto i = static_cast<unsigned int>(lookupMap.size());
-                indices.push_back(i);
-                lookupMap.emplace(v, i);
-            }
-        }
-
-        uniqueVertices.shrink_to_fit();
-        indices.shrink_to_fit();
-
-        return std::make_pair(uniqueVertices, indices);
-    }
-
-    auto sortedEdge(auto a, auto b) {
-        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
     }
 }

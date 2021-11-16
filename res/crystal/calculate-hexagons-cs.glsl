@@ -22,8 +22,7 @@ uniform bool concaveMesh = false;
 uniform float valueThreshold = 0.0;
 uniform float cutValue = 0.5;
 uniform float cutWidth = 0.1;
-//uniform float extrude_factor = 0.0;
-const float extrude_factor = 0.01;
+uniform float extrude_factor = 0.0;
 
 layout(binding = 1) uniform sampler2D accumulateTexture;
 
@@ -100,8 +99,6 @@ void main() {
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
-    if (concaveMesh && mirrorFlip)
-        centerPos.z -= extrude_factor;
 
     vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
@@ -120,46 +117,39 @@ void main() {
     vertices[triangleIndex+1] = vec4(0.0);
     vertices[triangleIndex+2] = vec4(0.0);
 
-    // Neighbor triangles:
-    // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
-    const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
-    const bool gridEdge = (neighbor.x < 0 || neighbor.y < -1 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
-
-    // Grid edge:
-    //        if (gridEdge)
-    //            return;
-
-    // get value from accumulate texture
-    // Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
-    ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
-    float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
-
-    float neighborDepth;
-    if (mirrorMesh)
-        neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
-    else if (cutMesh)
-        neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
-    else
-        neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
-
-    // Whether the edge going from this triangle to the next is going upwards (positive)
-    const bool positiveEdge = depth < neighborDepth;
-
     if (innerGroup) { // Hexagon triangles:
         vertices[triangleIndex] = centerPos;
-    } else {
+    } else { // Neighbor triangles
+        // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
+        const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
+        const bool gridEdge = (neighbor.x < 0 || neighbor.y < -1 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
+
+        // Grid edge:
+//        if (gridEdge)
+//            return;
+
+        // get value from accumulate texture
+        // Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
+        ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
+        float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
+
+        float neighborDepth;
+        if (mirrorMesh)
+            neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
+        else if (cutMesh)
+            neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
+        else
+            neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
+
         // Skip "empty" triangles (can only skip early if we don't use normals)
         if (!tileNormalsEnabled && abs(depth - neighborDepth) < EPSILON)
             return;
 
         vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, neighborDepth, 1.0);
         neighborPos /= neighborPos.w;
-        if (concaveMesh && mirrorFlip)
-            neighborPos.z -= extrude_factor;
 
         float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
-        float radius = tile_scale + (concaveMesh && mirrorFlip ? (positiveEdge ? extrude_factor : -extrude_factor) : 0.0);
-        vec3 neighborOffset = vec3(radius * cos(ar), radius * sin(ar), 0.);
+        vec3 neighborOffset = vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.);
         // Regression plane offset
         if (tileNormalsEnabled) {
             vec3 neighborNormal = tileNormalsEnabled && EPSILON < neighborHexValue ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
@@ -175,8 +165,7 @@ void main() {
         float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + i);
 
         // Offset from center of point + grid width
-        float radius = tile_scale + (concaveMesh && mirrorFlip ? (positiveEdge ? extrude_factor : -extrude_factor) : 0.0);
-        vec3 offset = vec3(radius * cos(angle_rad), radius * sin(angle_rad), 0.0);
+        vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
         if (tileNormalsEnabled) {
             float normalDisplacement = dot(-offset, normal) * normal.z;
             if (!isnan(normalDisplacement))

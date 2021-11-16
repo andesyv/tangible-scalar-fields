@@ -135,7 +135,7 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
-        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.1f, 1.f) &&
+        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f) &&
             static_cast<GeometryMode>(m_geometryMode) != Cut)
             m_hexagonsUpdated = true;
 
@@ -361,7 +361,8 @@ void CrystalRenderer::display() {
                 std::get<1>(m_workerResults) = std::move(
                         m_worker.queue_job<1>(geometryPostProcessing,
                                               std::vector<vec4>{memPtr + 0, memPtr + vCount},
-                                              std::move(std::weak_ptr{m_workerControlFlag})));
+                                              std::move(std::weak_ptr{m_workerControlFlag}),
+                                              static_cast<GeometryMode>(m_geometryMode) == Concave, m_extrusionFactor));
             if (!m_computeBuffer2->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer!"};
         } else {
@@ -583,7 +584,7 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
 }
 
 mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
-    if (static_cast<GeometryMode>(m_geometryMode) == Cut)
+    if (static_cast<GeometryMode>(m_geometryMode) == Cut || static_cast<GeometryMode>(m_geometryMode) == Concave)
         return scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, m_tileHeight});
     else
         return translate(
