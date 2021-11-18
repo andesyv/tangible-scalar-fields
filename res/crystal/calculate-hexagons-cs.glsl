@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 // 6 triangles per hex, and every triangle (might) have a neighbour = 6 * 2
 layout(local_size_x = 6, local_size_y = 2) in;
@@ -37,11 +37,13 @@ layout(std430, binding = 3) buffer tileNormalsBuffer
     int tileNormals[];
 };
 
+layout(binding = 4) uniform atomic_uint maxValDiff;
 
 const float PI = 3.1415926;
 const float HEX_ANGLE = PI / 180.0 * 60.0;
 const float bufferAccumulationFactor = 100.0; // Uniform constant in hexagon-tile shaders (could be a define)
 const float EPSILON = 0.001;
+const uint hexValueIntMax = 1000000; // The higher the number, the more accurate (max 32-bit uint)
 
 const ivec2 NEIGHBORS[6] = ivec2[6](
     ivec2(1, 1), ivec2(0, 2), ivec2(-1, 1),
@@ -94,6 +96,8 @@ void main() {
         depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
     else if (cutMesh)
         depth = mirrorFlip ? (hexValue < EPSILON ? cutMin : min(2.0 * hexValue / maxAcc - 1.0, cutMin)) : max(2.0 * hexValue / maxAcc - 1.0, cutMax);
+    else if (concaveMesh)
+        depth = hexValue / maxAcc;
     else
         depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
 
@@ -117,27 +121,35 @@ void main() {
     vertices[triangleIndex+1] = vec4(0.0);
     vertices[triangleIndex+2] = vec4(0.0);
 
+    // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
+    const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
+    const bool gridEdge = (neighbor.x < 0 || neighbor.y < -1 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
+
+    // Grid edge:
+    //        if (gridEdge)
+    //            return;
+
+    // get value from accumulate texture
+    // Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
+    ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
+    float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
+
+    if (concaveMesh) {
+        uint neighborValueDiff = uint(hexValueIntMax * (abs(neighborHexValue - hexValue) / maxAcc));
+        // Since we're running compute shaders, it would be possible to sync this across work groups before syncing it globally. May increase performance
+        atomicCounterMax(maxValDiff, neighborValueDiff);
+    }
+
     if (innerGroup) { // Hexagon triangles:
         vertices[triangleIndex] = centerPos;
     } else { // Neighbor triangles
-        // https://www.redblobgames.com/grids/hexagons/#neighbors-doubled
-        const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
-        const bool gridEdge = (neighbor.x < 0 || neighbor.y < -1 || num_cols <= neighbor.x || num_rows * 2 < neighbor.y);
-
-        // Grid edge:
-//        if (gridEdge)
-//            return;
-
-        // get value from accumulate texture
-        // Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
-        ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
-        float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
-
         float neighborDepth;
         if (mirrorMesh)
             neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
         else if (cutMesh)
             neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
+        else if (concaveMesh)
+            neighborDepth = neighborHexValue / maxAcc;
         else
             neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
 
@@ -180,7 +192,7 @@ void main() {
     // Additional empty triangle check at the very end if tileNormals are enabled because we can't check for it early
     if (!innerGroup && tileNormalsEnabled) {
         float mi = 1000.0;
-        float ma = 1000.0;
+        float ma = -1000.0;
         for (int i = 0; i < 3; ++i) {
             float height = vertices[triangleIndex + i].z;
             mi = min(height, mi);

@@ -48,7 +48,7 @@ namespace molumes {
     }
 
     std::optional<std::vector<glm::vec4>>
-    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag, bool concave = false, float concaveExtrusion = 0.f);
+    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag);
 
     std::optional<std::vector<glm::uint>>
     getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag, float upperThreshold, float lowerThreshold);

@@ -213,7 +213,7 @@ namespace molumes {
     }
 
     std::optional<std::vector<vec4>>
-    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag, bool concave, float concaveExtrusion) {
+    geometryPostProcessing(const std::vector<vec4> &vertices, const std::weak_ptr<bool> &controlFlag) {
         // If we at this point don't have a buffer, it means it got recreated somewhere in the meantime.
         // In which case we don't need this thread anymore.
         if (controlFlag.expired() || vertices.size() < 3)
@@ -232,16 +232,7 @@ namespace molumes {
             return data;
         };
 
-        if (concave) {
-            auto uppers = filterEmptiesPoints(std::vector<vec4>{vertices.begin(), vertices.begin() + static_cast<std::vector<vec4>::difference_type>(vertices.size() / 2)});
-            auto lowers = filterEmptiesPoints(std::vector<vec4>{vertices.begin() + static_cast<std::vector<vec4>::difference_type>(vertices.size() / 2), vertices.end()});
-
-            lowers = displaceFaceEdges(lowers, concaveExtrusion);
-
-            uppers.insert(uppers.end(), lowers.begin(), lowers.end());
-            return controlFlag.expired() ? std::nullopt : std::make_optional(uppers);
-        } else
-            return controlFlag.expired() ? std::nullopt : std::make_optional(filterEmptiesPoints(vertices));
+        return controlFlag.expired() ? std::nullopt : std::make_optional(filterEmptiesPoints(vertices));
     }
 
     std::optional<std::vector<uint>>

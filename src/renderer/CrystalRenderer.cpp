@@ -47,6 +47,8 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
 
     m_vao = std::make_unique<VertexArray>(); /// Apparently exactly the same as VertexArray::create();
     m_computeBuffer2 = Buffer::create();
+    m_maxValDiff = Buffer::create();
+    m_maxValDiff->setStorage(sizeof(uint), nullptr, GL_NONE_BIT);
 
     createShaderProgram("crystal", {
             {GL_VERTEX_SHADER,   "./res/crystal/crystal-vs.glsl"},
@@ -278,6 +280,7 @@ void CrystalRenderer::display() {
                         m_vertices.begin(), m_vertices.begin() + m_vertices.size() / 2};
                 float upper{-1.f + m_valueThreshold * 2.f}, lower{-1.f};
                 switch (m_geometryMode) {
+                    case Concave:
                     case Mirror:
                         upper = m_valueThreshold;
                         lower = -m_valueThreshold;
@@ -297,7 +300,19 @@ void CrystalRenderer::display() {
                                                                                lower));
             }
             if (!m_computeBuffer->unmap())
-                throw std::runtime_error{"Failed to unmap GPU buffer!"};
+                throw std::runtime_error{"Failed to unmap GPU buffer! (compute vertex buffer)"};
+
+//            // Update min extrusion:
+//            if (static_cast<GeometryMode>(m_geometryMode) == Concave) {
+//                const auto maxValueDiffPtr = reinterpret_cast<uint*>(m_maxValDiff->mapRange(0, sizeof(uint), GL_MAP_READ_BIT));
+//                constexpr uint hexValueIntMax = 1000000;
+//                m_minExtrusion = static_cast<float>(*maxValueDiffPtr / double{hexValueIntMax});
+//                if (!m_maxValDiff->unmap())
+//                    throw std::runtime_error{"Failed to unmap GPU buffer! (compute max diff buffer"};
+//
+//                m_extrusionFactor = std::max(m_extrusionFactor, m_minExtrusion);
+//            }
+
             /**
              * Using a sync object here forces a sync between the GPU and the CPU, making the GPU have to wait for the
              * CPU on the next frame, limiting this operation to the framerate of the program (60 fps). There are
@@ -361,8 +376,7 @@ void CrystalRenderer::display() {
                 std::get<1>(m_workerResults) = std::move(
                         m_worker.queue_job<1>(geometryPostProcessing,
                                               std::vector<vec4>{memPtr + 0, memPtr + vCount},
-                                              std::move(std::weak_ptr{m_workerControlFlag}),
-                                              static_cast<GeometryMode>(m_geometryMode) == Concave, m_extrusionFactor));
+                                              std::move(std::weak_ptr{m_workerControlFlag})));
             if (!m_computeBuffer2->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer!"};
         } else {
@@ -410,6 +424,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     std::shared_ptr<Buffer> tileNormalsBuffer;
 
     m_computeBuffer->clearData(GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
+    m_maxValDiff->clearData(GL_R32UI, GL_RED, GL_UNSIGNED_INT, nullptr);
 
     m_computeBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
     accumulateTexture->bindActive(1);
@@ -418,6 +433,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
         tileNormalsBuffer = tileNormalsRef.lock();
         tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
     }
+    m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
 
     shader->use();
     shader->setUniform("num_cols", num_cols);
@@ -438,6 +454,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 
     glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
+    m_maxValDiff->unbind(GL_ATOMIC_COUNTER_BUFFER, 4);
     if (tileNormalsEnabled)
         tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
     accumulateMax->unbind(GL_SHADER_STORAGE_BUFFER, 2);
@@ -451,7 +468,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
-            GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+            GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
     auto syncObject = std::move(Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE));
     m_hexagonsUpdated = false;
 
@@ -482,6 +499,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
             tileNormalsBuffer = tileNormalsRef.lock();
             tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
         }
+        m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
 
         shader->use();
         shader->setUniform("num_cols", num_cols);
@@ -501,6 +519,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
+        m_maxValDiff->unbind(GL_ATOMIC_COUNTER_BUFFER, 4);
         if (tileNormalsEnabled)
             tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
         accumulateTexture->unbindActive(2);
@@ -526,14 +545,17 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         shader->use();
 
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+        m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
 
         shader->setUniform("triangleCount", triangleCount);
         shader->setUniform("mirroredMesh", mirrored);
+        shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
         shader->setUniform("MVP", MVP[0]);
         shader->setUniform("MVP2", MVP[1]);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
+        m_maxValDiff->unbind(GL_ATOMIC_COUNTER_BUFFER, 4);
         m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -584,7 +606,7 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
 }
 
 mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
-    if (static_cast<GeometryMode>(m_geometryMode) == Cut || static_cast<GeometryMode>(m_geometryMode) == Concave)
+    if (static_cast<GeometryMode>(m_geometryMode) == Cut)
         return scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, m_tileHeight});
     else
         return translate(
