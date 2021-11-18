@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <list>
-#include <sstream>
 #include <filesystem>
 
 #ifdef _WIN32
@@ -22,9 +21,7 @@
 #include <glbinding/gl/functions.h>
 #include <globjects/globjects.h>
 #include <globjects/base/File.h>
-#include <globjects/base/StaticStringSource.h>
 #include <globjects/VertexAttributeBinding.h>
-#include <globjects/NamedString.h>
 #include <imgui.h>
 
 #include "CameraInteractor.h"

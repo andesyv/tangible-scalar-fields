@@ -50,6 +50,9 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
     m_maxValDiff = Buffer::create();
     m_maxValDiff->setStorage(sizeof(uint), nullptr, GL_NONE_BIT);
 
+    addGlobalShaderInclude("./res/crystal/geometry-constants.glsl");
+    addGlobalShaderInclude("./res/crystal/geometry-globals.glsl");
+
     createShaderProgram("crystal", {
             {GL_VERTEX_SHADER,   "./res/crystal/crystal-vs.glsl"},
             {GL_GEOMETRY_SHADER, "./res/crystal/crystal-gs.glsl"},
@@ -112,7 +115,7 @@ void CrystalRenderer::display() {
             m_hexagonsUpdated = true;
         }
 
-        switch (static_cast<GeometryMode>(m_geometryMode)) {
+        switch (getGeometryMode()) {
             case Cut:
                 if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
                     m_hexagonsUpdated = true;
@@ -132,7 +135,7 @@ void CrystalRenderer::display() {
         if (m_tileNormalsEnabled) {
             if (ImGui::SliderFloat("Regression plane factor", &m_tileNormalsFactor, 0.01f, 100.f))
                 m_hexagonsUpdated = true;
-            if (ImGui::Checkbox("Align regression plane displacement with bottom mesh", &m_alignTileNormalsWithBottomMesh))
+            if (getGeometryMode() == Concave && ImGui::Checkbox("Align regression plane displacement with bottom mesh", &m_alignTileNormalsWithBottomMesh))
                 m_hexagonsUpdated = true;
         }
         if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
@@ -140,7 +143,7 @@ void CrystalRenderer::display() {
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f) &&
-            static_cast<GeometryMode>(m_geometryMode) != Cut)
+            getGeometryMode() != Cut)
             m_hexagonsUpdated = true;
 
         ImGui::EndMenu();
@@ -293,9 +296,9 @@ void CrystalRenderer::display() {
                         break;
                 }
                 std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull,
-                                                                               static_cast<GeometryMode>(m_geometryMode) ==
+                                                                               getGeometryMode() ==
                                                                                Normal ||
-                                                                               static_cast<GeometryMode>(m_geometryMode) ==
+                                                                               getGeometryMode() ==
                                                                                Concave ? halfVertices : m_vertices,
                                                                                std::move(std::weak_ptr{
                                                                                        m_workerControlFlag}), upper,
@@ -305,7 +308,7 @@ void CrystalRenderer::display() {
                 throw std::runtime_error{"Failed to unmap GPU buffer! (compute vertex buffer)"};
 
 //            // Update min extrusion:
-//            if (static_cast<GeometryMode>(m_geometryMode) == Concave) {
+//            if (getGeometryMode() == Concave) {
 //                const auto maxValueDiffPtr = reinterpret_cast<uint*>(m_maxValDiff->mapRange(0, sizeof(uint), GL_MAP_READ_BIT));
 //                constexpr uint hexValueIntMax = 1000000;
 //                m_minExtrusion = static_cast<float>(*maxValueDiffPtr / double{hexValueIntMax});
@@ -420,7 +423,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     m_workerControlFlag = std::make_shared<bool>(true);
 
     const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(
-            static_cast<GeometryMode>(m_geometryMode) != Normal ?
+            getGeometryMode() != Normal ?
             2 * count : count, 1.0 / 3.0))), 1u);
     const bool tileNormalsEnabled = !tileNormalsRef.expired();
     std::shared_ptr<Buffer> tileNormalsBuffer;
@@ -446,9 +449,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("maxTexCoordY", tile_max_y);
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
-    shader->setUniform("mirrorMesh", static_cast<GeometryMode>(m_geometryMode) == Mirror);
-    shader->setUniform("cutMesh", static_cast<GeometryMode>(m_geometryMode) == Cut);
-    shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
+    shader->setUniform("geometryMode", m_geometryMode);
     shader->setUniform("alignNormalPlaneWithBottomMesh", m_alignTileNormalsWithBottomMesh);
     shader->setUniform("valueThreshold", m_valueThreshold);
     shader->setUniform("cutValue", m_cutValue);
@@ -467,7 +468,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     // Share resource with m_vertexBuffer, orphaning the old buffer
     m_vertexBuffer = m_computeBuffer;
     // Probably the line that causes weird normals in phong renderer: (side faces may be uninitialized)
-    m_drawingCount = getDrawingCount(count) * (static_cast<GeometryMode>(m_geometryMode) != Normal ? 4 : 1);
+    m_drawingCount = getDrawingCount(count) * (getGeometryMode() != Normal ? 4 : 1);
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
@@ -490,7 +491,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
             return {};
 
         const auto invocationSpace = std::max(static_cast<GLuint>(std::ceil(std::pow(
-                static_cast<GeometryMode>(m_geometryMode) != Normal
+                getGeometryMode() != Normal
                 ? 2 * count : count, 1.0 / 3.0))), 1u);
         const bool tileNormalsEnabled = !tileNormalsRef.expired();
         std::shared_ptr<Buffer> tileNormalsBuffer;
@@ -515,9 +516,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         shader->setUniform("maxTexCoordY", tile_max_y);
         shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
-        shader->setUniform("mirrorMesh", static_cast<GeometryMode>(m_geometryMode) == Mirror);
-        shader->setUniform("cutMesh", static_cast<GeometryMode>(m_geometryMode) == Cut);
-        shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
+        shader->setUniform("geometryMode", m_geometryMode);
         shader->setUniform("cutValue", m_cutValue);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
@@ -539,7 +538,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
             return {};
 
         const auto triangleCount = getDrawingCount(count) * 2 / 3;
-        const auto mirrored = static_cast<GeometryMode>(m_geometryMode) != Normal;
+        const auto mirrored = getGeometryMode() != Normal;
         // Note: Might do weird stuff if GPU cannot instantiate enough threads...
         const auto invocationSpace = std::max(
                 static_cast<GLuint>(std::ceil(std::pow(getBufferPointCount(count) / 3, 1.0 / 3.0))), 1u);
@@ -552,7 +551,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
         shader->setUniform("triangleCount", triangleCount);
         shader->setUniform("mirroredMesh", mirrored);
-        shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
+        shader->setUniform("concaveMesh", getGeometryMode() == Concave);
         shader->setUniform("MVP", MVP[0]);
         shader->setUniform("MVP2", MVP[1]);
 
@@ -609,7 +608,7 @@ void CrystalRenderer::fileLoaded(const std::string &file) {
 }
 
 mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
-    if (static_cast<GeometryMode>(m_geometryMode) == Cut)
+    if (getGeometryMode() == Cut)
         return scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, m_tileHeight});
     else
         return translate(

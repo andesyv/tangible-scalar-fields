@@ -1,12 +1,17 @@
 #version 460
+#extension GL_ARB_shading_language_include : required
 
 // 6 triangles per hex, and every triangle (might) have a neighbour = 6 * 2
 layout(local_size_x = 6, local_size_y = 2) in;
 
-layout(std430, binding = 0) buffer genVertexBuffer
-{
-    vec4 vertices[];
-};
+/**
+ *  GeometryMode {
+ *      Normal = 0,
+ *      Mirror = 1,
+ *      Cut = 2,
+ *      Concave = 3
+ *  };
+ */
 
 uniform int num_cols = 4;
 uniform int num_rows = 4;
@@ -16,53 +21,30 @@ uniform uint POINT_COUNT = 1u;
 uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
-uniform bool mirrorMesh = false;
-uniform bool cutMesh = false;
-uniform bool concaveMesh = false;
+uniform int geometryMode = 0;
 uniform bool alignNormalPlaneWithBottomMesh = true;
 uniform float valueThreshold = 0.0;
 uniform float cutValue = 0.5;
 uniform float cutWidth = 0.1;
 uniform float extrude_factor = 0.0;
 
+layout(std430, binding = 0) buffer genVertexBuffer
+{
+    vec4 vertices[];
+};
 layout(binding = 1) uniform sampler2D accumulateTexture;
-
 layout(std430, binding = 2) buffer valueMaxBuffer
 {
     uint maxAccumulate;
     uint maxPointAlpha;
 };
-
 layout(std430, binding = 3) buffer tileNormalsBuffer
 {
     int tileNormals[];
 };
-
 layout(binding = 4) uniform atomic_uint maxValDiff;
 
-const float PI = 3.1415926;
-const float HEX_ANGLE = PI / 180.0 * 60.0;
-const float bufferAccumulationFactor = 100.0; // Uniform constant in hexagon-tile shaders (could be a define)
-const float EPSILON = 0.001;
-const uint hexValueIntMax = 1000000; // The higher the number, the more accurate (max 32-bit uint)
-
-const ivec2 NEIGHBORS[6] = ivec2[6](
-    ivec2(1, 1), ivec2(0, 2), ivec2(-1, 1),
-    ivec2(-1,-1), ivec2(0, -2), ivec2(1, -1)
-);
-
-vec3 getRegressionPlaneNormal(ivec2 hexCoord) {
-    vec4 tileNormal;
-    // get accumulated tile normals from buffer
-    for(int i = 0; i < 4; i++){
-        tileNormal[i] = float(tileNormals[int((hexCoord.x*(maxTexCoordY+1) + hexCoord.y) * 5 + i)]);
-    }
-    tileNormal /= bufferAccumulationFactor;// get original value after accumulation
-
-    // LIGHTING NORMAL ------------------------
-    return normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
-}
-
+#include "/geometry-globals.glsl"
 
 void main() {
     // Common for whole work group:
@@ -72,7 +54,7 @@ void main() {
         gl_WorkGroupID.y * gl_NumWorkGroups.x +
         gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirrorMesh || cutMesh || concaveMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
+    if ((geometryMode != 0 ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
@@ -95,19 +77,24 @@ void main() {
     vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
     float depth;
-    if (mirrorMesh)
-        depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
-    else if (cutMesh)
-        depth = mirrorFlip ? (hexValue < EPSILON ? cutMin : min(2.0 * hexValue / maxAcc - 1.0, cutMin)) : max(2.0 * hexValue / maxAcc - 1.0, cutMax);
-    else if (concaveMesh)
-        if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
-            /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out
-            float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
-            depth = hexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0); // normal.y <=> dot(normal, vec3(0., 1.0, 0.))
-        } else
-            depth = hexValue / maxAcc;
-    else
-        depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
+    switch (geometryMode) {
+        case 1: // Mirror
+            depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
+            break;
+        case 2: // Cut
+            depth = mirrorFlip ? (hexValue < EPSILON ? cutMin : min(2.0 * hexValue / maxAcc - 1.0, cutMin)) : max(2.0 * hexValue / maxAcc - 1.0, cutMax);
+            break;
+        case 3: // Concave
+            if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
+                /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out
+                float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
+                depth = hexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+            } else
+                depth = hexValue / maxAcc;
+            break;
+        default:
+            depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
+    }
 
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
@@ -142,7 +129,7 @@ void main() {
 
     vec3 neighborNormal = tileNormalsEnabled && EPSILON < neighborHexValue ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
 
-    if (concaveMesh) {
+    if (geometryMode == 3) {
         uint neighborValueDiff = uint(hexValueIntMax * (abs(neighborHexValue - hexValue) / maxAcc));
         // Since we're running compute shaders, it would be possible to sync this across work groups before syncing it globally. May increase performance
         atomicCounterMax(maxValDiff, neighborValueDiff);
@@ -152,18 +139,23 @@ void main() {
         vertices[triangleIndex] = centerPos;
     } else { // Neighbor triangles
         float neighborDepth;
-        if (mirrorMesh)
-            neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
-        else if (cutMesh)
-            neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
-        else if (concaveMesh)
-            if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
-                float normalDisplacement = dot(normalize(vec3(neighborNormal.xy, 0.0)) * tile_scale, neighborNormal) * neighborNormal.z;
-                neighborDepth = neighborHexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-            } else
-                neighborDepth = neighborHexValue / maxAcc;
-        else
-            neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
+        switch (geometryMode) {
+            case 1: // Mirror
+                neighborDepth = (mirrorFlip ? -1.0 : 1.0) * neighborHexValue / maxAcc;
+                break;
+            case 2: // Cut
+                neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
+                break;
+            case 3: // Concave
+                if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
+                    float normalDisplacement = dot(normalize(vec3(neighborNormal.xy, 0.0)) * tile_scale, neighborNormal) * neighborNormal.z;
+                    neighborDepth = neighborHexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+                } else
+                    neighborDepth = neighborHexValue / maxAcc;
+                break;
+            default:
+                neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
+        }
 
         // Skip "empty" triangles (can only skip early if we don't use normals)
         if (!tileNormalsEnabled && abs(depth - neighborDepth) < EPSILON)
@@ -172,28 +164,12 @@ void main() {
         vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, neighborDepth, 1.0);
         neighborPos /= neighborPos.w;
 
-        float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
-        vec3 neighborOffset = vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.);
-        // Regression plane offset
-        if (tileNormalsEnabled) {
-            float normalDisplacement = dot(-neighborOffset, neighborNormal) * neighborNormal.z;
-
-            if (!isnan(normalDisplacement))
-                neighborOffset.z += normalDisplacement * tileNormalDisplacementFactor;
-        }
+        vec3 neighborOffset = getOffset(3, neighborNormal);
         vertices[triangleIndex] = vec4(neighborPos.xyz + neighborOffset, 1.0);
     }
 
     for (uint i = 0; i < 2u; ++i) {
-        float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + i);
-
-        // Offset from center of point + grid width
-        vec3 offset = vec3(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0);
-        if (tileNormalsEnabled) {
-            float normalDisplacement = dot(-offset, normal) * normal.z;
-            if (!isnan(normalDisplacement))
-                offset.z += normalDisplacement * tileNormalDisplacementFactor;
-        }
+        vec3 offset = getOffset(i, normal);
 
         // Flip triangle winding order when on inner group and when flipping the mesh
         uint ti = triangleIndex + ((innerGroup ^^ mirrorFlip) ? (i + 1) : (2 - i));
@@ -201,7 +177,7 @@ void main() {
     }
 
     // Additional empty triangle check at the very end if tileNormals are enabled because we can't check for it early
-    if (!innerGroup && tileNormalsEnabled) {
+    if (tileNormalsEnabled && !innerGroup) {
         float mi = 1000.0;
         float ma = -1000.0;
         for (int i = 0; i < 3; ++i) {

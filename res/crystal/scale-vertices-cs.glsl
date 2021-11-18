@@ -1,4 +1,6 @@
 #version 450
+#extension GL_ARB_shading_language_include : required
+#include "/geometry-constants.glsl"
 
 layout(local_size_x = 1) in;
 
@@ -14,8 +16,6 @@ uniform bool mirroredMesh = false;
 uniform bool concaveMesh = false;
 uniform mat4 MVP = mat4(1.0);
 uniform mat4 MVP2 = mat4(1.0);
-
-const uint hexValueIntMax = 1000000; // The higher the number, the more accurate (max 32-bit uint)
 
 mat4 translate(mat4 m, vec3 translation) {
     mat4 t = mat4(1.0);

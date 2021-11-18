@@ -69,17 +69,7 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
 	ShaderProgram program{ .m_program = std::move(Program::create()) };
 
 	for (const auto& i : shaderIncludes)
-	{
-		globjects::debug() << "Loading include file " << i << " ...";
-
-		std::filesystem::path path(i);
-
-		auto file = File::create(i);
-		auto string = NamedString::create("/" + path.filename().string(), file.get());
-
-		program.m_files.insert(std::move(file));
-		program.m_strings.insert(std::move(string));
-	}
+        addGlobalShaderInclude(i);
 
 	for (const auto& i : shaders)
 	{
@@ -120,4 +110,24 @@ globjects::Program * Renderer::shaderProgram(const std::string & name)
 }
 
 void Renderer::fileLoaded(const std::string&) {}
+
+Renderer::~Renderer() {
+    // For some reason have to manually destroy each named string before destruction, or there is a memory crash
+    for (auto& [key, val] : m_shaderIncludes)
+        val.first.reset();
+}
+
+void Renderer::addGlobalShaderInclude(const std::string& str) {
+    globjects::debug() << "Loading include file " << str << " ...";
+
+    std::filesystem::path path{str};
+    std::string shaderIncludeName = "/" + path.filename().string();
+    if (m_shaderIncludes.contains(shaderIncludeName))
+        return;
+
+    auto file = File::create(str);
+    auto string = NamedString::create(shaderIncludeName, file.get());
+
+    m_shaderIncludes.insert(std::make_pair(shaderIncludeName, std::make_pair(std::move(string), std::move(file))));
+}
 

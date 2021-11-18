@@ -93,10 +93,12 @@ namespace molumes {
 
         void resizeVertexBuffer(int hexCount);
 
+        auto getGeometryMode() const { return static_cast<GeometryMode>(m_geometryMode); }
+
         static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
 
         auto getBufferPointCount(int count) const {
-            return getDrawingCount(count) * 2 * (static_cast<GeometryMode>(m_geometryMode) != Normal ? 2 : 1);
+            return getDrawingCount(count) * 2 * (getGeometryMode() != Normal ? 2 : 1);
         }
 
         auto getBufferSize(int count) const {
