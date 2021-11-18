@@ -132,6 +132,8 @@ void CrystalRenderer::display() {
         if (m_tileNormalsEnabled) {
             if (ImGui::SliderFloat("Regression plane factor", &m_tileNormalsFactor, 0.01f, 100.f))
                 m_hexagonsUpdated = true;
+            if (ImGui::Checkbox("Align regression plane displacement with bottom mesh", &m_alignTileNormalsWithBottomMesh))
+                m_hexagonsUpdated = true;
         }
         if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
             m_hexagonsUpdated = true;
@@ -447,6 +449,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("mirrorMesh", static_cast<GeometryMode>(m_geometryMode) == Mirror);
     shader->setUniform("cutMesh", static_cast<GeometryMode>(m_geometryMode) == Cut);
     shader->setUniform("concaveMesh", static_cast<GeometryMode>(m_geometryMode) == Concave);
+    shader->setUniform("alignNormalPlaneWithBottomMesh", m_alignTileNormalsWithBottomMesh);
     shader->setUniform("valueThreshold", m_valueThreshold);
     shader->setUniform("cutValue", m_cutValue);
     shader->setUniform("cutWidth", m_cutWidth);

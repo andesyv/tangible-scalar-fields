@@ -19,6 +19,7 @@ uniform float tileNormalDisplacementFactor = 1.0;
 uniform bool mirrorMesh = false;
 uniform bool cutMesh = false;
 uniform bool concaveMesh = false;
+uniform bool alignNormalPlaneWithBottomMesh = true;
 uniform float valueThreshold = 0.0;
 uniform float cutValue = 0.5;
 uniform float cutWidth = 0.1;
@@ -91,21 +92,26 @@ void main() {
     const float cutMin = 2.0 * cutValue - 1.0 - cutWidth;
     const float cutMax = 2.0 * cutValue - 1.0 + cutWidth;
 
+    vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
+
     float depth;
     if (mirrorMesh)
         depth = (mirrorFlip ? -1.0 : 1.0) * hexValue / maxAcc;
     else if (cutMesh)
         depth = mirrorFlip ? (hexValue < EPSILON ? cutMin : min(2.0 * hexValue / maxAcc - 1.0, cutMin)) : max(2.0 * hexValue / maxAcc - 1.0, cutMax);
     else if (concaveMesh)
-        depth = hexValue / maxAcc;
+        if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
+            /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out
+            float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
+            depth = hexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0); // normal.y <=> dot(normal, vec3(0., 1.0, 0.))
+        } else
+            depth = hexValue / maxAcc;
     else
         depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
 
+
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
-
-    vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
-
 
     const uint bufferSize = POINT_COUNT * 6 * 2 * 3 * 2;
 
@@ -134,6 +140,8 @@ void main() {
     ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
     float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
 
+    vec3 neighborNormal = tileNormalsEnabled && EPSILON < neighborHexValue ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
+
     if (concaveMesh) {
         uint neighborValueDiff = uint(hexValueIntMax * (abs(neighborHexValue - hexValue) / maxAcc));
         // Since we're running compute shaders, it would be possible to sync this across work groups before syncing it globally. May increase performance
@@ -149,7 +157,11 @@ void main() {
         else if (cutMesh)
             neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
         else if (concaveMesh)
-            neighborDepth = neighborHexValue / maxAcc;
+            if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
+                float normalDisplacement = dot(normalize(vec3(neighborNormal.xy, 0.0)) * tile_scale, neighborNormal) * neighborNormal.z;
+                neighborDepth = neighborHexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+            } else
+                neighborDepth = neighborHexValue / maxAcc;
         else
             neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
 
@@ -164,7 +176,6 @@ void main() {
         vec3 neighborOffset = vec3(tile_scale * cos(ar), tile_scale * sin(ar), 0.);
         // Regression plane offset
         if (tileNormalsEnabled) {
-            vec3 neighborNormal = tileNormalsEnabled && EPSILON < neighborHexValue ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
             float normalDisplacement = dot(-neighborOffset, neighborNormal) * neighborNormal.z;
 
             if (!isnan(normalDisplacement))

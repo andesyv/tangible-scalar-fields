@@ -63,6 +63,7 @@ namespace molumes {
         bool m_wireframe = false;
         bool m_renderHull = true;
         bool m_tileNormalsEnabled = false;
+        bool m_alignTileNormalsWithBottomMesh = true;
         int m_renderStyleOption = 0;
         float m_tileScale = 1.0f;
         float m_tileHeight = 0.5f;
