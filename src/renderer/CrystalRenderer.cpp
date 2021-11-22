@@ -35,6 +35,7 @@ const auto stateGuard = []() {
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
 constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::milliseconds{5}).count());
+constexpr std::array<const char *, 2> RENDERSTYLES{"depth", "phong"};
 
 // Waits for as little as it can and checks if the future is ready.
 template<typename T>
@@ -100,54 +101,8 @@ void CrystalRenderer::display() {
 
     auto resources = viewer()->m_sharedResources;
     bool bufferNeedsResize = false;
-    constexpr std::array<const char *, 2> renderStyles{"depth", "phong"};
 
-    if (ImGui::BeginMenu("Crystal")) {
-        if (ImGui::CollapsingHeader("Preview", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Combo("Rendering style", &m_renderStyleOption, renderStyles.data(),
-                         static_cast<int>(renderStyles.size()));
-            ImGui::Checkbox("Wireframe", &m_wireframe);
-            ImGui::Checkbox("Render hull", &m_renderHull);
-        }
-        const static auto geometryModeLabels = "Normal\0Mirror mesh\0Cut mesh\0Concave mesh";
-        if (ImGui::Combo("Geometry mode", &m_geometryMode, geometryModeLabels)) {
-            bufferNeedsResize = true;
-            m_hexagonsUpdated = true;
-        }
-
-        switch (getGeometryMode()) {
-            case Cut:
-                if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
-                    m_hexagonsUpdated = true;
-                if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
-                    m_hexagonsUpdated = true;
-                break;
-            case Normal:
-            case Mirror:
-            default:
-                if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
-                    m_hexagonsUpdated = true;
-                break;
-        }
-        // Doesn't work unless you actually generate the normal plane from the 2D view
-        if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
-            m_hexagonsUpdated = true;
-        if (m_tileNormalsEnabled) {
-            if (ImGui::SliderFloat("Regression plane factor", &m_tileNormalsFactor, 0.01f, 100.f))
-                m_hexagonsUpdated = true;
-            if (getGeometryMode() == Concave && ImGui::Checkbox("Align regression plane displacement with bottom mesh", &m_alignTileNormalsWithBottomMesh))
-                m_hexagonsUpdated = true;
-        }
-        if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
-            m_hexagonsUpdated = true;
-        if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
-            m_hexagonsUpdated = true;
-        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f) &&
-            getGeometryMode() != Cut)
-            m_hexagonsUpdated = true;
-
-        ImGui::EndMenu();
-    }
+    drawGUI(bufferNeedsResize);
 
 #ifndef NDEBUG
     constexpr static auto debugGroupMessage = "Application debug group:";
@@ -230,7 +185,7 @@ void CrystalRenderer::display() {
 
     // Render triangles:
     if (m_vertexBuffer) {
-        const auto &shader = shaderProgram(renderStyles.at(m_renderStyleOption));
+        const auto &shader = shaderProgram(RENDERSTYLES.at(m_renderStyleOption));
         if (shader && 0 < m_drawingCount) {
             shader->use();
             shader->setUniform("MVP", viewProjectionMatrix * m_modelMatrix);
@@ -306,17 +261,6 @@ void CrystalRenderer::display() {
             }
             if (!m_computeBuffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer! (compute vertex buffer)"};
-
-//            // Update min extrusion:
-//            if (getGeometryMode() == Concave) {
-//                const auto maxValueDiffPtr = reinterpret_cast<uint*>(m_maxValDiff->mapRange(0, sizeof(uint), GL_MAP_READ_BIT));
-//                constexpr uint hexValueIntMax = 1000000;
-//                m_minExtrusion = static_cast<float>(*maxValueDiffPtr / double{hexValueIntMax});
-//                if (!m_maxValDiff->unmap())
-//                    throw std::runtime_error{"Failed to unmap GPU buffer! (compute max diff buffer"};
-//
-//                m_extrusionFactor = std::max(m_extrusionFactor, m_minExtrusion);
-//            }
 
             /**
              * Using a sync object here forces a sync between the GPU and the CPU, making the GPU have to wait for the
@@ -450,7 +394,8 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("tileNormalsEnabled", tileNormalsEnabled);
     shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
     shader->setUniform("geometryMode", m_geometryMode);
-    shader->setUniform("alignNormalPlaneWithBottomMesh", m_alignTileNormalsWithBottomMesh);
+    shader->setUniform("topNormalPlaneAlignment", m_topRegressionPlaneAlignment);
+    shader->setUniform("bottomNormalPlaneAlignment", m_bottomRegressionPlaneAlignment);
     shader->setUniform("valueThreshold", m_valueThreshold);
     shader->setUniform("cutValue", m_cutValue);
     shader->setUniform("cutWidth", m_cutWidth);
@@ -614,4 +559,57 @@ mat4 CrystalRenderer::getModelMatrix(bool mirrorFlip) const {
         return translate(
                 scale(mat4{1.f}, vec3{m_tileScale, m_tileScale, 2.f * m_tileHeight / (2.f + m_extrusionFactor)}),
                 vec3{0.f, 0.f, m_extrusionFactor * (mirrorFlip ? -0.5f : 0.5f)});
+}
+
+void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
+    const static auto geometryModeLabels = "Normal\0Mirror mesh\0Cut mesh\0Concave mesh";
+    const static auto regressionPlaneAlignmentLabels = "Top\0Center\0Bottom";
+
+    if (ImGui::BeginMenu("Crystal")) {
+        if (ImGui::CollapsingHeader("Preview", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Combo("Rendering style", &m_renderStyleOption, RENDERSTYLES.data(),
+                         static_cast<int>(RENDERSTYLES.size()));
+            ImGui::Checkbox("Wireframe", &m_wireframe);
+            ImGui::Checkbox("Render hull", &m_renderHull);
+        }
+        if (ImGui::Combo("Geometry mode", &m_geometryMode, geometryModeLabels)) {
+            bufferNeedsResize = true;
+            m_hexagonsUpdated = true;
+        }
+
+        switch (getGeometryMode()) {
+            case Cut:
+                if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
+                    m_hexagonsUpdated = true;
+                if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
+                    m_hexagonsUpdated = true;
+                break;
+            case Normal:
+            case Mirror:
+            default:
+                if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
+                    m_hexagonsUpdated = true;
+                break;
+        }
+        // Doesn't work unless you actually generate the normal plane from the 2D view
+        if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
+            m_hexagonsUpdated = true;
+        if (m_tileNormalsEnabled) {
+            if (ImGui::SliderFloat("Regression plane factor", &m_tileNormalsFactor, 0.01f, 100.f))
+                m_hexagonsUpdated = true;
+            if (ImGui::Combo("Top regression plane pivot", &m_topRegressionPlaneAlignment, regressionPlaneAlignmentLabels))
+                m_hexagonsUpdated = true;
+            if (getGeometryMode() != Normal && ImGui::Combo("Bottom regression plane pivot", &m_bottomRegressionPlaneAlignment, regressionPlaneAlignmentLabels))
+                m_hexagonsUpdated = true;
+        }
+        if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
+            m_hexagonsUpdated = true;
+        if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
+            m_hexagonsUpdated = true;
+        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f) &&
+            getGeometryMode() != Cut)
+            m_hexagonsUpdated = true;
+
+        ImGui::EndMenu();
+    }
 }

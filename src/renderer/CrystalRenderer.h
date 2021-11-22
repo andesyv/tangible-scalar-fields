@@ -63,8 +63,8 @@ namespace molumes {
         bool m_wireframe = false;
         bool m_renderHull = true;
         bool m_tileNormalsEnabled = false;
-        bool m_alignTileNormalsWithBottomMesh = true;
         int m_renderStyleOption = 0;
+        int m_topRegressionPlaneAlignment{1}, m_bottomRegressionPlaneAlignment{1};
         float m_tileScale = 1.0f;
         float m_tileHeight = 0.5f;
         float m_tileNormalsFactor = 1.0;
@@ -79,6 +79,8 @@ namespace molumes {
         int m_geometryMode = 0;
         glm::mat4 m_modelMatrix{1.f};
         float m_minExtrusion = 0.f;
+
+        void drawGUI(bool &bufferNeedsResize);
 
         [[nodiscard]] std::unique_ptr<globjects::Sync>
         generateBaseGeometry(std::shared_ptr<globjects::Texture> &&accumulateTexture,
@@ -104,6 +106,7 @@ namespace molumes {
         auto getBufferSize(int count) const {
             return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4));
         } // * 2 to make room for extrusions
+
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
     };
 }

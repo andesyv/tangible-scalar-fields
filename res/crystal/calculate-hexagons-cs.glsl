@@ -22,7 +22,8 @@ uniform bool tileNormalsEnabled = false;
 uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform int geometryMode = 0;
-uniform bool alignNormalPlaneWithBottomMesh = true;
+uniform int topNormalPlaneAlignment = 1;
+uniform int bottomNormalPlaneAlignment = 1;
 uniform float valueThreshold = 0.0;
 uniform float cutValue = 0.5;
 uniform float cutWidth = 0.1;
@@ -85,15 +86,23 @@ void main() {
             depth = mirrorFlip ? (hexValue < EPSILON ? cutMin : min(2.0 * hexValue / maxAcc - 1.0, cutMin)) : max(2.0 * hexValue / maxAcc - 1.0, cutMax);
             break;
         case 3: // Concave
-            if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
-                /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out
-                float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
-                depth = hexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-            } else
-                depth = hexValue / maxAcc;
+            depth = hexValue / maxAcc;
             break;
         default:
             depth = 2.0 * hexValue / maxAcc - 1.0; // [0,maxAccumulate] -> [-1, 1]
+    }
+
+    // Regression plane alignment displacement
+    if (tileNormalsEnabled) {
+        int alignment = mirrorFlip ? bottomNormalPlaneAlignment : topNormalPlaneAlignment;
+        if (alignment != 1) {
+            /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out myself
+            float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
+            if (alignment == 2)
+                depth += (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+            else if (alignment == 0)
+                depth -= (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+        }
     }
 
 
@@ -147,14 +156,20 @@ void main() {
                 neighborDepth = mirrorFlip ? (neighborHexValue < EPSILON ? cutMin : min(2.0 * neighborHexValue / maxAcc - 1.0, cutMin)) : max(2.0 * neighborHexValue / maxAcc - 1.0, cutMax);
                 break;
             case 3: // Concave
-                if (alignNormalPlaneWithBottomMesh && mirrorFlip) {
-                    float normalDisplacement = dot(normalize(vec3(neighborNormal.xy, 0.0)) * tile_scale, neighborNormal) * neighborNormal.z;
-                    neighborDepth = neighborHexValue / maxAcc + (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-                } else
-                    neighborDepth = neighborHexValue / maxAcc;
+                neighborDepth = neighborHexValue / maxAcc;
                 break;
             default:
                 neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
+        }
+
+        // Regression plane alignment displacement
+        if (tileNormalsEnabled) {
+            int alignment = mirrorFlip ? bottomNormalPlaneAlignment : topNormalPlaneAlignment;
+            float normalDisplacement = dot(normalize(vec3(neighborNormal.xy, 0.0)) * tile_scale, neighborNormal) * neighborNormal.z;
+            if (alignment == 2)
+                neighborDepth += (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+            else if (alignment == 0)
+                neighborDepth -= (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
         }
 
         // Skip "empty" triangles (can only skip early if we don't use normals)
