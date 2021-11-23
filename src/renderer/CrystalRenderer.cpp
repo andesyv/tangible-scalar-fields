@@ -463,6 +463,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
         shader->setUniform("geometryMode", m_geometryMode);
         shader->setUniform("cutValue", m_cutValue);
+        shader->setUniform("orientationNotchScale", m_orientationNotchScale);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
@@ -577,21 +578,14 @@ void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
             m_hexagonsUpdated = true;
         }
 
-        switch (getGeometryMode()) {
-            case Cut:
-                if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
-                    m_hexagonsUpdated = true;
-                if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
-                    m_hexagonsUpdated = true;
-                break;
-            case Normal:
-            case Mirror:
-            default:
-                if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
-                    m_hexagonsUpdated = true;
-                break;
-        }
-        // Doesn't work unless you actually generate the normal plane from the 2D view
+        if (getGeometryMode() == Cut) {
+            if (ImGui::SliderFloat("Cut value", &m_cutValue, 0.f, 1.f))
+                m_hexagonsUpdated = true;
+            if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
+                m_hexagonsUpdated = true;
+        } else if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
+            m_hexagonsUpdated = true;
+        // Doesn't work unless you actually generate the normal plane from the 2D view:
         if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
             m_hexagonsUpdated = true;
         if (m_tileNormalsEnabled) {
@@ -606,8 +600,11 @@ void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
             m_hexagonsUpdated = true;
         if (ImGui::SliderFloat("Height", &m_tileHeight, 0.01f, 1.f))
             m_hexagonsUpdated = true;
-        if (ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f) &&
-            getGeometryMode() != Cut)
+        if (getGeometryMode() != Cut && ImGui::SliderFloat("Extrusion", &m_extrusionFactor, 0.01f, 1.f))
+            m_hexagonsUpdated = true;
+        if (ImGui::Checkbox("Orientation notch", &m_orientationNotchEnabled))
+            m_hexagonsUpdated = true;
+        if (m_orientationNotchEnabled && ImGui::SliderFloat("Orientation notch scale", &m_orientationNotchScale, 0.f, 3.f))
             m_hexagonsUpdated = true;
 
         ImGui::EndMenu();

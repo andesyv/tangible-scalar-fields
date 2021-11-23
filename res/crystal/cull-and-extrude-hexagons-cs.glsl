@@ -24,6 +24,7 @@ uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform int geometryMode = 0;
 uniform float cutValue = 0.5;
+uniform float orientationNotchScale = 1.0;
 
 layout(std430, binding = 0) buffer vertexBuffer
 {
@@ -68,6 +69,15 @@ bool isInsideHull(vec4 pos) {
     return true;
 }
 
+float orientationPlaneProjectedDepth(vec3 pos, bool mirrored) {
+    const vec3 planeNormal = normalize((vec3(-1.0, -1.0, 0.0) / sqrt(2.0) + vec3(0., 0.0, mirrored ? -1.0 : 1.0)) * 0.5);
+    const vec3 planePos = vec3(1.0, 1.0, mirrored ? -orientationNotchScale : orientationNotchScale);
+
+    vec3 planeToPos = pos - planePos;
+    vec3 projectedPos = pos - dot(planeToPos, mirrored ? -planeNormal : planeNormal);
+    return projectedPos.z;
+}
+
 void main() {
     // Common for whole work group:
     /// Could make one local invocation do all of this common work for the whole group
@@ -81,7 +91,7 @@ void main() {
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
-
+    const bool orientationNotchEnabled = EPSILON < orientationNotchScale;
     const uint bufferSize = POINT_COUNT * 6 * 2 * 3 * 2;
 
     //calculate position of hexagon center - in double height coordinates!
@@ -163,7 +173,12 @@ void main() {
     }
 
     float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
-    vertices[boundingEdgeTriangleIndex] = vec4(neighborPos.xy + vec2(tile_scale * cos(ar), tile_scale * sin(ar)), extrudeDepth, 1.0);
+    vec4 pos = vec4(neighborPos.xy + vec2(tile_scale * cos(ar), tile_scale * sin(ar)), extrudeDepth, 1.0);
+    if (orientationNotchEnabled)
+        // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
+        pos.z = mirrorFlip ? min(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z) : max(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z);
+    vertices[boundingEdgeTriangleIndex] = pos;
+
 
     for (uint i = 0; i < 2u; ++i) {
         vec3 offset = getOffset(i, normal);
@@ -178,6 +193,11 @@ void main() {
 
     for (uint i = 0; i < 2u; ++i) {
         float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + (mirrorFlip ? 4 - i : 3 + i));
-        vertices[boundingEdgeTriangleIndex + 5 - i] = vec4(neighborPos.xy + vec2(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad)), extrudeDepth, 1.0);
+
+        pos = vec4(neighborPos.xy + vec2(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad)), extrudeDepth, 1.0);
+        if (orientationNotchEnabled)
+            // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
+            pos.z = mirrorFlip ? min(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z) : max(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z);
+        vertices[boundingEdgeTriangleIndex + 5 - i] = pos;
     }
 }
