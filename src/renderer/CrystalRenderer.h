@@ -69,7 +69,7 @@ namespace molumes {
         // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
         std::shared_ptr<globjects::Buffer> m_computeBuffer, m_computeBuffer2, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
-        std::unique_ptr<globjects::Buffer> m_maxValDiff;
+        std::unique_ptr<globjects::Buffer> m_maxValDiff, m_notchGeometryIndexBuffer;
         using WorkerThreadT = decltype(worker_manager_from_functions(getHexagonConvexHull, geometryPostProcessing));
         WorkerThreadT::ResultTypes m_workerResults;
         WorkerThreadT m_worker{};
@@ -102,13 +102,15 @@ namespace molumes {
         static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
 
         auto getBufferPointCount(int count) const {
-            return getDrawingCount(count) * 2 * (getGeometryMode() != Normal ? 2 : 1);
+            return getDrawingCount(count) * 3 * (getGeometryMode() != Normal ? 2 : 1); // * 3 to make room for extrusions + extra geometry
         }
 
         auto getBufferSize(int count) const {
             return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4));
-        } // * 2 to make room for extrusions
+        }
 
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
+
+        std::pair<glm::vec3, glm::vec3> findOrientationNotchPlaneIntersection() const;
     };
 }

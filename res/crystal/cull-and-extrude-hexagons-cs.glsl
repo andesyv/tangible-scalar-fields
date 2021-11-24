@@ -25,6 +25,8 @@ uniform float tileNormalDisplacementFactor = 1.0;
 uniform int geometryMode = 0;
 uniform float cutValue = 0.5;
 uniform float orientationNotchScale = 1.0;
+uniform mat4 MVP = mat4(1.0);
+uniform mat4 MVP2 = mat4(1.0);
 
 layout(std430, binding = 0) buffer vertexBuffer
 {
@@ -40,6 +42,10 @@ layout(std430, binding = 3) buffer tileNormalsBuffer
     int tileNormals[];
 };
 layout(binding = 4) uniform atomic_uint maxValDiff;
+layout(std430, binding = 5) buffer notchGeometryBuffer
+{
+    bool notchModifiedGeometries[];
+};
 
 #include "/geometry-globals.glsl"
 
@@ -70,7 +76,7 @@ bool isInsideHull(vec4 pos) {
 }
 
 float orientationPlaneProjectedDepth(vec3 pos, bool mirrored) {
-    const vec3 planeNormal = normalize((vec3(-1.0, -1.0, 0.0) / sqrt(2.0) + vec3(0., 0.0, mirrored ? -1.0 : 1.0)) * 0.5);
+    const vec3 planeNormal = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, mirrored ? -1.0 : 1.0)) * 0.5);
     const vec3 planePos = vec3(1.0, 1.0, mirrored ? -orientationNotchScale : orientationNotchScale);
 
     vec3 planeToPos = pos - planePos;
@@ -92,7 +98,7 @@ void main() {
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
     const bool orientationNotchEnabled = EPSILON < orientationNotchScale;
-    const uint bufferSize = POINT_COUNT * 6 * 2 * 3 * 2;
+    const uint mirrorBufferOffset = POINT_COUNT * 6 * 2 * 3 * 2;
 
     //calculate position of hexagon center - in double height coordinates!
     //https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
@@ -106,7 +112,7 @@ void main() {
     // vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     //    centerPos /= centerPos.w;
 
-    const uint centerIndex = hexID * 3 * gl_WorkGroupSize.x * 2 + (mirrorFlip ? bufferSize : 0);
+    const uint centerIndex = hexID * 3 * gl_WorkGroupSize.x * 2 + (mirrorFlip ? mirrorBufferOffset : 0);
     vec4 centerPos = vertices[centerIndex];
     bool insideHull = isInsideHull(centerPos);
 
@@ -116,9 +122,10 @@ void main() {
 
     // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
     // Triangles are 3 vertices, so skip by 3 for each local invocation
-    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 3 * gl_WorkGroupSize.x * 2 + (mirrorFlip ? bufferSize : 0); // gl_WorkGroupSize.y == 2 in previous generation invocation
+    const uint localID = gl_LocalInvocationID.x + hexID * gl_WorkGroupSize.x;
+    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0); // gl_WorkGroupSize.y == 2 in previous generation invocation
     const uint edgeTriangleIndex = triangleIndex + 3 * gl_WorkGroupSize.x;
-    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? bufferSize : 0); // gl_WorkGroupSize.y == 2 in previous generation invocation
+    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
 
     if (!insideHull) {
         // Mark all this hex's vertices as invalid (rest of worker group will also do this)
@@ -172,13 +179,18 @@ void main() {
             extrudeDepth = -extrude_factor - 1.0;
     }
 
+    bool notchModifiedGeometry = false;
     float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
     vec4 pos = vec4(neighborPos.xy + vec2(tile_scale * cos(ar), tile_scale * sin(ar)), extrudeDepth, 1.0);
-    if (orientationNotchEnabled)
+    if (orientationNotchEnabled) {
         // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
-        pos.z = mirrorFlip ? min(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z) : max(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z);
+        float projectedDepth = orientationPlaneProjectedDepth(pos.xyz, mirrorFlip);
+        if (mirrorFlip && projectedDepth < pos.z || !mirrorFlip && pos.z < projectedDepth) {
+            pos.z = projectedDepth;
+            notchModifiedGeometry = true;
+        }
+    }
     vertices[boundingEdgeTriangleIndex] = pos;
-
 
     for (uint i = 0; i < 2u; ++i) {
         vec3 offset = getOffset(i, normal);
@@ -195,9 +207,17 @@ void main() {
         float angle_rad = HEX_ANGLE * float(gl_LocalInvocationID.x + (mirrorFlip ? 4 - i : 3 + i));
 
         pos = vec4(neighborPos.xy + vec2(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad)), extrudeDepth, 1.0);
-        if (orientationNotchEnabled)
+        if (orientationNotchEnabled) {
             // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
-            pos.z = mirrorFlip ? min(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z) : max(orientationPlaneProjectedDepth(pos.xyz, mirrorFlip), pos.z);
+            float projectedDepth = orientationPlaneProjectedDepth(pos.xyz, mirrorFlip);
+            if (mirrorFlip && projectedDepth < pos.z || !mirrorFlip && pos.z < projectedDepth) {
+                pos.z = projectedDepth;
+                notchModifiedGeometry = true;
+            }
+        }
         vertices[boundingEdgeTriangleIndex + 5 - i] = pos;
     }
+
+    if (notchModifiedGeometry)
+        notchModifiedGeometries[localID] = true;
 }
