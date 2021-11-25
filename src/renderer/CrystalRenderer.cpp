@@ -435,8 +435,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
                                 int num_rows, float tile_scale, glm::mat4 disp_mat) {
     const mat4 MVP[2] = {getModelMatrix(false), getModelMatrix(true)};
 
-    m_notchGeometryIndexBuffer->clearData(GL_R32UI, GL_RED, GL_UNSIGNED_INT, nullptr);
-
     // Extrude / cull:
     {
         const auto &shader = shaderProgram("edge-extrusion");
@@ -457,7 +455,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
             tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 3);
         }
         m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
-        m_notchGeometryIndexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 5);
 
         shader->use();
         shader->setUniform("num_cols", num_cols);
@@ -478,7 +475,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
-        m_notchGeometryIndexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 5);
         m_maxValDiff->unbind(GL_ATOMIC_COUNTER_BUFFER, 4);
         if (tileNormalsEnabled)
             tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 3);
@@ -533,7 +529,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
-        m_notchGeometryIndexBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 5);
 
         shader->setUniform("orientationNotchScale", m_orientationNotchEnabled ? m_orientationNotchScale : 0.f);
         shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
@@ -544,7 +539,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
-        m_notchGeometryIndexBuffer->unbind(GL_SHADER_STORAGE_BUFFER, 5);
         m_maxValDiff->unbind(GL_ATOMIC_COUNTER_BUFFER, 4);
         m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }
@@ -577,9 +571,6 @@ void CrystalRenderer::resizeVertexBuffer(int hexCount) {
     assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) == bufferSize); // Check that requested size == actual size
 
     m_computeBuffer->bind(GL_SHADER_STORAGE_BUFFER);
-
-    m_notchGeometryIndexBuffer = Buffer::create();
-    m_notchGeometryIndexBuffer->setStorage(static_cast<GLsizei>(sizeof(uint) * hexCount * 6), nullptr, GL_NONE_BIT);
 }
 
 #ifndef NDEBUG

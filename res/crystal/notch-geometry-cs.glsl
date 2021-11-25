@@ -9,10 +9,6 @@ layout(std430, binding = 0) buffer vertexBuffer
     vec4 vertices[];
 };
 layout(binding = 4) uniform atomic_uint maxValDiff;
-layout(std430, binding = 5) buffer notchGeometryBuffer
-{
-    bool notchModifiedGeometries[];
-};
 
 uniform float orientationNotchScale = 1.0;
 uniform uint POINT_COUNT = 1u;
@@ -37,24 +33,47 @@ mat4 getModelMatrix(bool mirrorFlip) {
     return ModelMatrix;
 }
 
+float orientationPlaneProjectedDepth(vec3 pos, bool mirrored, out float middleLine) {
+    const vec3 n1 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.0)) * 0.5);
+    const vec3 n2 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5);
+    const vec3 p1 = vec3(1.0, 1.0, orientationNotchScale);
+    const vec3 p2 = vec3(1.0, 1.0, -orientationNotchScale);
+
+    const vec3 n3 = vec3(0., 0., 1.0);
+    const vec3 p3 = (p1 + p2) * 0.5;
+
+    // Projected point in z dir => p' = p + dot(p3 - p, n3) / dot(n3, vec3(0., 0., 1.)) = p + dot(p3 - p, n3) / n3.z
+    vec3 middleProjected = pos + vec3(0., 0., dot(p3 - pos, n3));
+
+    middleLine = middleProjected.z;
+
+    float d1 = dot(p1 - middleProjected, n1);
+    float d2 = dot(p2 - middleProjected, n2);
+
+    if (-EPSILON < d1 && -EPSILON < d2)
+        return mirrored ? middleProjected.z - d2 : middleProjected.z + d1;
+    else
+        return middleProjected.z;
+}
+
 struct Line {
     vec3 dir;
     vec3 pos;
 };
 
 Line findOrientationPlaneIntersectingLine() {
-    mat4 m1 = getModelMatrix(true);
-    mat4 m2 = getModelMatrix(false);
+    mat4 m1 = inverse(getModelMatrix(true));
+    mat4 m2 = inverse(getModelMatrix(false));
 
-    vec4 n1 = normalize(m1 * vec4(normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.0)) * 0.5), 0.0));
-    vec4 n2 = normalize(m2 * vec4(normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5), 0.0));
+    vec4 n1 = vec4(normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.0)) * 0.5), 0.0);
+    vec4 n2 = vec4(normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5), 0.0);
 
 //    n1 = m1 * n1;
 //    n2 = m2 * n2;
 
-    vec4 p1 = m1 * vec4(1.0, 1.0, orientationNotchScale, 1.0);
+    vec4 p1 = vec4(1.0, 1.0, orientationNotchScale, 1.0);
 //    p1 /= p1.w;
-    vec4 p2 = m2 * vec4(1.0, 1.0, -orientationNotchScale, 1.0);
+    vec4 p2 = vec4(1.0, 1.0, -orientationNotchScale, 1.0);
 //    p2 /= p2.w;
 
     float d1 = -dot(n1.xyz, p1.xyz);
@@ -80,19 +99,38 @@ void main() {
         return;
 
 
+    const uint mirrorBufferOffset = POINT_COUNT * 6 * 2 * 3 * 2; // hex_count * hex_size * (inner+outer) * triangle_size * extrusion_offset
+    const uint additionalGeometryIndex = gl_LocalInvocationID.x * 6 + hexID * 6 * gl_WorkGroupSize.x + 2 * mirrorBufferOffset;
+
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
-    const uint mirrorBufferOffset = POINT_COUNT * 6 * 2 * 3 * 2;
+    const bool orientationNotchEnabled = EPSILON < orientationNotchScale;
 
     const uint localID = gl_LocalInvocationID.x + hexID * gl_WorkGroupSize.x;
-    if (!notchModifiedGeometries[localID])
-        return;
+//    if (!notchModifiedGeometries[localID])
+//        return;
 
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
     const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
-    const uint additionalGeometryIndex = gl_LocalInvocationID.x * 3 + (mirrorFlip ? POINT_COUNT : 0 + hexID) * 3 * gl_WorkGroupSize.x + 2 * mirrorBufferOffset;
 
-    vec3 centerPoint = vertices[boundingEdgeTriangleIndex + 5].xyz;
+    bool geometryModified = false;
+    float middleLine = 0.0;
+    const uint edgeIndices[3] = uint[3](0, 4, 5);
+    for (uint i = 0; i < 3; ++i) {
+        vec4 pos = vertices[boundingEdgeTriangleIndex + edgeIndices[i]];
+        if (orientationNotchEnabled) {
+            // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
+            pos.z = orientationPlaneProjectedDepth(pos.xyz, mirrorFlip, middleLine);
+            if (EPSILON < abs(pos.z - middleLine))
+                geometryModified = true;
+        }
+        vertices[boundingEdgeTriangleIndex + edgeIndices[i]] = pos;
+    }
+
+    if (!geometryModified)
+        return;
+
+    vec3 centerPoint = vertices[boundingEdgeTriangleIndex + 0].xyz;
 
     Line intersection = findOrientationPlaneIntersectingLine();
     // Project centerpoint onto line formed from the intersection of the planes

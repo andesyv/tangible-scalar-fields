@@ -69,7 +69,7 @@ namespace molumes {
         // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
         std::shared_ptr<globjects::Buffer> m_computeBuffer, m_computeBuffer2, m_vertexBuffer; // Using shared_ptr to check if shared resource is same
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
-        std::unique_ptr<globjects::Buffer> m_maxValDiff, m_notchGeometryIndexBuffer;
+        std::unique_ptr<globjects::Buffer> m_maxValDiff;
         using WorkerThreadT = decltype(worker_manager_from_functions(getHexagonConvexHull, geometryPostProcessing));
         WorkerThreadT::ResultTypes m_workerResults;
         WorkerThreadT m_worker{};
