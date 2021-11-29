@@ -62,25 +62,18 @@ struct Line {
 };
 
 Line findOrientationPlaneIntersectingLine() {
-    mat4 m1 = inverse(getModelMatrix(true));
-    mat4 m2 = inverse(getModelMatrix(false));
+    vec3 k = vec3(-1.0, -1.0, 0.0) * (1.0 / sqrt(2.0));
+    vec3 n1 = (k + vec3(0., 0.0, 1.0)) * 0.5;
+    vec3 n2 = (k + vec3(0., 0.0, -1.0)) * 0.5;
 
-    vec4 n1 = vec4(normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.0)) * 0.5), 0.0);
-    vec4 n2 = vec4(normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5), 0.0);
+    vec3 p1 = vec3(1.0, 1.0, orientationNotchScale);
+    vec3 p2 = vec3(1.0, 1.0, -orientationNotchScale);
 
-//    n1 = m1 * n1;
-//    n2 = m2 * n2;
-
-    vec4 p1 = vec4(1.0, 1.0, orientationNotchScale, 1.0);
-//    p1 /= p1.w;
-    vec4 p2 = vec4(1.0, 1.0, -orientationNotchScale, 1.0);
-//    p2 /= p2.w;
-
-    float d1 = -dot(n1.xyz, p1.xyz);
-    float d2 = -dot(n2.xyz, p2.xyz);
+    float d1 = -dot(n1, p1);
+    float d2 = -dot(n2, p2);
 
     Line l;
-    l.dir = normalize(cross(n1.xyz, n2.xyz));
+    l.dir = normalize(cross(n1, n2));
 
     float z = ((n2.y/n1.y)*d1 -d2)/(n2.z - n1.z*n2.y/n1.y);
     float y = (-n1.z * z -d1) / n1.y;
@@ -107,8 +100,6 @@ void main() {
     const bool orientationNotchEnabled = EPSILON < orientationNotchScale;
 
     const uint localID = gl_LocalInvocationID.x + hexID * gl_WorkGroupSize.x;
-//    if (!notchModifiedGeometries[localID])
-//        return;
 
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
     const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
@@ -130,15 +121,22 @@ void main() {
     if (!geometryModified)
         return;
 
-    vec3 centerPoint = vertices[boundingEdgeTriangleIndex + 0].xyz;
+    vec3 rightCenterPoint = vertices[boundingEdgeTriangleIndex].xyz;
+    vec3 leftCenterPoint = vertices[boundingEdgeTriangleIndex+3].xyz;
 
     Line intersection = findOrientationPlaneIntersectingLine();
-    // Project centerpoint onto line formed from the intersection of the planes
-    vec3 lineToPoint = centerPoint - intersection.pos;
     vec3 lineNormal = normalize(intersection.dir);
-    vec3 centerProjectedPoint = intersection.pos + lineNormal * dot(lineToPoint, lineNormal);
+    // Project centerpoint onto line formed from the intersection of the planes
+    vec3 rightProjectedPoint = intersection.pos + lineNormal * dot(rightCenterPoint - intersection.pos, lineNormal);
+    vec3 leftProjectedPoint = intersection.pos + lineNormal * dot(leftCenterPoint - intersection.pos, lineNormal);
 
-    vertices[additionalGeometryIndex] = vec4(centerProjectedPoint, 1.0);
+    // First triangle:
+    vertices[additionalGeometryIndex + 0] = vec4(rightProjectedPoint, 1.0);
     vertices[additionalGeometryIndex + 1] = vertices[boundingEdgeTriangleIndex + 5];
     vertices[additionalGeometryIndex + 2] = vertices[boundingEdgeTriangleIndex + 4];
+
+    // Second triangle:
+    vertices[additionalGeometryIndex + (mirrorFlip ? 5 : 3)] = vertices[boundingEdgeTriangleIndex + (mirrorFlip ? 5 : 4)];
+    vertices[additionalGeometryIndex + 4] = vec4(leftProjectedPoint, 1.0);
+    vertices[additionalGeometryIndex + (mirrorFlip ? 3 : 5)] = vec4(rightProjectedPoint, 1.0);
 }
