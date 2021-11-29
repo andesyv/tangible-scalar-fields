@@ -27,7 +27,6 @@ uniform int bottomNormalPlaneAlignment = 1;
 uniform float valueThreshold = 0.0;
 uniform float cutValue = 0.5;
 uniform float cutWidth = 0.1;
-uniform float extrude_factor = 0.0;
 
 layout(std430, binding = 0) buffer genVertexBuffer
 {
@@ -46,6 +45,19 @@ layout(std430, binding = 3) buffer tileNormalsBuffer
 layout(binding = 4) uniform atomic_uint maxValDiff;
 
 #include "/geometry-globals.glsl"
+
+float regressionPlaneAlignmentDisplacement(bool mirrorFlip, vec3 normal) {
+    int alignment = mirrorFlip ? bottomNormalPlaneAlignment : topNormalPlaneAlignment;
+    if (alignment != 1) {
+        /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out myself
+        float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
+        if (alignment == 2)
+            return (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+        else if (alignment == 0)
+            return -(!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
+    }
+    return 0.0;
+}
 
 void main() {
     // Common for whole work group:
@@ -93,17 +105,8 @@ void main() {
     }
 
     // Regression plane alignment displacement
-    if (tileNormalsEnabled) {
-        int alignment = mirrorFlip ? bottomNormalPlaneAlignment : topNormalPlaneAlignment;
-        if (alignment != 1) {
-            /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out myself
-            float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
-            if (alignment == 2)
-                depth += (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-            else if (alignment == 0)
-                depth -= (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-        }
-    }
+    if (tileNormalsEnabled)
+        depth += regressionPlaneAlignmentDisplacement(mirrorFlip, normal);
 
 
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
@@ -163,17 +166,10 @@ void main() {
         }
 
         // Regression plane alignment displacement
-        if (tileNormalsEnabled) {
-            int alignment = mirrorFlip ? bottomNormalPlaneAlignment : topNormalPlaneAlignment;
-            float normalDisplacement = dot(normalize(vec3(neighborNormal.xy, 0.0)) * tile_scale, neighborNormal) * neighborNormal.z;
-            if (alignment == 2)
-                neighborDepth += (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-            else if (alignment == 0)
-                neighborDepth -= (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
-        }
-
+        if (tileNormalsEnabled)
+            neighborDepth += regressionPlaneAlignmentDisplacement(mirrorFlip, neighborNormal);
         // Skip "empty" triangles (can only skip early if we don't use normals)
-        if (!tileNormalsEnabled && abs(depth - neighborDepth) < EPSILON)
+        else if (abs(depth - neighborDepth) < EPSILON)
             return;
 
         vec4 neighborPos = disp_mat * vec4(neighbor.x, neighbor.y, neighborDepth, 1.0);

@@ -24,7 +24,6 @@ uniform int maxTexCoordY;
 uniform float tileNormalDisplacementFactor = 1.0;
 uniform int geometryMode = 0;
 uniform float cutValue = 0.5;
-uniform float orientationNotchScale = 1.0;
 
 layout(std430, binding = 0) buffer vertexBuffer
 {
@@ -82,7 +81,6 @@ void main() {
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
-    const bool orientationNotchEnabled = EPSILON < orientationNotchScale;
     const uint mirrorBufferOffset = POINT_COUNT * 6 * 2 * 3 * 2;
 
     //calculate position of hexagon center - in double height coordinates!
@@ -154,7 +152,7 @@ void main() {
             extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
             break;
         case 2: // Cut
-            extrudeDepth = 2.0 * cutValue - 1.0; // (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
+            extrudeDepth = 2.0 * cutValue - 1.0;
             break;
         case 3: // Concave
             float extra_extrude_amount = float(atomicCounter(maxValDiff) / double(hexValueIntMax));

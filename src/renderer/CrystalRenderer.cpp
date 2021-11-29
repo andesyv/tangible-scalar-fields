@@ -15,7 +15,6 @@
 #include <globjects/NamedString.h>
 #include <globjects/Sync.h>
 #include <glm/gtx/string_cast.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <imgui.h>
 #include <glbinding/gl/bitfield.h>
 
@@ -404,7 +403,6 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     shader->setUniform("valueThreshold", m_valueThreshold);
     shader->setUniform("cutValue", m_cutValue);
     shader->setUniform("cutWidth", m_cutWidth);
-    shader->setUniform("extrude_factor", m_extrusionFactor);
 
     glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
@@ -422,7 +420,8 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
-            GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+            GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT |
+            GL_ATOMIC_COUNTER_BARRIER_BIT);
     auto syncObject = std::move(Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE));
     m_hexagonsUpdated = false;
 
@@ -434,8 +433,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
                                 const std::weak_ptr<globjects::Buffer> &tileNormalsRef,
                                 int tile_max_y, int count, int num_cols,
                                 int num_rows, float tile_scale, glm::mat4 disp_mat) {
-    const mat4 MVP[2] = {getModelMatrix(false), getModelMatrix(true)};
-
     // Extrude / cull:
     {
         const auto &shader = shaderProgram("edge-extrusion");
@@ -470,9 +467,6 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
         shader->setUniform("geometryMode", m_geometryMode);
         shader->setUniform("cutValue", m_cutValue);
-        shader->setUniform("orientationNotchScale", m_orientationNotchEnabled ? m_orientationNotchDepth : 0.f);
-        shader->setUniform("MVP", MVP[0]);
-        shader->setUniform("MVP2", MVP[1]);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
@@ -497,6 +491,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         // Note: Might do weird stuff if GPU cannot instantiate enough threads...
         const auto invocationSpace = std::max(
                 static_cast<GLuint>(std::ceil(std::pow(getBufferPointCount(count) / 3, 1.0 / 3.0))), 1u);
+        const mat4 MVP[2] = {getModelMatrix(false), getModelMatrix(true)};
 
         shader->use();
 
@@ -528,28 +523,24 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
         const auto rotAxis = normalize(cross(vec3{-1.f, -1.f, 0.f} / sqrt(2.f), vec3{0., 0., 1.0}));
         const auto normals = std::to_array({
-            normalize(angleAxis(radians(m_orientationNotchAngle), rotAxis) * (vec3{-1.f, -1.f, 0.f} / sqrt(2.f))),
-            normalize(angleAxis(radians(-m_orientationNotchAngle), rotAxis) * (vec3{-1.f, -1.f, 0.f} / sqrt(2.f)))
-        });
+                                                   normalize(angleAxis(radians(m_orientationNotchAngle), rotAxis) *
+                                                             (vec3{-1.f, -1.f, 0.f} / sqrt(2.f))),
+                                                   normalize(angleAxis(radians(-m_orientationNotchAngle), rotAxis) *
+                                                             (vec3{-1.f, -1.f, 0.f} / sqrt(2.f)))
+                                           });
 
         shader->use();
 
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
-        m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
 
         shader->setUniform("notchDepth", m_orientationNotchDepth);
         shader->setUniform("notchHeightAdjust", m_orientationNotchHeightAdjust);
         shader->setUniform("n1", normals[0]);
         shader->setUniform("n2", normals[1]);
         shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
-        shader->setUniform("mirroredMesh", getGeometryMode() != Normal);
-        shader->setUniform("concaveMesh", getGeometryMode() == Concave);
-        shader->setUniform("MVP", MVP[0]);
-        shader->setUniform("MVP2", MVP[1]);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
-        m_maxValDiff->unbind(GL_ATOMIC_COUNTER_BUFFER, 4);
         m_computeBuffer2->unbind(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
@@ -568,16 +559,13 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 }
 
 void CrystalRenderer::resizeVertexBuffer(int hexCount) {
-    constexpr auto VERTEXSTORAGEMASK = BufferStorageMask::GL_MAP_PERSISTENT_BIT |
-                                       BufferStorageMask::GL_MAP_READ_BIT /*| BufferStorageMask::GL_MAP_WRITE_BIT | BufferStorageMask::GL_MAP_COHERENT_BIT*/;
-
     const auto bufferSize = getBufferSize(hexCount);
     // Make sure the buffer can be read from
 
-
     m_computeBuffer = Buffer::create();
     /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData
-    m_computeBuffer->setStorage(bufferSize, nullptr, VERTEXSTORAGEMASK);
+    m_computeBuffer->setStorage(bufferSize, nullptr,
+                                BufferStorageMask::GL_MAP_PERSISTENT_BIT | BufferStorageMask::GL_MAP_READ_BIT);
     assert(m_computeBuffer->getParameter(GL_BUFFER_SIZE) == bufferSize); // Check that requested size == actual size
 
     m_computeBuffer->bind(GL_SHADER_STORAGE_BUFFER);
@@ -637,9 +625,12 @@ void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
         if (m_tileNormalsEnabled) {
             if (ImGui::SliderFloat("Regression plane factor", &m_tileNormalsFactor, 0.01f, 100.f))
                 m_hexagonsUpdated = true;
-            if (ImGui::Combo("Top regression plane pivot", &m_topRegressionPlaneAlignment, regressionPlaneAlignmentLabels))
+            if (ImGui::Combo("Top regression plane pivot", &m_topRegressionPlaneAlignment,
+                             regressionPlaneAlignmentLabels))
                 m_hexagonsUpdated = true;
-            if (getGeometryMode() != Normal && ImGui::Combo("Bottom regression plane pivot", &m_bottomRegressionPlaneAlignment, regressionPlaneAlignmentLabels))
+            if (getGeometryMode() != Normal &&
+                ImGui::Combo("Bottom regression plane pivot", &m_bottomRegressionPlaneAlignment,
+                             regressionPlaneAlignmentLabels))
                 m_hexagonsUpdated = true;
         }
         if (ImGui::SliderFloat("Tile scale", &m_tileScale, 0.f, 4.f))
@@ -661,50 +652,4 @@ void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
 
         ImGui::EndMenu();
     }
-}
-
-std::pair<glm::vec3, glm::vec3> CrystalRenderer::findOrientationNotchPlaneIntersection() const {
-    const auto[n1, n2] = std::to_array({
-                                               normalize(
-                                                       (normalize(vec3{-1.f, -1.f, 0.f}) + vec3{0.f, 0.f, 1.f}) * 0.5f),
-                                               normalize(
-                                                       (normalize(vec3{-1.f, -1.f, 0.f}) + vec3{0.f, 0.f, -1.f}) * 0.5f)
-                                       });
-    const auto[p1, p2] = std::to_array({
-                                               vec3{1.f, 1.f, m_orientationNotchDepth},
-                                               vec3{1.f, 1.f, -m_orientationNotchDepth}
-                                       });
-
-    const vec3 dir = normalize(cross(n1, n2));
-
-    // Point + normal -> equation => n_x * x + n_y * y + n_z * z - dot(normal, point) = 0
-    const float d1 = -dot(n1, p1);
-    const float d2 = -dot(n2, p2);
-
-    /**
-     * Finding the intersecting point requires us to solve the equations:
-     * n1_x * x + n1_y * y + n1_z * z + d1 = 0
-     * n2_x * x + n2_y * y + n2_z * z + d2 = 0
-     * which gives a free variable. "Eliminating" a variable by setting z = t gives us:
-     * n1_x * x + n1_y * y = -n1_z * t - d1
-     * n2_x * x + n2_y * y = -n2_z * t - d2
-     * which via substitution gives us:
-     * x = (-n1_z * t - d1 - n1_y * y) / n1_x
-     * n2_x * (-n1_z * t - d1 - n1_y * y) / n1_x + n2_y * y = -n2_z * t - d2
-     * -n1_z * t * n2_x / n1_x - d1 * n2_x / n1_x - n1_y * y * n2_x / n1_x + n2_y * y = -n2_z * t - d2
-     * y = (-n2_z * t - d2 + n1_z * t * n2_x / n1_x + d1 * n2_x / n1_x) / (n2_y - n1_y * n2_x / n1_x)
-     * Setting t = 0 gives us
-     * y = (0 - d2 + 0 + d1 * n2_x / n1_x) / (n2_y - n1_y * n2_x / n1_x)
-     * y = (d1 * n2_x / n1_x - d2) / (n2_y - n1_y * n2_x / n1_x)
-     * y = (d1 * n2_x) / (n1_x * n2_y - n1_y * n2_x) - d2 / (n2_y - n1_y * n2_x / n1_x)
-     * and
-     * x = (0 - d1 - n1_y * y) / n1_x
-     */
-
-//    const vec3 pos = inverse(mat3{n1, n2, vec3{0.f}}) * vec3{-d1, -d2, 0.f};
-    float z = ((n2.y/n1.y)*d1 -d2)/(n2.z - n1.z*n2.y/n1.y);
-    float y = (-n1.z * z -d1) / n1.y;
-
-
-    return std::make_pair(dir, vec3{0.f, y, z});
 }

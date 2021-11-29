@@ -8,7 +8,6 @@ layout(std430, binding = 0) buffer vertexBuffer
 {
     vec4 vertices[];
 };
-layout(binding = 4) uniform atomic_uint maxValDiff;
 
 uniform float notchDepth = 1.0;
 uniform float notchHeightAdjust = 0.0;
@@ -16,45 +15,6 @@ uniform vec3 n1 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.
 uniform vec3 n2 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5);
 uniform uint POINT_COUNT = 1u;
 uniform bool mirroredMesh = true;
-uniform bool concaveMesh = false;
-uniform mat4 MVP = mat4(1.0);
-uniform mat4 MVP2 = mat4(1.0);
-
-
-vec4 makeQuat(float rad, vec3 axis) {
-    return vec4(sin(rad * 0.5) * axis, cos(rad * 0.5));
-}
-
-vec4 mulQuat(vec4 q1, vec4 q2) {
-    return vec4(
-    cross(q1.xyz, q2.xyz) + q1.w * q2.xyz + q2.w * q1.xyz,
-    q1.w * q2.w - dot(q1.xyz, q2.xyz)
-    );
-}
-
-mat3 quatToRot(vec4 q) {
-    return mat3(
-    1.0 - 2.0*q.y*q.y - 2.0*q.z*q.z,2.0*q.x*q.y - 2.0*q.z*q.w,      2.0*q.x*q.z + 2.0*q.y*q.w,
-    2.0*q.x*q.y + 2.0*q.z*q.w,      1.0 - 2.0*q.x*q.x - 2.0*q.z*q.z,2.0*q.y*q.z - 2.0*q.x*q.w,
-    2.0*q.x*q.z - 2.0*q.y*q.w,      2.0*q.y*q.z + 2.0*q.x*q.w,      1.0 - 2.0*q.x*q.x - 2.0*q.y*q.y
-    );
-}
-
-mat4 translate(mat4 m, vec3 translation) {
-    mat4 t = mat4(1.0);
-    t[3].xyz = translation;
-    return t * m;
-}
-
-mat4 getModelMatrix(bool mirrorFlip) {
-    mat4 ModelMatrix = (mirrorFlip ? MVP2 : MVP);
-    if (concaveMesh && mirrorFlip) {
-        float scaleHeight = (ModelMatrix * vec4(0., 0., 1.0, 0.)).z;
-        float extrude_amount = float(atomicCounter(maxValDiff) / double(hexValueIntMax));
-        ModelMatrix = translate(ModelMatrix, vec3(0., 0., -extrude_amount * scaleHeight));
-    }
-    return ModelMatrix;
-}
 
 float orientationPlaneProjectedDepth(vec3 pos, bool mirrored, out float middleLine) {
     const vec3 p1 = vec3(1.0, 1.0, notchHeightAdjust + notchDepth);
@@ -114,9 +74,6 @@ void main() {
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
-    const bool orientationNotchEnabled = EPSILON < notchDepth;
-
-    const uint localID = gl_LocalInvocationID.x + hexID * gl_WorkGroupSize.x;
 
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
     const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
@@ -126,12 +83,10 @@ void main() {
     const uint edgeIndices[3] = uint[3](0, 4, 5);
     for (uint i = 0; i < 3; ++i) {
         vec4 pos = vertices[boundingEdgeTriangleIndex + edgeIndices[i]];
-        if (orientationNotchEnabled) {
-            // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
-            pos.z = orientationPlaneProjectedDepth(pos.xyz, mirrorFlip, middleLine);
-            if (EPSILON < abs(pos.z - middleLine))
-                geometryModified = true;
-        }
+        // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
+        pos.z = orientationPlaneProjectedDepth(pos.xyz, mirrorFlip, middleLine);
+        if (EPSILON < abs(pos.z - middleLine))
+            geometryModified = true;
         vertices[boundingEdgeTriangleIndex + edgeIndices[i]] = pos;
     }
 
