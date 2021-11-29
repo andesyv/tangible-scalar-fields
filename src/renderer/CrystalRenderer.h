@@ -39,7 +39,9 @@ namespace molumes {
         float m_valueThreshold = 0.f;
         float m_cutValue = 0.5f;
         float m_cutWidth = 0.1f;
-        float m_orientationNotchScale = 1.f;
+        float m_orientationNotchDepth = 1.f;
+        float m_orientationNotchHeightAdjust = 0.f;
+        float m_orientationNotchAngle = 45.f;
 
     public:
         explicit CrystalRenderer(Viewer *viewer);

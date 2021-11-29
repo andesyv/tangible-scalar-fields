@@ -15,6 +15,7 @@
 #include <globjects/NamedString.h>
 #include <globjects/Sync.h>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <imgui.h>
 #include <glbinding/gl/bitfield.h>
 
@@ -34,7 +35,7 @@ const auto stateGuard = []() {
 
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
 constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::milliseconds{5}).count());
+        std::chrono::milliseconds{100}).count());
 constexpr std::array<const char *, 2> RENDERSTYLES{"depth", "phong"};
 
 // Waits for as little as it can and checks if the future is ready.
@@ -469,7 +470,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         shader->setUniform("tileNormalDisplacementFactor", m_tileNormalsFactor);
         shader->setUniform("geometryMode", m_geometryMode);
         shader->setUniform("cutValue", m_cutValue);
-        shader->setUniform("orientationNotchScale", m_orientationNotchEnabled ? m_orientationNotchScale : 0.f);
+        shader->setUniform("orientationNotchScale", m_orientationNotchEnabled ? m_orientationNotchDepth : 0.f);
         shader->setUniform("MVP", MVP[0]);
         shader->setUniform("MVP2", MVP[1]);
 
@@ -525,12 +526,21 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
                 getGeometryMode() != Normal
                 ? 2 * count : count, 1.0 / 3.0))), 1u);
 
+        const auto rotAxis = normalize(cross(vec3{-1.f, -1.f, 0.f} / sqrt(2.f), vec3{0., 0., 1.0}));
+        const auto normals = std::to_array({
+            normalize(angleAxis(radians(m_orientationNotchAngle), rotAxis) * (vec3{-1.f, -1.f, 0.f} / sqrt(2.f))),
+            normalize(angleAxis(radians(-m_orientationNotchAngle), rotAxis) * (vec3{-1.f, -1.f, 0.f} / sqrt(2.f)))
+        });
+
         shader->use();
 
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
 
-        shader->setUniform("orientationNotchScale", m_orientationNotchEnabled ? m_orientationNotchScale : 0.f);
+        shader->setUniform("notchDepth", m_orientationNotchDepth);
+        shader->setUniform("notchHeightAdjust", m_orientationNotchHeightAdjust);
+        shader->setUniform("n1", normals[0]);
+        shader->setUniform("n2", normals[1]);
         shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
         shader->setUniform("mirroredMesh", getGeometryMode() != Normal);
         shader->setUniform("concaveMesh", getGeometryMode() == Concave);
@@ -640,8 +650,14 @@ void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
             m_hexagonsUpdated = true;
         if (ImGui::Checkbox("Orientation notch", &m_orientationNotchEnabled))
             m_hexagonsUpdated = true;
-        if (m_orientationNotchEnabled && ImGui::SliderFloat("Orientation notch scale", &m_orientationNotchScale, 0.f, 3.f))
-            m_hexagonsUpdated = true;
+        if (m_orientationNotchEnabled) {
+            if (ImGui::SliderFloat("Orientation notch depth", &m_orientationNotchDepth, 0.f, 3.f))
+                m_hexagonsUpdated = true;
+            if (ImGui::SliderFloat("Orientation notch height adjust", &m_orientationNotchHeightAdjust, -1.f, 1.f))
+                m_hexagonsUpdated = true;
+            if (ImGui::SliderFloat("Orientation notch angle", &m_orientationNotchAngle, 1.f, 89.f))
+                m_hexagonsUpdated = true;
+        }
 
         ImGui::EndMenu();
     }
@@ -655,8 +671,8 @@ std::pair<glm::vec3, glm::vec3> CrystalRenderer::findOrientationNotchPlaneInters
                                                        (normalize(vec3{-1.f, -1.f, 0.f}) + vec3{0.f, 0.f, -1.f}) * 0.5f)
                                        });
     const auto[p1, p2] = std::to_array({
-                                               vec3{1.f, 1.f, m_orientationNotchScale},
-                                               vec3{1.f, 1.f, -m_orientationNotchScale}
+                                               vec3{1.f, 1.f, m_orientationNotchDepth},
+                                               vec3{1.f, 1.f, -m_orientationNotchDepth}
                                        });
 
     const vec3 dir = normalize(cross(n1, n2));

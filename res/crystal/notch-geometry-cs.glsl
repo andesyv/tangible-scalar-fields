@@ -10,12 +10,35 @@ layout(std430, binding = 0) buffer vertexBuffer
 };
 layout(binding = 4) uniform atomic_uint maxValDiff;
 
-uniform float orientationNotchScale = 1.0;
+uniform float notchDepth = 1.0;
+uniform float notchHeightAdjust = 0.0;
+uniform vec3 n1 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.0)) * 0.5);
+uniform vec3 n2 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5);
 uniform uint POINT_COUNT = 1u;
 uniform bool mirroredMesh = true;
 uniform bool concaveMesh = false;
 uniform mat4 MVP = mat4(1.0);
 uniform mat4 MVP2 = mat4(1.0);
+
+
+vec4 makeQuat(float rad, vec3 axis) {
+    return vec4(sin(rad * 0.5) * axis, cos(rad * 0.5));
+}
+
+vec4 mulQuat(vec4 q1, vec4 q2) {
+    return vec4(
+    cross(q1.xyz, q2.xyz) + q1.w * q2.xyz + q2.w * q1.xyz,
+    q1.w * q2.w - dot(q1.xyz, q2.xyz)
+    );
+}
+
+mat3 quatToRot(vec4 q) {
+    return mat3(
+    1.0 - 2.0*q.y*q.y - 2.0*q.z*q.z,2.0*q.x*q.y - 2.0*q.z*q.w,      2.0*q.x*q.z + 2.0*q.y*q.w,
+    2.0*q.x*q.y + 2.0*q.z*q.w,      1.0 - 2.0*q.x*q.x - 2.0*q.z*q.z,2.0*q.y*q.z - 2.0*q.x*q.w,
+    2.0*q.x*q.z - 2.0*q.y*q.w,      2.0*q.y*q.z + 2.0*q.x*q.w,      1.0 - 2.0*q.x*q.x - 2.0*q.y*q.y
+    );
+}
 
 mat4 translate(mat4 m, vec3 translation) {
     mat4 t = mat4(1.0);
@@ -34,10 +57,8 @@ mat4 getModelMatrix(bool mirrorFlip) {
 }
 
 float orientationPlaneProjectedDepth(vec3 pos, bool mirrored, out float middleLine) {
-    const vec3 n1 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, 1.0)) * 0.5);
-    const vec3 n2 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1.0)) * 0.5);
-    const vec3 p1 = vec3(1.0, 1.0, orientationNotchScale);
-    const vec3 p2 = vec3(1.0, 1.0, -orientationNotchScale);
+    const vec3 p1 = vec3(1.0, 1.0, notchHeightAdjust + notchDepth);
+    const vec3 p2 = vec3(1.0, 1.0, notchHeightAdjust - notchDepth);
 
     const vec3 n3 = vec3(0., 0., 1.0);
     const vec3 p3 = (p1 + p2) * 0.5;
@@ -62,12 +83,8 @@ struct Line {
 };
 
 Line findOrientationPlaneIntersectingLine() {
-    vec3 k = vec3(-1.0, -1.0, 0.0) * (1.0 / sqrt(2.0));
-    vec3 n1 = (k + vec3(0., 0.0, 1.0)) * 0.5;
-    vec3 n2 = (k + vec3(0., 0.0, -1.0)) * 0.5;
-
-    vec3 p1 = vec3(1.0, 1.0, orientationNotchScale);
-    vec3 p2 = vec3(1.0, 1.0, -orientationNotchScale);
+    vec3 p1 = vec3(1.0, 1.0, notchHeightAdjust + notchDepth);
+    vec3 p2 = vec3(1.0, 1.0, notchHeightAdjust - notchDepth);
 
     float d1 = -dot(n1, p1);
     float d2 = -dot(n2, p2);
@@ -97,7 +114,7 @@ void main() {
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
-    const bool orientationNotchEnabled = EPSILON < orientationNotchScale;
+    const bool orientationNotchEnabled = EPSILON < notchDepth;
 
     const uint localID = gl_LocalInvocationID.x + hexID * gl_WorkGroupSize.x;
 
