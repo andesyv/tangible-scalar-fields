@@ -68,15 +68,13 @@ void main() {
     if ((mirroredMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
-
-    const uint mirrorBufferOffset = POINT_COUNT * 6 * 2 * 3 * 2; // hex_count * hex_size * (inner+outer) * triangle_size * extrusion_offset
-    const uint additionalGeometryIndex = gl_LocalInvocationID.x * 6 + hexID * 6 * gl_WorkGroupSize.x + 2 * mirrorBufferOffset;
-
+    const uint vertexCount = getVertexCount(POINT_COUNT);
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
 
-    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
-    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + (POINT_COUNT + hexID) * 6 * gl_WorkGroupSize.x + (mirrorFlip ? mirrorBufferOffset : 0);
+    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? vertexCount : 0);
+    const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + hexID * 6 * gl_WorkGroupSize.x + (mirroredMesh ? (mirrorFlip ? 2 * vertexCount : vertexCount) : 0) + vertexCount;
+    const uint additionalGeometryIndex = boundingEdgeTriangleIndex + (mirroredMesh ? vertexCount * 2 : vertexCount);
 
     bool geometryModified = false;
     float middleLine = 0.0;

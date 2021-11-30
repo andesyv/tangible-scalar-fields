@@ -11,7 +11,7 @@ layout(std430, binding = 0) buffer vertexBuffer
 
 layout(binding = 4) uniform atomic_uint maxValDiff;
 
-uniform int triangleCount = 0;
+uniform int mainTrianglesCount = 0;
 uniform bool mirroredMesh = false;
 uniform bool concaveMesh = false;
 uniform mat4 MVP = mat4(1.0);
@@ -39,11 +39,10 @@ void main() {
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
     gl_WorkGroupID.z * gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     // Early quit if this invocation is outside range
-    if ((mirroredMesh ? 2 * triangleCount : triangleCount) <= id)
+    if ((mirroredMesh ? 4 : 2) * mainTrianglesCount <= id)
         return;
 
-    const bool mirrorFlip = triangleCount <= id;
-
+    const bool mirrorFlip = mirroredMesh && (id / mainTrianglesCount % 2 == 1);
     const uint triangleIndex = id * 3;
     if (vertices[triangleIndex].w < 1.0 || vertices[triangleIndex+1].w < 1.0 || vertices[triangleIndex+2].w < 1.0)
         return;

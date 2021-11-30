@@ -112,13 +112,13 @@ void main() {
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
     centerPos /= centerPos.w;
 
-    const uint mirrorBufferOffset = POINT_COUNT * 6 * 2 * 3 * 2;
+    const uint vertexCount = getVertexCount(POINT_COUNT);
 
     // Individual for each work group:
 
     // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
     // Triangles are 3 vertices, so skip by 3 for each local invocation
-    const uint triangleIndex = gl_LocalInvocationID.x * 3 + gl_LocalInvocationID.y * 3 * gl_WorkGroupSize.x + hexID * 3 * gl_WorkGroupSize.x * gl_WorkGroupSize.y + (mirrorFlip ? mirrorBufferOffset : 0);
+    const uint triangleIndex = gl_LocalInvocationID.x * 3 + gl_LocalInvocationID.y * 3 * gl_WorkGroupSize.x + hexID * 3 * gl_WorkGroupSize.x * gl_WorkGroupSize.y + (mirrorFlip ? vertexCount : 0);
     const bool innerGroup = gl_LocalInvocationID.y == 0;
 
     // Just in case we're going to skip some triangles:

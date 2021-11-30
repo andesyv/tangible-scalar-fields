@@ -233,7 +233,7 @@ void CrystalRenderer::display() {
     if (syncObject) {
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = getBufferPointCount(count);
+            const auto vCount = getVertexCountMainGeometry(count);
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer->mapRange(0, vCount *
                                                                                       static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                    GL_MAP_READ_BIT));
@@ -255,16 +255,15 @@ void CrystalRenderer::display() {
                         break;
                 }
                 std::get<0>(m_workerResults) = std::move(m_worker.queue_job<0>(getHexagonConvexHull,
-                                                                               getGeometryMode() ==
-                                                                               Normal ||
-                                                                               getGeometryMode() ==
-                                                                               Concave ? halfVertices : m_vertices,
+                                                                               getGeometryMode() == Concave ? halfVertices : m_vertices,
                                                                                std::move(std::weak_ptr{
                                                                                        m_workerControlFlag}), upper,
                                                                                lower));
             }
             if (!m_computeBuffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer! (compute vertex buffer)"};
+
+            m_vertices.resize(m_vertices.size() * 3, vec4{0.f}); // Make room for extrusions + extra geometry
 
             /**
              * Using a sync object here forces a sync between the GPU and the CPU, making the GPU have to wait for the
@@ -321,7 +320,7 @@ void CrystalRenderer::display() {
     if (syncObject) {
         const auto syncResult = syncObject->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
         if (syncResult != GL_WAIT_FAILED && syncResult != GL_TIMEOUT_EXPIRED) {
-            const auto vCount = getBufferPointCount(count);
+            const auto vCount = getVertexCountFull(count);
             const auto memPtr = reinterpret_cast<vec4 *>(m_computeBuffer2->mapRange(0, vCount *
                                                                                        static_cast<GLsizeiptr>(sizeof(vec4)),
                                                                                     GL_MAP_READ_BIT));
@@ -416,7 +415,7 @@ std::unique_ptr<Sync> CrystalRenderer::generateBaseGeometry(std::shared_ptr<glob
     // Share resource with m_vertexBuffer, orphaning the old buffer
     m_vertexBuffer = m_computeBuffer;
     // Probably the line that causes weird normals in phong renderer: (side faces may be uninitialized)
-    m_drawingCount = getDrawingCount(count) * (getGeometryMode() != Normal ? 4 : 1);
+    m_drawingCount = getVertexCountMainGeometry(count);
 
     // We are going to use the buffer to read from, but also to
     glMemoryBarrier(
@@ -486,11 +485,11 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         if (!shader)
             return {};
 
-        const auto triangleCount = getDrawingCount(count) * 2 / 3;
+        const auto mainTriangleCount = getDrawingCount(count) / 3;
         const auto mirrored = getGeometryMode() != Normal;
         // Note: Might do weird stuff if GPU cannot instantiate enough threads...
         const auto invocationSpace = std::max(
-                static_cast<GLuint>(std::ceil(std::pow(getBufferPointCount(count) / 3, 1.0 / 3.0))), 1u);
+                static_cast<GLuint>(std::ceil(std::pow(getVertexCountMainGeometry(count) * 2 / 3, 1.0 / 3.0))), 1u);
         const mat4 MVP[2] = {getModelMatrix(false), getModelMatrix(true)};
 
         shader->use();
@@ -498,7 +497,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         m_computeBuffer2->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
         m_maxValDiff->bindBase(GL_ATOMIC_COUNTER_BUFFER, 4);
 
-        shader->setUniform("triangleCount", triangleCount);
+        shader->setUniform("mainTrianglesCount", mainTriangleCount);
         shader->setUniform("mirroredMesh", mirrored);
         shader->setUniform("concaveMesh", getGeometryMode() == Concave);
         shader->setUniform("MVP", MVP[0]);
@@ -538,6 +537,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
         shader->setUniform("n1", normals[0]);
         shader->setUniform("n2", normals[1]);
         shader->setUniform("POINT_COUNT", static_cast<GLuint>(count));
+        shader->setUniform("mirroredMesh", getGeometryMode() != Normal);
 
         glDispatchCompute(invocationSpace, invocationSpace, invocationSpace);
 
@@ -548,7 +548,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 
     // We are going to use the buffer to read from, but also to
     m_vertexBuffer = m_computeBuffer2;
-    m_drawingCount = getBufferPointCount(count);
+    m_drawingCount = getVertexCountFull(count);
 
     // We are going to use the buffer to read from, but also bind to it
     glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
@@ -559,8 +559,7 @@ CrystalRenderer::cullAndExtrude(std::shared_ptr<globjects::Texture> &&accumulate
 }
 
 void CrystalRenderer::resizeVertexBuffer(int hexCount) {
-    const auto bufferSize = getBufferSize(hexCount);
-    // Make sure the buffer can be read from
+    const auto bufferSize = static_cast<gl::GLsizeiptr>(getVertexCountMainGeometry(hexCount) * sizeof(glm::vec4));
 
     m_computeBuffer = Buffer::create();
     /// Note: glBufferStorage only changes characteristics of how data is stored, so data itself is just as fast when doing glBufferData

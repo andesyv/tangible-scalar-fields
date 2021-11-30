@@ -101,18 +101,20 @@ namespace molumes {
 
         auto getGeometryMode() const { return static_cast<GeometryMode>(m_geometryMode); }
 
-        static auto getDrawingCount(int count) { return count * 6 * 2 * 3; }
+        static auto getDrawingCount(int count) { return count * 6 * 2 * 3; } // count * hex_size * (inner+outer triangle) * triangle_size
 
-        auto getBufferPointCount(int count) const {
-            return getDrawingCount(count) * 3 * (getGeometryMode() != Normal ? 2 : 1); // * 3 to make room for extrusions + extra geometry
+        auto getVertexCountMainGeometry(int count) const {
+            return getDrawingCount(count) * (getGeometryMode() != Normal ? 2 : 1);
+        }
+
+        auto getVertexCountFull(int count) const {
+            return getVertexCountMainGeometry(count) * 3; // * 3 to make room for extrusions + extra geometry
         }
 
         auto getBufferSize(int count) const {
-            return static_cast<gl::GLsizeiptr>(getBufferPointCount(count) * sizeof(glm::vec4));
+            return static_cast<gl::GLsizeiptr>(getVertexCountFull(count) * sizeof(glm::vec4));
         }
 
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
-
-        std::pair<glm::vec3, glm::vec3> findOrientationNotchPlaneIntersection() const;
     };
 }
