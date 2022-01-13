@@ -42,6 +42,7 @@ namespace molumes
 		bool isEnabled() const;
 		virtual void reloadShaders();
 		virtual void display() = 0;
+        /// Event run when data file is loaded
         virtual void fileLoaded(const std::string&);
 
         void addGlobalShaderInclude(const std::string& shaderIncludes);

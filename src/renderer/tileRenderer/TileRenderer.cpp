@@ -964,6 +964,7 @@ void TileRenderer::renderGUI() {
         }
     }
 
+    // NB: "Fixing" this bug made it so that the 2D visualization isn't properly updated unless the menu is open
     if (ImGui::CollapsingHeader("Color Maps", ImGuiTreeNodeFlags_DefaultOpen)) {
         // show all available color-maps
         ImGui::Combo("Maps", &m_colorMap,

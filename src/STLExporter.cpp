@@ -1,7 +1,6 @@
 #include "STLExporter.h"
 
 #include <iostream>
-#include <iomanip>
 #include <array>
 #include <filesystem>
 #include <format>
