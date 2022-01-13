@@ -11,6 +11,13 @@
 #include <mutex>
 
 namespace molumes {
+    /**
+     * @brief Struct to describe a "job" the WorkerThread should perform
+     * @see class WorkerThread
+     * @tparam F - Type signature of function
+     * @tparam R - Return type of function F
+     * @tparam Args - Types of parameters to function F
+     */
     template<typename F, typename R, typename ... Args> requires std::invocable<F, Args...>
     struct WorkerJob {
         using args_type = std::tuple<F, R, Args...>;
@@ -33,6 +40,19 @@ namespace molumes {
         return std::make_tuple(worker_job_from_function(funcs)...);
     }
 
+    /**
+     * @brief An over-engineered templated thread pooler (with 1 thread) for performing work on a background thread
+     *
+     * Each WorkerThread owns 1 separate thread that completes "jobs" in order asynchronously on a queue and stores
+     * the result in a std::future. Each "job" is a function with corresponding parameters that the WorkerThread is
+     * supposed to run.
+     *
+     * Example usage:
+     * auto worker = worker_manager_from_functions(func_1, func_2, func_3, ...);
+     * auto result = worker.queue_job(func_1, func_1_parameters...);
+     *
+     * @tparam Jobs - A function parameter pack of WorkerJob's describing functions this WorkerThread should be used for
+     */
     template<typename ... Jobs>
     class WorkerThread {
     public:
@@ -69,7 +89,6 @@ namespace molumes {
             }
         }
 
-    public:
         template <std::size_t I, typename F, typename R, typename ... Args>
         auto queue_job(F&& func, Args&&... args) {
             std::lock_guard<std::mutex> guard{m_jobs_lock};
@@ -78,6 +97,13 @@ namespace molumes {
             return std::move(std::get<2>(job).get_future());
         }
 
+    public:
+        /**
+         * @brief Queue a function, with parameters, to be run by the WorkerThread
+         * @param func - Function to be run
+         * @param args - Function arguments the function should be invoked with
+         * @return A future holding the return value of the function once it completes
+         */
         template <std::size_t I, typename F, typename ... Args>
         auto queue_job(F&& func, Args&&... args) {
             using R = decltype(std::invoke(std::forward<F>(func), std::forward<Args>(args)...));
@@ -107,6 +133,12 @@ namespace molumes {
         return worker_manager_from_tuple(pack, std::make_index_sequence<sizeof...(Ts)>{});
     }
 
+    /**
+     * @brief Helper function to create a WorkerThread class from function references
+     *
+     * Example usage:
+     * @code auto worker = worker_manager_from_functions(func_1, func_2, ...);
+     */
     template <typename ... Fs>
     constexpr auto worker_manager_from_functions(Fs&& ... args) {
         auto packedFuncs = worker_jobs_from_functions(args...);

@@ -1,6 +1,11 @@
 #version 460
 #extension GL_ARB_shading_language_include : required
 
+/**
+ * Per work group invocation, creates a hexagon and 6 connected triangles to that hexagon. The neighbouring triangles
+ * form the quad to the next hexagon. Each work group is further split into 12 local work invocations, 1 per triangle.
+ */
+
 // 6 triangles per hex, and every triangle (might) have a neighbour = 6 * 2
 layout(local_size_x = 6, local_size_y = 2) in;
 
@@ -49,7 +54,7 @@ layout(binding = 4) uniform atomic_uint maxValDiff;
 float regressionPlaneAlignmentDisplacement(bool mirrorFlip, vec3 normal) {
     int alignment = mirrorFlip ? bottomNormalPlaneAlignment : topNormalPlaneAlignment;
     if (alignment != 1) {
-        /// There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out myself
+        // There are definitively cheaper ways to do this using trigonometry, but I couldn't figure it out myself
         float normalDisplacement = dot(normalize(vec3(normal.xy, 0.0)) * tile_scale, normal) * normal.z;
         if (alignment == 2)
             return (!isnan(normalDisplacement) ? normalDisplacement * tileNormalDisplacementFactor : 0.0);
@@ -60,8 +65,11 @@ float regressionPlaneAlignmentDisplacement(bool mirrorFlip, vec3 normal) {
 }
 
 void main() {
-    // Common for whole work group:
-    /// Could make one local invocation do all of this common work for the whole group
+    /// ------------------- Common for whole work group -------------------------------------------
+    /*
+     * Note: I could make one local invocation do all of this common work for the whole group and then sync them
+     * with a local barrier, but I'm not sure that would be of any performance gain.
+     */
     uint hexID =
         gl_WorkGroupID.x +
         gl_WorkGroupID.y * gl_NumWorkGroups.x +
@@ -70,6 +78,7 @@ void main() {
     if ((geometryMode != 0 ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
         return;
 
+    // If the ID of this hexagon greater than the point count, it means it's part of the "mirrored" underside.
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
 
@@ -84,6 +93,7 @@ void main() {
 
     // hexagon-tiles-fs.glsl: 109
     const float maxAcc = uintBitsToFloat(maxAccumulate) + 1;
+
     const float cutMin = 2.0 * cutValue - 1.0 - cutWidth;
     const float cutMax = 2.0 * cutValue - 1.0 + cutWidth;
 
@@ -114,14 +124,18 @@ void main() {
 
     const uint vertexCount = getVertexCount(POINT_COUNT);
 
-    // Individual for each work group:
 
-    // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
-    // Triangles are 3 vertices, so skip by 3 for each local invocation
+    /// ------------------- Individual for each work group -------------------------------------------
+
+    /*
+     * Triangles are 3 vertices, so skip by 3 for each local invocation
+     * A hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
+     */
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + gl_LocalInvocationID.y * 3 * gl_WorkGroupSize.x + hexID * 3 * gl_WorkGroupSize.x * gl_WorkGroupSize.y + (mirrorFlip ? vertexCount : 0);
+    // innerGroup = hexagon, outerGroup = sides
     const bool innerGroup = gl_LocalInvocationID.y == 0;
 
-    // Just in case we're going to skip some triangles:
+    // Empty out values preemptively in case we're going to skip some triangles by early quitting:
     vertices[triangleIndex] = vec4(0.0);
     vertices[triangleIndex+1] = vec4(0.0);
     vertices[triangleIndex+2] = vec4(0.0);
@@ -134,16 +148,19 @@ void main() {
     //        if (gridEdge)
     //            return;
 
-    // get value from accumulate texture
-    // Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
+    /*
+     * Get value from accumulate texture
+     * Reverse of: const float row = floor(hexID/num_cols) * 2.0 - (mod(col,2) == 0 ? 0.0 : 1.0);
+     */
     ivec2 neighborTilePosInAccTexture = ivec2(neighbor.x, (neighbor.y + (neighbor.x % 2 == 0 ? 0 : 1)) / 2);
     float neighborHexValue = gridEdge ? 0 : texelFetch(accumulateTexture, neighborTilePosInAccTexture, 0).r;
 
     vec3 neighborNormal = tileNormalsEnabled && EPSILON < neighborHexValue ? getRegressionPlaneNormal(neighbor) : vec3(0.0);
 
+    // For concave geometry mode, find the biggest difference in height between hexagons
     if (geometryMode == 3) {
         uint neighborValueDiff = uint(hexValueIntMax * (abs(neighborHexValue - hexValue) / maxAcc));
-        // Since we're running compute shaders, it would be possible to sync this across work groups before syncing it globally. May increase performance
+        // Note: Since we're running compute shaders, it would be possible to sync this across work groups before syncing it globally. May increase performance
         atomicCounterMax(maxValDiff, neighborValueDiff);
     }
 
@@ -161,7 +178,7 @@ void main() {
             case 3: // Concave
                 neighborDepth = neighborHexValue / maxAcc;
                 break;
-            default:
+            default: // Normal
                 neighborDepth = 2.0 * neighborHexValue / maxAcc - 1.0;
         }
 

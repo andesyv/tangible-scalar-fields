@@ -20,6 +20,7 @@ namespace globjects{
     class Texture;
 }
 
+/// Helper function that checks, in a tuple of weak_ptr's, if all weak_ptr's are valid
 template <typename ... Ts>
 bool all_t_weak_ptr(const std::tuple<Ts...>& tuple) {
     return std::apply([](Ts const&... tupleArgs){
@@ -86,20 +87,28 @@ namespace molumes
 
         void openFile(const std::string& path = "");
 
-        void fileWasLoaded(const std::string& filename);
-
         void setPerspective(bool bPerspective);
 
 		bool m_perspective = false;
         bool m_cameraRotateAllowed = false;
         unsigned int m_focusRenderer = 0;
 
+        /**
+         * @brief Shared resources between renderers
+         *
+         * This is to make sure CrystalRenderer can read resources from the TileRenderer class without reading
+         * invalid data or taking ownership of the resources while TileRenderer operates. Ownership still belongs
+         * to TileRenderer. A quick and dirty "mediator" (mediator software design pattern).
+         */
         struct SharedResources {
             std::weak_ptr<Tile> tile;
             std::weak_ptr<globjects::Texture> tileAccumulateTexture;
             std::weak_ptr<globjects::Buffer> tileAccumulateMax, tileNormalsBuffer;
 
-            [[nodiscard]] auto as_tuple() const { return std::make_tuple(tile, tileAccumulateTexture, tileAccumulateMax, tileNormalsBuffer); }
+            [[nodiscard]] auto as_tuple() const {
+                return std::make_tuple(tile, tileAccumulateTexture, tileAccumulateMax, tileNormalsBuffer);
+            }
+
             explicit operator bool() const { return all_t_weak_ptr(as_tuple()); }
         } m_sharedResources;
 

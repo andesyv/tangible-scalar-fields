@@ -48,12 +48,14 @@ namespace molumes {
     }
 
     std::optional<std::vector<glm::vec4>>
-    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool>& controlFlag);
+    geometryPostProcessing(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag);
 
     std::optional<std::vector<glm::uint>>
-    getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag, float upperThreshold, float lowerThreshold);
+    getHexagonConvexHull(const std::vector<glm::vec4> &vertices, const std::weak_ptr<bool> &controlFlag,
+                         float upperThreshold, float lowerThreshold);
 
-    std::pair<std::vector<glm::vec4>, std::vector<unsigned int>> getVertexIndexPairs(const std::vector<glm::vec4> &vertices);
+    std::pair<std::vector<glm::vec4>, std::vector<unsigned int>>
+    getVertexIndexPairs(const std::vector<glm::vec4> &vertices);
 }
 
 #endif //MOLUMES_GEOMETRYUTILS_H

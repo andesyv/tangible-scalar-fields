@@ -17,11 +17,6 @@ layout(std430, binding = 1) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
-//layout(std430, binding = 2) buffer genVertexBuffer
-//{
-//    vec3 vertices[];
-//};
-
 out VS_OUT {
     uint id;
     ivec2 texPos;
@@ -50,14 +45,13 @@ void main() {
 
     float depth = 2.0 * height * hexValue / max - height; // [0,maxAccumulate] -> [-1, 1]
 
-//    gl_Position =  vec4(col * horizontal_space + minBounds_Off.x + tileSize, row * vertical_space/2.0f + minBounds_Off.y + vertical_space, 0.0f, 1.0f);
-
-//    gl_Position = vec4((col - 0.5 * (num_cols-1)) * horizontal_space, vertical_space * 0.5 * (row - num_rows + (num_cols != 1 ? 1.5 : 1.0)), 0.0, 1.0);
+    // See CrystalRenderer.cpp: 156
+    // gl_Position =  vec4(col * horizontal_space + minBounds_Off.x + tileSize, row * vertical_space/2.0f + minBounds_Off.y + vertical_space, 0.0f, 1.0f);
+    // gl_Position = vec4((col - 0.5 * (num_cols-1)) * horizontal_space, vertical_space * 0.5 * (row - num_rows + (num_cols != 1 ? 1.5 : 1.0)), 0.0, 1.0);
     vec4 centerPos = disp_mat * vec4(col, row, depth, 1.0);
 
     // Generate out vertices:
     uint vertexIndex = gl_InstanceID * 7;
-//    vertices[vertexIndex] = centerPos.xyz;
     vs_out.vertices[0] = centerPos.xyz;
     for (int i = 0; i < 6; ++i) {
         //flat-topped
@@ -66,7 +60,6 @@ void main() {
 
         // Offset from center of point + grid width
         vec4 offset = vec4(tile_scale * cos(angle_rad), tile_scale * sin(angle_rad), 0.0, 0.0);
-//        vertices[vertexIndex + i + 1] = (centerPos + offset).xyz;
         vs_out.vertices[i+1] = (centerPos + offset).xyz;
     }
 

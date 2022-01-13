@@ -2,6 +2,12 @@
 #extension GL_ARB_shading_language_include : required
 #include "/geometry-constants.glsl"
 
+/**
+ * 1 to 1 applies a transformation matrix to the vertices.
+ * During geometry calculation we operate in the same space (to simplify operations). This shader applies a matrix
+ * to the upper and lower part of the mesh to split them apart into world space coordinates.
+ */
+
 layout(local_size_x = 1) in;
 
 layout(std430, binding = 0) buffer vertexBuffer
@@ -25,6 +31,10 @@ mat4 translate(mat4 m, vec3 translation) {
 
 mat4 getModelMatrix(bool mirrorFlip) {
     mat4 ModelMatrix = (mirrorFlip ? MVP2 : MVP);
+    /*
+     * For concave geometry, use the previously calculated difference between hexagons
+     * to modify the modelmatrix with an additional translation such that the mesh doesn't self-intersect.
+     */
     if (concaveMesh && mirrorFlip) {
         float scaleHeight = (ModelMatrix * vec4(0., 0., 1.0, 0.)).z;
         float extrude_amount = float(atomicCounter(maxValDiff) / double(hexValueIntMax));

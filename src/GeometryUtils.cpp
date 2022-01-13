@@ -82,51 +82,6 @@ namespace molumes {
         return std::make_pair(uniqueVertices, indices);
     }
 
-    // Takes a list of indices and returns a map of triangle indices connected to each index
-    auto getConnectedTrianglesFromIndices(const std::vector<unsigned int>& indices) {
-        using Triangle = std::array<unsigned int, 3>;
-        std::map<unsigned int, std::vector<Triangle>> connectedTriangles;
-
-        for (unsigned int i = 0; i+2 < indices.size(); i+=3) {
-            Triangle t{indices.at(i), indices.at(i+1), indices.at(i+2)};
-            for (unsigned int j = 0; j < 3; ++j)
-                connectedTriangles[t[j]].push_back(t);
-        }
-
-        return connectedTriangles;
-    }
-
-    auto displaceFaceEdges(const std::vector<vec4>& vertices, float displacement = 0.f) {
-        auto [uniquePoints, indices] = getVertexIndexPairs(vertices);
-        const auto connectedTriangles = getConnectedTrianglesFromIndices(indices);
-
-        std::vector<vec4> displacedUniquePoints;
-        displacedUniquePoints.reserve(uniquePoints.size());
-
-        for (unsigned int i = 0; i < uniquePoints.size(); ++i) {
-            const auto& triangles = connectedTriangles.at(i);
-            vec3 normal{0.f};
-            for (const auto& t : triangles) {
-                const vec3 tangent = normalize(uniquePoints.at(t[2]) - uniquePoints.at(t[1]));
-                const vec3 bitangent = normalize(uniquePoints.at(t[0]) - uniquePoints.at(t[1]));
-                normal += cross(tangent, bitangent);
-            }
-
-            normal = normalize(normal);
-            if (any(isnan(normal)))
-                normal = vec3{0.f};
-
-            displacedUniquePoints.emplace_back(uniquePoints.at(i) + vec4{normal * displacement, 0.f});
-        }
-
-        // Convert back to normal non-indexed points:
-        return map(indices.begin(), indices.end(), [&displacedUniquePoints](auto i){ return displacedUniquePoints.at(i); });
-    }
-
-    auto sortedEdge(auto a, auto b) {
-        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
-    }
-
     // Graham scan implementation (first point should be start point / bounds max)
     std::vector<unsigned int>
     createConvexHull(const std::vector<std::pair<glm::dvec2, unsigned int>> &points, glm::dvec2 boundingCenter = {},

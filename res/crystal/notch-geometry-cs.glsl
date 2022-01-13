@@ -2,6 +2,11 @@
 #extension GL_ARB_shading_language_include : required
 #include "/geometry-constants.glsl"
 
+/**
+ * Modifies the geometry with an orientation notch, which projects the vertices of the mesh onto 2 opposing planes,
+ * creating a "split".
+ */
+
 layout(local_size_x = 6, local_size_y = 1) in;
 
 layout(std430, binding = 0) buffer vertexBuffer
@@ -60,6 +65,7 @@ Line findOrientationPlaneIntersectingLine() {
 }
 
 void main() {
+    /// ------------------- Common for whole work group -------------------------------------------
     uint hexID =
     gl_WorkGroupID.x +
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
@@ -72,6 +78,8 @@ void main() {
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
 
+
+    /// ------------------- Individual for each work group -------------------------------------------
     const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? vertexCount : 0);
     const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + hexID * 6 * gl_WorkGroupSize.x + (mirroredMesh ? (mirrorFlip ? 2 * vertexCount : vertexCount) : 0) + vertexCount;
     const uint additionalGeometryIndex = boundingEdgeTriangleIndex + (mirroredMesh ? vertexCount * 2 : vertexCount);
@@ -81,16 +89,18 @@ void main() {
     const uint edgeIndices[3] = uint[3](0, 4, 5);
     for (uint i = 0; i < 3; ++i) {
         vec4 pos = vertices[boundingEdgeTriangleIndex + edgeIndices[i]];
-        // Projected point onto plane laying 45 degrees towards xy-origin from xy-far
+        // Project point onto split-plane
         pos.z = orientationPlaneProjectedDepth(pos.xyz, mirrorFlip, middleLine);
         if (EPSILON < abs(pos.z - middleLine))
             geometryModified = true;
         vertices[boundingEdgeTriangleIndex + edgeIndices[i]] = pos;
     }
 
+    // If geometry is untouched, quit early
     if (!geometryModified)
         return;
 
+    // If geometry was changed, add new geometry to fill up the "split" we made in the geometry.
     vec3 rightCenterPoint = vertices[boundingEdgeTriangleIndex].xyz;
     vec3 leftCenterPoint = vertices[boundingEdgeTriangleIndex+3].xyz;
 

@@ -1057,7 +1057,7 @@ void TileRenderer::renderGUI() {
         ImGui::SliderFloat("Fresnel Power", &m_fresnelPow, 0.0f, 16.0f);
     }
 
-    if (ImGui::CollapsingHeader("Regression Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("Regression Triangle", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Render KDE", &m_renderKDE);
         ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
         ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);

@@ -1,6 +1,10 @@
 #version 450
 #extension GL_ARB_shading_language_include : required
 
+/**
+ * Removes triangles outside convex hull and extrudes edges on convex hull boundaries
+ */
+
 layout(local_size_x = 6, local_size_y = 1) in;
 
 /**
@@ -52,25 +56,33 @@ float scalarCross2D(vec2 a, vec2 b) {
     return c.z;
 }
 
+/**
+ * Returns true if a rotation from "a" to "b" is counter-clockwise in respect to the positive z-axis
+ * (or if a and b are collinear)
+ */
 bool ccw(vec2 a, vec2 b) {
-    return EPSILON <= scalarCross2D(a,b);
+    return EPSILON <= scalarCross2D(a, b);
 }
 
+/// Checks whether a point, projected down onto the XY-plane, is inside the hull
 bool isInsideHull(vec4 pos) {
     for (uint i = 0; i < HULL_SIZE; ++i) {
         uint j = (i + 1) % HULL_SIZE;
         vec2 a = (convex_hull[j] - convex_hull[i]).xy;
         vec2 b = (pos - convex_hull[j]).xy;
 
-        if (ccw(a,b))
-            return false;
+        if (ccw(a, b))
+        return false;
     }
     return true;
 }
 
 void main() {
-    // Common for whole work group:
-    /// Could make one local invocation do all of this common work for the whole group
+    /// ------------------- Common for whole work group -------------------------------------------
+    /*
+     * Note: I could make one local invocation do all of this common work for the whole group and then sync them
+     * with a local barrier, but I'm not sure that would be of any performance gain.
+     */
     uint hexID =
     gl_WorkGroupID.x +
     gl_WorkGroupID.y * gl_NumWorkGroups.x +
@@ -78,7 +90,7 @@ void main() {
     // Early quit if this invocation is outside range
     const bool mirroredMesh = geometryMode != 0;
     if ((mirroredMesh ? 2 * POINT_COUNT : POINT_COUNT) <= hexID)
-        return;
+    return;
 
     const bool mirrorFlip = POINT_COUNT <= hexID;
     hexID = hexID % POINT_COUNT;
@@ -102,21 +114,24 @@ void main() {
 
     vec3 normal = tileNormalsEnabled && EPSILON < hexValue ? getRegressionPlaneNormal(ivec2(col, row)) : vec3(0.0);
 
-    // Individual for each work group:
 
-    // Triangles are 3 vertices, and a hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
-    // Triangles are 3 vertices, so skip by 3 for each local invocation
-    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? vertexCount : 0); // gl_WorkGroupSize.y == 2 in previous generation invocation
+    /// ------------------- Individual for each work group -------------------------------------------
+
+    /*
+     * Triangles are 3 vertices, so skip by 3 for each local invocation
+     * A hexagon is 6 triangles + 6 sides, so skip by 2*6*3 per hexagon.
+     */
+    const uint triangleIndex = gl_LocalInvocationID.x * 3 + hexID * 6 * gl_WorkGroupSize.x + (mirrorFlip ? vertexCount : 0);// gl_WorkGroupSize.y == 2 in previous generation invocation
     const uint edgeTriangleIndex = triangleIndex + 3 * gl_WorkGroupSize.x;
     const uint boundingEdgeTriangleIndex = gl_LocalInvocationID.x * 6 + hexID * 6 * gl_WorkGroupSize.x + (mirroredMesh ? (mirrorFlip ? 2 * vertexCount : vertexCount) : 0) + vertexCount;
 
     if (!insideHull) {
         // Mark all this hex's vertices as invalid (rest of worker group will also do this)
         for (uint i = 0; i < 3; ++i)
-            vertices[triangleIndex + i].w = 0.0; // Don't wan't to mark xyz = 0, because neighbor might sample this one out of order
+        vertices[triangleIndex + i].w = 0.0;// Don't wan't to mark xyz = 0, because neighbor might sample this one out of order
 
         for (uint i = 0; i < 3; ++i)
-            vertices[edgeTriangleIndex + i] = vec4(0.0);
+        vertices[edgeTriangleIndex + i] = vec4(0.0);
     }
 
     const ivec2 neighbor = ivec2(col, row) + NEIGHBORS[gl_LocalInvocationID.x];
@@ -128,38 +143,44 @@ void main() {
 
     // If this workgroups hex's neighbour is outside the edge, it's definitively part of the contouring edge
     const bool neighborInsideHull = gridEdge ? false : isInsideHull(neighborPos);
-    // Only edge if this hex is inside hull but neighbour isn't, OR if the neighbour is but this isn't
-    // https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
+    /*
+     * This hexagon is only an edge if this hex is inside the hull but the neighbour isn't,
+     * OR if the neighbour is but this one isn't
+     * https://gamedev.stackexchange.com/questions/87396/how-to-draw-the-contour-of-a-hexagon-area-like-in-civ-5
+     */
     const bool isEdge = bool(int(insideHull) ^ int(neighborInsideHull));
     if (!isEdge)
-        return;
+    return;
 
     const bool isNeighbor = neighborInsideHull;
 
-    // Mark the edges generated from the triangle generation pass as invalid (they're being moved to the end)
+    /*
+     * Mark the edges generated from the triangle generation pass as invalid (they're being moved to the end of the
+     * vertex list)
+     */
     if (insideHull) {
         for (uint i = 0; i < 3; ++i)
-            vertices[edgeTriangleIndex + i] = vec4(0.0);
+        vertices[edgeTriangleIndex + i] = vec4(0.0);
     }
 
     // Doesn't work to do edge from neighbor side as neighbor might be outside the grid (never get's run)
     if (isNeighbor)
-        return;
+    return;
 
     float extrudeDepth;
     switch (geometryMode) {
-        case 1: // Mirror
-            extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
-            break;
-        case 2: // Cut
-            extrudeDepth = 2.0 * cutValue - 1.0;
-            break;
-        case 3: // Concave
-            float extra_extrude_amount = float(atomicCounter(maxValDiff) / double(hexValueIntMax));
-            extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * (extrude_factor + extra_extrude_amount);
-            break;
-        default:
-            extrudeDepth = -extrude_factor - 1.0;
+        case 1:// Mirror
+        extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * extrude_factor;
+        break;
+        case 2:// Cut
+        extrudeDepth = 2.0 * cutValue - 1.0;
+        break;
+        case 3:// Concave
+        float extra_extrude_amount = float(atomicCounter(maxValDiff) / double(hexValueIntMax));
+        extrudeDepth = (mirrorFlip ? 0.5 : -0.5) * (extrude_factor + extra_extrude_amount);
+        break;
+        default :// Normal
+        extrudeDepth = -extrude_factor - 1.0;
     }
 
     float ar = HEX_ANGLE * float(gl_LocalInvocationID.x + 3);
@@ -168,6 +189,10 @@ void main() {
     for (uint i = 0; i < 2u; ++i) {
         vec3 offset = getOffset(i, normal);
 
+        /*
+         * Same as in calculate-hexagons-cs.glsl:
+         * Flip triangle winding order when on inner group and when flipping the mesh
+         */
         uint ti = boundingEdgeTriangleIndex + (mirrorFlip ? 1 + i : 2 - i);
         vertices[ti] = vec4(centerPos.xyz + offset, 1.0);
     }
