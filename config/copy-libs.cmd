@@ -7,6 +7,9 @@ goto End
 
 :Copy
 
+robocopy "%LIBRARY_DIRECTORY%/%1" "%BINARY_DIRECTORY%" *.dll
+robocopy "%LIBRARY_DIRECTORY%/%1/bin" "%BINARY_DIRECTORY%" *.dll
+
 md "%BINARY_DIRECTORY%/Debug"
 robocopy "%LIBRARY_DIRECTORY%/%1" "%BINARY_DIRECTORY%/Debug" *d.dll
 robocopy "%LIBRARY_DIRECTORY%/%1/bin" "%BINARY_DIRECTORY%/Debug" *d.dll
