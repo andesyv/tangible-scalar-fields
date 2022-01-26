@@ -12,6 +12,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
 
+option(AUTO_FETCH_AND_BUILD_DEPENDENCIES "Automatically fetch and build external dependencies" ON)
+if (AUTO_FETCH_AND_BUILD_DEPENDENCIES)
+    include(${CMAKE_SOURCE_DIR}/config/buildexternals.cmake)
+endif()
+
 add_library(ext)
 add_executable(molumes)
 

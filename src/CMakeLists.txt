@@ -14,7 +14,7 @@ list(APPEND CMAKE_PREFIX_PATH
 		${CMAKE_SOURCE_DIR}/lib/globjects
 		${CMAKE_SOURCE_DIR}/lib/glfw
 )
- 
+
 find_package(glm REQUIRED)
 find_package(glbinding REQUIRED)
 find_package(globjects REQUIRED)
