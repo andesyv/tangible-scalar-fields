@@ -29,6 +29,7 @@
 #include "renderer/BoundingBoxRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "renderer/CrystalRenderer.h"
+#include "renderer/GridSurfaceRenderer.h"
 #include "Scene.h"
 #include "CSV/Table.h"
 
@@ -170,6 +171,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     const auto crystalRendererPtr = static_cast<CrystalRenderer*>(m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this)).get());
     crystalRendererPtr->setEnabled(false);
     m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
+    m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
 
     int i = 1;
