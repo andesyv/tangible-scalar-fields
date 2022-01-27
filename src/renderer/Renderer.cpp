@@ -76,6 +76,8 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
 		globjects::debug() << "Loading shader file " << i.second << " ...";
 
 		auto file = Shader::sourceFromFile(i.second);
+        if (file->string().empty())
+            return false;
 		auto source = Shader::applyGlobalReplacements(file.get());
 		auto shader = Shader::create(i.first, source.get());
 

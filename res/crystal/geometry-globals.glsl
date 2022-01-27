@@ -2,14 +2,14 @@
 
 /// Gets the regression plane normal from the same buffer used in the 2D visualization
 vec3 getRegressionPlaneNormal(ivec2 hexCoord) {
-    vec4 tileNormal;
+    vec3 tileNormal;
     // get accumulated tile normals from buffer
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < 3; i++){
         tileNormal[i] = float(tileNormals[int((hexCoord.x*(maxTexCoordY+1) + hexCoord.y) * 5 + i)]);
     }
     tileNormal /= bufferAccumulationFactor;// get original value after accumulation
 
-    return normalize(vec3(tileNormal.x, tileNormal.y, tileNormal.w));
+    return normalize(tileNormal);
 }
 
 /**

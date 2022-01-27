@@ -504,7 +504,7 @@ void TileRenderer::display() {
 
         // -------------------------------------------------------------------------------------------------
 
-        // get shader program and uniforms from ile program
+        // get shader program and uniforms from tile program
         auto shaderProgram_tile_acc = tile->getAccumulationProgram();
 
         m_vao->bind();
@@ -591,6 +591,9 @@ void TileRenderer::display() {
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
     // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
     // no framebuffer needed, because we don't render anything. we just save into the storage buffer
+
+    // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
+    // Final normal = accumulated_fragment_normal / data_points_within
 
     // render Tile Normals into storage buffer
     if (tile != nullptr && m_renderTileNormals) {
@@ -952,7 +955,7 @@ void TileRenderer::renderGUI() {
 
     if (ImGui::CollapsingHeader("CSV-Files", ImGuiTreeNodeFlags_DefaultOpen)) {
         const auto formattedStr = std::format("File: {}", m_currentFileName);
-        ImGui::Text(formattedStr.c_str());
+        ImGui::Text("%s", formattedStr.c_str());
 
         // show all column names from selected CSV file
         ImGui::Text("Selected Columns:");
