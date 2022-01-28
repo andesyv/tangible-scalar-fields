@@ -66,15 +66,23 @@ BoundingBoxRenderer::BoundingBoxRenderer(Viewer *viewer)
     m_geometryShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-gs.glsl");
     m_fragmentShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-fs.glsl");
 
-    m_vertexShader = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSource.get());
-    m_tesselationControlShader = Shader::create(GL_TESS_CONTROL_SHADER, m_tesselationControlShaderSource.get());
-    m_tesselationEvaluationShader = Shader::create(GL_TESS_EVALUATION_SHADER,
-                                                   m_tesselationEvaluationShaderSource.get());
-    m_geometryShader = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSource.get());
-    m_fragmentShader = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSource.get());
+//    m_vertexShader = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSource.get());
+//    m_tesselationControlShader = Shader::create(GL_TESS_CONTROL_SHADER, m_tesselationControlShaderSource.get());
+//    m_tesselationEvaluationShader = Shader::create(GL_TESS_EVALUATION_SHADER,
+//                                                   m_tesselationEvaluationShaderSource.get());
+//    m_geometryShader = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSource.get());
+//    m_fragmentShader = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSource.get());
+//
+//    m_program->attach(m_vertexShader.get(), m_tesselationControlShader.get(), m_tesselationEvaluationShader.get(),
+//                      m_geometryShader.get(), m_fragmentShader.get());
 
-    m_program->attach(m_vertexShader.get(), m_tesselationControlShader.get(), m_tesselationEvaluationShader.get(),
-                      m_geometryShader.get(), m_fragmentShader.get());
+    createShaderProgram("boundingbox", {
+            { GL_VERTEX_SHADER, "./res/boundingbox/boundingbox-vs.glsl" },
+            { GL_TESS_CONTROL_SHADER, "./res/boundingbox/boundingbox-tcs.glsl" },
+            { GL_TESS_EVALUATION_SHADER, "./res/boundingbox/boundingbox-tes.glsl" },
+            { GL_GEOMETRY_SHADER, "./res/boundingbox/boundingbox-gs.glsl" },
+            { GL_FRAGMENT_SHADER, "./res/boundingbox/boundingbox-fs.glsl" }
+    });
 }
 
 std::list<globjects::File *> BoundingBoxRenderer::shaderFiles() const {
@@ -95,10 +103,11 @@ void BoundingBoxRenderer::display() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    m_program->setUniform("projection", viewer()->projectionTransform());
-    m_program->setUniform("modelView", viewer()->viewTransform());
+    auto program = shaderProgram("boundingbox");
+    program->setUniform("projection", viewer()->projectionTransform());
+    program->setUniform("modelView", viewer()->viewTransform());
 
-    m_program->use();
+    program->use();
 
     m_vao->bind();
     glPatchParameteri(GL_PATCH_VERTICES, 4);
@@ -108,5 +117,5 @@ void BoundingBoxRenderer::display() {
     glDisable(GL_BLEND);
     glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
-    m_program->release();
+    program->release();
 }

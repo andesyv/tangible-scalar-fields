@@ -71,15 +71,15 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
 	for (const auto& i : shaderIncludes)
         addGlobalShaderInclude(i);
 
-	for (const auto& i : shaders)
+	for (const auto& [type, path] : shaders)
 	{
-		globjects::debug() << "Loading shader file " << i.second << " ...";
+		globjects::debug() << "Loading shader file " << path << " ...";
 
-		auto file = Shader::sourceFromFile(i.second);
+		auto file = Shader::sourceFromFile(path);
         if (file->string().empty())
             return false;
 		auto source = Shader::applyGlobalReplacements(file.get());
-		auto shader = Shader::create(i.first, source.get());
+		auto shader = Shader::create(type, source.get());
 
 		program.m_program->attach(shader.get());
 
