@@ -13,6 +13,7 @@
 #include <glm/glm.hpp>
 
 #include "../Viewer.h"
+#include "globjects/Sync.h"
 
 using namespace gl;
 using namespace molumes;
@@ -20,6 +21,7 @@ using namespace globjects;
 
 constexpr glm::uvec2 GRID_SIZE = {10u, 10u};
 constexpr GLsizei VERTEX_COUNT = GRID_SIZE.x * GRID_SIZE.y * 6;
+constexpr glm::uint TESSELATION = 16;
 
 /**
  * @brief Helper function that creates a guard object which reverts back to it's original OpenGL state when it exits the scope.
@@ -46,7 +48,7 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
      * Grid of quads: x * y * 6 vertices, (x-1)*(y-1)*2 triangles
      */
     m_grid = Buffer::create();
-    m_grid->setStorage(sizeof(glm::vec4) * GRID_SIZE.x * GRID_SIZE.y * 6, nullptr, GL_MAP_READ_BIT);
+    m_grid->setStorage(sizeof(glm::vec3) * TESSELATION * TESSELATION * 4, nullptr, GL_MAP_READ_BIT);
 
     m_vao = VertexArray::create();
 
@@ -83,16 +85,16 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
             { GL_FRAGMENT_SHADER, "./res/grid/normal-surface-fs.glsl" }
     });
 
-    createShaderProgram("depth", {
-            {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
-            {GL_FRAGMENT_SHADER, "./res/crystal/depth-fs.glsl"}
-    });
-
-    createShaderProgram("phong", {
-            {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
-            {GL_GEOMETRY_SHADER, "./res/crystal/phong-gs.glsl"},
-            {GL_FRAGMENT_SHADER, "./res/crystal/phong-fs.glsl"}
-    });
+//    createShaderProgram("depth", {
+//            {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
+//            {GL_FRAGMENT_SHADER, "./res/crystal/depth-fs.glsl"}
+//    });
+//
+//    createShaderProgram("phong", {
+//            {GL_VERTEX_SHADER,   "./res/crystal/standard-vs.glsl"},
+//            {GL_GEOMETRY_SHADER, "./res/crystal/phong-gs.glsl"},
+//            {GL_FRAGMENT_SHADER, "./res/crystal/phong-fs.glsl"}
+//    });
 }
 
 void GridSurfaceRenderer::display() {
@@ -103,6 +105,7 @@ void GridSurfaceRenderer::display() {
     if (viewer()->m_sharedResources.kdeTexture.expired())
         return;
     auto kdeTexture = viewer()->m_sharedResources.kdeTexture.lock();
+    static std::unique_ptr<Sync> syncObject = {};
 
 //    /// ------------------- Geometry pass -------------------------------------------
 //    {
@@ -133,10 +136,23 @@ void GridSurfaceRenderer::display() {
 
         shader->use();
 
-        kdeTexture->bindActive(0);
+        m_grid->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+        kdeTexture->bindActive(1);
+
         shader->setUniform("MVP", MVP);
+        shader->setUniform("tesselation", TESSELATION);
 
         glPatchParameteri(GL_PATCH_VERTICES, 4);
         m_planeVAO->drawArrays(GL_PATCHES, 0, 4);
+
+        kdeTexture->unbindActive(1);
+        m_grid->unbind(GL_SHADER_STORAGE_BUFFER, 0);
+
+        glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+//        syncObject = std::move(Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE));
+//
+//        if (m_GPU_vertices.empty() && syncObject) {
+//            m_GPU_vertices
+//        }
     }
 }

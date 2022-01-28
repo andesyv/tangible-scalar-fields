@@ -26,6 +26,11 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
+#ifndef NDEBUG
+constexpr bool LAZY_LOADING = false;
+#else
+constexpr bool LAZY_LOADING = true;
+#endif
 
 Renderer::Renderer(Viewer* viewer) : m_viewer(viewer)
 {
@@ -80,6 +85,14 @@ bool Renderer::createShaderProgram(const std::string & name, std::initializer_li
             return false;
 		auto source = Shader::applyGlobalReplacements(file.get());
 		auto shader = Shader::create(type, source.get());
+
+// In release mode, we want the shaders to be lazily loaded (I think).
+#ifndef NDEBUG
+            if (!shader->compile()) {
+                globjects::critical() << "Shader '" << path << "' failed to compile!";
+                return false;
+            }
+#endif
 
 		program.m_program->attach(shader.get());
 

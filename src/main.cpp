@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     // Initialize globjects (internally initializes glbinding, and registers the current context)
     globjects::init([](const char *name) {
         return glfwGetProcAddress(name);
-    });
+    }, globjects::Shader::IncludeImplementation::Fallback);
 
     const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/0_10_sampled_testdata_10.000.csv";
 

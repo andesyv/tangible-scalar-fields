@@ -2,6 +2,7 @@
 #define MOLUMES_GRIDSURFACERENDERER_H
 
 #include <memory>
+#include <vector>
 
 #include "Renderer.h"
 
@@ -21,6 +22,8 @@ public:
 private:
         std::unique_ptr<globjects::Buffer> m_grid, m_planeBounds;
         std::unique_ptr<globjects::VertexArray> m_vao, m_planeVAO;
+
+        std::vector<glm::vec3> m_GPU_vertices{};
 };
 }
 

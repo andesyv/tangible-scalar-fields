@@ -46,12 +46,6 @@ using namespace glm;
 using namespace globjects;
 
 TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
-    // initialise tile objects
-    tile_processors["square"] = std::move(std::make_shared<SquareTile>(this));
-    tile_processors["hexagon"] = std::move(std::make_shared<HexTile>(this));
-
-    Shader::hintIncludeImplementation(Shader::IncludeImplementation::Fallback);
-
     m_verticesQuad->setStorage(std::array<vec3, 1>({vec3(0.0f, 0.0f, 0.0f)}), gl::GL_NONE_BIT);
     auto vertexBindingQuad = m_vaoQuad->binding(0);
     vertexBindingQuad->setBuffer(m_verticesQuad.get(), 0, sizeof(vec3));
@@ -72,6 +66,10 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
 
     m_shaderSourceGlobalsHexagon = File::create("./res/tiles/hexagon/globals.glsl");
     m_shaderGlobalsHexagon = NamedString::create("/hex/globals.glsl", m_shaderSourceGlobalsHexagon.get());
+
+    // initialise tile objects
+    tile_processors["square"] = std::move(std::make_shared<SquareTile>(this));
+    tile_processors["hexagon"] = std::move(std::make_shared<HexTile>(this));
 
     // create shader programs
     createShaderProgram("points", {

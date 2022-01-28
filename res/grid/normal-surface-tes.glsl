@@ -3,10 +3,16 @@
 layout (quads, equal_spacing, ccw) in;
 //layout(triangles, equal_spacing, ccw) in;
 
+in vec3 tPos[];
 in vec2 tTexCoord[];
 
-layout(binding = 0) uniform sampler2D kdeTexture;
+layout(binding = 1) uniform sampler2D kdeTexture;
+layout(std430, binding = 0) buffer genVertexBuffer
+{
+    vec3 vertices[];
+};
 uniform mat4 MVP = mat4(1.0);
+uniform uint tesselation = 16;
 
 out vec2 uv;
 
@@ -26,33 +32,36 @@ vec3 calculateNormal(vec2 texCoord, vec2 sampleScale){
 }
 
 void main() {
-    vec2 t00 = tTexCoord[0];
-    vec2 t01 = tTexCoord[1];
-    vec2 t10 = tTexCoord[2];
-    vec2 t11 = tTexCoord[3];
+    const vec2 t00 = tTexCoord[0];
+    const vec2 t01 = tTexCoord[1];
+    const vec2 t10 = tTexCoord[2];
+    const vec2 t11 = tTexCoord[3];
 
     // bilinearly interpolate texture coordinate across patch
-    vec2 t0 = (t01 - t00) * gl_TessCoord.x + t00;
-    vec2 t1 = (t11 - t10) * gl_TessCoord.x + t10;
-    vec2 texCoord = (t1 - t0) * gl_TessCoord.y + t0;
+    const vec2 t0 = (t01 - t00) * gl_TessCoord.x + t00;
+    const vec2 t1 = (t11 - t10) * gl_TessCoord.x + t10;
+    const vec2 texCoord = (t1 - t0) * gl_TessCoord.y + t0;
+
+    const uint v_index = tesselation * int(texCoord.y * tesselation) + int(texCoord.x * tesselation);
 
     // retrieve control point position coordinates
-    vec4 p00 = gl_in[0].gl_Position;
-    vec4 p01 = gl_in[1].gl_Position;
-    vec4 p10 = gl_in[2].gl_Position;
-    vec4 p11 = gl_in[3].gl_Position;
+    vec3 p00 = tPos[0];
+    vec3 p01 = tPos[1];
+    vec3 p10 = tPos[2];
+    vec3 p11 = tPos[3];
 
     // bilinearly interpolate position coordinate across patch
-    vec4 p0 = (p01 - p00) * gl_TessCoord.x + p00;
-    vec4 p1 = (p11 - p10) * gl_TessCoord.x + p10;
-    vec4 p = (p1 - p0) * gl_TessCoord.y + p0;
+    vec3 p0 = (p01 - p00) * gl_TessCoord.x + p00;
+    vec3 p1 = (p11 - p10) * gl_TessCoord.x + p10;
+    vec3 p = (p1 - p0) * gl_TessCoord.y + p0;
 
     // Displace position with normal:
-    vec3 normal = calculateNormal(texCoord, vec2(0.01)) * 0.1;
-    p += MVP * vec4(normal, 0.0);
+    vec3 normal = calculateNormal(texCoord, vec2(0.01)) * 0.8;
+    p += normal;
 
+    vertices[v_index] = p;
     uv = texCoord;
-    gl_Position = p;
+    gl_Position = MVP * vec4(p, 1.0);
 
 //    gl_Position = gl_TessCoord.x * gl_in[0].gl_Position + gl_TessCoord.y * gl_in[1].gl_Position + gl_TessCoord.z * gl_in[2].gl_Position;
 }
