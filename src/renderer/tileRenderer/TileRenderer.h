@@ -68,7 +68,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_normalsAndDepthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
-		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
+		std::shared_ptr<globjects::Texture> m_kdeTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;

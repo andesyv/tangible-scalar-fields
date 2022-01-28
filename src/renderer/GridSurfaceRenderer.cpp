@@ -100,6 +100,9 @@ void GridSurfaceRenderer::display() {
     const auto state = stateGuard();
 
     const glm::mat4 MVP = viewer()->projectionTransform() * viewer()->viewTransform();
+    if (viewer()->m_sharedResources.kdeTexture.expired())
+        return;
+    auto kdeTexture = viewer()->m_sharedResources.kdeTexture.lock();
 
 //    /// ------------------- Geometry pass -------------------------------------------
 //    {
@@ -129,10 +132,11 @@ void GridSurfaceRenderer::display() {
 //        m_vao->enable(0);
 
         shader->use();
+
+        kdeTexture->bindActive(0);
         shader->setUniform("MVP", MVP);
 
         glPatchParameteri(GL_PATCH_VERTICES, 4);
         m_planeVAO->drawArrays(GL_PATCHES, 0, 4);
     }
-
 }

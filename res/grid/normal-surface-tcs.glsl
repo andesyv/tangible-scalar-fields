@@ -1,6 +1,6 @@
 #version 450
 
-#define TESSELATION 4
+#define TESSELATION 16
 
 layout(vertices = 4) out;
 
