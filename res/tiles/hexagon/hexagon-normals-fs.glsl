@@ -6,6 +6,10 @@
 //--in
 layout(pixel_center_integer) in vec4 gl_FragCoord;
 
+in vec4 boundsScreenSpace;
+in vec2 rectSizeScreenSpace;
+in float tileSizeScreenSpace;
+
 // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
 // since we deal with floats and SSBOs can only perform atomic operations on int or uint
 // we mulitply all value with bufferAccumulationFactor and then cast them to int when accumulating
@@ -15,12 +19,14 @@ layout(std430, binding = 0) buffer tileNormalsBuffer
     int tileNormals[];
 };
 
-in vec4 boundsScreenSpace;
-in vec2 rectSizeScreenSpace;
-in float tileSizeScreenSpace;
+layout(binding = 1) uniform sampler2D accumulateTexture;
+layout(binding = 2) uniform sampler2D kdeTexture;
 
-uniform sampler2D accumulateTexture;
-uniform sampler2D kdeTexture;
+layout(std430, binding = 3) buffer valueMaxBuffer
+{
+    uint maxAccumulate;
+    uint maxPointAlpha;
+};
 
 //min = 0
 uniform int maxTexCoordX;
@@ -61,6 +67,9 @@ void main()
     {
         discard;
     }
+
+    // hexagon-tiles-fs.glsl: 109
+    const float maxAcc = uintBitsToFloat(maxAccumulate) + 1;
     
    // get value from density normals texture
     vec4 normal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0);

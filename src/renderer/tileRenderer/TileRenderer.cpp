@@ -537,68 +537,61 @@ void TileRenderer::display() {
     // Get maximum alpha of additive blended point circles (used for alpha normalization)
     // no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
 
+    {
+        // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+        BindBaseGuard _g{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 0};
 
-    // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-    m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+        // max accumulated Value
+        const uint initialMaxValue = 0;
+        m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &initialMaxValue);
+        m_valueMaxBuffer->clearSubData(GL_R32UI, sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT,
+                                       &initialMaxValue);
+        // -------------------------------------------------------------------------------------------------
 
-    // max accumulated Value
-    const uint initialMaxValue = 0;
-    m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &initialMaxValue);
-    m_valueMaxBuffer->clearSubData(GL_R32UI, sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT,
-                                   &initialMaxValue);
-    // -------------------------------------------------------------------------------------------------
+        BindActiveGuard _g2{m_tileAccumulateTexture, 1};
+        BindActiveGuard _g3{m_pointCircleTexture, 2};
 
-    m_tileAccumulateTexture->bindActive(1);
-    m_pointCircleTexture->bindActive(2);
+        //can use the same shader for hexagon and square tiles
+        auto shaderProgram_max_val = shaderProgram("max-val");
 
-    //can use the same shader for hexagon and square tiles
-    auto shaderProgram_max_val = shaderProgram("max-val");
+        //geometry & fragment shader
+        shaderProgram_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-    //geometry & fragment shader
-    shaderProgram_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+        //fragment shader
+        shaderProgram_max_val->setUniform("pointCircleTexture", 2);
 
-    //fragment shader
-    shaderProgram_max_val->setUniform("pointCircleTexture", 2);
+        if (tile == nullptr) {
+            //geometry shader
+            shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds);
+            shaderProgram_max_val->setUniform("minBounds_acc", minBounds);
+        } else {
+            //geometry shader
+            shaderProgram_max_val->setUniform("maxBounds_acc", tile->maxBounds_Offset);
+            shaderProgram_max_val->setUniform("minBounds_acc", tile->minBounds_Offset);
 
-    if (tile == nullptr) {
-        //geometry shader
-        shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds);
-        shaderProgram_max_val->setUniform("minBounds_acc", minBounds);
-    } else {
-        //geometry shader
-        shaderProgram_max_val->setUniform("maxBounds_acc", tile->maxBounds_Offset);
-        shaderProgram_max_val->setUniform("minBounds_acc", tile->minBounds_Offset);
+            shaderProgram_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
+            shaderProgram_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
+            //fragment Shader
+            shaderProgram_max_val->setUniform("maxTexCoordX", tile->m_tileMaxX);
+            shaderProgram_max_val->setUniform("maxTexCoordY", tile->m_tileMaxY);
 
-        shaderProgram_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
-        shaderProgram_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
-        //fragment Shader
-        shaderProgram_max_val->setUniform("maxTexCoordX", tile->m_tileMaxX);
-        shaderProgram_max_val->setUniform("maxTexCoordY", tile->m_tileMaxY);
+            shaderProgram_max_val->setUniform("accumulateTexture", 1);
+        }
 
-        shaderProgram_max_val->setUniform("accumulateTexture", 1);
+        shaderProgram_max_val->use();
+        m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+        globjects::Program::release();
+
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
     }
-
-    m_vaoQuad->bind();
-
-    shaderProgram_max_val->use();
-    m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-    globjects::Program::release();
-
-    m_vaoQuad->unbind();
-
-    m_tileAccumulateTexture->unbindActive(1);
-    m_pointCircleTexture->unbindActive(2);
-
-    //unbind shader storage buffer
-    m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-    glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
     // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
 
     // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
     // Final normal = accumulated_fragment_normal / data_points_within
+
+    // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
 
     // render Tile Normals into storage buffer
     if (tile != nullptr && m_renderTileNormals) {
@@ -613,6 +606,8 @@ void TileRenderer::display() {
 
         m_normalFramebuffer->bind();
         glDepthMask(GL_FALSE);
+        glClearColor(0.f, 0.f, 0.f, 0.f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
         BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0};
@@ -625,6 +620,8 @@ void TileRenderer::display() {
 
         BindActiveGuard _g2{m_kdeTexture, 1};
         BindActiveGuard _g3{m_tileAccumulateTexture, 2};
+
+//        BindBaseGuard _g4{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 3};
 
         auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
 

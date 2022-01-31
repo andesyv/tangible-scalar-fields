@@ -21,10 +21,8 @@ namespace molumes {
         void display() override;
 
     private:
-        std::unique_ptr<globjects::Buffer> m_grid, m_planeBounds, m_screenSpacedBuffer;
-        std::unique_ptr<globjects::VertexArray> m_vao, m_planeVAO, m_screenSpacedVAO;
-
-        std::vector<glm::vec3> m_GPU_vertices{};
+        std::unique_ptr<globjects::Buffer> m_planeBounds, m_screenSpacedBuffer;
+        std::unique_ptr<globjects::VertexArray> m_planeVAO, m_screenSpacedVAO;
     };
 }
 
