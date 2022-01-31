@@ -54,7 +54,6 @@ namespace molumes
 		Viewer* m_viewer;
 		bool m_enabled = true;
 		std::unordered_map<std::string, ShaderProgram > m_shaderPrograms;
-        std::map<std::string, std::pair<std::unique_ptr< globjects::NamedString>, std::unique_ptr<globjects::File>>> m_shaderIncludes;
+        std::map<std::string, std::pair<std::unique_ptr<globjects::File>, std::unique_ptr< globjects::NamedString>>> m_shaderIncludes;
 	};
-
 }

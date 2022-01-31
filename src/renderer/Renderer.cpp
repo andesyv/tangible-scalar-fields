@@ -126,12 +126,6 @@ globjects::Program * Renderer::shaderProgram(const std::string & name)
 
 void Renderer::fileLoaded(const std::string&) {}
 
-Renderer::~Renderer() {
-    // For some reason have to manually destroy each named string before destruction, or there is a memory crash
-    for (auto& [key, val] : m_shaderIncludes)
-        val.first.reset();
-}
-
 void Renderer::addGlobalShaderInclude(const std::string& str) {
     globjects::debug() << "Loading include file " << str << " ...";
 
@@ -143,6 +137,9 @@ void Renderer::addGlobalShaderInclude(const std::string& str) {
     auto file = File::create(str);
     auto string = NamedString::create(shaderIncludeName, file.get());
 
-    m_shaderIncludes.insert(std::make_pair(shaderIncludeName, std::make_pair(std::move(string), std::move(file))));
+    m_shaderIncludes.insert(std::make_pair(shaderIncludeName, std::make_pair(std::move(file), std::move(string))));
 }
+
+// Trivial destructor explicitly defined in source file purely to skip including definitions in header
+Renderer::~Renderer() = default;
 
