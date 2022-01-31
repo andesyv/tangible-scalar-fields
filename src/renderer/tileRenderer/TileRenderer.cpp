@@ -1,4 +1,5 @@
 #include "TileRenderer.h"
+#include "../../Utils.h"
 
 #include <imgui.h>
 #include <omp.h>
@@ -115,8 +116,8 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
                                                   GL_UNSIGNED_BYTE, nullptr);
     // Convert to shared ptr so it can be shared across multiple renderers:
     auto tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                                              0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    m_tileAccumulateTexture = std::move(std::shared_ptr<Texture>{tex.release()});
+                               0, GL_RGBA32F, ivec2(1, 1), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    m_tileAccumulateTexture = std::shared_ptr{std::move(tex)};
     viewer->m_sharedResources.tileAccumulateTexture = m_tileAccumulateTexture;
 
     m_tilesTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
@@ -131,8 +132,8 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
                                    GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                                             0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    m_smoothNormalsTexture = std::move(std::shared_ptr<Texture>{tex.release()});
+                          0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    m_smoothNormalsTexture = std::shared_ptr{std::move(tex)};
     viewer->m_sharedResources.smoothNormalsTexture = m_smoothNormalsTexture;
 
     m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
@@ -153,7 +154,8 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     m_tileTextureArray->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     // allocate storage according to default values
-    m_tileTextureArray->storage3D(1, GL_RGBA32F, static_cast<GLsizei>(m_tileTextureWidth), static_cast<GLsizei>(m_tileTextureHeight), m_numberTextureTiles);
+    m_tileTextureArray->storage3D(1, GL_RGBA32F, static_cast<GLsizei>(m_tileTextureWidth),
+                                  static_cast<GLsizei>(m_tileTextureHeight), m_numberTextureTiles);
 
     for (int i = 1; i <= m_numberTextureTiles; i++) {
 
@@ -165,7 +167,8 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
         if (error)
             globjects::debug() << "Could not load " << filePath << "!";
         else {
-            m_tileTextureArray->subImage3D(0, 0, 0, /*Z-offset*/ i - 1, static_cast<GLsizei>(m_tileTextureWidth), static_cast<GLsizei>(m_tileTextureHeight), 1,
+            m_tileTextureArray->subImage3D(0, 0, 0, /*Z-offset*/ i - 1, static_cast<GLsizei>(m_tileTextureWidth),
+                                           static_cast<GLsizei>(m_tileTextureHeight), 1,
                                            GL_RGBA, GL_UNSIGNED_BYTE, (void *) &tileTextureImage.front());
         }
     }
@@ -227,7 +230,7 @@ void molumes::TileRenderer::setEnabled(bool enabled) {
 
 
 void TileRenderer::display() {
-    auto currentState = State::currentState();
+    auto mainState = stateGuard();
 
     // Scatterplot GUI -----------------------------------------------------------------------------------------------------------
     // needs to be first to set all the new values before rendering
@@ -298,16 +301,12 @@ void TileRenderer::display() {
                 break;
         }
 
-        if (viewer()->viewportSize() != m_framebufferSize) {
+        if (viewportSize != m_framebufferSize) {
             m_framebufferSize = viewportSize;
-            m_pointChartTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            m_pointCircleTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            m_tilesTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            m_normalsAndDepthTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            m_gridTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            m_kdeTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            m_kdeTexture->generateMipmap();
-            m_colorTexture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            for (auto *tex: std::to_array({m_pointChartTexture.get(), m_pointCircleTexture.get(), m_tilesTexture.get(),
+                                           m_normalsAndDepthTexture.get(), m_gridTexture.get(), m_kdeTexture.get(),
+                                           m_colorTexture.get(), m_smoothNormalsTexture.get()}))
+                tex->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         }
 
         calculateTileTextureSize(inverseModelViewProjectionMatrix);
@@ -364,13 +363,11 @@ void TileRenderer::display() {
         // vertex shader
         shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 
-        m_vao->bind();
         shaderProgram_points->use();
 
         m_vao->drawArrays(GL_POINTS, 0, vertexCount);
 
         globjects::Program::release();
-        m_vao->unbind();
 
         // disable blending for draw buffer 0 (classical scatter plot)
         glDisablei(GL_BLEND, 0);
@@ -609,13 +606,16 @@ void TileRenderer::display() {
             m_tileNormalsBuffer = std::make_shared<Buffer>();
             viewer()->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
             // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
-            m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows), nullptr, GL_STREAM_DRAW);
+            m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows),
+                                         nullptr, GL_STREAM_DRAW);
         }
+        auto state = stateGuard();
+
         m_normalFramebuffer->bind();
         glDepthMask(GL_FALSE);
 
         // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-        m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
+        BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0};
 
         // one Pixel of data is enough to clear whole buffer
         // https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
@@ -623,8 +623,8 @@ void TileRenderer::display() {
         m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
         // -------------------------------------------------------------------------------------------------
 
-        m_kdeTexture->bindActive(1);
-        m_tileAccumulateTexture->bindActive(2);
+        BindActiveGuard _g2{m_kdeTexture, 1};
+        BindActiveGuard _g3{m_tileAccumulateTexture, 2};
 
         auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
 
@@ -644,28 +644,19 @@ void TileRenderer::display() {
         shaderProgram_tile_normals->setUniform("kdeTexture", 1);
         shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
 
-        m_vaoQuad->bind();
-
         shaderProgram_tile_normals->use();
         m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-        globjects::Program::release();
 
-        m_vaoQuad->unbind();
-
-        m_kdeTexture->unbindActive(1);
-        m_tileAccumulateTexture->unbindActive(2);
-
+        Framebuffer::unbind();
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
-        m_normalFramebuffer->unbind();
-        glDepthMask(GL_TRUE);
     }
 
 
     // ====================================================================================== TILES RENDER PASS ======================================================================================
     // Render tiles
     if (tile != nullptr) {
-
-        m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 1);
+        BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0}, _g2{m_valueMaxBuffer,
+                                                                                GL_SHADER_STORAGE_BUFFER, 1};
 
         m_tilesFramebuffer->bind();
 
@@ -684,8 +675,8 @@ void TileRenderer::display() {
 
         // -------------------------------------------------------------------------------------------------
 
-        m_tileAccumulateTexture->bindActive(2);
-        m_tilesDiscrepanciesTexture->bindActive(3);
+        BindActiveGuard _g3{m_tileAccumulateTexture, 2};
+        BindActiveGuard _g4{m_tilesDiscrepanciesTexture, 3};
 
         auto shaderProgram_tiles = tile->getTileProgram();
 
@@ -755,17 +746,10 @@ void TileRenderer::display() {
             m_colorMapTexture->unbindActive(5);
         }
 
-        m_tileAccumulateTexture->unbindActive(2);
-        m_tilesDiscrepanciesTexture->unbindActive(3);
-
         // disable blending
         glDisablei(GL_BLEND, 0);
 
-        m_tilesFramebuffer->unbind();
-
-        //unbind shader storage buffer
-        m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-        m_tileNormalsBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
+        Framebuffer::unbind();
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
     }
@@ -897,14 +881,12 @@ void TileRenderer::display() {
                              Framebuffer::defaultFBO().get(), GL_BACK,
                              {0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y},
                              GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
-    currentState->apply();
 }
 
 // --------------------------------------------------------------------------------------
 // ###########################  TILES ############################################
 // --------------------------------------------------------------------------------------
-void TileRenderer::calculateTileTextureSize(const mat4& inverseModelViewProjectionMatrix) {
+void TileRenderer::calculateTileTextureSize(const mat4 &inverseModelViewProjectionMatrix) {
 
     // if we only render points, we do not need to calculate tile sizes
     if (tile != nullptr) {
@@ -1029,7 +1011,8 @@ void TileRenderer::renderGUI() {
                 if (error)
                     globjects::debug() << "Could not load " << colorMapFilenames[m_colorMap - 1] << "!";
                 else {
-                    m_colorMapTexture->image1D(0, GL_RGBA, static_cast<GLsizei>(colorMapWidth), 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                    m_colorMapTexture->image1D(0, GL_RGBA, static_cast<GLsizei>(colorMapWidth), 0, GL_RGBA,
+                                               GL_UNSIGNED_BYTE,
                                                (void *) &colorMapImage.front());
                     m_colorMapTexture->generateMipmap();
 
@@ -1048,7 +1031,8 @@ void TileRenderer::renderGUI() {
         }
     }
 
-    if (ImGui::CollapsingHeader("Discrepancy", ImGuiTreeNodeFlags_DefaultOpen)) { /// Stupidest bugfix: Flag was set outside function, making "if" always true...
+    if (ImGui::CollapsingHeader("Discrepancy",
+                                ImGuiTreeNodeFlags_DefaultOpen)) { /// Stupidest bugfix: Flag was set outside function, making "if" always true...
         ImGui::Checkbox("Render Point Circles", &m_renderPointCircles);
         ImGui::SliderFloat("Point Circle Radius", &m_pointCircleRadius, 1.0f, 100.0f);
         ImGui::Checkbox("Show Discrepancy", &m_renderDiscrepancy_tmp);
@@ -1103,64 +1087,37 @@ void TileRenderer::renderGUI() {
 Gathers all #define, reset the defines files and reload the shaders
 */
 void TileRenderer::setShaderDefines() {
-    std::string defines{};
+    std::vector<std::string> defines{};
+    const auto conditions = std::to_array<std::pair<bool, const char *>>({
+                                                                                 {m_colorMapLoaded,           "COLORMAP"},
+                                                                                 {m_renderPointCircles,       "RENDER_POINT_CIRCLES"},
+                                                                                 {m_renderDiscrepancy,        "RENDER_DISCREPANCY"},
+                                                                                 {m_renderPointCircles,       "RENDER_POINT_CIRCLES"},
+                                                                                 {m_selected_tile_style !=
+                                                                                  0,                          "RENDER_TILES"},
+                                                                                 {m_selected_tile_style ==
+                                                                                  2,                          "RENDER_HEXAGONS"},
+                                                                                 {m_renderGrid,               "RENDER_GRID"},
+                                                                                 {m_renderKDE,                "RENDER_KDE"},
+                                                                                 {m_renderTileNormals,        "RENDER_TILE_NORMALS"},
+                                                                                 {m_smoothTileNormals,        "SMOOTH_TILE_NORMALS"},
+                                                                                 {m_renderNormalBuffer,       "RENDER_NORMAL_BUFFER"},
+                                                                                 {m_renderDepthBuffer,        "RENDER_DEPTH_BUFFER"},
+                                                                                 {m_renderAnalyticalAO,       "RENDER_ANALYTICAL_AO"},
+                                                                                 {m_renderMomochromeTiles,    "RENDER_MONOCHROME_TILES"},
+                                                                                 {m_renderFresnelReflectance, "RENDER_FRESNEL_REFLECTANCE"},
+                                                                                 {m_sobelEdgeColoring,        "RENDER_SOBEL_EDGE_COLORING"},
+                                                                                 {m_tileTexturing,            "RENDER_TEXTURED_TILES"}
 
-
-    if (m_colorMapLoaded)
-        defines += "#define COLORMAP\n";
-
-    if (m_renderPointCircles) {
-        defines += "#define RENDER_POINT_CIRCLES\n";
+                                                                         });
+    std::stringstream ss;
+    for (const auto&[cond, val]: conditions) {
+        if (cond)
+            ss << std::format("#define {}\n", val);
     }
 
-    if (m_renderDiscrepancy) {
-        defines += "#define RENDER_DISCREPANCY\n";
-    }
-
-    if (m_selected_tile_style != 0) {
-        defines += "#define RENDER_TILES\n";
-    }
-
-    if (m_selected_tile_style == 2) {
-        defines += "#define RENDER_HEXAGONS\n";
-    }
-
-    if (m_renderGrid) {
-        defines += "#define RENDER_GRID\n";
-    }
-
-    if (m_renderKDE)
-        defines += "#define RENDER_KDE\n";
-
-    if (m_renderTileNormals)
-        defines += "#define RENDER_TILE_NORMALS\n";
-
-    if (m_smoothTileNormals)
-        defines += "#define SMOOTH_TILE_NORMALS\n";
-
-    if (m_renderNormalBuffer)
-        defines += "#define RENDER_NORMAL_BUFFER\n";
-
-    if (m_renderDepthBuffer)
-        defines += "#define RENDER_DEPTH_BUFFER\n";
-
-    if (m_renderAnalyticalAO)
-        defines += "#define RENDER_ANALYTICAL_AO\n";
-
-    if (m_renderMomochromeTiles)
-        defines += "#define RENDER_MONOCHROME_TILES\n";
-
-    if (m_renderFresnelReflectance)
-        defines += "#define RENDER_FRESNEL_REFLECTANCE\n";
-
-    if (m_sobelEdgeColoring)
-        defines += "#define RENDER_SOBEL_EDGE_COLORING\n";
-
-    if (m_tileTexturing)
-        defines += "#define RENDER_TEXTURED_TILES\n";
-
-    if (defines != m_shaderSourceDefines->string()) {
-        m_shaderSourceDefines->setString(defines);
+    if (ss.str() != m_shaderSourceDefines->string()) {
+        m_shaderSourceDefines->setString(ss.str());
 
         reloadShaders();
     }
@@ -1346,7 +1303,7 @@ TileRenderer::calculateDiscrepancy2D(const std::vector<float> &samplesX, const s
     return discrepancies;
 }
 
-void TileRenderer::fileLoaded(const std::string & filename) {
+void TileRenderer::fileLoaded(const std::string &filename) {
     // reset column names
     m_guiColumnNames = "None";
     m_guiColumnNames += '\0'; /// Trailing null-terminators in string literals apparently gets truncated by STL
@@ -1354,7 +1311,7 @@ void TileRenderer::fileLoaded(const std::string & filename) {
     // extract column names and prepare GUI
     std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
 
-    for (const auto & tempName : tempNames)
+    for (const auto &tempName: tempNames)
         m_guiColumnNames += tempName + '\0';
 
     m_currentFileName = filename;

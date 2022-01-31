@@ -1,6 +1,7 @@
 #include "CrystalRenderer.h"
 #include "../Viewer.h"
 #include "tileRenderer/Tile.h"
+#include "../Utils.h"
 
 #include <array>
 #include <iostream>
@@ -10,7 +11,6 @@
 #include <globjects/globjects.h>
 #include <globjects/base/AbstractStringSource.h>
 #include <globjects/base/File.h>
-#include <globjects/State.h>
 #include <globjects/VertexAttributeBinding.h>
 #include <globjects/NamedString.h>
 #include <globjects/Sync.h>
@@ -22,20 +22,6 @@ using namespace molumes;
 using namespace globjects;
 using namespace glm;
 using namespace gl;
-
-/**
- * @brief Helper function that creates a guard object which reverts back to it's original OpenGL state when it exits the scope.
- */
-const auto stateGuard = []() {
-    return std::shared_ptr<State>{State::currentState().release(), [](State *p) {
-        globjects::Program::release();
-
-        if (p != nullptr) {
-            p->apply();
-            delete p;
-        }
-    }};
-};
 
 constexpr std::size_t MAX_HEXAGON_SIZE = 10000u;
 constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -55,24 +41,6 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
     m_computeBuffer2 = Buffer::create();
     m_maxValDiff = Buffer::create();
     m_maxValDiff->setStorage(sizeof(uint), nullptr, GL_NONE_BIT);
-
-    m_screenSpacedBuffer = Buffer::create();
-    m_screenSpacedBuffer->setData(std::to_array({
-        glm::vec2{-1.f, -1.f},
-        glm::vec2{1.f, -1.f},
-        glm::vec2{1.f, 1.f},
-
-        glm::vec2{1.f, 1.f},
-        glm::vec2{-1.f, 1.f},
-        glm::vec2{-1.f, -1.f}
-    }), GL_STATIC_DRAW);
-
-    m_screenSpacedVAO = VertexArray::create();
-    auto binding = m_screenSpacedVAO->binding(0);
-    binding->setAttribute(0);
-    binding->setBuffer(m_screenSpacedBuffer.get(), 0, sizeof(glm::vec2));
-    binding->setFormat(2, GL_FLOAT);
-    m_screenSpacedVAO->enable(0);
 
     addGlobalShaderInclude("./res/crystal/geometry-constants.glsl");
     addGlobalShaderInclude("./res/crystal/geometry-globals.glsl");
@@ -107,11 +75,6 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
 
     createShaderProgram("notch-geometry", {
             {GL_COMPUTE_SHADER, "./res/crystal/notch-geometry-cs.glsl"}
-    });
-
-    createShaderProgram("screen-debug", {
-            { GL_VERTEX_SHADER, "./res/crystal/screen-vs.glsl"},
-            { GL_FRAGMENT_SHADER, "./res/crystal/debug-fs.glsl"}
     });
 }
 
@@ -396,28 +359,6 @@ void CrystalRenderer::display() {
     }
 
 #ifndef NDEBUG
-    {
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        const auto &shader = shaderProgram("screen-debug");
-        if (shader && !resources.tileNormalsBuffer.expired()) {
-            shader->use();
-
-            auto normals = resources.tileNormalsBuffer.lock();
-            normals->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
-
-            shader->setUniform("num_cols", num_cols);
-            shader->setUniform("num_rows", num_rows);
-            shader->setUniform("maxTexCoordY", tile->m_tileMaxY);
-
-            m_screenSpacedVAO->bind();
-            m_screenSpacedVAO->drawArrays(GL_TRIANGLE_STRIP, 0, 6);
-
-            VertexArray::unbind();
-        }
-    }
-
     glPopDebugGroup();
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, false);
 #endif

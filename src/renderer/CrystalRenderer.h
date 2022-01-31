@@ -93,10 +93,10 @@ namespace molumes {
         };
 
         /// ------------------- Local variables -------------------------------------------
-        std::unique_ptr<globjects::VertexArray> m_vao, m_screenSpacedVAO;
+        std::unique_ptr<globjects::VertexArray> m_vao;
         // m_vertexBuffer is either m_computeBuffer or a smaller separate buffer subset
         // Using shared_ptr to check if shared resource is same
-        std::shared_ptr<globjects::Buffer> m_computeBuffer, m_computeBuffer2, m_vertexBuffer, m_screenSpacedBuffer;
+        std::shared_ptr<globjects::Buffer> m_computeBuffer, m_computeBuffer2, m_vertexBuffer;
         std::unique_ptr<globjects::Buffer> m_hullBuffer;
         std::unique_ptr<globjects::Buffer> m_maxValDiff;
 

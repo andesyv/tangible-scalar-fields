@@ -26,101 +26,106 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-Renderer::Renderer(Viewer* viewer) : m_viewer(viewer)
-{
+Renderer::Renderer(Viewer *viewer) : m_viewer(viewer) {
 
 }
 
-Viewer * Renderer::viewer()
-{
-	return m_viewer;
+Viewer *Renderer::viewer() {
+    return m_viewer;
 }
 
-void Renderer::setEnabled(bool enabled)
-{
-	m_enabled = enabled;
+void Renderer::setEnabled(bool enabled) {
+    m_enabled = enabled;
 }
 
-bool Renderer::isEnabled() const
-{
-	return m_enabled;
+bool Renderer::isEnabled() const {
+    return m_enabled;
 }
 
-void Renderer::reloadShaders()
-{
-	for (auto & p : m_shaderPrograms)
-	{
-		globjects::debug() << "Reloading shader program " << p.first << " ...";
+void Renderer::reloadShaders() {
+    for (auto&[key, val]: m_fileSources) {
+        globjects::debug() << "Reloading shader file " << val.second->filePath() << " ...";
+        val.second->reload();
+    }
 
-		for (auto & f : p.second.m_files)
-		{
-			globjects::debug() << "Reloading shader file " << f->filePath() << " ...";
-			f->reload();
-		}
-	}
+    for (auto &p: m_shaderPrograms) {
+        globjects::debug() << "Reloading shader program " << p.first << " ...";
+
+        for (auto &s: p.second.m_subshaders) {
+            if (!s.m_shader->compile())
+                globjects::critical() << "Shader '" << s.m_file->filePath() << "' failed to compile!";
+        }
+        p.second.m_program->link();
+    }
 }
 
-bool Renderer::createShaderProgram(const std::string & name, std::initializer_list< std::pair<GLenum, std::string> > shaders, std::initializer_list < std::string> shaderIncludes)
-{
-	globjects::debug() << "Creating shader program " << name << " ...";
+bool
+Renderer::createShaderProgram(const std::string &name, std::initializer_list<std::pair<GLenum, std::string> > shaders,
+                              std::initializer_list<std::string> shaderIncludes) {
+    globjects::debug() << "Creating shader program " << name << " ...";
 
     /// Aggregate initialization is pretty neat:
-	ShaderProgram program{ .m_program = std::move(Program::create()) };
+    ShaderProgram program{.m_program = std::move(Program::create())};
+    bool success = true;
 
-	for (const auto& i : shaderIncludes)
+    for (const auto &i: shaderIncludes)
         addGlobalShaderInclude(i);
 
-	for (const auto& [type, path] : shaders)
-	{
-		globjects::debug() << "Loading shader file " << path << " ...";
+    for (const auto&[type, path]: shaders) {
+        globjects::debug() << "Loading shader file " << path << " ...";
 
-		auto file = Shader::sourceFromFile(path);
+        std::shared_ptr file{Shader::sourceFromFile(path)};
         if (file->string().empty())
-            return false;
-		auto source = Shader::applyGlobalReplacements(file.get());
-		auto shader = Shader::create(type, source.get());
+            continue;
+        std::shared_ptr source{Shader::applyGlobalReplacements(file.get())};
 
-// In release mode, we want the shaders to be lazily loaded (I think).
-#ifndef NDEBUG
-            if (!shader->compile()) {
-                globjects::critical() << "Shader '" << path << "' failed to compile!";
-                return false;
-            }
-#endif
+        auto[actual_source, actual_file] = m_fileSources.emplace(file->filePath(),
+                                                                 std::make_pair(source, file)).first->second;
 
-		program.m_program->attach(shader.get());
+        auto shader = Shader::create(type, actual_source.get());
 
-		program.m_files.insert(std::move(file));
-		program.m_sources.insert(std::move(source));
-		program.m_shaders.insert(std::move(shader));
-	}
+        if (!shader->compile()) {
+            globjects::critical() << "Shader '" << path << "' failed to compile!";
+            success = false;
+        }
+        program.m_program->attach(shader.get());
+        program.m_subshaders.push_back({
+                                               .m_file = std::move(actual_file),
+                                               .m_source = std::move(actual_source),
+                                               .m_shader = std::move(shader)
+                                       });
+    }
 
-	m_shaderPrograms[name] = std::move(program);
+    program.m_program->link();
 
-	return false;
+    m_shaderPrograms[name] = std::move(program);
+
+    return success;
 }
 
-std::unique_ptr<globjects::Texture> Renderer::create2DTexture(GLenum tex, GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT,
-	gl::GLint level, gl::GLenum internalFormat, const glm::ivec2 & size, gl::GLint border, gl::GLenum format, gl::GLenum type, const gl::GLvoid * data) {
+std::unique_ptr<globjects::Texture>
+Renderer::create2DTexture(GLenum tex, GLenum minFilter, GLenum magFilter, GLenum wrapS, GLenum wrapT,
+                          gl::GLint level, gl::GLenum internalFormat, const glm::ivec2 &size, gl::GLint border,
+                          gl::GLenum format, gl::GLenum type, const gl::GLvoid *data) {
 
-	std::unique_ptr<globjects::Texture> texture = Texture::create(tex);
-	texture->setParameter(GL_TEXTURE_MIN_FILTER, minFilter);
-	texture->setParameter(GL_TEXTURE_MAG_FILTER, magFilter);
-	texture->setParameter(GL_TEXTURE_WRAP_S, wrapS);
-	texture->setParameter(GL_TEXTURE_WRAP_T, wrapT);
-	texture->image2D(level, internalFormat, size, border, format, type, data);
+    std::unique_ptr<globjects::Texture> texture = Texture::create(tex);
+    texture->setParameter(GL_TEXTURE_MIN_FILTER, minFilter);
+    texture->setParameter(GL_TEXTURE_MAG_FILTER, magFilter);
+    texture->setParameter(GL_TEXTURE_WRAP_S, wrapS);
+    texture->setParameter(GL_TEXTURE_WRAP_T, wrapT);
+    texture->image2D(level, internalFormat, size, border, format, type, data);
 
-	return texture;
+    return texture;
 }
 
-globjects::Program * Renderer::shaderProgram(const std::string & name)
-{
-	return m_shaderPrograms[name].m_program.get();
+globjects::Program *Renderer::shaderProgram(const std::string &name) {
+    auto &p = m_shaderPrograms.at(name).m_program;
+    return p->isValid() ? p.get() : nullptr;
 }
 
-void Renderer::fileLoaded(const std::string&) {}
+void Renderer::fileLoaded(const std::string &) {}
 
-void Renderer::addGlobalShaderInclude(const std::string& str) {
+void Renderer::addGlobalShaderInclude(const std::string &str) {
     globjects::debug() << "Loading include file " << str << " ...";
 
     std::filesystem::path path{str};
