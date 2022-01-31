@@ -68,7 +68,8 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_tilesTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_normalsAndDepthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
-		std::shared_ptr<globjects::Texture> m_kdeTexture = nullptr;
+		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
+        std::shared_ptr<globjects::Texture> m_smoothNormalsTexture = nullptr;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -90,6 +91,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_tilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
+        std::unique_ptr<globjects::Framebuffer> m_normalFramebuffer = nullptr;
 
 		glm::ivec2 m_framebufferSize{};
 

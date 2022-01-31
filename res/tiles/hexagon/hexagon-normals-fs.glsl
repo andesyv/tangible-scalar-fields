@@ -32,7 +32,7 @@ uniform int max_rect_row;
 uniform float bufferAccumulationFactor;
 
 //--out
-layout(location = 0) out vec4 hexTilesTexture;
+layout(location = 0) out vec4 fragmentNormal;
 
 void main()
 {
@@ -63,12 +63,13 @@ void main()
     }
     
    // get value from density normals texture
-    vec4 fragmentNormal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0f);
-    fragmentNormal *= bufferAccumulationFactor;
-   
+    vec4 normal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0);
+    fragmentNormal = vec4(normal.rgb * 0.5 + 0.5, 1.0);
+    normal *= bufferAccumulationFactor;
+
     // accumulate fragment normals
     for(int i = 0; i < 4; i++){
-        int intValue = int(fragmentNormal[i]);
+        int intValue = int(normal[i]);
 
         atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + i)], intValue);
     }

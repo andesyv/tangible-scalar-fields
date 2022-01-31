@@ -26,12 +26,6 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-#ifndef NDEBUG
-constexpr bool LAZY_LOADING = false;
-#else
-constexpr bool LAZY_LOADING = true;
-#endif
-
 Renderer::Renderer(Viewer* viewer) : m_viewer(viewer)
 {
 

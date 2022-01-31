@@ -127,10 +127,13 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     m_gridTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                     GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
+    m_kdeTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                    GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    m_kdeTexture = std::move(std::shared_ptr<Texture>{tex.release()});
-    viewer->m_sharedResources.kdeTexture = m_kdeTexture;
+
+    tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+                                             0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    m_smoothNormalsTexture = std::move(std::shared_ptr<Texture>{tex.release()});
+    viewer->m_sharedResources.smoothNormalsTexture = m_smoothNormalsTexture;
 
     m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                      GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -206,6 +209,11 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
     m_shadeFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_colorTexture.get());
     m_shadeFramebuffer->setDrawBuffers({GL_COLOR_ATTACHMENT0});
     m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+
+    m_normalFramebuffer = Framebuffer::create();
+    m_normalFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_smoothNormalsTexture.get());
+    m_normalFramebuffer->setDrawBuffers({GL_COLOR_ATTACHMENT0});
+    m_normalFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 }
 
 void molumes::TileRenderer::setEnabled(bool enabled) {
@@ -591,7 +599,6 @@ void TileRenderer::display() {
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
     // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
-    // no framebuffer needed, because we don't render anything. we just save into the storage buffer
 
     // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
     // Final normal = accumulated_fragment_normal / data_points_within
@@ -604,6 +611,9 @@ void TileRenderer::display() {
             // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
             m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows), nullptr, GL_STREAM_DRAW);
         }
+        m_normalFramebuffer->bind();
+        glDepthMask(GL_FALSE);
+
         // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
         m_tileNormalsBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -646,6 +656,8 @@ void TileRenderer::display() {
         m_tileAccumulateTexture->unbindActive(2);
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        m_normalFramebuffer->unbind();
+        glDepthMask(GL_TRUE);
     }
 
 
