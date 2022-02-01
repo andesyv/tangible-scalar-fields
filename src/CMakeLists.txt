@@ -9,7 +9,7 @@ target_sources(ext PRIVATE
 )
 
 list(APPEND CMAKE_PREFIX_PATH
-		${CMAKE_SOURCE_DIR}/lib/glm
+		${CMAKE_SOURCE_DIR}/lib/glm/lib/cmake/glm
 		${CMAKE_SOURCE_DIR}/lib/glbinding
 		${CMAKE_SOURCE_DIR}/lib/globjects
 		${CMAKE_SOURCE_DIR}/lib/glfw

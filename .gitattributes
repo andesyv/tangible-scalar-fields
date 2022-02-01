@@ -1,0 +1,2 @@
+# Auto normalize files to line endings (in case users have core.autocrlf=false)
+* text=auto
