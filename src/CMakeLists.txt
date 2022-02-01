@@ -21,6 +21,7 @@ find_package(globjects REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(Matlab COMPONENTS ENG_LIBRARY)
 find_package(OpenMP)
+find_package(DHD)
 
 target_include_directories(molumes PRIVATE
 		${CMAKE_SOURCE_DIR}/lib/HBAOPlus/include
@@ -36,6 +37,8 @@ target_link_libraries(molumes PUBLIC
 		glbinding::glbinding-aux
 		globjects::globjects
 )
+
+# Optional dependencies:
 if(OpenMP_CXX_FOUND)
     target_link_libraries(molumes PUBLIC OpenMP::OpenMP_CXX)
 endif()
@@ -45,6 +48,12 @@ if (Matlab_FOUND)
 	target_include_directories(molumes PRIVATE ${Matlab_INCLUDE_DIRS})
 	target_link_libraries(molumes PUBLIC ${MATLAB_LIBRARIES})
 	target_compile_definitions(molumes INTERFACE HAVE_MATLAB)
+endif()
+
+if (DHD_FOUND)
+	target_include_directories(molumes PRIVATE DHD::DHD)
+	target_link_libraries(molumes PRIVATE DHD::DHD)
+	target_compile_definitions(molumes PRIVATE DHD)
 endif()
 
 set_target_properties(molumes PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

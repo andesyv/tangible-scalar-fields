@@ -3,6 +3,8 @@
 #include "../Viewer.h"
 
 #include <cassert>
+#include <iostream>
+#include <format>
 
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/types.h>
@@ -105,7 +107,8 @@ void GridSurfaceRenderer::display() {
     static glm::uint tesselation = TESSELATION;
     if (ImGui::BeginMenu("Grid plane")) {
         auto ui_tess = static_cast<int>(tesselation);
-        if (ImGui::DragInt("Tesselation", &ui_tess, 1.f, 1, 12000))
+        // Apparently, most hardware has their max tesselation level set to 64. Not a lot for a single plane, but a lot for individual triangles.
+        if (ImGui::DragInt("Tesselation", &ui_tess, 1.f, 1, 64))
             tesselation = static_cast<glm::uint>(ui_tess);
 
         ImGui::EndMenu();

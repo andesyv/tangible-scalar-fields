@@ -1,9 +1,16 @@
-//
-// Created by andes on 1/28/2022.
-//
-
 #include "HapticsInteractor.h"
 
-molumes::HapticsInteractor::HapticsInteractor(molumes::Viewer *viewer) : Interactor(viewer) {
+#include <iostream>
+#include <format>
 
+#ifdef DHD
+#include <dhdc.h>
+#endif
+
+using namespace molumes;
+
+HapticsInteractor::HapticsInteractor(Viewer *viewer) : Interactor(viewer) {
+#ifdef DHD
+    std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
+#endif
 }

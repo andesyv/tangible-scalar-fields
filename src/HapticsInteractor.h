@@ -1,6 +1,8 @@
 #ifndef MOLUMES_HAPTICSINTERACTOR_H
 #define MOLUMES_HAPTICSINTERACTOR_H
 
+#include <thread>
+
 #include "Interactor.h"
 
 /**
@@ -9,8 +11,12 @@
 
 namespace molumes {
 class HapticsInteractor : public Interactor {
+private:
+    std::thread m_thread;
+
 public:
-    HapticsInteractor(Viewer* viewer);
+    explicit HapticsInteractor(Viewer* viewer);
+
 };
 }
 
