@@ -20,6 +20,8 @@ namespace molumes
 		virtual void scrollEvent(double xoffset, double yoffset);
 		virtual void display();
 
+        virtual ~Interactor() = default;
+
     protected:
         bool m_ctrl = false;
 
