@@ -60,22 +60,6 @@ BoundingBoxRenderer::BoundingBoxRenderer(Viewer *viewer)
 
     m_vao->unbind();
 
-    m_vertexShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-vs.glsl");
-    m_tesselationControlShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-tcs.glsl");
-    m_tesselationEvaluationShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-tes.glsl");
-    m_geometryShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-gs.glsl");
-    m_fragmentShaderSource = Shader::sourceFromFile("./res/boundingbox/boundingbox-fs.glsl");
-
-//    m_vertexShader = Shader::create(GL_VERTEX_SHADER, m_vertexShaderSource.get());
-//    m_tesselationControlShader = Shader::create(GL_TESS_CONTROL_SHADER, m_tesselationControlShaderSource.get());
-//    m_tesselationEvaluationShader = Shader::create(GL_TESS_EVALUATION_SHADER,
-//                                                   m_tesselationEvaluationShaderSource.get());
-//    m_geometryShader = Shader::create(GL_GEOMETRY_SHADER, m_geometryShaderSource.get());
-//    m_fragmentShader = Shader::create(GL_FRAGMENT_SHADER, m_fragmentShaderSource.get());
-//
-//    m_program->attach(m_vertexShader.get(), m_tesselationControlShader.get(), m_tesselationEvaluationShader.get(),
-//                      m_geometryShader.get(), m_fragmentShader.get());
-
     createShaderProgram("boundingbox", {
             { GL_VERTEX_SHADER, "./res/boundingbox/boundingbox-vs.glsl" },
             { GL_TESS_CONTROL_SHADER, "./res/boundingbox/boundingbox-tcs.glsl" },

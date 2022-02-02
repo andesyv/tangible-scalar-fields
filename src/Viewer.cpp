@@ -31,6 +31,7 @@
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "renderer/CrystalRenderer.h"
 #include "renderer/GridSurfaceRenderer.h"
+#include "renderer/HapticRenderer.h"
 #include "Scene.h"
 #include "CSV/Table.h"
 
@@ -174,6 +175,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
     m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
+    m_renderers.emplace_back(std::make_unique<HapticRenderer>(this));
     m_interactors.emplace_back(std::make_unique<HapticsInteractor>(this));
 
     int i = 1;

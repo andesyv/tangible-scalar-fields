@@ -33,12 +33,6 @@ namespace molumes {
         std::unique_ptr<globjects::File> m_tesselationEvaluationShaderSource = nullptr;
         std::unique_ptr<globjects::File> m_geometryShaderSource = nullptr;
         std::unique_ptr<globjects::File> m_fragmentShaderSource = nullptr;
-
-        std::unique_ptr<globjects::Shader> m_tesselationControlShader = nullptr;
-        std::unique_ptr<globjects::Shader> m_tesselationEvaluationShader = nullptr;
-        std::unique_ptr<globjects::Shader> m_vertexShader = nullptr;
-        std::unique_ptr<globjects::Shader> m_geometryShader = nullptr;
-        std::unique_ptr<globjects::Shader> m_fragmentShader = nullptr;
         gl::GLsizei m_size;
     };
 

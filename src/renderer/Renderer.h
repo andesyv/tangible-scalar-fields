@@ -51,13 +51,6 @@ namespace molumes
 			std::unique_ptr< globjects::Program > m_program;
  		};
 
-        template <typename T>
-        struct ShaderPtrCompare {
-            constexpr bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) {
-                return *lhs == *rhs;
-            }
-        };
-
 
 	public:
 		Renderer(Viewer* viewer);
