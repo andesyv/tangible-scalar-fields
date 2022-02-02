@@ -6,8 +6,10 @@
 #include <functional>
 
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 #include "Interactor.h"
+#include "../Channel.h"
 
 /**
  * Enables interaction with haptic devices
@@ -24,7 +26,7 @@ private:
 public:
     std::function<void(bool)> m_on_haptic_toggle{};
 
-    explicit HapticInteractor(Viewer* viewer);
+    explicit HapticInteractor(Viewer* viewer, Channel<std::vector<glm::vec4>>&& normal_tex_channel);
 
     bool hapticEnabled() const { return m_haptic_enabled; }
 

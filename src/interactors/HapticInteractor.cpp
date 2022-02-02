@@ -23,13 +23,16 @@ using namespace molumes;
 
 #ifdef DHD
 
-void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& global_pos, std::atomic<float>& interaction_bounds, std::promise<bool>&& setup_results) {
+void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
+                 std::atomic<float> &interaction_bounds, std::promise<bool> &&setup_results,
+                 Channel<std::vector<glm::vec4>> &&normal_tex_channel) {
     glm::dvec3 local_pos;
     bool force_enabled = false;
 #ifndef NDEBUG
     constexpr auto DEBUG_INTERVAL = 1.0;
 #endif
     double max_bound = 0.01;
+    std::vector<glm::vec4> data{};
 
     // Initialize haptics device
     if (0 <= dhdOpen()) {
@@ -52,7 +55,8 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& 
 #ifndef NDEBUG
         const auto current_t = std::chrono::steady_clock::now();
         const auto debug_delta_time =
-                static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(current_t - last_debug_t).count()) * 0.001;
+                static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                        current_t - last_debug_t).count()) * 0.001;
 #endif
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
         dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
@@ -71,7 +75,8 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& 
         // Transform to scene space:
         // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
         // right = y, up = z, forward = -x
-        const auto scale_mult = interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
+        const auto scale_mult =
+                interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
         local_pos = local_pos * scale_mult;
 
 #ifndef NDEBUG
@@ -80,6 +85,12 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& 
 #endif
 
         global_pos.store(local_pos);
+
+        // Attempt to fetch the last data sent through the channel.
+        auto result = normal_tex_channel.try_get_last();
+        if (result) {
+            data = *result;
+        }
 
         // Simulation stuff
         if constexpr (ENABLE_FORCE) {
@@ -105,7 +116,8 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& 
 
 #endif // DHD
 
-HapticInteractor::HapticInteractor(Viewer *viewer) : Interactor(viewer) {
+HapticInteractor::HapticInteractor(Viewer *viewer, Channel<std::vector<glm::vec4>> &&normal_tex_channel) : Interactor(
+        viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
 
@@ -113,7 +125,8 @@ HapticInteractor::HapticInteractor(Viewer *viewer) : Interactor(viewer) {
 
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
-    m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds), std::move(setup_results)};
+    m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds),
+                            std::move(setup_results), std::move(normal_tex_channel)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }

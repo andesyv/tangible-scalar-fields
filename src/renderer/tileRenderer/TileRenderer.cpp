@@ -8,6 +8,7 @@
 #include <memory>
 #include <format>
 #include <algorithm>
+#include <chrono>
 
 #include <glbinding/gl/gl.h>
 
@@ -24,11 +25,13 @@
 #include <globjects/TextureHandle.h>
 #include <globjects/NamedString.h>
 #include <globjects/base/StaticStringSource.h>
+#include <globjects/Sync.h>
 
 #ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include <glm/gtx/transform.hpp>
+#include <chrono>
 
 #endif
 
@@ -592,6 +595,7 @@ void TileRenderer::display() {
     // Final normal = accumulated_fragment_normal / data_points_within
 
     // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
+    static std::unique_ptr<Sync> normal_pass_sync{};
 
     // render Tile Normals into storage buffer
     if (tile != nullptr && m_renderTileNormals) {
@@ -646,6 +650,7 @@ void TileRenderer::display() {
 
         Framebuffer::unbind();
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        normal_pass_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
     }
 
 
@@ -878,6 +883,22 @@ void TileRenderer::display() {
                              Framebuffer::defaultFBO().get(), GL_BACK,
                              {0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y},
                              GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+
+
+
+    // ====================================================================================== CPGPU Transfer ======================================================================================
+    // After everything else is done, GPU is probably done with earlier tasks and is probably ready to transfer data over
+    static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds{100}).count());
+
+    if (normal_pass_sync) {
+        const auto sync_result = normal_pass_sync->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
+        if (sync_result != GL_WAIT_FAILED && sync_result != GL_TIMEOUT_EXPIRED) {
+
+//            m_normal_tex_channel.send()
+        }
+        normal_pass_sync = {};
+    }
 }
 
 // --------------------------------------------------------------------------------------

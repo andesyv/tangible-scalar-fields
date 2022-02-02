@@ -119,8 +119,10 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     glfwSetCharCallback(window, &Viewer::charCallback);
     glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
+    Channel<std::vector<glm::vec4>> normal_tex_channel{};
+
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-    m_renderers.emplace_back(std::make_unique<TileRenderer>(this));
+    auto tile_renderer = static_cast<TileRenderer*>(m_renderers.emplace_back(std::make_unique<TileRenderer>(this)).get());
     const auto crystalRendererPtr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(
             std::make_unique<CrystalRenderer>(this)).get());
     crystalRendererPtr->setEnabled(false);
@@ -128,11 +130,12 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
     auto &haptic_interactor = *static_cast<HapticInteractor *>(m_interactors.emplace_back(
-            std::make_unique<HapticInteractor>(this)).get());
+            std::make_unique<HapticInteractor>(this, Channel<std::vector<glm::vec4>>{normal_tex_channel})).get());
     auto haptic_renderer = static_cast<HapticRenderer *>(m_renderers.emplace_back(
             std::make_unique<HapticRenderer>(this)).get());
     haptic_interactor.m_on_haptic_toggle = [haptic_renderer](bool enabled) { haptic_renderer->setEnabled(enabled); };
     haptic_renderer->setEnabled(haptic_interactor.hapticEnabled());
+    tile_renderer->m_normal_tex_channel = std::move(normal_tex_channel);
 
     int i = 1;
 
