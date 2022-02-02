@@ -16,7 +16,7 @@ namespace molumes {
     private:
         std::unique_ptr<globjects::VertexArray> m_vao;
         std::unique_ptr<globjects::Buffer> m_point_buffer;
-        float m_radius = 0.3f;
+        float m_radius = 0.03f;
 
     public:
         explicit HapticRenderer(Viewer* viewer);

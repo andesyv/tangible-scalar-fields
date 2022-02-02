@@ -1,4 +1,5 @@
-#include "HapticsInteractor.h"
+#include "HapticInteractor.h"
+#include "Viewer.h"
 
 #include <iostream>
 #include <format>
@@ -6,6 +7,8 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
+
+#include <imgui.h>
 
 #ifdef DHD
 
@@ -19,10 +22,13 @@ using namespace molumes;
 
 #ifdef DHD
 
-void haptic_loop(std::atomic_flag &simulation_should_end, std::atomic<glm::vec3> &global_pos) {
+void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& global_pos, std::atomic<float>& interaction_bounds) {
     glm::dvec3 local_pos;
     bool force_enabled = false;
-    constexpr auto DEBUG_INTERVAL = 3.0;
+#ifndef NDEBUG
+    constexpr auto DEBUG_INTERVAL = 1.0;
+#endif
+    double max_bound = 0.01;
 
     // Initialize haptics device
     if (0 <= dhdOpen()) {
@@ -35,24 +41,40 @@ void haptic_loop(std::atomic_flag &simulation_should_end, std::atomic<glm::vec3>
         return;
     }
 
+#ifndef NDEBUG
     auto last_debug_t = std::chrono::steady_clock::now();
+#endif
 
-    for (; !simulation_should_end.test();/*std::this_thread::sleep_for(std::chrono::milliseconds{1})*/) {
+    for (; !simulation_should_end.stop_requested();/*std::this_thread::sleep_for(std::chrono::milliseconds{1})*/) {
+#ifndef NDEBUG
         const auto current_t = std::chrono::steady_clock::now();
         const auto debug_delta_time =
                 static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(current_t - last_debug_t).count()) * 0.001;
+#endif
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
         dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
 
-        if (DEBUG_INTERVAL < debug_delta_time) {
+#ifndef NDEBUG
+        const auto debug_frame = DEBUG_INTERVAL < debug_delta_time;
+        if (debug_frame) {
             std::cout << std::format("Haptic local position: {}", glm::to_string(local_pos)) << std::endl;
             last_debug_t = current_t;
         }
+#endif
+
+        // Update max_bound for transformation calculation:
+        max_bound = std::max({std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound});
 
         // Transform to scene space:
-        // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3
+        // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
         // right = y, up = z, forward = -x
-        local_pos = glm::dvec3{local_pos.y, local_pos.z, -local_pos.x} * 10.0; // * 100.0;
+        const auto scale_mult = interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
+        local_pos = local_pos * scale_mult;
+
+#ifndef NDEBUG
+        if (debug_frame)
+            std::cout << std::format("Haptic global position: {}", glm::to_string(local_pos)) << std::endl;
+#endif
 
         global_pos.store(local_pos);
 
@@ -80,19 +102,33 @@ void haptic_loop(std::atomic_flag &simulation_should_end, std::atomic<glm::vec3>
 
 #endif // DHD
 
-HapticsInteractor::HapticsInteractor(Viewer *viewer) : Interactor(viewer) {
+HapticInteractor::HapticInteractor(Viewer *viewer) : Interactor(viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
 
     /// Possible handling of grip/rotation and other additional Haptic stuff here
 
-    m_thread = std::thread{haptic_loop, std::ref(m_haptics_done), std::ref(haptic_finger_pos)};
+    m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds)};
 #endif
 }
 
-HapticsInteractor::~HapticsInteractor() {
+HapticInteractor::~HapticInteractor() {
     if (m_thread.joinable()) {
-        m_haptics_done.test_and_set();
+        m_thread.request_stop();
         m_thread.join();
     }
+}
+
+void HapticInteractor::display() {
+    Interactor::display();
+
+    if (ImGui::BeginMenu("Haptics")) {
+        auto interaction_bounds = m_interaction_bounds.load();
+        if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 10.f, 3000.f))
+            m_interaction_bounds.store(interaction_bounds);
+
+        ImGui::EndMenu();
+    }
+
+    viewer()->m_haptic_pos = m_haptic_finger_pos.load();
 }

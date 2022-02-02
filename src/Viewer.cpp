@@ -26,7 +26,7 @@
 
 #include "CameraInteractor.h"
 #include "STLExporter.h"
-#include "HapticsInteractor.h"
+#include "HapticInteractor.h"
 #include "renderer/BoundingBoxRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "renderer/CrystalRenderer.h"
@@ -176,7 +176,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
     m_renderers.emplace_back(std::make_unique<HapticRenderer>(this));
-    m_interactors.emplace_back(std::make_unique<HapticsInteractor>(this));
+    m_interactors.emplace_back(std::make_unique<HapticInteractor>(this));
 
     int i = 1;
 

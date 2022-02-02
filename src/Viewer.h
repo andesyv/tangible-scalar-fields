@@ -112,6 +112,8 @@ namespace molumes
             explicit operator bool() const { return all_t_weak_ptr(as_tuple()); }
         } m_sharedResources;
 
+        glm::vec3 m_haptic_pos;
+
 	private:
 
 		void beginFrame();

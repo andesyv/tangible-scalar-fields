@@ -9,6 +9,8 @@
 #include <globjects/VertexAttributeBinding.h>
 #include <globjects/Buffer.h>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <imgui.h>
 
 using namespace molumes;
@@ -39,7 +41,7 @@ void HapticRenderer::display() {
     auto state = stateGuard();
 
     if (ImGui::BeginMenu("Haptic Debug")) {
-        ImGui::SliderFloat("Radius", &m_radius, 0.01f, 10.f);
+        ImGui::SliderFloat("Radius", &m_radius, 0.001f, 1.f);
 
         ImGui::EndMenu();
     }
@@ -49,7 +51,8 @@ void HapticRenderer::display() {
 
     const auto P = viewer()->projectionTransform();
     const auto PInv = glm::inverse(P);
-    const auto MVP = P * viewer()->modelViewTransform();
+    const auto haptic_pos = viewer()->m_haptic_pos;
+    const auto MVP = P * viewer()->viewTransform() * glm::translate(viewer()->modelTransform(), haptic_pos);
 
     const auto &shader = shaderProgram("haptic");
     if (!shader)
