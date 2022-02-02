@@ -1,9 +1,10 @@
 #include "HapticInteractor.h"
-#include "Viewer.h"
+#include "../Viewer.h"
 
 #include <iostream>
 #include <format>
 #include <chrono>
+#include <future>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -22,7 +23,7 @@ using namespace molumes;
 
 #ifdef DHD
 
-void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& global_pos, std::atomic<float>& interaction_bounds) {
+void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& global_pos, std::atomic<float>& interaction_bounds, std::promise<bool>&& setup_results) {
     glm::dvec3 local_pos;
     bool force_enabled = false;
 #ifndef NDEBUG
@@ -36,8 +37,10 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3>& 
         std::cout << std::format(
                 "Device capabilities: base: {}, gripper: {}, wrist: {}, active gripper: {}, active wrist: {}",
                 dhdHasBase(), dhdHasGripper(), dhdHasWrist(), dhdHasActiveGripper(), dhdHasActiveWrist()) << std::endl;
+        setup_results.set_value(true);
     } else {
         // Early quit haptic loop by returning early out of the function
+        setup_results.set_value(false);
         return;
     }
 
@@ -108,7 +111,10 @@ HapticInteractor::HapticInteractor(Viewer *viewer) : Interactor(viewer) {
 
     /// Possible handling of grip/rotation and other additional Haptic stuff here
 
-    m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds)};
+    std::promise<bool> setup_results{};
+    auto haptics_enabled = setup_results.get_future();
+    m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds), std::move(setup_results)};
+    m_haptic_enabled = haptics_enabled.get();
 #endif
 }
 
@@ -131,4 +137,11 @@ void HapticInteractor::display() {
     }
 
     viewer()->m_haptic_pos = m_haptic_finger_pos.load();
+
+    // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection
+    static auto last_haptic_enabled = m_haptic_enabled;
+    if (m_on_haptic_toggle && last_haptic_enabled != m_haptic_enabled) {
+        m_on_haptic_toggle(m_haptic_enabled);
+        last_haptic_enabled = m_haptic_enabled;
+    }
 }

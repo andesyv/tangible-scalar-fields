@@ -26,7 +26,7 @@
 #include "Scene.h"
 #include "CSV/Table.h"
 #include "Viewer.h"
-#include "Interactor.h"
+#include "interactors/Interactor.h"
 #include "renderer/Renderer.h"
 
 using namespace gl;

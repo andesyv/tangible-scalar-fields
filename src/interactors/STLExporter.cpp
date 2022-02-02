@@ -14,8 +14,8 @@
 #include <portable-file-dialogs.h>
 #include <glm/glm.hpp>
 
-#include "renderer/CrystalRenderer.h"
-#include "GeometryUtils.h"
+#include "../renderer/CrystalRenderer.h"
+#include "../GeometryUtils.h"
 
 using namespace molumes;
 using namespace glm;

@@ -1,5 +1,5 @@
 #include "CameraInteractor.h"
-#include "Viewer.h"
+#include "../Viewer.h"
 
 #include <iostream>
 #include <algorithm>

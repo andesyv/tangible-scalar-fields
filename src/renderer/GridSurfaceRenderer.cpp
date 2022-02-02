@@ -136,7 +136,7 @@ void GridSurfaceRenderer::display() {
 
         shader->use();
 
-        BindActiveGuard _g{smoothNormalTex};
+        BindActiveGuard _g{smoothNormalTex, 0};
 
         shader->setUniform("MVP", MVP);
         shader->setUniform("tesselation", tesselation);

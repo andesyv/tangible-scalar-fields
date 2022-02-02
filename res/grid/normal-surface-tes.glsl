@@ -35,8 +35,10 @@ void main() {
     vec3 p = (p1 - p0) * gl_TessCoord.y + p0;
 
     // Tesselation displacement mapping using normal
-    vec3 normal = texture(normalTex, texCoord).rgb;
-    p += normal * 0.07;
+    vec4 normal = texture(normalTex, texCoord);
+    float normalFactor = normal.a;
+
+    p += (normal.rgb * 2.0 - 1.0) * normalFactor * 0.0001;
 
     uv = texCoord;
     gl_Position = MVP * vec4(p, 1.0);

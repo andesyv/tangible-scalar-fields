@@ -24,9 +24,9 @@
 #include <globjects/VertexAttributeBinding.h>
 #include <imgui.h>
 
-#include "CameraInteractor.h"
-#include "STLExporter.h"
-#include "HapticInteractor.h"
+#include "interactors/CameraInteractor.h"
+#include "interactors/STLExporter.h"
+#include "interactors/HapticInteractor.h"
 #include "renderer/BoundingBoxRenderer.h"
 #include "renderer/tileRenderer/TileRenderer.h"
 #include "renderer/CrystalRenderer.h"
@@ -37,6 +37,7 @@
 
 // windows.h, which portable-file-dialogs includes, defines its own min/max operator which crashes with STL
 #define NOMINMAX
+
 #include <portable-file-dialogs.h>
 
 using namespace molumes;
@@ -92,56 +93,6 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     io.Fonts->TexID = reinterpret_cast<ImTextureID>(static_cast<std::size_t>(m_fontTexture->id()));
 
     ImGuiStyle &style = ImGui::GetStyle();
-    /*
-    ImVec4 color_for_text = ImVec4(236.f / 255.f, 240.f / 255.f, 241.f / 255.f, 1.0f);
-    ImVec4 color_for_head = ImVec4(41.f / 255.f, 128.f / 255.f, 185.f / 255.f, 1.0f);
-    ImVec4 color_for_area = ImVec4(57.f / 255.f, 79.f / 255.f, 105.f / 255.f, 1.0f);
-    ImVec4 color_for_body = ImVec4(44.f / 255.f, 62.f / 255.f, 80.f / 255.f, 1.0f);
-    ImVec4 color_for_pops = ImVec4(33.f / 255.f, 46.f / 255.f, 60.f / 255.f, 1.0f);
-
-    style.WindowRounding = 3.0f;
-    style.FrameRounding = 3.0f;
-
-    style.Colors[ImGuiCol_Text] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 1.00f);
-    style.Colors[ImGuiCol_TextDisabled] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.58f);
-    style.Colors[ImGuiCol_WindowBg] = ImVec4(color_for_body.x, color_for_body.y, color_for_body.z, 0.95f);
-    style.Colors[ImGuiCol_ChildWindowBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.58f);
-    style.Colors[ImGuiCol_Border] = ImVec4(color_for_body.x, color_for_body.y, color_for_body.z, 0.00f);
-    style.Colors[ImGuiCol_BorderShadow] = ImVec4(color_for_body.x, color_for_body.y, color_for_body.z, 0.00f);
-    style.Colors[ImGuiCol_FrameBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
-    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
-    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_TitleBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
-    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.75f);
-    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.47f);
-    style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 1.00f);
-    style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.21f);
-    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
-    style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_CheckMark] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.80f);
-    style.Colors[ImGuiCol_SliderGrab] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.50f);
-    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_Button] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.50f);
-    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.86f);
-    style.Colors[ImGuiCol_ButtonActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_Header] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.76f);
-    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.86f);
-    style.Colors[ImGuiCol_HeaderActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_Column] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.32f);
-    style.Colors[ImGuiCol_ColumnHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
-    style.Colors[ImGuiCol_ColumnActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.15f);
-    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.78f);
-    style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_PlotLines] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.63f);
-    style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_PlotHistogram] = ImVec4(color_for_text.x, color_for_text.y, color_for_text.z, 0.63f);
-    style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 1.00f);
-    style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(color_for_head.x, color_for_head.y, color_for_head.z, 0.43f);
-    style.Colors[ImGuiCol_PopupBg] = ImVec4(color_for_pops.x, color_for_pops.y, color_for_pops.z, 0.92f);
-    style.Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(color_for_area.x, color_for_area.y, color_for_area.z, 0.73f);
-    */
     m_verticesUi = Buffer::create();
     m_indicesUi = Buffer::create();
     m_vaoUi = VertexArray::create();
@@ -170,13 +121,18 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
     m_renderers.emplace_back(std::make_unique<TileRenderer>(this));
-    const auto crystalRendererPtr = static_cast<CrystalRenderer*>(m_renderers.emplace_back(std::make_unique<CrystalRenderer>(this)).get());
+    const auto crystalRendererPtr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(
+            std::make_unique<CrystalRenderer>(this)).get());
     crystalRendererPtr->setEnabled(false);
     m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
     m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
-    m_renderers.emplace_back(std::make_unique<HapticRenderer>(this));
-    m_interactors.emplace_back(std::make_unique<HapticInteractor>(this));
+    auto &haptic_interactor = *static_cast<HapticInteractor *>(m_interactors.emplace_back(
+            std::make_unique<HapticInteractor>(this)).get());
+    auto haptic_renderer = static_cast<HapticRenderer *>(m_renderers.emplace_back(
+            std::make_unique<HapticRenderer>(this)).get());
+    haptic_interactor.m_on_haptic_toggle = [haptic_renderer](bool enabled) { haptic_renderer->setEnabled(enabled); };
+    haptic_renderer->setEnabled(haptic_interactor.hapticEnabled());
 
     int i = 1;
 
@@ -508,7 +464,8 @@ void Viewer::beginFrame() {
     glfwGetWindowSize(m_window, &w, &h);
     glfwGetFramebufferSize(m_window, &display_w, &display_h);
     io.DisplaySize = ImVec2((float) w, (float) h);
-    io.DisplayFramebufferScale = ImVec2(w > 0 ? (static_cast<float>(display_w) / w) : 0, h > 0 ? (static_cast<float>(display_h) / h) : 0);
+    io.DisplayFramebufferScale = ImVec2(w > 0 ? (static_cast<float>(display_w) / w) : 0,
+                                        h > 0 ? (static_cast<float>(display_h) / h) : 0);
 
     // Setup time step
     double current_time = glfwGetTime();
@@ -814,7 +771,7 @@ void Viewer::setPerspective(bool bPerspective) {
     framebufferSizeCallback(m_window, size.x, size.y);
 }
 
-void Viewer::openFile(const std::string& path) {
+void Viewer::openFile(const std::string &path) {
     std::filesystem::path filepath{path};
     if (filepath.empty()) {
         const auto rootPath = std::filesystem::current_path() / "dat";
@@ -833,6 +790,6 @@ void Viewer::openFile(const std::string& path) {
     // initialize table
     scene()->table()->load(filename);
 
-    for (auto& r : m_renderers)
+    for (auto &r: m_renderers)
         r->fileLoaded(filename);
 }
