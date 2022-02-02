@@ -116,7 +116,6 @@ void GridSurfaceRenderer::display() {
 
     auto resources = viewer()->m_sharedResources;
     const glm::mat4 MVP = viewer()->projectionTransform() * viewer()->viewTransform();
-    static std::unique_ptr<Sync> syncObject = {};
 
     if (resources.smoothNormalsTexture.expired())
         return;
