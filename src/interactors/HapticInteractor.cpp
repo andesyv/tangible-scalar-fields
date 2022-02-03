@@ -12,27 +12,36 @@
 #include <imgui.h>
 
 #ifdef DHD
-
 #include <dhdc.h>
-
 #endif
 
 constexpr bool ENABLE_FORCE = false;
 
 using namespace molumes;
 
+template <typename T, typename U>
+auto max(T&& a, U&& b) {
+    return std::max(a, b);
+}
+
+template <typename T, typename ... Ts>
+auto max(T&& a, Ts&&... rest) {
+    return std::max(a, max(rest...));
+}
+
 #ifdef DHD
 
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
                  std::atomic<float> &interaction_bounds, std::promise<bool> &&setup_results,
-                 Channel<std::vector<glm::vec4>> &&normal_tex_channel) {
-    glm::dvec3 local_pos;
+                 Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel) {
+    glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
 #ifndef NDEBUG
     constexpr auto DEBUG_INTERVAL = 1.0;
 #endif
     double max_bound = 0.01;
-    std::vector<glm::vec4> data{};
+    glm::ivec2 normal_tex_size{0};
+    std::vector<glm::vec4> normal_tex_data{};
 
     // Initialize haptics device
     if (0 <= dhdOpen()) {
@@ -51,7 +60,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
     auto last_debug_t = std::chrono::steady_clock::now();
 #endif
 
-    for (; !simulation_should_end.stop_requested();/*std::this_thread::sleep_for(std::chrono::milliseconds{1})*/) {
+    for (; !simulation_should_end.stop_requested(); std::this_thread::sleep_for(std::chrono::milliseconds{10})) {
 #ifndef NDEBUG
         const auto current_t = std::chrono::steady_clock::now();
         const auto debug_delta_time =
@@ -70,7 +79,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 #endif
 
         // Update max_bound for transformation calculation:
-        max_bound = std::max({std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound});
+        max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
 
         // Transform to scene space:
         // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
@@ -87,9 +96,10 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         global_pos.store(local_pos);
 
         // Attempt to fetch the last data sent through the channel.
-        auto result = normal_tex_channel.try_get_last();
-        if (result) {
-            data = *result;
+        if (auto result = normal_tex_channel.try_get_last()) {
+            auto [size, data] = *result;
+            normal_tex_size = size;
+            normal_tex_data = std::move(data);
         }
 
         // Simulation stuff
@@ -116,8 +126,8 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
 #endif // DHD
 
-HapticInteractor::HapticInteractor(Viewer *viewer, Channel<std::vector<glm::vec4>> &&normal_tex_channel) : Interactor(
-        viewer) {
+HapticInteractor::HapticInteractor(Viewer *viewer, Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel)
+        : Interactor(viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
 

@@ -49,7 +49,8 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
+TileRenderer::TileRenderer(Viewer *viewer, Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_channel)
+        : Renderer(viewer), m_normal_tex_channel{normal_channel} {
     m_verticesQuad->setStorage(std::array<vec3, 1>({vec3(0.0f, 0.0f, 0.0f)}), gl::GL_NONE_BIT);
     auto vertexBindingQuad = m_vaoQuad->binding(0);
     vertexBindingQuad->setBuffer(m_verticesQuad.get(), 0, sizeof(vec3));
@@ -141,6 +142,10 @@ TileRenderer::TileRenderer(Viewer *viewer) : Renderer(viewer) {
 
     m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                      GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    m_normal_transfer_buffer = Buffer::create();
+//    m_normal_transfer_buffer->setStorage(1920 * 1080 * sizeof(glm::vec4), GL_MAP_READ_BIT);
+//    m_normal_transfer_buffer->setData(1920 * 1080 * sizeof(glm::vec4), nullptr, GL_DYNAMIC_READ);
 
     //colorMap - 1D Texture
     m_colorMapTexture = Texture::create(GL_TEXTURE_1D);
@@ -648,8 +653,17 @@ void TileRenderer::display() {
         shaderProgram_tile_normals->use();
         m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
 
-        Framebuffer::unbind();
+
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+        m_normal_transfer_buffer->bind(GL_PIXEL_PACK_BUFFER );
+        // Assign buffer here on runtime before render so buffer can be orphaned
+        m_normal_transfer_buffer->setData(m_framebufferSize.x * m_framebufferSize.y * sizeof(glm::vec4), nullptr, GL_DYNAMIC_READ);
+        glReadBuffer(GL_COLOR_ATTACHMENT0); // Read from front buffer (just in case we have a double-buffer context for some reason)
+        glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        m_normal_transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        Framebuffer::unbind();
         normal_pass_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
     }
 
@@ -889,13 +903,24 @@ void TileRenderer::display() {
 
     // ====================================================================================== CPGPU Transfer ======================================================================================
     // After everything else is done, GPU is probably done with earlier tasks and is probably ready to transfer data over
-    static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds{100}).count());
+    static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::milliseconds{100}).count());
 
     if (normal_pass_sync) {
         const auto sync_result = normal_pass_sync->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
         if (sync_result != GL_WAIT_FAILED && sync_result != GL_TIMEOUT_EXPIRED) {
-
-//            m_normal_tex_channel.send()
+//            m_normal_transfer_buffer->bind(GL_PIXEL_PACK_BUFFER);
+            const auto vCount = m_framebufferSize.x * m_framebufferSize.y;
+            const auto memPtr = reinterpret_cast<glm::vec4 *>(m_normal_transfer_buffer->mapRange(0, vCount *
+                                                                                                    static_cast<GLsizeiptr>(sizeof(vec4)),
+                                                                                                 GL_MAP_READ_BIT));
+            if (memPtr != nullptr) {
+                std::vector<glm::vec4> data{memPtr, memPtr + vCount};
+                m_normal_tex_channel.send(std::make_pair(m_framebufferSize, data));
+            }
+            if (!m_normal_transfer_buffer->unmap())
+                throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};
+//            m_normal_transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
         }
         normal_pass_sync = {};
     }

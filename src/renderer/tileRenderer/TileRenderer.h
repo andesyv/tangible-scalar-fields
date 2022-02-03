@@ -20,7 +20,7 @@ namespace molumes
 	class TileRenderer : public Renderer
 	{
 	public:
-		explicit TileRenderer(Viewer *viewer);
+		explicit TileRenderer(Viewer *viewer, Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>>&& normal_channel);
 		void setEnabled(bool enabled) override;
 		void display() override;
         void fileLoaded(const std::string& filename) override;
@@ -71,6 +71,7 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
         std::shared_ptr<globjects::Texture> m_smoothNormalsTexture = nullptr;
+        std::unique_ptr<globjects::Buffer> m_normal_transfer_buffer;
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -220,7 +221,7 @@ namespace molumes
 
 
     public:
-        Channel<std::vector<glm::vec4>> m_normal_tex_channel;
+        Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;
 	};
 
 }
