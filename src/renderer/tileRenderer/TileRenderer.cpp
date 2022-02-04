@@ -660,7 +660,7 @@ void TileRenderer::display() {
         // Assign buffer here on runtime before render so buffer can be orphaned
         m_normal_transfer_buffer->setData(m_framebufferSize.x * m_framebufferSize.y * sizeof(glm::vec4), nullptr, GL_DYNAMIC_READ);
         glReadBuffer(GL_COLOR_ATTACHMENT0); // Read from front buffer (just in case we have a double-buffer context for some reason)
-        glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_FLOAT, nullptr);
         m_normal_transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         Framebuffer::unbind();
@@ -912,7 +912,7 @@ void TileRenderer::display() {
 //            m_normal_transfer_buffer->bind(GL_PIXEL_PACK_BUFFER);
             const auto vCount = m_framebufferSize.x * m_framebufferSize.y;
             const auto memPtr = reinterpret_cast<glm::vec4 *>(m_normal_transfer_buffer->mapRange(0, vCount *
-                                                                                                    static_cast<GLsizeiptr>(sizeof(vec4)),
+                                                                                                    static_cast<GLsizeiptr>(sizeof(glm::vec4)),
                                                                                                  GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 std::vector<glm::vec4> data{memPtr, memPtr + vCount};
