@@ -52,7 +52,7 @@ void HapticRenderer::display() {
     const auto P = viewer()->projectionTransform();
     const auto PInv = glm::inverse(P);
     const auto haptic_pos = viewer()->m_haptic_pos;
-    const auto MVP = P * viewer()->viewTransform() * glm::translate(viewer()->modelTransform(), haptic_pos);
+    const auto MVP = P * viewer()->viewTransform() * glm::translate(glm::mat4{1.f}, haptic_pos);
 
     const auto &shader = shaderProgram("haptic");
     if (!shader)
@@ -66,5 +66,6 @@ void HapticRenderer::display() {
     shader->setUniform("PInv", PInv);
 
     m_vao->drawArrays(GL_POINTS, 0, 1);
+    VertexArray::unbind();
 }
 
