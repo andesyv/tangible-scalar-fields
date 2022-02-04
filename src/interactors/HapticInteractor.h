@@ -20,7 +20,8 @@ class HapticInteractor : public Interactor {
 private:
     std::jthread m_thread;
     std::atomic<glm::vec3> m_haptic_finger_pos;
-    std::atomic<float> m_interaction_bounds{1000.f};
+    std::atomic<float> m_interaction_bounds{1.f};
+    std::atomic<bool> m_enable_force{false};
     bool m_haptic_enabled{false};
 
 public:

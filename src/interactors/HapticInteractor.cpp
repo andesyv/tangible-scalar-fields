@@ -18,8 +18,6 @@
 
 #endif
 
-constexpr bool ENABLE_FORCE = true;
-
 using namespace molumes;
 
 template<typename T, typename U>
@@ -95,16 +93,18 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
     if (0.f < dist)
         return glm::vec3{0.f};
 
-    const auto v_len = glm::length(value);
+    const auto v_len = glm::length(glm::vec3{value});
 
     // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : glm::vec3{value} * (1.f / v_len) * 1.f/*std::min(-dist, 1.0)*/; // Clamp to 1 Newton
+    return v_len < 0.001f ? glm::vec3{0.f} : glm::vec3{value} * (1.f / v_len) *
+                                             1.f/*std::min(-dist, 1.0)*/; // Clamp to 1 Newton
 }
 
 #ifdef DHD
 
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
-                 std::atomic<float> &interaction_bounds, std::promise<bool> &&setup_results,
+                 std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force,
+                 std::promise<bool> &&setup_results,
                  Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel) {
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
@@ -133,7 +133,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
     auto last_debug_t = std::chrono::steady_clock::now();
 #endif
 
-    for (; !simulation_should_end.stop_requested(); std::this_thread::sleep_for(std::chrono::milliseconds{10})) {
+    for (; !simulation_should_end.stop_requested(); /* std::this_thread::sleep_for(std::chrono::milliseconds{1})*/) {
 #ifndef NDEBUG
         const auto current_t = std::chrono::steady_clock::now();
         const auto debug_delta_time =
@@ -176,23 +176,29 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         }
 
         // Simulation stuff
-        if constexpr (ENABLE_FORCE) {
-            const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data)};
-
-            // Wait to apply force until we've arrived at a safe space
-            if (!force_enabled) {
-                if (glm::length(force) < EPSILON) {
-                    dhdEnableForce(DHD_ON);
-                    force_enabled = true;
-                    std::cout << "Force enabled!" << std::endl;
-                } else
-                    continue;
+        if (!enable_force.load()) {
+            if (force_enabled) {
+                dhdEnableForce(DHD_OFF);
+                force_enabled = false;
+                std::cout << "Force disabled!" << std::endl;
             }
-
-            std::cout << std::format("Force: {}", glm::to_string(force)) << std::endl;
-
-            dhdSetForce(force.x, force.y, force.z);
+            continue;
         }
+
+        const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data)};
+
+        // Wait to apply force until we've arrived at a safe space
+        if (!force_enabled) {
+            if (glm::length(force) < EPSILON) {
+                dhdEnableForce(DHD_ON);
+                force_enabled = true;
+                std::cout << "Force enabled!" << std::endl;
+            } else
+                continue;
+        }
+
+
+        dhdSetForce(force.x, force.y, force.z);
     }
 
     const auto op_result = dhdClose();
@@ -214,7 +220,7 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
     m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds),
-                            std::move(setup_results), std::move(normal_tex_channel)};
+                            std::ref(m_enable_force), std::move(setup_results), std::move(normal_tex_channel)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }
@@ -231,8 +237,11 @@ void HapticInteractor::display() {
 
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_interaction_bounds.load();
-        if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 10.f, 3000.f))
+        auto enable_force = m_enable_force.load();
+        if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_interaction_bounds.store(interaction_bounds);
+        if (ImGui::Checkbox("Enable force", &enable_force))
+            m_enable_force.store(enable_force);
 
         ImGui::EndMenu();
     }
