@@ -108,9 +108,6 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
                  Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel) {
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
-#ifndef NDEBUG
-    constexpr auto DEBUG_INTERVAL = 1.0;
-#endif
     double max_bound = 0.01;
     glm::ivec2 normal_tex_size{0};
     std::vector<glm::vec4> normal_tex_data{};
@@ -129,27 +126,9 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         return;
     }
 
-#ifndef NDEBUG
-    auto last_debug_t = std::chrono::steady_clock::now();
-#endif
-
     for (; !simulation_should_end.stop_requested(); /* std::this_thread::sleep_for(std::chrono::milliseconds{1})*/) {
-#ifndef NDEBUG
-        const auto current_t = std::chrono::steady_clock::now();
-        const auto debug_delta_time =
-                static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                        current_t - last_debug_t).count()) * 0.001;
-#endif
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
         dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
-
-#ifndef NDEBUG
-        const auto debug_frame = DEBUG_INTERVAL < debug_delta_time;
-        if (debug_frame) {
-            std::cout << std::format("Haptic local position: {}", glm::to_string(local_pos)) << std::endl;
-            last_debug_t = current_t;
-        }
-#endif
 
         // Update max_bound for transformation calculation:
         max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
@@ -160,11 +139,6 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         const auto scale_mult =
                 interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
         const auto pos = local_pos * scale_mult;
-
-#ifndef NDEBUG
-        if (debug_frame)
-            std::cout << std::format("Haptic global position: {}", glm::to_string(local_pos)) << std::endl;
-#endif
 
         global_pos.store(pos);
 
@@ -232,6 +206,13 @@ HapticInteractor::~HapticInteractor() {
     }
 }
 
+void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
+    Interactor::keyEvent(key, scancode, action, mods);
+
+    if (key == GLFW_KEY_F && action == GLFW_PRESS)
+        m_enable_force.store(!m_enable_force.load());
+}
+
 void HapticInteractor::display() {
     Interactor::display();
 
@@ -240,7 +221,7 @@ void HapticInteractor::display() {
         auto enable_force = m_enable_force.load();
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_interaction_bounds.store(interaction_bounds);
-        if (ImGui::Checkbox("Enable force", &enable_force))
+        if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_enable_force.store(enable_force);
 
         ImGui::EndMenu();

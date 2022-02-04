@@ -31,6 +31,7 @@ public:
 
     bool hapticEnabled() const { return m_haptic_enabled; }
 
+    void keyEvent(int key, int scancode, int action, int mods) override;
     void display() override;
 
     ~HapticInteractor() override;
