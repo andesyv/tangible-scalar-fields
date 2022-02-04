@@ -90,7 +90,7 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
         return glm::vec3{0.f};
 
     const auto value = sample_tex(glm::vec2{coords}, glm::uvec2{tex_dims}, tex_data);
-    float dist = coords.z - value.w;
+    float dist = coords.z - value.w * 0.01f;
     // If dist is positive, it means we're above the surface = no force applied
     if (0.f < dist)
         return glm::vec3{0.f};
@@ -166,7 +166,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
             std::cout << std::format("Haptic global position: {}", glm::to_string(local_pos)) << std::endl;
 #endif
 
-        global_pos.store(local_pos);
+        global_pos.store(pos);
 
         // Attempt to fetch the last data sent through the channel.
         if (auto result = normal_tex_channel.try_get_last()) {

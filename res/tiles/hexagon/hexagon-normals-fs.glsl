@@ -89,5 +89,5 @@ void main()
     atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)], int(kdeHeight));
 
     // Multiply fragment normal by kdeheight (alpha is used to determine normal length)
-    fragmentNormal = vec4(fragmentNormal.rgb * 0.5 + 0.5, kdeHeight);
+    fragmentNormal = vec4(fragmentNormal.rgb * 0.5 + 0.5, kdeHeight * 0.01);
 }
