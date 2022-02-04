@@ -41,7 +41,9 @@ auto point_to_plane(const glm::vec3 &pos, const glm::vec3 &pl_norm, const glm::v
 // Finds relative uv coords in a plane given the planes tangent and bi-tangent
 auto
 pos_uvs_in_plane(const glm::vec3 &pos, const glm::vec3 &pl_tan, const glm::vec3 &pl_bitan, const glm::vec2 &pl_dims) {
-    return glm::vec2{glm::dot(pos, pl_tan) / pl_dims.x, glm::dot(pos, pl_bitan) / pl_dims.y};
+    const glm::vec3 origo{-pl_dims * 0.5f, 0.f};
+    const glm::vec3 dir = pos - origo;
+    return glm::vec2{glm::dot(dir, pl_tan) / pl_dims.x, glm::dot(dir, pl_bitan) / pl_dims.y};
 }
 
 // returns uv as xy and signed distance as z for a position given a orientation matrix for a plane and it's dimensions
@@ -57,12 +59,12 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
     // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
     const auto get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](
             const glm::uvec2 &coord) -> std::optional<glm::vec4> {
-        if (tex_dims.x < coord.x || tex_dims.y < coord.y)
+        if (tex_data.empty() || tex_dims.x == 0 || tex_dims.y == 0 || tex_dims.x <= coord.x || tex_dims.y <= coord.y)
             return std::nullopt;
         return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
     };
 
-    const glm::vec2 pixel_coord = uv * glm::vec2{tex_dims};
+    const glm::vec2 pixel_coord = uv * glm::vec2{tex_dims + 1u};
     const glm::vec2 f_pixel_coord = glm::fract(pixel_coord);
     const glm::uvec2 i_pixel_coord = glm::uvec2{pixel_coord - f_pixel_coord};
 
