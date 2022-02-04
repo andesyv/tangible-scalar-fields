@@ -29,6 +29,25 @@ auto max(T&& a, Ts&&... rest) {
     return std::max(a, max(rest...));
 }
 
+// returns signed distance to plane (negative is below)
+auto point_to_plane(const glm::vec3& pos, const glm::vec3& pl_norm, const glm::vec3& pl_pos) {
+    glm::vec3 pl_to_pos = pos - pl_pos;
+    return glm::dot(pl_to_pos, pl_norm);
+}
+
+// Finds relative uv coords in a plane given the planes tangent and bi-tangent
+auto pos_uvs_in_plane(const glm::vec3& pos, const glm::vec3& pl_tan, const glm::vec3& pl_bitan, const glm::vec2& pl_dims) {
+    return glm::vec2{glm::dot(pos, pl_tan) / pl_dims.x, glm::dot(pos, pl_bitan) / pl_dims.y};
+}
+
+// returns uv as xy and signed distance as z for a position given a orientation matrix for a plane and it's dimensions
+auto relative_pos_coords(const glm::vec3& pos, const glm::mat4& pl_mat, const glm::vec2& pl_dims) {
+    return glm::vec3{
+        pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims),
+        point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]})
+    };
+}
+
 #ifdef DHD
 
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
