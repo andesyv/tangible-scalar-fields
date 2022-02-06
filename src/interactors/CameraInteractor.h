@@ -39,6 +39,7 @@ namespace molumes
 		glm::uint m_frameCount = 0;
 		glm::dvec2 m_mousePrevious{0.0}, m_mouseCurrent{0.0};
 		glm::dvec2 m_scrollCurrent{0.0}, m_scrollPrevious{0.0};
+        bool m_shift{false};
 	};
 
 }

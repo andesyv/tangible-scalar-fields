@@ -13,12 +13,16 @@
 #include <imgui.h>
 
 #ifdef DHD
-
 #include <dhdc.h>
-
 #endif
 
 using namespace molumes;
+namespace chr = std::chrono;
+
+#ifdef FAKE_HAPTIC
+int KEY_HORIZONTAL_AXIS = 0;
+int KEY_VERTICAL_AXIS = 0;
+#endif
 
 template<typename T, typename U>
 auto max(T &&a, U &&b) {
@@ -52,7 +56,7 @@ auto relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const gl
     };
 }
 
-// Bilinear interpolation of pixel
+// Bi-linear interpolation of pixel
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
     // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
     const auto get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](
@@ -100,19 +104,22 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
                                              1.f/*std::min(-dist, 1.0)*/; // Clamp to 1 Newton
 }
 
-#ifdef DHD
+#if defined(DHD) || defined(FAKE_HAPTIC)
 
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
                  std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force,
                  std::promise<bool> &&setup_results,
-                 Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel) {
+                 Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel,
+                 std::atomic<glm::mat4> &m_view_mat) {
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
     glm::ivec2 normal_tex_size{0};
     std::vector<glm::vec4> normal_tex_data{};
     constexpr double EPSILON = 0.001;
+    auto last_t = chr::steady_clock::now();
 
+#ifdef DHD
     // Initialize haptics device
     if (0 <= dhdOpen()) {
         std::cout << std::format("Haptic device detected: {}", dhdGetSystemName()) << std::endl;
@@ -125,13 +132,26 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         setup_results.set_value(false);
         return;
     }
+#else
+    setup_results.set_value(true);
+#endif
 
-    for (; !simulation_should_end.stop_requested(); /* std::this_thread::sleep_for(std::chrono::milliseconds{1})*/) {
+    for (; !simulation_should_end.stop_requested(); std::this_thread::sleep_for(std::chrono::microseconds{1})) {
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
+#ifdef DHD
         dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
 
         // Update max_bound for transformation calculation:
         max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
+#else
+        auto current_t = chr::steady_clock::now();
+        constexpr auto MOVE_SPEED = 0.01;
+        const auto delta_t =
+                static_cast<double>(chr::duration_cast<chr::microseconds>(current_t - last_t).count()) * 0.000001;
+        last_t = current_t;
+        const auto disp = m_view_mat.load() * glm::vec4{KEY_HORIZONTAL_AXIS, 0., -KEY_VERTICAL_AXIS, 0.0};
+        local_pos += glm::dvec3{disp} * delta_t * MOVE_SPEED;
+#endif
 
         // Transform to scene space:
         // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
@@ -149,6 +169,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
             normal_tex_data = std::move(data);
         }
 
+#ifdef DHD
         // Simulation stuff
         if (!enable_force.load()) {
             if (force_enabled) {
@@ -158,13 +179,25 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
             }
             continue;
         }
+#endif
 
         const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data)};
 
-        // Wait to apply force until we've arrived at a safe space
-        if (!force_enabled) {
-            if (glm::length(force) < EPSILON) {
+        if (force_enabled) {
+            if (!enable_force.load()) {
+#ifdef DHD
+                dhdEnableForce(DHD_OFF);
+#endif
+                force_enabled = false;
+                std::cout << "Force disabled!" << std::endl;
+                continue;
+            }
+        } else {
+            // Wait to apply force until we've arrived at a safe space
+            if (enable_force.load() && glm::length(force) < EPSILON) {
+#ifdef DHD
                 dhdEnableForce(DHD_ON);
+#endif
                 force_enabled = true;
                 std::cout << "Force enabled!" << std::endl;
             } else
@@ -172,13 +205,17 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         }
 
 
+#ifdef DHD
         dhdSetForce(force.x, force.y, force.z);
+#endif
     }
 
+#ifdef DHD
     const auto op_result = dhdClose();
     if (op_result < 0)
         std::cout << std::format("Failed to close device (error code: {}, error: {})", op_result, dhdErrorGetLastStr())
                   << std::endl;
+#endif
 }
 
 #endif // DHD
@@ -191,10 +228,14 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
 
     /// Possible handling of grip/rotation and other additional Haptic stuff here
 
+#endif
+
+#if defined(DHD) || defined(FAKE_HAPTIC)
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
     m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds),
-                            std::ref(m_enable_force), std::move(setup_results), std::move(normal_tex_channel)};
+                            std::ref(m_enable_force), std::move(setup_results), std::move(normal_tex_channel),
+                            std::ref(m_view_mat)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }
@@ -209,8 +250,22 @@ HapticInteractor::~HapticInteractor() {
 void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
     Interactor::keyEvent(key, scancode, action, mods);
 
+    const auto inc = int{action == GLFW_PRESS};
+    const auto dec = int{action == GLFW_RELEASE};
+
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
         m_enable_force.store(!m_enable_force.load());
+
+#ifdef FAKE_HAPTIC
+    else if (key == GLFW_KEY_RIGHT)
+        KEY_HORIZONTAL_AXIS += inc - dec;
+    else if (key == GLFW_KEY_LEFT)
+        KEY_HORIZONTAL_AXIS -= inc - dec;
+    else if (key == GLFW_KEY_UP)
+        KEY_VERTICAL_AXIS += inc - dec;
+    else if (key == GLFW_KEY_DOWN)
+        KEY_VERTICAL_AXIS -= inc - dec;
+#endif
 }
 
 void HapticInteractor::display() {
@@ -228,6 +283,7 @@ void HapticInteractor::display() {
     }
 
     viewer()->m_haptic_pos = m_haptic_finger_pos.load();
+    m_view_mat.store(glm::inverse(viewer()->viewTransform()));
 
     // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection
     static auto last_haptic_enabled = m_haptic_enabled;

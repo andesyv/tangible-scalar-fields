@@ -21,7 +21,6 @@ find_package(globjects REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(Matlab COMPONENTS ENG_LIBRARY)
 find_package(OpenMP)
-find_package(DHD)
 
 target_include_directories(molumes PRIVATE
 		${CMAKE_SOURCE_DIR}/lib/HBAOPlus/include
@@ -50,10 +49,15 @@ if (Matlab_FOUND)
 	target_compile_definitions(molumes INTERFACE HAVE_MATLAB)
 endif()
 
-if (DHD_FOUND)
-	target_include_directories(molumes PRIVATE DHD::DHD)
-	target_link_libraries(molumes PRIVATE DHD::DHD)
-	target_compile_definitions(molumes PRIVATE DHD)
+if (NOT FAKE_HAPTIC_SIMULATION)
+	find_package(DHD)
+	if (DHD_FOUND)
+		target_include_directories(molumes PRIVATE DHD::DHD)
+		target_link_libraries(molumes PRIVATE DHD::DHD)
+		target_compile_definitions(molumes PRIVATE DHD)
+	endif()
+else()
+	target_compile_definitions(molumes PRIVATE FAKE_HAPTIC)
 endif()
 
 set_target_properties(molumes PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

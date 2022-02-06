@@ -8,6 +8,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <glm/vec2.hpp>
+#include <glm/mat4x4.hpp>
 
 #include "Interactor.h"
 #include "../Channel.h"
@@ -23,6 +24,7 @@ private:
     std::atomic<float> m_interaction_bounds{1.f};
     std::atomic<bool> m_enable_force{false};
     bool m_haptic_enabled{false};
+    std::atomic<glm::mat4> m_view_mat;
 
 public:
     std::function<void(bool)> m_on_haptic_toggle{};

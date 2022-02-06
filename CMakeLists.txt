@@ -14,6 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/config/cmake-modules")
 
 option(AUTO_FETCH_AND_BUILD_DEPENDENCIES "Automatically fetch and build external dependencies" OFF)
+option(FAKE_HAPTIC_SIMULATION "Fake a haptic simulation (for debugging)" ON)
 if (AUTO_FETCH_AND_BUILD_DEPENDENCIES)
     include(${CMAKE_SOURCE_DIR}/config/buildexternals.cmake)
 endif()

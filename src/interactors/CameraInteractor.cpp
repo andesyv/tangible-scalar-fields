@@ -52,19 +52,21 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 
     if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS)
 	{
+        m_shift = true;
 		m_light = true;
 		m_mousePrevious = m_mouseCurrent;
 		cursorPosEvent(m_mouseCurrent.x, m_mouseCurrent.x);
 	}
 	else if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_RELEASE)
 	{
+        m_shift = false;
 		m_light = false;
 	}
 	else if (key == GLFW_KEY_R && action == GLFW_RELEASE)
 	{
 		resetViewTransform();
 	}
-	else if ((key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && action == GLFW_PRESS)
+	else if (m_shift && (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && action == GLFW_PRESS)
 	{
         const ivec2 dir{int{key == GLFW_KEY_RIGHT} - int{key == GLFW_KEY_LEFT}, int{key == GLFW_KEY_UP} - int{key == GLFW_KEY_DOWN}};
         if (dir.y == 0 && m_ctrl)

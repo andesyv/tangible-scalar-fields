@@ -322,7 +322,7 @@ void Viewer::keyCallback(GLFWwindow *window, int key, int scancode, int action, 
             if (action == GLFW_RELEASE)
                 io.KeysDown[key] = false;
 
-            (void) mods; // Modifiers are not reliable across systems
+            // (void) mods; // Modifiers are not reliable across systems
             io.KeyCtrl = io.KeysDown[GLFW_KEY_LEFT_CONTROL] || io.KeysDown[GLFW_KEY_RIGHT_CONTROL];
             io.KeyShift = io.KeysDown[GLFW_KEY_LEFT_SHIFT] || io.KeysDown[GLFW_KEY_RIGHT_SHIFT];
             io.KeyAlt = io.KeysDown[GLFW_KEY_LEFT_ALT] || io.KeysDown[GLFW_KEY_RIGHT_ALT];
