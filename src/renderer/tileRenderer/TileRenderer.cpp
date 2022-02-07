@@ -135,15 +135,19 @@ TileRenderer::TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, s
     m_kdeTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                    GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                          0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    m_smoothNormalsTexture = std::shared_ptr{std::move(tex)};
-    viewer->m_sharedResources.smoothNormalsTexture = m_smoothNormalsTexture;
+    for (auto i = 0u; i < ROUND_ROBIN_SIZE; ++i) {
+        tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+                              0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        m_smoothNormalsTexture.at(i) = std::shared_ptr{std::move(tex)};
+    }
+    viewer->m_sharedResources.smoothNormalsTexture = m_smoothNormalsTexture.front();
 
     m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                      GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    m_normal_transfer_buffer = Buffer::create();
+    for (auto& fb : m_normal_transfer_buffer)
+        fb = Buffer::create();
 //    m_normal_transfer_buffer->setStorage(1920 * 1080 * sizeof(glm::vec4), GL_MAP_READ_BIT);
 //    m_normal_transfer_buffer->setData(1920 * 1080 * sizeof(glm::vec4), nullptr, GL_DYNAMIC_READ);
 
@@ -221,10 +225,13 @@ TileRenderer::TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, s
     m_shadeFramebuffer->setDrawBuffers({GL_COLOR_ATTACHMENT0});
     m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 
-    m_normalFramebuffer = Framebuffer::create();
-    m_normalFramebuffer->attachTexture(GL_COLOR_ATTACHMENT0, m_smoothNormalsTexture.get());
-    m_normalFramebuffer->setDrawBuffers({GL_COLOR_ATTACHMENT0});
-    m_normalFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+    for (auto i = 0u; i < ROUND_ROBIN_SIZE; ++i) {
+        auto& fb = m_normalFramebuffer.at(i);
+        fb = Framebuffer::create();
+        fb->attachTexture(GL_COLOR_ATTACHMENT0, m_smoothNormalsTexture.at(i).get());
+        fb->setDrawBuffers({GL_COLOR_ATTACHMENT0});
+        fb->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
+    }
 }
 
 void molumes::TileRenderer::setEnabled(bool enabled) {
@@ -313,7 +320,7 @@ void TileRenderer::display() {
             m_framebufferSize = viewportSize;
             for (auto *tex: std::to_array({m_pointChartTexture.get(), m_pointCircleTexture.get(), m_tilesTexture.get(),
                                            m_normalsAndDepthTexture.get(), m_gridTexture.get(), m_kdeTexture.get(),
-                                           m_colorTexture.get(), m_smoothNormalsTexture.get()}))
+                                           m_colorTexture.get(), m_smoothNormalsTexture[0].get(), m_smoothNormalsTexture[1].get(), m_smoothNormalsTexture[2].get()})) // Way too lazy to make this dynamic
                 tex->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         }
 
@@ -600,7 +607,8 @@ void TileRenderer::display() {
     // Final normal = accumulated_fragment_normal / data_points_within
 
     // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
-    static std::unique_ptr<Sync> normal_pass_sync{};
+    static std::array<std::unique_ptr<Sync>, ROUND_ROBIN_SIZE> normal_pass_sync{};
+    static uint round_robin_fb_index = 0;
 
     // render Tile Normals into storage buffer
     if (tile != nullptr && m_renderTileNormals) {
@@ -613,7 +621,7 @@ void TileRenderer::display() {
         }
         auto state = stateGuard();
 
-        m_normalFramebuffer->bind();
+        m_normalFramebuffer.at(round_robin_fb_index)->bind();
         glDepthMask(GL_FALSE);
         glClearColor(0.f, 0.f, 0.f, 0.f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -656,15 +664,15 @@ void TileRenderer::display() {
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        m_normal_transfer_buffer->bind(GL_PIXEL_PACK_BUFFER );
+        m_normal_transfer_buffer.at(round_robin_fb_index)->bind(GL_PIXEL_PACK_BUFFER );
         // Assign buffer here on runtime before render so buffer can be orphaned
-        m_normal_transfer_buffer->setData(m_framebufferSize.x * m_framebufferSize.y * sizeof(glm::vec4), nullptr, GL_DYNAMIC_READ);
+        m_normal_transfer_buffer.at(round_robin_fb_index)->setData(m_framebufferSize.x * m_framebufferSize.y * sizeof(glm::vec4), nullptr, GL_STATIC_READ);
         glReadBuffer(GL_COLOR_ATTACHMENT0); // Read from front buffer (just in case we have a double-buffer context for some reason)
         glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_FLOAT, nullptr);
-        m_normal_transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
+        m_normal_transfer_buffer.at(round_robin_fb_index)->unbind(GL_PIXEL_PACK_BUFFER);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         Framebuffer::unbind();
-        normal_pass_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
+        normal_pass_sync.at(round_robin_fb_index) = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
     }
 
 
@@ -903,27 +911,31 @@ void TileRenderer::display() {
 
     // ====================================================================================== CPGPU Transfer ======================================================================================
     // After everything else is done, GPU is probably done with earlier tasks and is probably ready to transfer data over
+    // But just to be sure, read from the last frame using a round-robin approach
     static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::milliseconds{100}).count());
+            std::chrono::milliseconds{1}).count());
 
-    if (normal_pass_sync) {
-        const auto sync_result = normal_pass_sync->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
-        if (sync_result != GL_WAIT_FAILED && sync_result != GL_TIMEOUT_EXPIRED) {
-//            m_normal_transfer_buffer->bind(GL_PIXEL_PACK_BUFFER);
+    const auto round_robin_last_index = (round_robin_fb_index <= 1 ? (ROUND_ROBIN_SIZE + round_robin_fb_index) : round_robin_fb_index) - 2;
+    if (normal_pass_sync.at(round_robin_last_index)) {
+        const auto sync_result = normal_pass_sync.at(round_robin_last_index)->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
+        if (sync_result == GL_CONDITION_SATISFIED || sync_result == GL_ALREADY_SIGNALED) {
+            m_normal_transfer_buffer.at(round_robin_last_index)->bind(GL_PIXEL_PACK_BUFFER);
             const auto vCount = m_framebufferSize.x * m_framebufferSize.y;
-            const auto memPtr = reinterpret_cast<glm::vec4 *>(m_normal_transfer_buffer->mapRange(0, vCount *
+            const auto memPtr = reinterpret_cast<glm::vec4 *>(m_normal_transfer_buffer.at(round_robin_last_index)->mapRange(0, vCount *
                                                                                                     static_cast<GLsizeiptr>(sizeof(glm::vec4)),
                                                                                                  GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 std::vector<glm::vec4> data{memPtr, memPtr + vCount};
                 m_normal_tex_channel.write(std::make_pair(m_framebufferSize, data));
             }
-            if (!m_normal_transfer_buffer->unmap())
+            if (!m_normal_transfer_buffer.at(round_robin_last_index)->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};
-//            m_normal_transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
+            m_normal_transfer_buffer.at(round_robin_last_index)->unbind(GL_PIXEL_PACK_BUFFER);
+            normal_pass_sync.at(round_robin_last_index) = {};
         }
-        normal_pass_sync = {};
     }
+
+    round_robin_fb_index = (round_robin_fb_index + 1) % ROUND_ROBIN_SIZE;
 }
 
 // --------------------------------------------------------------------------------------

@@ -70,8 +70,10 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_normalsAndDepthTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
-        std::shared_ptr<globjects::Texture> m_smoothNormalsTexture = nullptr;
-        std::unique_ptr<globjects::Buffer> m_normal_transfer_buffer;
+
+        static constexpr std::size_t ROUND_ROBIN_SIZE = 3;
+        std::array<std::shared_ptr<globjects::Texture>, ROUND_ROBIN_SIZE> m_smoothNormalsTexture{};
+        std::array<std::unique_ptr<globjects::Buffer>, ROUND_ROBIN_SIZE> m_normal_transfer_buffer{};
 
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
@@ -93,7 +95,7 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_tilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
-        std::unique_ptr<globjects::Framebuffer> m_normalFramebuffer = nullptr;
+        std::array<std::unique_ptr<globjects::Framebuffer>, ROUND_ROBIN_SIZE> m_normalFramebuffer{};
 
 		glm::ivec2 m_framebufferSize{};
 
