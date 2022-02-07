@@ -20,7 +20,7 @@ namespace molumes
 	class TileRenderer : public Renderer
 	{
 	public:
-		explicit TileRenderer(Viewer *viewer, Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>>&& normal_channel);
+		explicit TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>&& normal_channel);
 		void setEnabled(bool enabled) override;
 		void display() override;
         void fileLoaded(const std::string& filename) override;
@@ -221,7 +221,7 @@ namespace molumes
 
 
     public:
-        Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;
+        WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;
 	};
 
 }

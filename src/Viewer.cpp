@@ -119,10 +119,11 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     glfwSetCharCallback(window, &Viewer::charCallback);
     glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
-    Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> normal_tex_channel{};
+
+    ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> normal_tex_channel{};
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-    m_renderers.emplace_back(std::make_unique<TileRenderer>(this, Channel{normal_tex_channel}));
+    m_renderers.emplace_back(std::make_unique<TileRenderer>(this, WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>{normal_tex_channel}));
     const auto crystalRendererPtr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(
             std::make_unique<CrystalRenderer>(this)).get());
     crystalRendererPtr->setEnabled(false);

@@ -49,7 +49,7 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-TileRenderer::TileRenderer(Viewer *viewer, Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_channel)
+TileRenderer::TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_channel)
         : Renderer(viewer), m_normal_tex_channel{normal_channel} {
     m_verticesQuad->setStorage(std::array<vec3, 1>({vec3(0.0f, 0.0f, 0.0f)}), gl::GL_NONE_BIT);
     auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -916,7 +916,7 @@ void TileRenderer::display() {
                                                                                                  GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 std::vector<glm::vec4> data{memPtr, memPtr + vCount};
-                m_normal_tex_channel.send(std::make_pair(m_framebufferSize, data));
+                m_normal_tex_channel.write(std::make_pair(m_framebufferSize, data));
             }
             if (!m_normal_transfer_buffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};

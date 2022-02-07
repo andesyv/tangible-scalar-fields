@@ -109,7 +109,7 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
                  std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force,
                  std::promise<bool> &&setup_results,
-                 Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel,
+                 ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
@@ -162,12 +162,9 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
         global_pos.store(pos);
 
-        // Attempt to fetch the last data sent through the channel.
-        if (auto result = normal_tex_channel.try_get_last()) {
-            auto[size, data] = *result;
-            normal_tex_size = size;
-            normal_tex_data = std::move(data);
-        }
+        auto [size, data] = normal_tex_channel.get();
+        normal_tex_size = size;
+        normal_tex_data = std::move(data);
 
 #ifdef DHD
         // Simulation stuff
@@ -221,7 +218,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 #endif // DHD
 
 HapticInteractor::HapticInteractor(Viewer *viewer,
-                                   Channel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel)
+                                   ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel)
         : Interactor(viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
