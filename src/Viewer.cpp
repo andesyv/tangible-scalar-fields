@@ -19,9 +19,11 @@
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/bitfield.h>
 #include <glbinding/gl/functions.h>
+#include <glbinding/ContextHandle.h>
 #include <globjects/globjects.h>
 #include <globjects/base/File.h>
 #include <globjects/VertexAttributeBinding.h>
+#include <globjects/Renderbuffer.h>
 #include <imgui.h>
 
 #include "interactors/CameraInteractor.h"
@@ -801,24 +803,58 @@ void Viewer::openFile(const std::string &path) {
 }
 
 void offscreen_render_loop(std::stop_token stop, Viewer& viewer) {
+    // Block until semaphore is acquired
+    viewer.m_main_rendering_done.acquire();
+    glfwMakeContextCurrent(viewer.m_offscreen_window);
+
+    glbinding::ContextHandle context_handle = 1;
+    globjects::init(context_handle, [](const char *name) {
+        return glfwGetProcAddress(name);
+    });
+    globjects::setCurrentContext();
+
+
+    auto fb_color_rt = Renderbuffer::create();
+    fb_color_rt->storage(GL_RGBA32F, viewer.viewportSize().x, viewer.viewportSize().y);
+
+    auto fb_depth_rt = Renderbuffer::create();
+    fb_depth_rt->storage(GL_DEPTH_COMPONENT16, viewer.viewportSize().x, viewer.viewportSize().y);
+
+    // Create offscreen FBO
+    auto offscreen_fb = Framebuffer::create();
+    offscreen_fb->attachRenderBuffer(GL_COLOR_ATTACHMENT0, fb_color_rt.get());
+    offscreen_fb->attachRenderBuffer(GL_DEPTH_ATTACHMENT, fb_depth_rt.get());
+    offscreen_fb->setDrawBuffers({GL_COLOR_ATTACHMENT0});
+
+    viewer.m_main_rendering_done.release();
+
     while (!stop.stop_requested()) {
         // Block until semaphore is acquired
         viewer.m_main_rendering_done.acquire();
         if (stop.stop_requested()) return;
 
         glfwMakeContextCurrent(viewer.m_offscreen_window);
+        globjects::setCurrentContext();
         auto state = stateGuard();
 
-        glClearColor(viewer.backgroundColor().r, viewer.backgroundColor().g, viewer.backgroundColor().b, 1.0f);
+        offscreen_fb->bind();
         glViewport(0, 0, viewer.viewportSize().x, viewer.viewportSize().y);
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//        glClearColor(viewer.backgroundColor().r, viewer.backgroundColor().g, viewer.backgroundColor().b, 1.0f);
+//        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Rendering stuff here
+        auto& renderers = viewer.getRenderers();
+        bool done = true;
+        // We don't want to short-circuit any evaluations of the function here, just join together the results
+        for (auto& render : renderers)
+            done = render->offscreen_render() && done;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+        Framebuffer::unbind();
 
         viewer.m_main_rendering_done.release();
+        // If we're done, wait for as long as approximately 1 frame takes:
+        std::this_thread::sleep_for(done ? std::chrono::milliseconds{1000 / 90} : std::chrono::milliseconds{1});
     }
 }
 
@@ -832,4 +868,8 @@ Viewer::~Viewer() {
         m_main_rendering_done.release();
         m_offscreen_render_thread.join();
     }
+}
+
+std::vector<std::unique_ptr<Renderer>> &Viewer::getRenderers() {
+    return m_renderers;
 }

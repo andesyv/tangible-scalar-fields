@@ -60,6 +60,12 @@ namespace molumes
 		bool isEnabled() const;
 		virtual void reloadShaders();
 		virtual void display() = 0;
+		/**
+		 * Performs offscreen rendering on separate thread with separate context. All objects must be created in
+		 * function scope, as it runs on the thread directly.
+		 * @return Optional return true to indicate that offscreen work is done
+		 */
+        virtual bool offscreen_render() { return true; };
         /// Event run when data file is loaded
         virtual void fileLoaded(const std::string&);
 

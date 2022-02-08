@@ -24,6 +24,7 @@ namespace molumes
 		explicit TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>&& normal_channel);
 		void setEnabled(bool enabled) override;
 		void display() override;
+        bool offscreen_render() override;
         void fileLoaded(const std::string& filename) override;
 
         static constexpr std::size_t ROUND_ROBIN_SIZE = 3;
@@ -225,9 +226,10 @@ namespace molumes
             std::unique_ptr<globjects::Framebuffer> framebuffer{};
             glm::ivec2 size;
             std::unique_ptr<globjects::Sync> pass_sync{};
+            bool processed = false;
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
-        unsigned int round_robin_fb_index{0};
+        std::atomic<unsigned int> round_robin_fb_index{0};
 
     public:
         WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;

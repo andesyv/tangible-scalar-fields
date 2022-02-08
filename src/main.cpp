@@ -22,6 +22,7 @@
 #include <globjects/State.h>
 #include <globjects/base/File.h>
 #include <globjects/NamedString.h>
+#include <glbinding/ContextHandle.h>
 
 #include "Scene.h"
 #include "CSV/Table.h"
@@ -78,7 +79,8 @@ int main(int argc, char *argv[]) {
     glfwMakeContextCurrent(window);
 
     // Initialize globjects (internally initializes glbinding, and registers the current context)
-    globjects::init([](const char *name) {
+    glbinding::ContextHandle context_handle = 0;
+    globjects::init(context_handle, [](const char *name) {
         return glfwGetProcAddress(name);
     }, globjects::Shader::IncludeImplementation::Fallback);
 
@@ -183,6 +185,7 @@ int main(int argc, char *argv[]) {
             viewer->m_main_rendering_done.acquire();
 
             glfwMakeContextCurrent(window);
+            globjects::setCurrentContext();
 
             // Finally wait and swap main buffers
             glfwSwapBuffers(window);

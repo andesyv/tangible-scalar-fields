@@ -85,6 +85,8 @@ namespace molumes
 		void setLightTransform(const glm::mat4& m);
 		void setProjectionTransform(const glm::mat4& m);
 
+        std::vector<std::unique_ptr<Renderer>> &getRenderers();
+
         void enumerateFocusRenderer();
 
 		void saveImage(const std::string & filename) const;
@@ -145,7 +147,9 @@ namespace molumes
 		std::vector<std::unique_ptr<Interactor>> m_interactors;
 		std::vector<std::unique_ptr<Renderer>> m_renderers;
 
-		double m_time = 0.0;
+    private:
+
+        double m_time = 0.0;
 		bool m_mousePressed[3] = { false, false, false };
 		float m_mouseWheel = 0.0f;
 
