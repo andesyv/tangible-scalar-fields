@@ -5,6 +5,8 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <semaphore>
+#include <thread>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -38,8 +40,10 @@ namespace molumes
 	class Viewer
 	{
 	public:
-		Viewer(GLFWwindow* window, Scene* scene);
+		Viewer(GLFWwindow* window, Scene* scene, GLFWwindow* offscreen_window = nullptr);
+        ~Viewer();
 		void display();
+        void initiate_offscreen_rendering();
 
 		GLFWwindow * window();
 		Scene* scene();
@@ -93,6 +97,8 @@ namespace molumes
         bool m_cameraRotateAllowed = false;
         unsigned int m_focusRenderer = 0;
 
+        std::binary_semaphore m_main_rendering_done{0}, m_offscreen_rendering_done{0};
+
         /**
          * @brief Shared resources between renderers
          *
@@ -114,7 +120,8 @@ namespace molumes
 
         glm::vec3 m_haptic_pos;
 
-	private:
+        GLFWwindow* m_offscreen_window{nullptr};
+    private:
 
 		void beginFrame();
 		void endFrame();
@@ -132,6 +139,7 @@ namespace molumes
 		static void SetClipboardText(void* user_data, const char* text);
 
 		GLFWwindow* m_window;
+        std::jthread m_offscreen_render_thread;
 		Scene *m_scene;
 
 		std::vector<std::unique_ptr<Interactor>> m_interactors;

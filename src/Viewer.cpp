@@ -34,6 +34,7 @@
 #include "renderer/HapticRenderer.h"
 #include "Scene.h"
 #include "CSV/Table.h"
+#include "Utils.h"
 
 // windows.h, which portable-file-dialogs includes, defines its own min/max operator which crashes with STL
 #define NOMINMAX
@@ -45,7 +46,7 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(scene) {
+Viewer::Viewer(GLFWwindow *window, Scene *scene, GLFWwindow* offscreen_window) : m_window(window), m_offscreen_window{offscreen_window}, m_scene(scene) {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     //io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;         // We can honor GetMouseCursor() values (optional)
@@ -147,6 +148,8 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     }
 
     setPerspective(false);
+
+    initiate_offscreen_rendering();
 }
 
 void Viewer::display() {
@@ -795,4 +798,38 @@ void Viewer::openFile(const std::string &path) {
 
     for (auto &r: m_renderers)
         r->fileLoaded(filename);
+}
+
+void offscreen_render_loop(std::stop_token stop, Viewer& viewer) {
+    while (!stop.stop_requested()) {
+        // Block until semaphore is acquired
+        viewer.m_main_rendering_done.acquire();
+        if (stop.stop_requested()) return;
+
+        glfwMakeContextCurrent(viewer.m_offscreen_window);
+        auto state = stateGuard();
+
+        glClearColor(viewer.backgroundColor().r, viewer.backgroundColor().g, viewer.backgroundColor().b, 1.0f);
+        glViewport(0, 0, viewer.viewportSize().x, viewer.viewportSize().y);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Rendering stuff here
+
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+
+        viewer.m_main_rendering_done.release();
+    }
+}
+
+void Viewer::initiate_offscreen_rendering() {
+    m_offscreen_render_thread = std::jthread{offscreen_render_loop, std::ref(*this)};
+}
+
+Viewer::~Viewer() {
+    if (m_offscreen_render_thread.joinable()) {
+        m_offscreen_render_thread.request_stop();
+        m_main_rendering_done.release();
+        m_offscreen_render_thread.join();
+    }
 }

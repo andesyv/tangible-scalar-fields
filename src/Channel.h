@@ -6,11 +6,13 @@
 #include <optional>
 #include <memory>
 #include <tuple>
+#include <array>
 
 /**
  * Go/Rust inspired method of handling direct data transfer between threads
  * Creation/copying of Channels is not thread safe and has to happen on the same thread.
  * Every member function is thread safe
+ * @deprecated Use ReaderChannel and WriterChannel instead
  */
 template<typename T>
 class Channel {
@@ -124,7 +126,7 @@ protected:
 public:
     static constexpr auto buffer_count = BufferCount;
 
-    explicit ChannelBase(ChannelBase& rhs) : m_shared{rhs.m_shared} {}
+    ChannelBase(ChannelBase& rhs) : m_shared{rhs.m_shared} {}
     // Explicit move constructor
     ChannelBase(ChannelBase &&rhs) noexcept : m_shared{std::move(rhs.m_shared)} {}
     ChannelBase(const ChannelBase &) = delete;

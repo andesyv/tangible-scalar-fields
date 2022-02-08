@@ -28,6 +28,7 @@
 #include "Viewer.h"
 #include "interactors/Interactor.h"
 #include "renderer/Renderer.h"
+#include "Utils.h"
 
 using namespace gl;
 using namespace glm;
@@ -57,13 +58,20 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Create a context and, if valid, make it current
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "molumes", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(1280, 720, "molumes", nullptr, nullptr);
 
     if (window == nullptr) {
         globjects::critical() << "Context creation failed - terminating execution.";
 
         glfwTerminate();
         return 1;
+    }
+
+    // Make an offscreen rendering context:
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    auto offscreen_window = glfwCreateWindow(1280, 720, "", nullptr, window);
+    if (offscreen_window == nullptr) {
+        globjects::critical() << "Failed to create offscreen rendering";
     }
 
     // Make context current
@@ -148,19 +156,41 @@ int main(int argc, char *argv[]) {
         viewer->setModelTransform(modelTransform);
 
 
-        glfwSwapInterval(1); // Set to 0 for "UNLIMITED FRAMES!!"
+        constexpr long long US_PER_FRAME = 1000000u / 60u;
+        constexpr long long US_ERROR_MARGIN_TIME = US_PER_FRAME / 3;
+
+        glfwSwapInterval(0); // Set to 0 for "UNLIMITED FRAMES!!"
+
+        Timer frame_timer{};
 
         // Main loop
         while (!glfwWindowShouldClose(window)) {
 //        defaultState->apply();
+            frame_timer.reset();
             glfwPollEvents();
             viewer->display();
+            // Flush command queue but don't wait for finish just yet
+            glFlush();
             //glFinish();
+            // Allow offscreen rendering to do it's stuff while we wait for bufferswap:
+            viewer->m_main_rendering_done.release();
+
+            // https://gameprogrammingpatterns.com/game-loop.html
+            const auto elapsed = frame_timer.elapsed<std::chrono::microseconds>();
+            static constexpr auto MAX_TIME = US_PER_FRAME - US_ERROR_MARGIN_TIME;
+            if (elapsed < MAX_TIME)
+                std::this_thread::sleep_for(std::chrono::microseconds{MAX_TIME - elapsed});
+            viewer->m_main_rendering_done.acquire();
+
+            glfwMakeContextCurrent(window);
+
+            // Finally wait and swap main buffers
             glfwSwapBuffers(window);
         }
     }
 
-    // Destroy window
+    // Destroy window(s)
+    glfwDestroyWindow(offscreen_window);
     glfwDestroyWindow(window);
 
     // Properly shutdown GLFW

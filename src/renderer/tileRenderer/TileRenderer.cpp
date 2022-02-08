@@ -49,7 +49,13 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-TileRenderer::TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_channel)
+auto get_index_offset(uint current_index, int offset) {
+    const auto index = (static_cast<int>(current_index) + offset) % static_cast<int>(TileRenderer::ROUND_ROBIN_SIZE);
+    return index < 0 ? TileRenderer::ROUND_ROBIN_SIZE + index : index;
+}
+
+TileRenderer::TileRenderer(Viewer *viewer,
+                           WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_channel)
         : Renderer(viewer), m_normal_tex_channel{normal_channel} {
     m_verticesQuad->setStorage(std::array<vec3, 1>({vec3(0.0f, 0.0f, 0.0f)}), gl::GL_NONE_BIT);
     auto vertexBindingQuad = m_vaoQuad->binding(0);
@@ -139,15 +145,14 @@ TileRenderer::TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, s
         tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
                               0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-        m_smoothNormalsTexture.at(i) = std::shared_ptr{std::move(tex)};
+        m_normal_frame_data.at(i).texture = std::shared_ptr{std::move(tex)};
     }
-    viewer->m_sharedResources.smoothNormalsTexture = m_smoothNormalsTexture.front();
+    // TODO: Switch around this one
+    viewer->m_sharedResources.smoothNormalsTexture = m_normal_frame_data.front().texture;
 
     m_colorTexture = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, 0,
                                      GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-    for (auto& fb : m_normal_transfer_buffer)
-        fb = Buffer::create();
 //    m_normal_transfer_buffer->setStorage(1920 * 1080 * sizeof(glm::vec4), GL_MAP_READ_BIT);
 //    m_normal_transfer_buffer->setData(1920 * 1080 * sizeof(glm::vec4), nullptr, GL_DYNAMIC_READ);
 
@@ -226,9 +231,9 @@ TileRenderer::TileRenderer(Viewer *viewer, WriterChannel<std::pair<glm::ivec2, s
     m_shadeFramebuffer->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
 
     for (auto i = 0u; i < ROUND_ROBIN_SIZE; ++i) {
-        auto& fb = m_normalFramebuffer.at(i);
+        auto &fb = m_normal_frame_data.at(i).framebuffer;
         fb = Framebuffer::create();
-        fb->attachTexture(GL_COLOR_ATTACHMENT0, m_smoothNormalsTexture.at(i).get());
+        fb->attachTexture(GL_COLOR_ATTACHMENT0, m_normal_frame_data.at(i).texture.get());
         fb->setDrawBuffers({GL_COLOR_ATTACHMENT0});
         fb->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
     }
@@ -320,7 +325,9 @@ void TileRenderer::display() {
             m_framebufferSize = viewportSize;
             for (auto *tex: std::to_array({m_pointChartTexture.get(), m_pointCircleTexture.get(), m_tilesTexture.get(),
                                            m_normalsAndDepthTexture.get(), m_gridTexture.get(), m_kdeTexture.get(),
-                                           m_colorTexture.get(), m_smoothNormalsTexture[0].get(), m_smoothNormalsTexture[1].get(), m_smoothNormalsTexture[2].get()})) // Way too lazy to make this dynamic
+                                           m_colorTexture.get(), m_normal_frame_data[0].texture.get(),
+                                           m_normal_frame_data[1].texture.get(),
+                                           m_normal_frame_data[2].texture.get()})) // Way too lazy to make this dynamic
                 tex->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         }
 
@@ -601,79 +608,9 @@ void TileRenderer::display() {
     }
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
-    // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
-
-    // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
-    // Final normal = accumulated_fragment_normal / data_points_within
-
-    // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
-    static std::array<std::unique_ptr<Sync>, ROUND_ROBIN_SIZE> normal_pass_sync{};
-    static uint round_robin_fb_index = 0;
-
-    // render Tile Normals into storage buffer
-    if (tile != nullptr && m_renderTileNormals) {
-        if (!m_tileNormalsBuffer) {
-            m_tileNormalsBuffer = std::make_shared<Buffer>();
-            viewer()->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
-            // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
-            m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows),
-                                         nullptr, GL_STREAM_DRAW);
-        }
-        auto state = stateGuard();
-
-        m_normalFramebuffer.at(round_robin_fb_index)->bind();
-        glDepthMask(GL_FALSE);
-        glClearColor(0.f, 0.f, 0.f, 0.f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-        BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0};
-
-        // one Pixel of data is enough to clear whole buffer
-        // https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
-        const int initialVal = 0;
-        m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
-        // -------------------------------------------------------------------------------------------------
-
-        BindActiveGuard _g2{m_kdeTexture, 1};
-        BindActiveGuard _g3{m_tileAccumulateTexture, 2};
-
-//        BindBaseGuard _g4{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 3};
-
-        auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
-
-        //geometry shader
-        shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-        shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
-        shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
-
-        //fragment Shader
-        shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
-        shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
-
-        shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
-        shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
-
-        shaderProgram_tile_normals->setUniform("kdeTexture", 1);
-        shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
-
-        shaderProgram_tile_normals->use();
-        m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-        m_normal_transfer_buffer.at(round_robin_fb_index)->bind(GL_PIXEL_PACK_BUFFER );
-        // Assign buffer here on runtime before render so buffer can be orphaned
-        m_normal_transfer_buffer.at(round_robin_fb_index)->setData(m_framebufferSize.x * m_framebufferSize.y * sizeof(glm::vec4), nullptr, GL_STATIC_READ);
-        glReadBuffer(GL_COLOR_ATTACHMENT0); // Read from front buffer (just in case we have a double-buffer context for some reason)
-        glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_FLOAT, nullptr);
-        m_normal_transfer_buffer.at(round_robin_fb_index)->unbind(GL_PIXEL_PACK_BUFFER);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-        Framebuffer::unbind();
-        normal_pass_sync.at(round_robin_fb_index) = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
-    }
+    const bool shouldRenderNormal = tile != nullptr && m_renderTileNormals;
+    if (shouldRenderNormal)
+        normalRenderPass(modelViewProjectionMatrix, viewportSize);
 
 
     // ====================================================================================== TILES RENDER PASS ======================================================================================
@@ -907,35 +844,125 @@ void TileRenderer::display() {
                              GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
 
-
-
     // ====================================================================================== CPGPU Transfer ======================================================================================
     // After everything else is done, GPU is probably done with earlier tasks and is probably ready to transfer data over
     // But just to be sure, read from the last frame using a round-robin approach
     static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::milliseconds{1}).count());
 
-    const auto round_robin_last_index = (round_robin_fb_index <= 1 ? (ROUND_ROBIN_SIZE + round_robin_fb_index) : round_robin_fb_index) - 2;
-    if (normal_pass_sync.at(round_robin_last_index)) {
-        const auto sync_result = normal_pass_sync.at(round_robin_last_index)->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
+    const auto round_robin_last_index = get_index_offset(round_robin_fb_index, -2);
+    if (m_normal_frame_data.at(round_robin_last_index).pass_sync) {
+        const auto sync_result = m_normal_frame_data.at(round_robin_last_index).pass_sync->clientWait(
+                GL_SYNC_FLUSH_COMMANDS_BIT,
+                MAX_SYNC_TIME);
         if (sync_result == GL_CONDITION_SATISFIED || sync_result == GL_ALREADY_SIGNALED) {
-            m_normal_transfer_buffer.at(round_robin_last_index)->bind(GL_PIXEL_PACK_BUFFER);
-            const auto vCount = m_framebufferSize.x * m_framebufferSize.y;
-            const auto memPtr = reinterpret_cast<glm::vec4 *>(m_normal_transfer_buffer.at(round_robin_last_index)->mapRange(0, vCount *
-                                                                                                    static_cast<GLsizeiptr>(sizeof(glm::vec4)),
-                                                                                                 GL_MAP_READ_BIT));
+            m_normal_frame_data.at(round_robin_last_index).transfer_buffer->bind(GL_PIXEL_PACK_BUFFER);
+            const auto vCount = m_normal_frame_data.at(round_robin_last_index).size.x *
+                                m_normal_frame_data.at(round_robin_last_index).size.y;
+            const auto memPtr = reinterpret_cast<glm::vec4 *>(m_normal_frame_data.at(
+                    round_robin_last_index).transfer_buffer->mapRange(0, vCount *
+                                                                         static_cast<GLsizeiptr>(sizeof(glm::vec4)),
+                                                                      GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 std::vector<glm::vec4> data{memPtr, memPtr + vCount};
                 m_normal_tex_channel.write(std::make_pair(m_framebufferSize, data));
             }
-            if (!m_normal_transfer_buffer.at(round_robin_last_index)->unmap())
+            if (!m_normal_frame_data.at(round_robin_last_index).transfer_buffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};
-            m_normal_transfer_buffer.at(round_robin_last_index)->unbind(GL_PIXEL_PACK_BUFFER);
-            normal_pass_sync.at(round_robin_last_index) = {};
+            m_normal_frame_data.at(round_robin_last_index).transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
+            m_normal_frame_data.at(round_robin_last_index).pass_sync = {};
         }
     }
 
     round_robin_fb_index = (round_robin_fb_index + 1) % ROUND_ROBIN_SIZE;
+}
+
+void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize) {
+    // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
+
+    // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
+    // Final normal = accumulated_fragment_normal / data_points_within
+
+    // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
+    // render Tile Normals into storage buffer
+    {
+        if (!m_tileNormalsBuffer) {
+            m_tileNormalsBuffer = std::make_shared<Buffer>();
+            viewer()->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
+            // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
+            m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows),
+                                         nullptr, GL_STREAM_DRAW);
+        }
+        auto state = stateGuard();
+
+        m_normal_frame_data.at(round_robin_fb_index).framebuffer->bind();
+        glDepthMask(GL_FALSE);
+        glClearColor(0.f, 0.f, 0.f, 0.f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+        BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0};
+
+        // one Pixel of data is enough to clear whole buffer
+        // https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
+        const int initialVal = 0;
+        m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
+        // -------------------------------------------------------------------------------------------------
+
+        BindActiveGuard _g2{m_kdeTexture, 1};
+        BindActiveGuard _g3{m_tileAccumulateTexture, 2};
+
+//        BindBaseGuard _g4{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 3};
+
+        auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
+
+        //geometry shader
+        shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+        shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
+        shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
+
+        //fragment Shader
+        shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
+        shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
+
+        shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
+        shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
+
+        shaderProgram_tile_normals->setUniform("kdeTexture", 1);
+        shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
+
+        shaderProgram_tile_normals->use();
+        m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+
+        m_normal_frame_data.at(round_robin_fb_index).size = m_framebufferSize;
+
+
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        Framebuffer::unbind();
+    }
+
+    // Copy framebuffer from last frame:
+
+    const auto round_robin_last_index = get_index_offset(round_robin_fb_index, -1);
+    if (m_normal_frame_data.at(round_robin_last_index).transfer_buffer) {
+        BindGuard _g{m_normal_frame_data.at(round_robin_last_index).transfer_buffer, GL_PIXEL_PACK_BUFFER};
+        // Assign buffer here on runtime before render so buffer can be orphaned
+        m_normal_frame_data.at(round_robin_last_index).transfer_buffer->setData(
+                m_normal_frame_data.at(round_robin_last_index).size.x * m_normal_frame_data.at(round_robin_last_index).size.y * sizeof(vec4), nullptr, GL_STATIC_READ);
+        BindActiveGuard _g2{m_normal_frame_data.at(round_robin_last_index).texture, 0};
+//        // Read from front buffer (just in case we have a double-buffer context for some reason)
+//        glReadBuffer(GL_COLOR_ATTACHMENT0);
+//        glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_FLOAT, nullptr);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        m_normal_frame_data.at(round_robin_last_index).pass_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
+    }
+
+    // Mark this "round-robin" pass available for the next frame
+    if (!m_normal_frame_data.at(round_robin_fb_index).transfer_buffer)
+        m_normal_frame_data.at(round_robin_fb_index).transfer_buffer = Buffer::create();
 }
 
 // --------------------------------------------------------------------------------------

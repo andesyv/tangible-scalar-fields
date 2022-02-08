@@ -10,6 +10,7 @@ namespace globjects{
     class Buffer;
     class NamedString;
     class Framebuffer;
+    class Sync;
 }
 
 namespace molumes
@@ -25,7 +26,8 @@ namespace molumes
 		void display() override;
         void fileLoaded(const std::string& filename) override;
 
-	private:
+        static constexpr std::size_t ROUND_ROBIN_SIZE = 3;
+    private:
 		Tile* tile = nullptr;
 		std::unordered_map<std::string, std::shared_ptr<Tile>> tile_processors;
 
@@ -71,10 +73,6 @@ namespace molumes
 		std::unique_ptr<globjects::Texture> m_gridTexture = nullptr;
 		std::unique_ptr<globjects::Texture> m_kdeTexture = nullptr;
 
-        static constexpr std::size_t ROUND_ROBIN_SIZE = 3;
-        std::array<std::shared_ptr<globjects::Texture>, ROUND_ROBIN_SIZE> m_smoothNormalsTexture{};
-        std::array<std::unique_ptr<globjects::Buffer>, ROUND_ROBIN_SIZE> m_normal_transfer_buffer{};
-
 		int m_ColorMapWidth = 0;
 		std::unique_ptr<globjects::Texture> m_colorMapTexture = nullptr;
 
@@ -95,7 +93,6 @@ namespace molumes
 		std::unique_ptr<globjects::Framebuffer> m_tilesFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_gridFramebuffer = nullptr;
 		std::unique_ptr<globjects::Framebuffer> m_shadeFramebuffer = nullptr;
-        std::array<std::unique_ptr<globjects::Framebuffer>, ROUND_ROBIN_SIZE> m_normalFramebuffer{};
 
 		glm::ivec2 m_framebufferSize{};
 
@@ -222,9 +219,21 @@ namespace molumes
 		std::vector<float> calculateDiscrepancy2D(const std::vector<float>& samplesX, const std::vector<float>& samplesY, glm::vec3 maxBounds, glm::vec3 minBounds);
 
 
+        struct NormalFrameData {
+            std::shared_ptr<globjects::Texture> texture{};
+            std::unique_ptr<globjects::Buffer> transfer_buffer{};
+            std::unique_ptr<globjects::Framebuffer> framebuffer{};
+            glm::ivec2 size;
+            std::unique_ptr<globjects::Sync> pass_sync{};
+        };
+        std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
+        unsigned int round_robin_fb_index{0};
+
     public:
         WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;
-	};
+
+        void normalRenderPass(const glm::mat4 &modelViewProjectionMatrix, const glm::ivec2 &viewportSize);
+    };
 
 }
 
