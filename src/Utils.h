@@ -30,21 +30,38 @@ namespace molumes {
     // =========================== Helper Guard Objects ================================
 
     /// Guard helper object for bind()/unbind()
-    template<typename T, typename I = void>
-    class BindGuard {
+    template<typename T, typename I>
+    class BindTargetGuard {
     private:
         using U = typename T::element_type;
         U *const m_ref;
         I m_target;
 
         void bind() {
-            if (m_ref) {
-                if constexpr (std::is_void_v<I>) {
-                    m_ref->bind();
-                } else {
-                    m_ref->bind(m_target);
-                }
-            }
+            if (m_ref)
+                m_ref->bind(m_target);
+        }
+
+    public:
+        BindTargetGuard(const BindTargetGuard &) = delete;
+
+        explicit BindTargetGuard(T &ptr, I target) : m_ref{ptr.get()}, m_target{target} { bind(); }
+
+        ~BindTargetGuard() {
+            if (m_ref)
+                m_ref->unbind(m_target);
+        }
+    };
+
+    template<typename T>
+    class BindGuard {
+    private:
+        using U = typename T::element_type;
+        U *const m_ref;
+
+        void bind() {
+            if (m_ref)
+                m_ref->bind();
         }
 
     public:
@@ -52,16 +69,9 @@ namespace molumes {
 
         explicit BindGuard(T &ptr) : m_ref{ptr.get()} { bind(); }
 
-        explicit BindGuard(T &ptr, I target) : m_ref{ptr.get()}, m_target{target} { bind(); }
-
         ~BindGuard() {
-            if (m_ref) {
-                if constexpr (std::is_void_v<I>) {
-                    m_ref->unbind();
-                } else {
-                    m_ref->unbind(m_target);
-                }
-            }
+            if (m_ref)
+                m_ref->unbind();
         }
     };
 
@@ -70,16 +80,24 @@ namespace molumes {
     class BindActiveGuard {
     private:
         using U = typename T::element_type;
-        U *const m_ref;
+        U* m_ref;
         I m_index;
 
     public:
         BindActiveGuard(const BindActiveGuard &) = delete;
+        BindActiveGuard(BindActiveGuard&& rhs) noexcept : m_ref{rhs.m_ref}, m_index{rhs.m_index} {
+            rhs.m_ref = nullptr;
+            if (m_ref)
+                m_ref->bindActive(m_index);
+        }
 
         explicit BindActiveGuard(T &ptr, I index = 0) : m_ref{ptr.get()}, m_index{index} {
             if (m_ref)
                 m_ref->bindActive(m_index);
         }
+
+        void operator=(const BindActiveGuard&) = delete;
+        void operator=(BindActiveGuard&&) = delete;
 
         ~BindActiveGuard() {
             if (m_ref)

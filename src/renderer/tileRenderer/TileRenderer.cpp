@@ -359,253 +359,23 @@ void TileRenderer::display() {
     nearPlane /= nearPlane.w;
 
     // ====================================================================================== POINTS RENDER PASS =======================================================================================
-    // renders data set as point primitives
-    // ONLY USED TO SHOW INITIAL POINTS
+    if (m_selected_tile_style == 0 && !m_renderPointCircles)
+        pointsRenderPass(vertexCount, modelViewProjectionMatrix);
 
-    if (m_selected_tile_style == 0 && !m_renderPointCircles) {
-
-        m_pointFramebuffer->bind();
-        glClearDepth(1.0f);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // make sure points are drawn on top of each other
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_ALWAYS);
-
-        // allow blending for the classical point chart color-attachment (0) of the point frame-buffer
-        glEnablei(GL_BLEND, 0);
-        glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquationi(0, GL_MAX);
-
-        // -------------------------------------------------------------------------------------------------
-
-        auto shaderProgram_points = shaderProgram("points");
-
-        // vertex shader
-        shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-        shaderProgram_points->use();
-
-        m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-        globjects::Program::release();
-
-        // disable blending for draw buffer 0 (classical scatter plot)
-        glDisablei(GL_BLEND, 0);
-
-        m_pointFramebuffer->unbind();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
     // ====================================================================================== DISCREPANCIES RENDER PASS ======================================================================================
-    // write tile discrepancies into texture
-
-    if (m_renderDiscrepancy && tile != nullptr) {
-        m_tilesDiscrepanciesFramebuffer->bind();
-
-        // set viewport to size of accumulation texture
-        glViewport(0, 0, tile->m_tile_cols, tile->m_tile_rows);
-
-        glClearDepth(1.0f);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // make sure points are drawn on top of each other
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_ALWAYS);
-
-        // allow blending for the classical point chart color-attachment (0) of the point frame-buffer
-        glEnablei(GL_BLEND, 0);
-        glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquationi(0, GL_FUNC_ADD);
-
-        // -------------------------------------------------------------------------------------------------
-
-        auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
-
-        //vertex shader
-        shaderProgram_discrepancies->setUniform("numCols", tile->m_tile_cols);
-        shaderProgram_discrepancies->setUniform("numRows", tile->m_tile_rows);
-        shaderProgram_discrepancies->setUniform("discrepancyDiv", m_discrepancyDiv);
-
-        m_vaoTiles->bind();
-        shaderProgram_discrepancies->use();
-
-        m_vaoTiles->drawArrays(GL_POINTS, 0, tile->numTiles);
-
-        globjects::Program::release();
-        m_vaoTiles->unbind();
-
-        // disable blending
-        glDisablei(GL_BLEND, 0);
-
-        //reset Viewport
-        glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
-
-        m_tilesDiscrepanciesFramebuffer->unbind();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
+    if (m_renderDiscrepancy && tile != nullptr)
+        discrepanciesRenderPass();
 
     // ====================================================================================== POINT CIRCLES  & KDE RENDER PASS =======================================================================================
-    // render Point Circles into texture0
-    // render Kernel Density Estimation into texture1
-
-    if (m_renderPointCircles || m_renderKDE || m_renderTileNormals) {
-        m_pointCircleFramebuffer->bind();
-        glClearDepth(1.0f);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // make sure points are drawn on top of each other
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_ALWAYS);
-
-        // additive blending
-        glEnablei(GL_BLEND, 0);
-        glBlendFunci(0, GL_ONE, GL_ONE);
-        glBlendEquationi(0, GL_FUNC_ADD);
-        glEnablei(GL_BLEND, 1);
-        glBlendFunci(1, GL_ONE, GL_ONE);
-        glBlendEquationi(1, GL_FUNC_ADD);
-        // -------------------------------------------------------------------------------------------------
-
-        auto shaderProgram_pointCircles = shaderProgram("point-circle");
-
-        //set correct radius
-        float scaleAdjustedPointCircleRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
-        float scaleAdjustedKDERadius = m_kdeRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
-        float scaleAdjustedRadiusMult = gaussSampleRadiusMult / viewer()->scaleFactor();
-
-        //geometry shader
-        shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-        shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
-
-        //geometry & fragment shader
-        shaderProgram_pointCircles->setUniform("pointCircleRadius", scaleAdjustedPointCircleRadius);
-        shaderProgram_pointCircles->setUniform("kdeRadius", scaleAdjustedKDERadius);
-
-        //fragment shader
-        shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
-        shaderProgram_pointCircles->setUniform("sigma2", m_sigma);
-        shaderProgram_pointCircles->setUniform("radiusMult", scaleAdjustedRadiusMult);
-        shaderProgram_pointCircles->setUniform("densityMult", m_densityMult);
-
-        m_vao->bind();
-        shaderProgram_pointCircles->use();
-
-        m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-        globjects::Program::release();
-        m_vao->unbind();
-
-        // disable blending for draw buffer 0 (classical scatter plot)
-        glDisablei(GL_BLEND, 0);
-        glDisablei(GL_BLEND, 1);
-
-        m_pointCircleFramebuffer->unbind();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
+    if (m_renderPointCircles || m_renderKDE || m_renderTileNormals)
+        kdeRenderPass(vertexCount, modelViewProjectionMatrix);
 
     // ====================================================================================== ACCUMULATE RENDER PASS ======================================================================================
-    // Accumulate Points into tiles
-    if (tile != nullptr) {
-        m_tileAccumulateFramebuffer->bind();
-
-        // set viewport to size of accumulation texture
-        glViewport(0, 0, tile->m_tile_cols, tile->m_tile_rows);
-
-        glClearDepth(1.0f);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // make sure points are drawn on top of each other
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_ALWAYS);
-
-        //ADDITIVE Blending GL_COLOR_ATTACHMENT0
-        glEnablei(GL_BLEND, 0);
-        glBlendFunci(0, GL_ONE, GL_ONE);
-        glBlendEquationi(0, GL_FUNC_ADD);
-
-        // -------------------------------------------------------------------------------------------------
-
-        // get shader program and uniforms from tile program
-        auto shaderProgram_tile_acc = tile->getAccumulationProgram();
-
-        m_vao->bind();
-        shaderProgram_tile_acc->use();
-
-        m_vao->drawArrays(GL_POINTS, 0, vertexCount);
-
-        globjects::Program::release();
-        m_vao->unbind();
-
-        // disable blending
-        glDisablei(GL_BLEND, 0);
-
-        //reset Viewport
-        glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
-
-        m_tileAccumulateFramebuffer->unbind();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
+    if (tile != nullptr)
+        accumulateRenderPass(vertexCount);
 
     // ====================================================================================== MAX VAL RENDER PASS ======================================================================================
-    // Get maximum accumulated value (used for coloring)
-    // Get maximum alpha of additive blended point circles (used for alpha normalization)
-    // no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
-
-    {
-        // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-        BindBaseGuard _g{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 0};
-
-        // max accumulated Value
-        const uint initialMaxValue = 0;
-        m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &initialMaxValue);
-        m_valueMaxBuffer->clearSubData(GL_R32UI, sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT,
-                                       &initialMaxValue);
-        // -------------------------------------------------------------------------------------------------
-
-        BindActiveGuard _g2{m_tileAccumulateTexture, 1};
-        BindActiveGuard _g3{m_pointCircleTexture, 2};
-
-        //can use the same shader for hexagon and square tiles
-        auto shaderProgram_max_val = shaderProgram("max-val");
-
-        //geometry & fragment shader
-        shaderProgram_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-        //fragment shader
-        shaderProgram_max_val->setUniform("pointCircleTexture", 2);
-
-        if (tile == nullptr) {
-            //geometry shader
-            shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds);
-            shaderProgram_max_val->setUniform("minBounds_acc", minBounds);
-        } else {
-            //geometry shader
-            shaderProgram_max_val->setUniform("maxBounds_acc", tile->maxBounds_Offset);
-            shaderProgram_max_val->setUniform("minBounds_acc", tile->minBounds_Offset);
-
-            shaderProgram_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
-            shaderProgram_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
-            //fragment Shader
-            shaderProgram_max_val->setUniform("maxTexCoordX", tile->m_tileMaxX);
-            shaderProgram_max_val->setUniform("maxTexCoordY", tile->m_tileMaxY);
-
-            shaderProgram_max_val->setUniform("accumulateTexture", 1);
-        }
-
-        shaderProgram_max_val->use();
-        m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-        globjects::Program::release();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
+    maxValRenderPass(modelViewProjectionMatrix, maxBounds, minBounds);
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
     const bool shouldRenderNormal = tile != nullptr && m_renderTileNormals;
@@ -614,179 +384,492 @@ void TileRenderer::display() {
 
 
     // ====================================================================================== TILES RENDER PASS ======================================================================================
-    // Render tiles
-    if (tile != nullptr) {
-        BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0}, _g2{m_valueMaxBuffer,
-                                                                                GL_SHADER_STORAGE_BUFFER, 1};
-
-        m_tilesFramebuffer->bind();
-
-        glClearDepth(1.0f);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // make sure points are drawn on top of each other
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_ALWAYS);
-
-        //Blending GL_COLOR_ATTACHMENT0
-        glEnablei(GL_BLEND, 0);
-        glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquationi(0, GL_MAX);
-
-        // -------------------------------------------------------------------------------------------------
-
-        BindActiveGuard _g3{m_tileAccumulateTexture, 2};
-        BindActiveGuard _g4{m_tilesDiscrepanciesTexture, 3};
-
-        auto shaderProgram_tiles = tile->getTileProgram();
-
-        //geometry shader
-        shaderProgram_tiles->setUniform("windowWidth", viewportSize[0]);
-        shaderProgram_tiles->setUniform("windowHeight", viewportSize[1]);
-
-        shaderProgram_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-        //geometry & fragment shader
-        shaderProgram_tiles->setUniform("tileSize", tile->tileSizeWS);
-        shaderProgram_tiles->setUniform("tileColor", viewer()->tileColor());
-
-        //fragment Shader
-        shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
-        shaderProgram_tiles->setUniform("densityMult", m_densityMult);
-        shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
-        shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
-        shaderProgram_tiles->setUniform("showBorder", m_showBorder);
-        shaderProgram_tiles->setUniform("blendRange", blendRange * viewer()->scaleFactor());
-
-        shaderProgram_tiles->setUniform("maxTexCoordX", tile->m_tileMaxX);
-        shaderProgram_tiles->setUniform("maxTexCoordY", tile->m_tileMaxY);
-
-        shaderProgram_tiles->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
-
-        //lighting
-        shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));
-        shaderProgram_tiles->setUniform("viewPos", vec3(0));
-        shaderProgram_tiles->setUniform("lightColor", vec3(1));
-
-        // textures
-        shaderProgram_tiles->setUniform("accumulateTexture", 2);
-        shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 3);
-
-        // analytical ambient occlusion
-        shaderProgram_tiles->setUniform("aaoScaling", m_aaoScaling);
-
-        // fresnel factor
-        shaderProgram_tiles->setUniform("fresnelBias", m_fresnelBias);
-        shaderProgram_tiles->setUniform("fresnelPow", m_fresnelPow);
-
-        if (m_colorMapLoaded) {
-            m_colorMapTexture->bindActive(5);
-            shaderProgram_tiles->setUniform("colorMapTexture", 5);
-            shaderProgram_tiles->setUniform("textureWidth", m_ColorMapWidth);
-        }
-
-        if (m_tileTexturing) {
-            m_tileTextureArray->bindActive(6);
-            shaderProgram_tiles->setUniform("tileTextureArray", 6);
-        }
-
-        m_vaoQuad->bind();
-
-        shaderProgram_tiles->use();
-        m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-        globjects::Program::release();
-
-        m_vaoQuad->unbind();
-
-        if (m_tileTexturing) {
-            m_tileTextureArray->unbindActive(6);
-        }
-
-        if (m_colorMapLoaded) {
-            m_colorMapTexture->unbindActive(5);
-        }
-
-        // disable blending
-        glDisablei(GL_BLEND, 0);
-
-        Framebuffer::unbind();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
+    if (tile != nullptr)
+        tileRenderPass(modelViewProjectionMatrix, viewportSize, viewLightPosition);
 
     // ====================================================================================== GRID RENDER PASS ======================================================================================
-    // render grid into texture
-
-    if (m_renderGrid && tile != nullptr) {
-        m_gridFramebuffer->bind();
-
-        glClearDepth(1.0f);
-        glClearColor(0.0, 0.0, 0.0, 0.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // make sure points are drawn on top of each other
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_ALWAYS);
-
-        //Blending GL_COLOR_ATTACHMENT0
-        glEnablei(GL_BLEND, 0);
-        glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBlendEquationi(0, GL_MAX);
-
-        // -------------------------------------------------------------------------------------------------
-
-        m_gridTexture->bindActive(0);
-        //used to check if we actually need to draw the grid for a given square
-        m_tileAccumulateTexture->bindActive(1);
-
-        auto shaderProgram_grid = tile->getGridProgram();
-
-        shaderProgram_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-        shaderProgram_grid->setUniform("windowWidth", viewer()->viewportSize()[0]);
-        shaderProgram_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
-
-        //fragment Shader
-        shaderProgram_grid->setUniform("gridColor", viewer()->gridColor());
-        shaderProgram_grid->setUniform("tileSize", tile->tileSizeWS);
-        shaderProgram_grid->setUniform("gridWidth", m_gridWidth * viewer()->scaleFactor());
-        shaderProgram_grid->setUniform("accumulateTexture", 1);
-
-        //draw call
-        m_vaoTiles->bind();
-
-        shaderProgram_grid->use();
-        m_vaoTiles->drawArrays(GL_POINTS, 0, tile->numTiles);
-        globjects::Program::release();
-
-        m_vaoTiles->unbind();
-
-        m_gridTexture->unbindActive(0);
-        m_tileAccumulateTexture->unbindActive(1);
-
-        // disable blending
-        glDisablei(GL_BLEND, 0);
-
-        m_gridFramebuffer->unbind();
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-    }
+    if (m_renderGrid && tile != nullptr)
+        gridRenderPass(modelViewProjectionMatrix);
 
     // ====================================================================================== SHADE/BLEND RENDER PASS ======================================================================================
+    shadeRenderPass();
+
+
+    round_robin_fb_index = (round_robin_fb_index + 1) % ROUND_ROBIN_SIZE;
+}
+
+void TileRenderer::pointsRenderPass(int vertexCount, const mat4 &modelViewProjectionMatrix) {
+    // renders data set as point primitives
+    // ONLY USED TO SHOW INITIAL POINTS
+    BindGuard _g{m_pointFramebuffer};
+    glClearDepth(1.0f);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // make sure points are drawn on top of each other
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    // allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+    glEnablei(GL_BLEND, 0);
+    glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquationi(0, GL_MAX);
+
+    // -------------------------------------------------------------------------------------------------
+
+    auto shaderProgram_points = shaderProgram("points");
+
+    // vertex shader
+    shaderProgram_points->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+    shaderProgram_points->use();
+
+    m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+    Program::release();
+
+    // disable blending for draw buffer 0 (classical scatter plot)
+    glDisablei(GL_BLEND, 0);
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::discrepanciesRenderPass() {
+    // write tile discrepancies into texture
+    BindGuard _g1{m_tilesDiscrepanciesFramebuffer};
+
+    // set viewport to size of accumulation texture
+    glViewport(0, 0, tile->m_tile_cols, tile->m_tile_rows);
+
+    glClearDepth(1.0f);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // make sure points are drawn on top of each other
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    // allow blending for the classical point chart color-attachment (0) of the point frame-buffer
+    glEnablei(GL_BLEND, 0);
+    glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquationi(0, GL_FUNC_ADD);
+
+    // -------------------------------------------------------------------------------------------------
+
+    auto shaderProgram_discrepancies = shaderProgram("tiles-disc");
+
+    //vertex shader
+    shaderProgram_discrepancies->setUniform("numCols", tile->m_tile_cols);
+    shaderProgram_discrepancies->setUniform("numRows", tile->m_tile_rows);
+    shaderProgram_discrepancies->setUniform("discrepancyDiv", m_discrepancyDiv);
+
+    m_vaoTiles->bind();
+    shaderProgram_discrepancies->use();
+
+    m_vaoTiles->drawArrays(GL_POINTS, 0, tile->numTiles);
+
+    Program::release();
+    m_vaoTiles->unbind();
+
+    // disable blending
+    glDisablei(GL_BLEND, 0);
+
+    //reset Viewport
+    glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::kdeRenderPass(int vertexCount, const mat4 &modelViewProjectionMatrix) {
+    // render Point Circles into texture0
+    // render Kernel Density Estimation into texture1
+    BindGuard _g1{m_pointCircleFramebuffer};
+    glClearDepth(1.0f);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // make sure points are drawn on top of each other
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    // additive blending
+    glEnablei(GL_BLEND, 0);
+    glBlendFunci(0, GL_ONE, GL_ONE);
+    glBlendEquationi(0, GL_FUNC_ADD);
+    glEnablei(GL_BLEND, 1);
+    glBlendFunci(1, GL_ONE, GL_ONE);
+    glBlendEquationi(1, GL_FUNC_ADD);
+    // -------------------------------------------------------------------------------------------------
+
+    auto shaderProgram_pointCircles = shaderProgram("point-circle");
+
+    //set correct radius
+    float scaleAdjustedPointCircleRadius = m_pointCircleRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
+    float scaleAdjustedKDERadius = m_kdeRadius / pointCircleRadiusDiv * viewer()->scaleFactor();
+    float scaleAdjustedRadiusMult = gaussSampleRadiusMult / viewer()->scaleFactor();
+
+    //geometry shader
+    shaderProgram_pointCircles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+    shaderProgram_pointCircles->setUniform("aspectRatio", viewer()->m_windowHeight / viewer()->m_windowWidth);
+
+    //geometry & fragment shader
+    shaderProgram_pointCircles->setUniform("pointCircleRadius", scaleAdjustedPointCircleRadius);
+    shaderProgram_pointCircles->setUniform("kdeRadius", scaleAdjustedKDERadius);
+
+    //fragment shader
+    shaderProgram_pointCircles->setUniform("pointColor", viewer()->samplePointColor());
+    shaderProgram_pointCircles->setUniform("sigma2", m_sigma);
+    shaderProgram_pointCircles->setUniform("radiusMult", scaleAdjustedRadiusMult);
+    shaderProgram_pointCircles->setUniform("densityMult", m_densityMult);
+
+    m_vao->bind();
+    shaderProgram_pointCircles->use();
+
+    m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+    Program::release();
+    m_vao->unbind();
+
+    // disable blending for draw buffer 0 (classical scatter plot)
+    glDisablei(GL_BLEND, 0);
+    glDisablei(GL_BLEND, 1);
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::accumulateRenderPass(int vertexCount) {
+    // Accumulate Points into tiles
+    BindGuard _g1{m_tileAccumulateFramebuffer};
+
+    // set viewport to size of accumulation texture
+    glViewport(0, 0, tile->m_tile_cols, tile->m_tile_rows);
+
+    glClearDepth(1.0f);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // make sure points are drawn on top of each other
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    //ADDITIVE Blending GL_COLOR_ATTACHMENT0
+    glEnablei(GL_BLEND, 0);
+    glBlendFunci(0, GL_ONE, GL_ONE);
+    glBlendEquationi(0, GL_FUNC_ADD);
+
+    // -------------------------------------------------------------------------------------------------
+
+    // get shader program and uniforms from tile program
+    auto shaderProgram_tile_acc = tile->getAccumulationProgram();
+
+    m_vao->bind();
+    shaderProgram_tile_acc->use();
+
+    m_vao->drawArrays(GL_POINTS, 0, vertexCount);
+
+    Program::release();
+    m_vao->unbind();
+
+    // disable blending
+    glDisablei(GL_BLEND, 0);
+
+    //reset Viewport
+    glViewport(0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y);
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::maxValRenderPass(const mat4 &modelViewProjectionMatrix, const vec2 &maxBounds,
+                                    const vec2 &minBounds) {
+    // Get maximum accumulated value (used for coloring)
+    // Get maximum alpha of additive blended point circles (used for alpha normalization)
+    // no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
+
+    // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+    BindBaseGuard _g{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 0};
+
+    // max accumulated Value
+    const uint initialMaxValue = 0;
+    m_valueMaxBuffer->clearSubData(GL_R32UI, 0, sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT, &initialMaxValue);
+    m_valueMaxBuffer->clearSubData(GL_R32UI, sizeof(uint), sizeof(uint), GL_RED_INTEGER, GL_UNSIGNED_INT,
+                                   &initialMaxValue);
+    // -------------------------------------------------------------------------------------------------
+
+    BindActiveGuard _g2{m_tileAccumulateTexture, 1};
+    BindActiveGuard _g3{m_pointCircleTexture, 2};
+
+    //can use the same shader for hexagon and square tiles
+    auto shaderProgram_max_val = shaderProgram("max-val");
+
+    //geometry & fragment shader
+    shaderProgram_max_val->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+    //fragment shader
+    shaderProgram_max_val->setUniform("pointCircleTexture", 2);
+
+    if (tile == nullptr) {
+        //geometry shader
+        shaderProgram_max_val->setUniform("maxBounds_acc", maxBounds);
+        shaderProgram_max_val->setUniform("minBounds_acc", minBounds);
+    } else {
+        //geometry shader
+        shaderProgram_max_val->setUniform("maxBounds_acc", tile->maxBounds_Offset);
+        shaderProgram_max_val->setUniform("minBounds_acc", tile->minBounds_Offset);
+
+        shaderProgram_max_val->setUniform("windowWidth", viewer()->viewportSize()[0]);
+        shaderProgram_max_val->setUniform("windowHeight", viewer()->viewportSize()[1]);
+        //fragment Shader
+        shaderProgram_max_val->setUniform("maxTexCoordX", tile->m_tileMaxX);
+        shaderProgram_max_val->setUniform("maxTexCoordY", tile->m_tileMaxY);
+
+        shaderProgram_max_val->setUniform("accumulateTexture", 1);
+    }
+
+    shaderProgram_max_val->use();
+    m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+    Program::release();
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize) {
+    // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
+
+    // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
+    // Final normal = accumulated_fragment_normal / data_points_within
+
+    // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
+    // render Tile Normals into storage buffer
+    if (!m_tileNormalsBuffer) {
+        m_tileNormalsBuffer = std::make_shared<Buffer>();
+        viewer()->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
+        // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
+        m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows),
+                                     nullptr, GL_STREAM_DRAW);
+    }
+    auto state = stateGuard();
+
+    m_normal_frame_data.at(round_robin_fb_index).framebuffer->bind();
+    glDepthMask(GL_FALSE);
+    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
+    BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0};
+
+    // one Pixel of data is enough to clear whole buffer
+    // https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
+    const int initialVal = 0;
+    m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
+    // -------------------------------------------------------------------------------------------------
+
+    BindActiveGuard _g2{m_kdeTexture, 1};
+    BindActiveGuard _g3{m_tileAccumulateTexture, 2};
+
+    auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
+
+    //geometry shader
+    shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+    shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
+    shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
+
+    //fragment Shader
+    shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
+    shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
+
+    shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
+    shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
+
+    shaderProgram_tile_normals->setUniform("kdeTexture", 1);
+    shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
+
+    shaderProgram_tile_normals->use();
+    m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+
+    m_normal_frame_data.at(round_robin_fb_index).size = m_framebufferSize;
+
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+    Framebuffer::unbind();
+
+    // Mark this "round-robin" pass available for the next frame
+    if (!m_normal_frame_data.at(round_robin_fb_index.load()).transfer_buffer)
+        m_normal_frame_data.at(round_robin_fb_index.load()).transfer_buffer = Buffer::create();
+}
+
+void TileRenderer::tileRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize,
+                                  const vec4 &viewLightPosition) {
+    // Render tiles
+    BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0}, _g2{m_valueMaxBuffer,
+                                                                            GL_SHADER_STORAGE_BUFFER, 1};
+
+    m_tilesFramebuffer->bind();
+
+    glClearDepth(1.0f);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // make sure points are drawn on top of each other
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    //Blending GL_COLOR_ATTACHMENT0
+    glEnablei(GL_BLEND, 0);
+    glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquationi(0, GL_MAX);
+
+    // -------------------------------------------------------------------------------------------------
+
+    BindActiveGuard _g3{m_tileAccumulateTexture, 2};
+    BindActiveGuard _g4{m_tilesDiscrepanciesTexture, 3};
+
+    auto shaderProgram_tiles = tile->getTileProgram();
+
+    //geometry shader
+    shaderProgram_tiles->setUniform("windowWidth", viewportSize[0]);
+    shaderProgram_tiles->setUniform("windowHeight", viewportSize[1]);
+
+    shaderProgram_tiles->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+
+    //geometry & fragment shader
+    shaderProgram_tiles->setUniform("tileSize", tile->tileSizeWS);
+    shaderProgram_tiles->setUniform("tileColor", viewer()->tileColor());
+
+    //fragment Shader
+    shaderProgram_tiles->setUniform("tileHeightMult", m_tileHeightMult);
+    shaderProgram_tiles->setUniform("densityMult", m_densityMult);
+    shaderProgram_tiles->setUniform("borderWidth", m_borderWidth);
+    shaderProgram_tiles->setUniform("invertPyramid", m_invertPyramid);
+    shaderProgram_tiles->setUniform("showBorder", m_showBorder);
+    shaderProgram_tiles->setUniform("blendRange", blendRange * viewer()->scaleFactor());
+
+    shaderProgram_tiles->setUniform("maxTexCoordX", tile->m_tileMaxX);
+    shaderProgram_tiles->setUniform("maxTexCoordY", tile->m_tileMaxY);
+
+    shaderProgram_tiles->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
+
+    //lighting
+    shaderProgram_tiles->setUniform("lightPos", vec3(viewLightPosition));
+    shaderProgram_tiles->setUniform("viewPos", vec3(0));
+    shaderProgram_tiles->setUniform("lightColor", vec3(1));
+
+    // textures
+    shaderProgram_tiles->setUniform("accumulateTexture", 2);
+    shaderProgram_tiles->setUniform("tilesDiscrepancyTexture", 3);
+
+    // analytical ambient occlusion
+    shaderProgram_tiles->setUniform("aaoScaling", m_aaoScaling);
+
+    // fresnel factor
+    shaderProgram_tiles->setUniform("fresnelBias", m_fresnelBias);
+    shaderProgram_tiles->setUniform("fresnelPow", m_fresnelPow);
+
+    if (m_colorMapLoaded) {
+        m_colorMapTexture->bindActive(5);
+        shaderProgram_tiles->setUniform("colorMapTexture", 5);
+        shaderProgram_tiles->setUniform("textureWidth", m_ColorMapWidth);
+    }
+
+    if (m_tileTexturing) {
+        m_tileTextureArray->bindActive(6);
+        shaderProgram_tiles->setUniform("tileTextureArray", 6);
+    }
+
+    m_vaoQuad->bind();
+
+    shaderProgram_tiles->use();
+    m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
+    Program::release();
+
+    m_vaoQuad->unbind();
+
+    if (m_tileTexturing) {
+        m_tileTextureArray->unbindActive(6);
+    }
+
+    if (m_colorMapLoaded) {
+        m_colorMapTexture->unbindActive(5);
+    }
+
+    // disable blending
+    glDisablei(GL_BLEND, 0);
+
+    Framebuffer::unbind();
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::gridRenderPass(const mat4 &modelViewProjectionMatrix) {
+    // render grid into texture
+    m_gridFramebuffer->bind();
+
+    glClearDepth(1.0f);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // make sure points are drawn on top of each other
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+
+    //Blending GL_COLOR_ATTACHMENT0
+    glEnablei(GL_BLEND, 0);
+    glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendEquationi(0, GL_MAX);
+
+    // -------------------------------------------------------------------------------------------------
+
+    m_gridTexture->bindActive(0);
+    //used to check if we actually need to draw the grid for a given square
+    m_tileAccumulateTexture->bindActive(1);
+
+    auto shaderProgram_grid = tile->getGridProgram();
+
+    shaderProgram_grid->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+    shaderProgram_grid->setUniform("windowWidth", viewer()->viewportSize()[0]);
+    shaderProgram_grid->setUniform("windowHeight", viewer()->viewportSize()[1]);
+
+    //fragment Shader
+    shaderProgram_grid->setUniform("gridColor", viewer()->gridColor());
+    shaderProgram_grid->setUniform("tileSize", tile->tileSizeWS);
+    shaderProgram_grid->setUniform("gridWidth", m_gridWidth * viewer()->scaleFactor());
+    shaderProgram_grid->setUniform("accumulateTexture", 1);
+
+    //draw call
+    m_vaoTiles->bind();
+
+    shaderProgram_grid->use();
+    m_vaoTiles->drawArrays(GL_POINTS, 0, tile->numTiles);
+    Program::release();
+
+    m_vaoTiles->unbind();
+
+    m_gridTexture->unbindActive(0);
+    m_tileAccumulateTexture->unbindActive(1);
+
+    // disable blending
+    glDisablei(GL_BLEND, 0);
+
+    m_gridFramebuffer->unbind();
+
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
+void TileRenderer::shadeRenderPass() {
     // blend everything together and draw to screen
+    BindGuard _g{m_shadeFramebuffer};
 
-    m_shadeFramebuffer->bind();
-
-    m_pointChartTexture->bindActive(0);
-    m_tilesTexture->bindActive(1);
-    m_gridTexture->bindActive(3);
-    m_pointCircleTexture->bindActive(4);
+    std::vector<BindActiveGuard<std::unique_ptr<Texture>, unsigned int>> _texGuards{};
+    _texGuards.emplace_back(m_pointChartTexture, 0);
+    _texGuards.emplace_back(m_tilesTexture, 1);
+    _texGuards.emplace_back(m_gridTexture, 3);
+    _texGuards.emplace_back(m_pointCircleTexture, 4);
     //debug
-    m_kdeTexture->bindActive(5);
-    m_normalsAndDepthTexture->bindActive(2);
+    _texGuards.emplace_back(m_kdeTexture, 5);
+    _texGuards.emplace_back(m_normalsAndDepthTexture, 2);
     //end debug
 
-    m_valueMaxBuffer->bindBase(GL_SHADER_STORAGE_BUFFER, 6);
+    BindBaseGuard _g2{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 6};
 
     auto shaderProgram_shade = shaderProgram("shade");
 
@@ -822,101 +905,14 @@ void TileRenderer::display() {
 
     shaderProgram_shade->use();
     m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-    globjects::Program::release();
+    Program::release();
 
     m_vaoQuad->unbind();
-
-    m_pointChartTexture->unbindActive(0);
-    m_tilesTexture->unbindActive(1);
-    m_gridTexture->unbindActive(3);
-    m_pointCircleTexture->unbindActive(4);
-    m_kdeTexture->unbindActive(5);
-    m_normalsAndDepthTexture->unbindActive(2);
-
-    //unbind shader storage buffer
-    m_valueMaxBuffer->unbind(GL_SHADER_STORAGE_BUFFER);
-
-    m_shadeFramebuffer->unbind();
 
     m_shadeFramebuffer->blit(GL_COLOR_ATTACHMENT0, {0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y},
                              Framebuffer::defaultFBO().get(), GL_BACK,
                              {0, 0, viewer()->viewportSize().x, viewer()->viewportSize().y},
                              GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
-
-
-
-    round_robin_fb_index = (round_robin_fb_index + 1) % ROUND_ROBIN_SIZE;
-}
-
-void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize) {
-    // accumulate tile normals using KDE texture and save them into tileNormalsBuffer
-
-    // Note: Basically calculates screen-space derivatives / gradient from the kdeTexture and additively combines them in a buffer per fragments hexagon coords
-    // Final normal = accumulated_fragment_normal / data_points_within
-
-    // Note: Maybe try additive blending for framebuffer? Don't think it should do much tho, as normal is calculated in fragment space per pixel.
-    // render Tile Normals into storage buffer
-    {
-        if (!m_tileNormalsBuffer) {
-            m_tileNormalsBuffer = std::make_shared<Buffer>();
-            viewer()->m_sharedResources.tileNormalsBuffer = m_tileNormalsBuffer;
-            // we safe each value of the normal (vec4) seperately + accumulated kde height = 5 values
-            m_tileNormalsBuffer->setData(static_cast<GLsizei>(sizeof(int) * 5 * tile->m_tile_cols * tile->m_tile_rows),
-                                         nullptr, GL_STREAM_DRAW);
-        }
-        auto state = stateGuard();
-
-        m_normal_frame_data.at(round_robin_fb_index).framebuffer->bind();
-        glDepthMask(GL_FALSE);
-        glClearColor(0.f, 0.f, 0.f, 0.f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
-        BindBaseGuard _g{m_tileNormalsBuffer, GL_SHADER_STORAGE_BUFFER, 0};
-
-        // one Pixel of data is enough to clear whole buffer
-        // https://www.khronos.org/opengl/wiki/GLAPI/glClearBufferData
-        const int initialVal = 0;
-        m_tileNormalsBuffer->clearData(GL_R32I, GL_RED_INTEGER, GL_INT, &initialVal);
-        // -------------------------------------------------------------------------------------------------
-
-        BindActiveGuard _g2{m_kdeTexture, 1};
-        BindActiveGuard _g3{m_tileAccumulateTexture, 2};
-
-//        BindBaseGuard _g4{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 3};
-
-        auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
-
-        //geometry shader
-        shaderProgram_tile_normals->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
-
-        shaderProgram_tile_normals->setUniform("windowWidth", viewportSize[0]);
-        shaderProgram_tile_normals->setUniform("windowHeight", viewportSize[1]);
-
-        //fragment Shader
-        shaderProgram_tile_normals->setUniform("maxTexCoordX", tile->m_tileMaxX);
-        shaderProgram_tile_normals->setUniform("maxTexCoordY", tile->m_tileMaxY);
-
-        shaderProgram_tile_normals->setUniform("bufferAccumulationFactor", tile->bufferAccumulationFactor);
-        shaderProgram_tile_normals->setUniform("tileSize", tile->tileSizeWS);
-
-        shaderProgram_tile_normals->setUniform("kdeTexture", 1);
-        shaderProgram_tile_normals->setUniform("accumulateTexture", 2);
-
-        shaderProgram_tile_normals->use();
-        m_vaoQuad->drawArrays(GL_POINTS, 0, 1);
-
-        m_normal_frame_data.at(round_robin_fb_index).size = m_framebufferSize;
-
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-        Framebuffer::unbind();
-    }
-
-    // Mark this "round-robin" pass available for the next frame
-    if (!m_normal_frame_data.at(round_robin_fb_index.load()).transfer_buffer)
-        m_normal_frame_data.at(round_robin_fb_index.load()).transfer_buffer = Buffer::create();
 }
 
 // --------------------------------------------------------------------------------------
@@ -1427,11 +1423,11 @@ bool TileRenderer::offscreen_render() {
 
     const auto round_robin_last_index = get_index_offset(round_robin_fb_index.load(), -1);
     // Should be safe to read without synchronization, because it hasn't been written to this frame:
-    auto& frame_data = m_normal_frame_data.at(round_robin_last_index);
+    auto &frame_data = m_normal_frame_data.at(round_robin_last_index);
     if (frame_data.processed && !frame_data.transfer_buffer)
         frame_data.processed = false;
     else if (frame_data.transfer_buffer) {
-        BindGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
+        BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
         // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(
                 frame_data.size.x * frame_data.size.y * sizeof(vec4), nullptr, GL_STATIC_READ);
@@ -1459,8 +1455,8 @@ bool TileRenderer::offscreen_render() {
             frame_data.transfer_buffer->bind(GL_PIXEL_PACK_BUFFER);
             const auto vCount = frame_data.size.x * frame_data.size.y;
             const auto memPtr = reinterpret_cast<glm::vec4 *>(frame_data.transfer_buffer->mapRange(0, vCount *
-                                                                         static_cast<GLsizeiptr>(sizeof(glm::vec4)),
-                                                                      GL_MAP_READ_BIT));
+                                                                                                      static_cast<GLsizeiptr>(sizeof(glm::vec4)),
+                                                                                                   GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 std::vector<glm::vec4> data{memPtr, memPtr + vCount};
                 m_normal_tex_channel.write(std::make_pair(m_framebufferSize, data));
