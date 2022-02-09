@@ -253,14 +253,16 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
         m_enable_force.store(!m_enable_force.load());
 
 #ifdef FAKE_HAPTIC
-    else if (key == GLFW_KEY_RIGHT)
-        KEY_HORIZONTAL_AXIS += inc - dec;
-    else if (key == GLFW_KEY_LEFT)
-        KEY_HORIZONTAL_AXIS -= inc - dec;
-    else if (key == GLFW_KEY_UP)
-        KEY_VERTICAL_AXIS += inc - dec;
-    else if (key == GLFW_KEY_DOWN)
-        KEY_VERTICAL_AXIS -= inc - dec;
+    else if (!m_ctrl) {
+        if (key == GLFW_KEY_RIGHT)
+            KEY_HORIZONTAL_AXIS += inc - dec;
+        else if (key == GLFW_KEY_LEFT)
+            KEY_HORIZONTAL_AXIS -= inc - dec;
+        else if (key == GLFW_KEY_UP)
+            KEY_VERTICAL_AXIS += inc - dec;
+        else if (key == GLFW_KEY_DOWN)
+            KEY_VERTICAL_AXIS -= inc - dec;
+    }
 #endif
 }
 

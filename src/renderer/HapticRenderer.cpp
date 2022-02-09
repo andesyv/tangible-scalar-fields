@@ -69,3 +69,10 @@ void HapticRenderer::display() {
     VertexArray::unbind();
 }
 
+void HapticRenderer::setEnabled(bool enabled) {
+    Renderer::setEnabled(enabled);
+
+    if (enabled)
+        viewer()->setPerspective(true);
+}
+

@@ -20,6 +20,7 @@ namespace molumes {
 
     public:
         explicit HapticRenderer(Viewer* viewer);
+        void setEnabled(bool enabled) override;
         void display() override;
     };
 }

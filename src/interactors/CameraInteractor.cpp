@@ -66,12 +66,14 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	{
 		resetViewTransform();
 	}
+    else if (m_ctrl && (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) && action == GLFW_PRESS)
+    {
+        viewer()->enumerateFocusRenderer(key == GLFW_KEY_RIGHT);
+    }
 	else if (m_shift && (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && action == GLFW_PRESS)
 	{
         const ivec2 dir{int{key == GLFW_KEY_RIGHT} - int{key == GLFW_KEY_LEFT}, int{key == GLFW_KEY_UP} - int{key == GLFW_KEY_DOWN}};
-        if (dir.y == 0 && m_ctrl)
-            viewer()->enumerateFocusRenderer();
-        else if (viewer()->m_cameraRotateAllowed) {
+        if (viewer()->m_cameraRotateAllowed) {
             mat4 viewTransform = viewer()->viewTransform();
             mat4 inverseViewTransform = inverse(viewTransform);
             vec4 transformedAxis = inverseViewTransform * vec4(dir.y, dir.x, 0.0, 0.0);
@@ -128,7 +130,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		// 5 times the distance to the object in center) -----------------------------------------------------------------------
 		mat4 lightTransform = inverse(viewTransform)*translate(mat4(1.0f), viewer()->m_perspective ? -0.5f*v*m_distance : (5.0f*viewer()->m_scatterPlotDiameter)*v)*viewTransform;
 		viewer()->setLightTransform(lightTransform);
-		//----------------------------------------------------------------------------------------------------------------------	
+		//----------------------------------------------------------------------------------------------------------------------
 	}
 
 	const bool nequal = any(notEqual(m_mouseCurrent, m_mousePrevious));
@@ -139,21 +141,21 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 		{
 			vec3 va = arcballVector(m_mousePrevious.x, m_mousePrevious.y);
 			vec3 vb = arcballVector(m_mouseCurrent.x, m_mouseCurrent.y);
-	
+
 			if (va != vb)
 			{
 				float angle = acos(max(-1.0f, min(1.0f, dot(va, vb))));
 				vec3 axis = cross(va, vb);
-	
+
 				mat4 viewTransform = viewer()->viewTransform();
 				mat4 inverseViewTransform = inverse(viewTransform);
 				vec4 transformedAxis = inverseViewTransform * vec4(axis, 0.0);
-	
+
 				mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
 				viewer()->setViewTransform(newViewTransform);
 			}
 		}
-	
+
 	}
 
 	if (m_scaling)
@@ -272,7 +274,7 @@ void CameraInteractor::resetViewTransform()
 	mat4 newViewTransform = scale(viewer()->viewTransform(), vec3(0.5f, 0.5f, 0.5f));
 	viewer()->setViewTransform(newViewTransform);
 	//----------------------------------------------------------------------------------------------------------------
-	
+
 	setLightPosition();
 
 	viewer()->setScaleFactor(1.0f);

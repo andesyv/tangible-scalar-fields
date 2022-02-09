@@ -48,7 +48,9 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-Viewer::Viewer(GLFWwindow *window, Scene *scene, GLFWwindow* offscreen_window) : m_window(window), m_offscreen_window{offscreen_window}, m_scene(scene) {
+Viewer::Viewer(GLFWwindow *window, Scene *scene, GLFWwindow *offscreen_window) : m_window(window),
+                                                                                 m_offscreen_window{offscreen_window},
+                                                                                 m_scene(scene) {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     //io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;         // We can honor GetMouseCursor() values (optional)
@@ -126,17 +128,23 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene, GLFWwindow* offscreen_window) :
     ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> normal_tex_channel{};
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-    m_renderers.emplace_back(std::make_unique<TileRenderer>(this, WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>{normal_tex_channel}));
+    // 0:
+    m_renderers.emplace_back(std::make_unique<TileRenderer>(this,
+                                                            WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>{
+                                                                    normal_tex_channel}));
+    // 1:
     const auto crystalRendererPtr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(
             std::make_unique<CrystalRenderer>(this)).get());
     crystalRendererPtr->setEnabled(false);
     m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
+    // 2:
+    auto haptic_renderer = static_cast<HapticRenderer *>(m_renderers.emplace_back(
+            std::make_unique<HapticRenderer>(this)).get());
     m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
     auto &haptic_interactor = *static_cast<HapticInteractor *>(m_interactors.emplace_back(
             std::make_unique<HapticInteractor>(this, std::move(normal_tex_channel))).get());
-    auto haptic_renderer = static_cast<HapticRenderer *>(m_renderers.emplace_back(
-            std::make_unique<HapticRenderer>(this)).get());
+
     haptic_interactor.m_on_haptic_toggle = [haptic_renderer](bool enabled) { haptic_renderer->setEnabled(enabled); };
     haptic_renderer->setEnabled(haptic_interactor.hapticEnabled());
 
@@ -336,10 +344,6 @@ void Viewer::keyCallback(GLFWwindow *window, int key, int scancode, int action, 
 
             if (io.WantCaptureKeyboard)
                 return;
-        }
-
-        if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
-            viewer->m_showUi = !viewer->m_showUi;
         }
 
         if (key == GLFW_KEY_F5 && action == GLFW_RELEASE) {
@@ -750,7 +754,19 @@ void Viewer::mainMenu() {
         if (ImGui::Checkbox("VSync", &vsync))
             glfwSwapInterval(vsync ? 1 : 0);
 
-        if (ImGui::Button(m_focusRenderer == 0 ? "Switch to 3D view" : "Switch to 2D view"))
+        const auto getButtonLabel = [](uint index) -> std::string {
+            switch (index) {
+                case 0:
+                    return "Switch to 3D view";
+                case 1:
+                    return "Switch to haptic view";
+                case 2:
+                default:
+                    return "Switch to 2D view";
+            }
+        };
+        const auto buttonLabel = getButtonLabel(m_focusRenderer);
+        if (ImGui::Button(buttonLabel.c_str()))
             enumerateFocusRenderer();
 
         ImGui::EndMenu();
@@ -765,9 +781,11 @@ void Viewer::SetClipboardText(void *user_data, const char *text) {
     glfwSetClipboardString((GLFWwindow *) user_data, text);
 }
 
-void Viewer::enumerateFocusRenderer() {
+void Viewer::enumerateFocusRenderer(bool inc) {
+    constexpr auto FOCUS_RENDER_COUNT = 3u;
     m_renderers.at(m_focusRenderer)->setEnabled(false);
-    m_focusRenderer = !m_focusRenderer;
+    m_focusRenderer = !inc && m_focusRenderer == 0 ? FOCUS_RENDER_COUNT - 1 : (m_focusRenderer + (inc ? 1 : -1)) %
+                                                                              FOCUS_RENDER_COUNT;
     m_renderers.at(m_focusRenderer)->setEnabled(true);
 }
 
@@ -802,7 +820,7 @@ void Viewer::openFile(const std::string &path) {
         r->fileLoaded(filename);
 }
 
-void offscreen_render_loop(std::stop_token stop, Viewer& viewer) {
+void offscreen_render_loop(std::stop_token stop, Viewer &viewer) {
     // Block until semaphore is acquired
     viewer.m_main_rendering_done.acquire();
     glfwMakeContextCurrent(viewer.m_offscreen_window);
@@ -844,10 +862,10 @@ void offscreen_render_loop(std::stop_token stop, Viewer& viewer) {
 //        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Rendering stuff here
-        auto& renderers = viewer.getRenderers();
+        auto &renderers = viewer.getRenderers();
         bool done = true;
         // We don't want to short-circuit any evaluations of the function here, just join together the results
-        for (auto& render : renderers)
+        for (auto &render: renderers)
             done = render->offscreen_render() && done;
 
         Framebuffer::unbind();
