@@ -23,6 +23,7 @@ private:
     std::atomic<glm::vec3> m_haptic_finger_pos;
     std::atomic<float> m_interaction_bounds{1.f};
     std::atomic<bool> m_enable_force{false};
+    std::atomic<float> m_max_force{1.f};
     bool m_haptic_enabled{false};
     std::atomic<glm::mat4> m_view_mat;
 

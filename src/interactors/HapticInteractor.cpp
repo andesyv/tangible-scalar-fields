@@ -100,15 +100,14 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
     const auto v_len = glm::length(glm::vec3{value});
 
     // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : glm::vec3{value} * (1.f / v_len) *
-                                             1.f/*std::min(-dist, 1.0)*/; // Clamp to 1 Newton
+    return v_len < 0.001f ? glm::vec3{0.f} : glm::vec3{value} * (1.f / v_len); // Clamp to 1 Newton
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
 
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
                  std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force,
-                 std::promise<bool> &&setup_results,
+                 std::atomic<float> &max_force, std::promise<bool> &&setup_results,
                  ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
     glm::dvec3 local_pos{0.0};
@@ -162,7 +161,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
         global_pos.store(pos);
 
-        auto [size, data] = normal_tex_channel.get();
+        auto[size, data] = normal_tex_channel.get();
         normal_tex_size = size;
         normal_tex_data = std::move(data);
 
@@ -178,7 +177,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         }
 #endif
 
-        const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data)};
+        const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data) * max_force.load()};
 
         if (force_enabled) {
             if (!enable_force.load()) {
@@ -231,8 +230,8 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
     m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds),
-                            std::ref(m_enable_force), std::move(setup_results), std::move(normal_tex_channel),
-                            std::ref(m_view_mat)};
+                            std::ref(m_enable_force), std::ref(m_max_force), std::move(setup_results),
+                            std::move(normal_tex_channel), std::ref(m_view_mat)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }
@@ -271,10 +270,14 @@ void HapticInteractor::display() {
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_interaction_bounds.load();
         auto enable_force = m_enable_force.load();
+        auto max_force = m_max_force.load();
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_interaction_bounds.store(interaction_bounds);
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_enable_force.store(enable_force);
+        if (enable_force)
+            if (ImGui::SliderFloat("Max haptic force (Newtons)", &max_force, 0.f, 9.f))
+                m_max_force.store(max_force);
 
         ImGui::EndMenu();
     }
