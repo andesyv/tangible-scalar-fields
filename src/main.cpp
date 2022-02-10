@@ -73,13 +73,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Make an offscreen rendering context:
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    auto offscreen_window = glfwCreateWindow(1280, 720, "", nullptr, window);
-    if (offscreen_window == nullptr) {
-        globjects::critical() << "Failed to create offscreen rendering";
-    }
-
     // Make context current
     glfwMakeContextCurrent(window);
 
@@ -171,7 +164,6 @@ int main(int argc, char *argv[]) {
 
         glfwSwapInterval(0); // Set to 0 for "UNLIMITED FRAMES!!"
 
-        Timer frame_timer{};
         unsigned int frame_count = 0;
         GLuint main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME};
 
@@ -248,8 +240,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Destroy window(s)
-    glfwDestroyWindow(offscreen_window);
+    // Destroy window
     glfwDestroyWindow(window);
 
     // Properly shutdown GLFW

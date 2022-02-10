@@ -19,7 +19,6 @@
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/bitfield.h>
 #include <glbinding/gl/functions.h>
-#include <glbinding/ContextHandle.h>
 #include <globjects/globjects.h>
 #include <globjects/base/File.h>
 #include <globjects/VertexAttributeBinding.h>
@@ -48,8 +47,7 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-Viewer::Viewer(GLFWwindow *window, Scene *scene, GLFWwindow *offscreen_window) : m_window(window),
-                                                                                 m_offscreen_window{offscreen_window},
+Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window),
                                                                                  m_scene(scene) {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
@@ -841,9 +839,6 @@ bool Viewer::offload_render() {
 
     m_offscreen_fb->bind();
     glViewport(0, 0, viewportSize().x, viewportSize().y);
-
-//        glClearColor(viewer.backgroundColor().r, viewer.backgroundColor().g, viewer.backgroundColor().b, 1.0f);
-//        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Rendering stuff here
     bool done = true;

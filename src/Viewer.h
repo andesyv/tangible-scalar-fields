@@ -5,8 +5,6 @@
 #include <string>
 #include <tuple>
 #include <utility>
-#include <semaphore>
-#include <thread>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -42,7 +40,7 @@ namespace molumes
 	class Viewer
 	{
 	public:
-		Viewer(GLFWwindow* window, Scene* scene, GLFWwindow* offscreen_window = nullptr);
+		Viewer(GLFWwindow* window, Scene* scene);
         ~Viewer();
 		void display();
         bool offload_render();
@@ -122,8 +120,6 @@ namespace molumes
 
         glm::vec3 m_haptic_pos;
 
-        GLFWwindow* m_offscreen_window{nullptr};
-
     private:
 
 		void beginFrame();
@@ -142,7 +138,6 @@ namespace molumes
 		static void SetClipboardText(void* user_data, const char* text);
 
 		GLFWwindow* m_window;
-        std::jthread m_offscreen_render_thread;
 		Scene *m_scene;
 
 		std::vector<std::unique_ptr<Interactor>> m_interactors;
