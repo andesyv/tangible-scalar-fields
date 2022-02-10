@@ -1,8 +1,12 @@
 #include <iostream>
+#include <numeric>
+#include <algorithm>
 
 #include <glbinding/Version.h>
 #include <glbinding/Binding.h>
 #include <glbinding/gl/enum.h>
+#include <glbinding/gl/bitfield.h>
+#include <glbinding/ContextHandle.h>
 
 #include <glbinding-aux/ContextInfo.h>
 #include <glbinding-aux/ValidVersions.h>
@@ -22,7 +26,8 @@
 #include <globjects/State.h>
 #include <globjects/base/File.h>
 #include <globjects/NamedString.h>
-#include <glbinding/ContextHandle.h>
+#include <globjects/Sync.h>
+#include <globjects/Query.h>
 
 #include "Scene.h"
 #include "CSV/Table.h"
@@ -135,7 +140,7 @@ int main(int argc, char *argv[]) {
                                                                        SEVERITIES.at(severity));
                 std::cout << "GL_DEBUG: (source: " << sourceStr << ", type: " << typeStr << ", severity: "
                           << severityStr << ", message: " << message << std::endl;
-                    assert(severity != GL_DEBUG_SEVERITY_HIGH);
+                assert(severity != GL_DEBUG_SEVERITY_HIGH);
             }, nullptr);
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, false);
 #endif
@@ -158,37 +163,88 @@ int main(int argc, char *argv[]) {
         viewer->setModelTransform(modelTransform);
 
 
-        constexpr long long US_PER_FRAME = 1000000u / 60u;
-        constexpr long long US_ERROR_MARGIN_TIME = US_PER_FRAME / 3;
+        constexpr long long NS_PER_FRAME =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds{1}).count() / 60u;
+        constexpr long long NS_ERROR_MARGIN_TIME = NS_PER_FRAME / 3;
+        constexpr auto NS_MAX_FRAME_TIME = NS_PER_FRAME - NS_ERROR_MARGIN_TIME;
+        constexpr bool MANUAL_VSYNC = true;
 
         glfwSwapInterval(0); // Set to 0 for "UNLIMITED FRAMES!!"
 
         Timer frame_timer{};
+        unsigned int frame_count = 0;
+        GLuint main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME};
 
-        // Main loop
+        std::unique_ptr<Query> main_rendering_query{Query::create()};
+        std::unique_ptr<Sync> buffer_swapped_sync{};
+        std::array<std::vector<std::unique_ptr<Query>>, 2> offload_rendering_queries{};
+        uint offload_rendering_query_index{0}, offload_rendering_max_time{1};
+
+        /**
+         * Rendering loop is a bit complex:
+         * 1. Fetch input
+         * 2. Render each renderer while recording time of total operation
+         * 3. Swap buffers (without vsync block)
+         * 4. Wait for GPU to complete last operations of frame
+         * 5. While / after waiting for screen refresh, perform background rendering / computational work
+         * 6. Record time spent on main rendering loop + background rendering and use as estimations for next frame
+         * 7. Manually sleep remaining time of frame-loop (to not perform more GPU work than needed)
+         */
         while (!glfwWindowShouldClose(window)) {
 //        defaultState->apply();
-            frame_timer.reset();
+            std::chrono::steady_clock::time_point frame_start = std::chrono::steady_clock::now();
             glfwPollEvents();
+            main_rendering_query->begin(GL_TIME_ELAPSED);
             viewer->display();
-            // Flush command queue but don't wait for finish just yet
-            glFlush();
-            //glFinish();
-            // Allow offscreen rendering to do it's stuff while we wait for bufferswap:
-            viewer->m_main_rendering_done.release();
-
-            // https://gameprogrammingpatterns.com/game-loop.html
-            const auto elapsed = frame_timer.elapsed<std::chrono::microseconds>();
-            static constexpr auto MAX_TIME = US_PER_FRAME - US_ERROR_MARGIN_TIME;
-            if (elapsed < MAX_TIME)
-                std::this_thread::sleep_for(std::chrono::microseconds{MAX_TIME - elapsed});
-            viewer->m_main_rendering_done.acquire();
-
-            glfwMakeContextCurrent(window);
-            globjects::setCurrentContext();
+            main_rendering_query->end(GL_TIME_ELAPSED);
 
             // Finally wait and swap main buffers
             glfwSwapBuffers(window);
+
+            // https://stackoverflow.com/questions/23612691/check-that-we-need-to-sleep-in-glfwswapbuffers-method
+            buffer_swapped_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
+
+            // Utilize free space before GPU has caught up from last frame to query new commands:
+            for (uint i = 1; buffer_swapped_sync->clientWait(SyncObjectMask::GL_SYNC_FLUSH_COMMANDS_BIT, 0) ==
+                             GL_TIMEOUT_EXPIRED; ++i) {
+                if (main_gpu_time_max + i * offload_rendering_max_time < NS_MAX_FRAME_TIME) {
+                    offload_rendering_queries.at(offload_rendering_query_index).push_back(std::move(Query::create()));
+                    auto &q = offload_rendering_queries.at(offload_rendering_query_index).back();
+                    q->begin(GL_TIME_ELAPSED);
+                    const auto res = viewer->offload_render();
+                    q->end(GL_TIME_ELAPSED);
+                    if (res)
+                        break;
+                }
+            }
+
+            // Here, the GPU is synced with CPU (last frame has has happened):
+
+            // Find max time of last frames offload rendering (for use in next frame:
+            offload_rendering_query_index = !offload_rendering_query_index;
+            offload_rendering_max_time = std::max(
+                    std::reduce(offload_rendering_queries.at(offload_rendering_query_index).begin(),
+                                offload_rendering_queries.at(offload_rendering_query_index).end(), GLuint{0},
+                                [](const auto &init, auto &q) {
+                                    return std::max(init, q->get(GL_QUERY_RESULT));
+                                }), offload_rendering_max_time);
+            offload_rendering_queries.at(offload_rendering_query_index).clear();
+
+#ifndef NDEBUG
+            assert(main_rendering_query->resultAvailable());
+#endif
+            main_gpu_time_local_max = std::max(main_rendering_query->get(GL_QUERY_RESULT), main_gpu_time_local_max);
+            ++frame_count;
+
+            // Every 10th frame, clear local maxima
+            if (frame_count % 30 == 0) {
+                main_gpu_time_max = main_gpu_time_local_max;
+                main_gpu_time_local_max = 0;
+            }
+
+            // https://gameprogrammingpatterns.com/game-loop.html
+            if constexpr (MANUAL_VSYNC)
+                std::this_thread::sleep_until(frame_start + std::chrono::nanoseconds{NS_MAX_FRAME_TIME});
         }
     }
 

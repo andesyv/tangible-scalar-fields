@@ -20,6 +20,8 @@ namespace globjects{
     class Buffer;
     class VertexArray;
     class Texture;
+    class Renderbuffer;
+    class Framebuffer;
 }
 
 /// Helper function that checks, in a tuple of weak_ptr's, if all weak_ptr's are valid
@@ -43,7 +45,7 @@ namespace molumes
 		Viewer(GLFWwindow* window, Scene* scene, GLFWwindow* offscreen_window = nullptr);
         ~Viewer();
 		void display();
-        void initiate_offscreen_rendering();
+        bool offload_render();
 
 		GLFWwindow * window();
 		Scene* scene();
@@ -99,8 +101,6 @@ namespace molumes
         bool m_cameraRotateAllowed = false;
         unsigned int m_focusRenderer = 0;
 
-        std::binary_semaphore m_main_rendering_done{0}, m_offscreen_rendering_done{0};
-
         /**
          * @brief Shared resources between renderers
          *
@@ -123,6 +123,7 @@ namespace molumes
         glm::vec3 m_haptic_pos;
 
         GLFWwindow* m_offscreen_window{nullptr};
+
     private:
 
 		void beginFrame();
@@ -152,6 +153,9 @@ namespace molumes
         double m_time = 0.0;
 		bool m_mousePressed[3] = { false, false, false };
 		float m_mouseWheel = 0.0f;
+
+        std::unique_ptr<globjects::Renderbuffer> m_offscreen_fb_color_rt, m_offscreen_fb_depth_rt;
+        std::unique_ptr<globjects::Framebuffer> m_offscreen_fb;
 
 		std::unique_ptr<globjects::File> m_vertexShaderSourceUi = nullptr;
 		std::unique_ptr<globjects::File> m_fragmentShaderSourceUi = nullptr;

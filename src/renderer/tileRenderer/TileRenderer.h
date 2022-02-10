@@ -264,7 +264,7 @@ namespace molumes {
             bool processed = false;
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
-        std::atomic<unsigned int> round_robin_fb_index{0};
+        unsigned int round_robin_fb_index = 0;
 
     public:
         WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;

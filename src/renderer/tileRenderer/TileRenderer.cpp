@@ -694,8 +694,8 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
     Framebuffer::unbind();
 
     // Mark this "round-robin" pass available for the next frame
-    if (!m_normal_frame_data.at(round_robin_fb_index.load()).transfer_buffer)
-        m_normal_frame_data.at(round_robin_fb_index.load()).transfer_buffer = Buffer::create();
+    if (!m_normal_frame_data.at(round_robin_fb_index).transfer_buffer)
+        m_normal_frame_data.at(round_robin_fb_index).transfer_buffer = Buffer::create();
 }
 
 void TileRenderer::tileRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize,
@@ -1421,20 +1421,17 @@ bool TileRenderer::offscreen_render() {
 
     // Copy framebuffer from last frame:
 
-    const auto round_robin_last_index = get_index_offset(round_robin_fb_index.load(), -1);
+    const auto round_robin_last_index = get_index_offset(round_robin_fb_index, -1);
     // Should be safe to read without synchronization, because it hasn't been written to this frame:
     auto &frame_data = m_normal_frame_data.at(round_robin_last_index);
-    if (frame_data.processed && !frame_data.transfer_buffer)
+    if (!frame_data.transfer_buffer) {
         frame_data.processed = false;
-    else if (frame_data.transfer_buffer) {
+    } else if (!frame_data.processed) {
         BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
         // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(
                 frame_data.size.x * frame_data.size.y * sizeof(vec4), nullptr, GL_STATIC_READ);
         BindActiveGuard _g2{frame_data.texture, 0};
-//        // Read from front buffer (just in case we have a double-buffer context for some reason)
-//        glReadBuffer(GL_COLOR_ATTACHMENT0);
-//        glReadPixels(0, 0, m_framebufferSize.x, m_framebufferSize.y, GL_RGBA, GL_FLOAT, nullptr);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, nullptr);
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -1447,7 +1444,7 @@ bool TileRenderer::offscreen_render() {
     // After everything else is done, GPU is probably done with earlier tasks and is probably ready to transfer data over
     // But just to be sure, read from the last frame using a round-robin approach
     static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::microseconds{100}).count());
+            std::chrono::microseconds{10}).count());
 
     if (frame_data.pass_sync) {
         const auto sync_result = frame_data.pass_sync->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
@@ -1459,7 +1456,7 @@ bool TileRenderer::offscreen_render() {
                                                                                                    GL_MAP_READ_BIT));
             if (memPtr != nullptr) {
                 std::vector<glm::vec4> data{memPtr, memPtr + vCount};
-                m_normal_tex_channel.write(std::make_pair(m_framebufferSize, data));
+                m_normal_tex_channel.write(std::make_pair(frame_data.size, data));
             }
             if (!frame_data.transfer_buffer->unmap())
                 throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};

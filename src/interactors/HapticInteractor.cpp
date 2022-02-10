@@ -178,6 +178,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 #endif
 
         const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data) * max_force.load()};
+//        std::cout << std::format("Force: {}", glm::to_string(force)) << std::endl;
 
         if (force_enabled) {
             if (!enable_force.load()) {
