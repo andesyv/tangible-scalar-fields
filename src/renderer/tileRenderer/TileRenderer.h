@@ -27,7 +27,7 @@ namespace molumes {
     class TileRenderer : public Renderer {
     public:
         explicit TileRenderer(Viewer *viewer,
-                              WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_channel);
+                              WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_channel);
 
         void setEnabled(bool enabled) override;
 
@@ -267,7 +267,7 @@ namespace molumes {
         unsigned int round_robin_fb_index = 0;
 
     public:
-        WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> m_normal_tex_channel;
+        WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> m_normal_tex_channel;
 
     };
 

@@ -1,5 +1,6 @@
 #include "HapticInteractor.h"
 #include "../Viewer.h"
+#include "../Utils.h"
 
 #include <iostream>
 #include <format>
@@ -13,7 +14,9 @@
 #include <imgui.h>
 
 #ifdef DHD
+
 #include <dhdc.h>
+
 #endif
 
 using namespace molumes;
@@ -56,24 +59,27 @@ auto relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const gl
     };
 }
 
+// Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
+std::optional<glm::vec4> get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
+    if (tex_data.empty() || tex_dims.x == 0 || tex_dims.y == 0 || tex_dims.x <= coord.x || tex_dims.y <= coord.y)
+        return std::nullopt;
+    return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
+};
+
 // Bi-linear interpolation of pixel
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
-    // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
-    const auto get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](
-            const glm::uvec2 &coord) -> std::optional<glm::vec4> {
-        if (tex_data.empty() || tex_dims.x == 0 || tex_dims.y == 0 || tex_dims.x <= coord.x || tex_dims.y <= coord.y)
-            return std::nullopt;
-        return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
+    const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord){
+        return get_pixel(coord, tex_dims, tex_data);
     };
 
     const glm::vec2 pixel_coord = uv * glm::vec2{tex_dims + 1u};
     const glm::vec2 f_pixel_coord = glm::fract(pixel_coord);
     const glm::uvec2 i_pixel_coord = glm::uvec2{pixel_coord - f_pixel_coord};
 
-    const auto aa = get_pixel(i_pixel_coord);
-    const auto ba = get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y});
-    const auto ab = get_pixel(glm::uvec2{i_pixel_coord.x, i_pixel_coord.y + 1u});
-    const auto bb = get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y + 1u});
+    const auto aa = m_get_pixel(i_pixel_coord);
+    const auto ba = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y});
+    const auto ab = m_get_pixel(glm::uvec2{i_pixel_coord.x, i_pixel_coord.y + 1u});
+    const auto bb = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y + 1u});
     if (!aa || !ba || !ab || !bb)
         return glm::vec4{0.};
 
@@ -83,7 +89,32 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
             f_pixel_coord.y);
 }
 
-auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
+std::pair<glm::uvec2, std::vector<glm::vec4>>
+generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level = 0) {
+    auto [dim, data] = std::pair<glm::uvec2,std::vector<glm::vec4>>{tex_dims, tex_data};
+    for (uint i = 0; i < level; ++i) {
+        // coord.y * tex_dims.x + coord.x
+        for (uint y = 0; y < dim.y / 2; ++y) {
+            for (uint x = 0; x < (dim.x / 2); ++x) {
+                const auto sum = data.at(2 * y * dim.x + x * 2) + data.at((2 * y + 1) * dim.x + x * 2) + data.at(2 * y * dim.x + x) + data.at((2 * y + 1) * dim.x + x * 2 + 1);
+                data.at(y * dim.x + x) = sum * 0.25f;
+            }
+        }
+        dim /= 2;
+    }
+
+    return std::make_pair(dim, std::vector<glm::vec4>{data.begin(), data.begin() + dim.x * dim.y});
+}
+
+std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> HapticInteractor::generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
+    std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> levels;
+    levels.at(0) = generateMipmap(tex_dims, tex_data, 1);
+    for (uint i = 1; i < 4; ++i)
+        levels.at(i) = generateMipmap(levels.at(i-1).first, levels.at(i-1).second, 1);
+    return levels;
+}
+
+auto sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>& tex_mip_maps, float max_height = 1.f) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
     const auto coords = relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
@@ -91,13 +122,18 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
     if (coords.x < 0.f || 1.f < coords.x || coords.y < 0.f || 1.f < coords.y)
         return glm::vec3{0.f};
 
-    const auto value = sample_tex(glm::vec2{coords}, glm::uvec2{tex_dims}, tex_data);
+    // 4 mipmap levels
+    const auto inverse_haptic_amount = std::clamp(coords.z, 0.f, 0.5f) * 2.f;
+    const auto mip_map_level = std::min(static_cast<uint>(std::round(inverse_haptic_amount * 4.f)), 3u);
+    const auto& [dims, data] = tex_mip_maps.at(mip_map_level);
+
+    const auto value = sample_tex(glm::vec2{coords}, dims, data);
     float dist = coords.z - value.w * 0.01f;
     // If dist is positive, it means we're above the surface = no force applied
-    if (0.f < dist)
+    if (0.5f < dist)
         return glm::vec3{0.f};
 
-    const auto v_len = glm::length(glm::vec3{value});
+    const auto v_len = glm::length(glm::vec3{value}) * (1.f - inverse_haptic_amount);
 
     // If sampled tex was 0, value can still be zero.
     return v_len < 0.001f ? glm::vec3{0.f} : glm::vec3{value} * (1.f / v_len); // Clamp to 1 Newton
@@ -108,15 +144,17 @@ auto sample_force(const glm::vec3 &pos, const glm::ivec2 &tex_dims, const std::v
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
                  std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force,
                  std::atomic<float> &max_force, std::promise<bool> &&setup_results,
-                 ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel,
+                 ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
-    glm::ivec2 normal_tex_size{0};
-    std::vector<glm::vec4> normal_tex_data{};
+    std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> normal_tex_mip_maps;
     constexpr double EPSILON = 0.001;
     auto last_t = chr::steady_clock::now();
+    unsigned long long haptic_iteration_count = 0;
+//    Timer haptic_timer{};
+    auto last_time = dhdGetTime();
 
 #ifdef DHD
     // Initialize haptics device
@@ -135,7 +173,8 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
     setup_results.set_value(true);
 #endif
 
-    for (; !simulation_should_end.stop_requested(); std::this_thread::sleep_for(std::chrono::microseconds{1})) {
+//    haptic_timer.reset();
+    for (; !simulation_should_end.stop_requested(); ++haptic_iteration_count/*std::this_thread::sleep_for(std::chrono::microseconds{1})*/) {
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
 #ifdef DHD
         dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
@@ -161,9 +200,14 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
         global_pos.store(pos);
 
-        auto[size, data] = normal_tex_channel.get();
-        normal_tex_size = size;
-        normal_tex_data = std::move(data);
+        normal_tex_mip_maps = normal_tex_channel.get();
+
+
+        if (dhdGetTime() - last_time > 1.0) {
+            last_time = dhdGetTime();
+            std::cout << std::format("Haptic loop frequency: {}KHz", dhdGetComFreq()) << std::endl;
+            haptic_iteration_count = 0;
+        }
 
 #ifdef DHD
         // Simulation stuff
@@ -177,7 +221,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         }
 #endif
 
-        const auto force = glm::dvec3{sample_force(pos, normal_tex_size, normal_tex_data) * max_force.load()};
+        const auto force = glm::dvec3{sample_force(pos, normal_tex_mip_maps) * max_force.load()};
 //        std::cout << std::format("Force: {}", glm::to_string(force)) << std::endl;
 
         if (force_enabled) {
@@ -218,7 +262,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 #endif // DHD
 
 HapticInteractor::HapticInteractor(Viewer *viewer,
-                                   ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> &&normal_tex_channel)
+                                   ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel)
         : Interactor(viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;

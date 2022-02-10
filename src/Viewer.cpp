@@ -47,8 +47,7 @@ using namespace gl;
 using namespace glm;
 using namespace globjects;
 
-Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window),
-                                                                                 m_scene(scene) {
+Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(scene) {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     //io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;         // We can honor GetMouseCursor() values (optional)
@@ -123,12 +122,13 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window),
     glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
 
-    ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>> normal_tex_channel{};
+    using NormalTexType = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>;
+    ReaderChannel<NormalTexType> normal_tex_channel{};
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
     // 0:
     m_renderers.emplace_back(std::make_unique<TileRenderer>(this,
-                                                            WriterChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>{
+                                                            WriterChannel<NormalTexType>{
                                                                     normal_tex_channel}));
     // 1:
     const auto crystalRendererPtr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(

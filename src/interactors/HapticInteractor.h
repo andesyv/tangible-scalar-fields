@@ -30,12 +30,14 @@ private:
 public:
     std::function<void(bool)> m_on_haptic_toggle{};
 
-    explicit HapticInteractor(Viewer* viewer, ReaderChannel<std::pair<glm::ivec2, std::vector<glm::vec4>>>&& normal_tex_channel);
+    explicit HapticInteractor(Viewer* viewer, ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>>&& normal_tex_channel);
 
     bool hapticEnabled() const { return m_haptic_enabled; }
 
     void keyEvent(int key, int scancode, int action, int mods) override;
     void display() override;
+
+    static std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data);
 
     ~HapticInteractor() override;
 };
