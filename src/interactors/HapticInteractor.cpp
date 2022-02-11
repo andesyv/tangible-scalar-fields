@@ -60,7 +60,8 @@ auto relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const gl
 }
 
 // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
-std::optional<glm::vec4> get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
+std::optional<glm::vec4>
+get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
     if (tex_data.empty() || tex_dims.x == 0 || tex_dims.y == 0 || tex_dims.x <= coord.x || tex_dims.y <= coord.y)
         return std::nullopt;
     return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
@@ -68,7 +69,7 @@ std::optional<glm::vec4> get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex
 
 // Bi-linear interpolation of pixel
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
-    const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord){
+    const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord) {
         return get_pixel(coord, tex_dims, tex_data);
     };
 
@@ -91,12 +92,13 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
 
 std::pair<glm::uvec2, std::vector<glm::vec4>>
 generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level = 0) {
-    auto [dim, data] = std::pair<glm::uvec2,std::vector<glm::vec4>>{tex_dims, tex_data};
-    for (uint i = 0; i < level; ++i) {
+    auto[dim, data] = std::pair<glm::uvec2, std::vector<glm::vec4>>{tex_dims, tex_data};
+    for (glm::uint i = 0; i < level; ++i) {
         // coord.y * tex_dims.x + coord.x
-        for (uint y = 0; y < dim.y / 2; ++y) {
-            for (uint x = 0; x < (dim.x / 2); ++x) {
-                const auto sum = data.at(2 * y * dim.x + x * 2) + data.at((2 * y + 1) * dim.x + x * 2) + data.at(2 * y * dim.x + x) + data.at((2 * y + 1) * dim.x + x * 2 + 1);
+        for (glm::uint y = 0; y < dim.y / 2; ++y) {
+            for (glm::uint x = 0; x < (dim.x / 2); ++x) {
+                const auto sum = data.at(2 * y * dim.x + x * 2) + data.at((2 * y + 1) * dim.x + x * 2) +
+                                 data.at(2 * y * dim.x + x) + data.at((2 * y + 1) * dim.x + x * 2 + 1);
                 data.at(y * dim.x + x) = sum * 0.25f;
             }
         }
@@ -106,15 +108,18 @@ generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_dat
     return std::make_pair(dim, std::vector<glm::vec4>{data.begin(), data.begin() + dim.x * dim.y});
 }
 
-std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> HapticInteractor::generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
+std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>
+HapticInteractor::generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
     std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> levels;
-    levels.at(0) = generateMipmap(tex_dims, tex_data, 1);
-    for (uint i = 1; i < 4; ++i)
-        levels.at(i) = generateMipmap(levels.at(i-1).first, levels.at(i-1).second, 1);
+    levels.at(0) = std::make_pair(tex_dims, tex_data);
+    for (glm::uint i = 1; i < 4; ++i)
+        levels.at(i) = generateMipmap(levels.at(i - 1).first, levels.at(i - 1).second, 1);
     return levels;
 }
 
-auto sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>& tex_mip_maps, float max_height = 1.f) {
+auto
+sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> &tex_mip_maps,
+             glm::uint mip_map_level = 0) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
     const auto coords = relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
@@ -123,27 +128,29 @@ auto sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, s
         return glm::vec3{0.f};
 
     // 4 mipmap levels
-    const auto inverse_haptic_amount = std::clamp(coords.z, 0.f, 0.5f) * 2.f;
-    const auto mip_map_level = std::min(static_cast<uint>(std::round(inverse_haptic_amount * 4.f)), 3u);
-    const auto& [dims, data] = tex_mip_maps.at(mip_map_level);
+//    const auto inverse_haptic_amount = std::clamp(coords.z, 0.f, 0.5f) * 2.f;
+//    const auto mip_map_level = std::min(static_cast<uint>(std::round(inverse_haptic_amount * 4.f)), 3u);
+    const auto&[dims, data] = tex_mip_maps.at(mip_map_level);
 
     const auto value = sample_tex(glm::vec2{coords}, dims, data);
+    const auto normal = glm::vec3{value} * 2.f - 1.f;
     float dist = coords.z - value.w * 0.01f;
     // If dist is positive, it means we're above the surface = no force applied
-    if (0.5f < dist)
+    if (0.f < dist)
         return glm::vec3{0.f};
 
-    const auto v_len = glm::length(glm::vec3{value}) * (1.f - inverse_haptic_amount);
+    const auto v_len = glm::length(normal);
 
     // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : glm::vec3{value} * (1.f / v_len); // Clamp to 1 Newton
+    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len) * dist *
+                                             2.f/* (1.f - inverse_haptic_amount)*/; // Clamp to 1 Newton
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
 
 void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
-                 std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force,
-                 std::atomic<float> &max_force, std::promise<bool> &&setup_results,
+                 std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force, std::atomic<float> &max_force,
+                 std::atomic<glm::uint> &mip_map_level, std::promise<bool> &&setup_results,
                  ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
     glm::dvec3 local_pos{0.0};
@@ -152,9 +159,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
     std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> normal_tex_mip_maps;
     constexpr double EPSILON = 0.001;
     auto last_t = chr::steady_clock::now();
-    unsigned long long haptic_iteration_count = 0;
-//    Timer haptic_timer{};
-    auto last_time = dhdGetTime();
+//    auto last_time = dhdGetTime();
 
 #ifdef DHD
     // Initialize haptics device
@@ -173,8 +178,7 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
     setup_results.set_value(true);
 #endif
 
-//    haptic_timer.reset();
-    for (; !simulation_should_end.stop_requested(); ++haptic_iteration_count/*std::this_thread::sleep_for(std::chrono::microseconds{1})*/) {
+    for (; !simulation_should_end.stop_requested(); /*std::this_thread::sleep_for(std::chrono::microseconds{1})*/) {
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
 #ifdef DHD
         dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
@@ -202,13 +206,6 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
         normal_tex_mip_maps = normal_tex_channel.get();
 
-
-        if (dhdGetTime() - last_time > 1.0) {
-            last_time = dhdGetTime();
-            std::cout << std::format("Haptic loop frequency: {}KHz", dhdGetComFreq()) << std::endl;
-            haptic_iteration_count = 0;
-        }
-
 #ifdef DHD
         // Simulation stuff
         if (!enable_force.load()) {
@@ -221,8 +218,12 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
         }
 #endif
 
-        const auto force = glm::dvec3{sample_force(pos, normal_tex_mip_maps) * max_force.load()};
-//        std::cout << std::format("Force: {}", glm::to_string(force)) << std::endl;
+        const auto force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load()) * max_force.load()};
+
+//        if (dhdGetTime() - last_time > 0.1) {
+//            last_time = dhdGetTime();
+//            std::cout << std::format("Frequency: {}KHz, force: {}N", dhdGetComFreq(), glm::length(force)) << std::endl;
+//        }
 
         if (force_enabled) {
             if (!enable_force.load()) {
@@ -275,8 +276,8 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
     m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds),
-                            std::ref(m_enable_force), std::ref(m_max_force), std::move(setup_results),
-                            std::move(normal_tex_channel), std::ref(m_view_mat)};
+                            std::ref(m_enable_force), std::ref(m_max_force), std::ref(m_mip_map_level),
+                            std::move(setup_results), std::move(normal_tex_channel), std::ref(m_view_mat)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }
@@ -316,10 +317,13 @@ void HapticInteractor::display() {
 
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_interaction_bounds.load();
+        auto mip_map_level = static_cast<int>(m_mip_map_level.load());
         auto enable_force = m_enable_force.load();
         auto max_force = m_max_force.load();
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_interaction_bounds.store(interaction_bounds);
+        if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3))
+            m_mip_map_level.store(static_cast<unsigned int>(mip_map_level));
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_enable_force.store(enable_force);
         if (enable_force)

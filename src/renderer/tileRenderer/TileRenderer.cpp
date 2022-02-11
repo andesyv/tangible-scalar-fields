@@ -652,7 +652,8 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
 
     m_normal_frame_data.at(round_robin_fb_index).framebuffer->bind();
     glDepthMask(GL_FALSE);
-    glClearColor(0.f, 0.f, 0.f, 0.f);
+    // Normal gets converted from [-1,1] -> [0, 1] space, so the zero value is 0.5 (0.5 * 2 - 1 = 0)
+    glClearColor(0.5f, 0.5f, 0.5f, 0.f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------

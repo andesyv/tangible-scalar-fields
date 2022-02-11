@@ -41,11 +41,10 @@ void main() {
 
     // Tesselation displacement mapping using normal
     const ivec2 texSize = textureSize(normalTex, 0);
-    vec4 normal = texture(normalTex, aspectRatioCorrectedTexCoords(texSize, texCoord));
+    vec4 normal = texture(normalTex, texCoord);
     float normalFactor = normal.a * 0.01;
 
-
-    p += (normal.rgb * 2.0 - 1.0) * normalFactor;
+    p.z += normalFactor;
 
     uv = texCoord;
     gl_Position = MVP * vec4(p, 1.0);
