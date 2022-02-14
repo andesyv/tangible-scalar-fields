@@ -25,7 +25,7 @@ using namespace globjects;
 
 constexpr glm::uvec2 GRID_SIZE = {10u, 10u};
 constexpr GLsizei VERTEX_COUNT = GRID_SIZE.x * GRID_SIZE.y * 6;
-constexpr glm::uint TESSELATION = 16;
+constexpr glm::uint TESSELATION = 64;
 
 /**
  * @brief Helper function that creates a guard object which reverts back to it's original OpenGL state when it exits the scope.

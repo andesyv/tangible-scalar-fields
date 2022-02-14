@@ -165,8 +165,6 @@ namespace molumes {
         bool m_colorMapLoaded = false;
         bool m_discreteMap = false;
         // ---------------------------------
-        int m_oldColorMap = 0;
-        bool m_oldDiscreteMap = false;
 
         float m_aaoScaling = 1.0f;
 
@@ -185,7 +183,7 @@ namespace molumes {
         // circle radius adjustable by user
         float m_pointCircleRadius = 6.5f;
         // kde radius adjustable by user
-        float m_kdeRadius = 30.0f;
+        float m_kdeRadius = 70.0f;
         // divisor of radius that is set by the user when calculation radius in WorldSpace
         const float pointCircleRadiusDiv = 5000.0f;
 
@@ -201,11 +199,11 @@ namespace molumes {
 
         //regression parameters
         // sigma of gauss kernel for KDE adjustable by user
-        float m_sigma = 1.0f;
+        float m_sigma = 2.6f;
         // divisor of radius that is set by the user when calculation radius in WorldSpace
         const float gaussSampleRadiusMult = 400.0f;
         // multiplyer for KDE height field adjustable by user
-        float m_densityMult = 10.0f;
+        float m_densityMult = 13.0f;
         // multiplyer for pyramid height adjustable by user
         float m_tileHeightMult = 10.0f;
         // defines how much of pyramid border is shown = moves regression plane up and down inside pyramid adjustable by user
@@ -232,8 +230,8 @@ namespace molumes {
         bool m_renderDiscrepancy_tmp = m_renderDiscrepancy;
         bool m_renderGrid = false;
         bool m_renderKDE = false;
-        bool m_renderTileNormals = false;
-        bool m_smoothTileNormals = false;
+        bool m_renderTileNormals = true;
+        bool m_smoothTileNormals = true;
         bool m_renderNormalBuffer = false;
         bool m_renderDepthBuffer = false;
         bool m_renderAnalyticalAO = true;
@@ -269,6 +267,7 @@ namespace molumes {
     public:
         WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> m_normal_tex_channel;
 
+        bool updateColorMap();
     };
 
 }

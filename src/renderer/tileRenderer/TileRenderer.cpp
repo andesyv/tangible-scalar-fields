@@ -238,6 +238,8 @@ TileRenderer::TileRenderer(Viewer *viewer,
         fb->setDrawBuffers({GL_COLOR_ATTACHMENT0});
         fb->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
     }
+
+    m_colorMapLoaded = updateColorMap();
 }
 
 void molumes::TileRenderer::setEnabled(bool enabled) {
@@ -999,70 +1001,18 @@ void TileRenderer::renderGUI() {
     // NB: "Fixing" this bug made it so that the 2D visualization isn't properly updated unless the menu is open
     if (ImGui::CollapsingHeader("Color Maps", ImGuiTreeNodeFlags_DefaultOpen)) {
         // show all available color-maps
-        ImGui::Combo("Maps", &m_colorMap,
+        auto colorMapChanged = ImGui::Combo("Maps", &m_colorMap,
                      "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
 
         // allow the user to load a discrete version of the color map
-        ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap);
+        colorMapChanged = ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap) || colorMapChanged;
 
         // allow the user to load a discrete version of the color map
         ImGui::Checkbox("Monochrome-Tiles", &m_renderMomochromeTiles);
 
         // load new texture if either the texture has changed or the type has changed from discrete to continuous or vice versa
-        if (m_colorMap != m_oldColorMap || m_discreteMap != m_oldDiscreteMap) {
-            if (m_colorMap > 0) {
-                std::vector<std::string> colorMapFilenames = {"./dat/colormaps/bone_1D.png",
-                                                              "./dat/colormaps/cubehelix_1D.png",
-                                                              "./dat/colormaps/gist_earth_1D.png",
-                                                              "./dat/colormaps/gnuplot2_1D.png",
-                                                              "./dat/colormaps/grey_1D.png",
-                                                              "./dat/colormaps/inferno_1D.png",
-                                                              "./dat/colormaps/magma_1D.png",
-                                                              "./dat/colormaps/plasma_1D.png",
-                                                              "./dat/colormaps/PuBuGn_1D.png",
-                                                              "./dat/colormaps/rainbow_1D.png",
-                                                              "./dat/colormaps/summer_1D.png",
-                                                              "./dat/colormaps/virdis_1D.png",
-                                                              "./dat/colormaps/winter_1D.png",
-                                                              "./dat/colormaps/wista_1D.png",
-                                                              "./dat/colormaps/YlGnBu_1D.png",
-                                                              "./dat/colormaps/YlOrRd_1D.png"};
-
-                uint colorMapWidth, colorMapHeight;
-                std::vector<unsigned char> colorMapImage;
-
-                std::string textureName = colorMapFilenames[m_colorMap - 1];
-
-                if (m_discreteMap) {
-                    std::string fileExtension = "_discrete7";
-
-                    // insert the discrete identifier "_discrete7" before the file extension ".png"
-                    textureName.insert(textureName.length() - 4, fileExtension);
-                }
-
-                uint error = lodepng::decode(colorMapImage, colorMapWidth, colorMapHeight, textureName);
-
-                if (error)
-                    globjects::debug() << "Could not load " << colorMapFilenames[m_colorMap - 1] << "!";
-                else {
-                    m_colorMapTexture->image1D(0, GL_RGBA, static_cast<GLsizei>(colorMapWidth), 0, GL_RGBA,
-                                               GL_UNSIGNED_BYTE,
-                                               (void *) &colorMapImage.front());
-                    m_colorMapTexture->generateMipmap();
-
-                    // store width of texture and mark as loaded
-                    m_ColorMapWidth = static_cast<GLsizei>(colorMapWidth);
-                    m_colorMapLoaded = true;
-                }
-            } else {
-                // disable color map
-                m_colorMapLoaded = false;
-            }
-
-            // update status
-            m_oldColorMap = m_colorMap;
-            m_oldDiscreteMap = m_discreteMap;
-        }
+        if (colorMapChanged)
+            m_colorMapLoaded = m_colorMap > 0 && updateColorMap();
     }
 
     if (ImGui::CollapsingHeader("Discrepancy",
@@ -1114,6 +1064,53 @@ void TileRenderer::renderGUI() {
     ImGui::Checkbox("Show Normal Buffer", &m_renderNormalBuffer);
     ImGui::Checkbox("Show Depth Buffer", &m_renderDepthBuffer);
     ImGui::EndMenu();
+}
+
+bool TileRenderer::updateColorMap() {
+    const static auto colorMapFilenames = std::to_array<std::string>({
+        "./dat/colormaps/bone_1D.png",
+        "./dat/colormaps/cubehelix_1D.png",
+        "./dat/colormaps/gist_earth_1D.png",
+        "./dat/colormaps/gnuplot2_1D.png",
+        "./dat/colormaps/grey_1D.png",
+        "./dat/colormaps/inferno_1D.png",
+        "./dat/colormaps/magma_1D.png",
+        "./dat/colormaps/plasma_1D.png",
+        "./dat/colormaps/PuBuGn_1D.png",
+        "./dat/colormaps/rainbow_1D.png",
+        "./dat/colormaps/summer_1D.png",
+        "./dat/colormaps/virdis_1D.png",
+        "./dat/colormaps/winter_1D.png",
+        "./dat/colormaps/wista_1D.png",
+        "./dat/colormaps/YlGnBu_1D.png",
+        "./dat/colormaps/YlOrRd_1D.png"
+    });
+
+    uint colorMapWidth, colorMapHeight;
+    std::vector<unsigned char> colorMapImage;
+
+    std::string textureName = colorMapFilenames[m_colorMap - 1];
+
+    if (m_discreteMap) {
+        // insert the discrete identifier "_discrete7" before the file extension ".png"
+        textureName.insert(textureName.length() - 4, "_discrete7");
+    }
+
+    const uint error = lodepng::decode(colorMapImage, colorMapWidth, colorMapHeight, textureName);
+
+    if (!error) {
+        m_colorMapTexture->image1D(0, GL_RGBA, static_cast<GLsizei>(colorMapWidth), 0, GL_RGBA,
+                                   GL_UNSIGNED_BYTE,
+                                   (void *) &colorMapImage.front());
+        m_colorMapTexture->generateMipmap();
+
+        // store width of texture and mark as loaded
+        m_ColorMapWidth = static_cast<GLsizei>(colorMapWidth);
+        return true;
+    }
+
+    debug() << std::format("Could not load {}! Error code: {}", colorMapFilenames[m_colorMap - 1], error);
+    return false;
 }
 
 
