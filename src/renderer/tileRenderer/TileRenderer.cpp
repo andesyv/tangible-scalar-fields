@@ -143,10 +143,14 @@ TileRenderer::TileRenderer(Viewer *viewer,
                                    GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     for (auto i = 0u; i < ROUND_ROBIN_SIZE; ++i) {
-        tex = create2DTexture(GL_TEXTURE_2D, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
-                              0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        auto texture = std::shared_ptr{std::move(Texture::create(GL_TEXTURE_2D))};
+        texture->setParameter(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        texture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        texture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        texture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        texture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-        m_normal_frame_data.at(i).texture = std::shared_ptr{std::move(tex)};
+        m_normal_frame_data.at(i).texture = std::move(texture);
     }
     // TODO: Switch around this one
     viewer->m_sharedResources.smoothNormalsTexture = m_normal_frame_data.front().texture;
@@ -696,6 +700,9 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
 
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
     Framebuffer::unbind();
+
+    m_normal_frame_data.at(round_robin_fb_index).texture->generateMipmap();
+    viewer()->m_sharedResources.smoothNormalsTexture = m_normal_frame_data.at(round_robin_fb_index).texture;
 
     // Mark this "round-robin" pass available for the next frame
     if (!m_normal_frame_data.at(round_robin_fb_index).transfer_buffer)

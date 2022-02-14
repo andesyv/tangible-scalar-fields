@@ -23,6 +23,7 @@ namespace molumes {
     private:
         std::unique_ptr<globjects::Buffer> m_planeBounds, m_screenSpacedBuffer;
         std::unique_ptr<globjects::VertexArray> m_planeVAO, m_screenSpacedVAO;
+        unsigned int m_mip_map_level{0};
     };
 }
 

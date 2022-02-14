@@ -92,7 +92,6 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
             {GL_VERTEX_SHADER,          "./res/grid/standard-plane-vs.glsl"},
             {GL_TESS_CONTROL_SHADER,    "./res/grid/normal-surface-tcs.glsl"},
             {GL_TESS_EVALUATION_SHADER, "./res/grid/normal-surface-tes.glsl"},
-//            { GL_GEOMETRY_SHADER, ".res/grid/normal-surface-gs.glsl" },
             {GL_FRAGMENT_SHADER,        "./res/grid/normal-surface-fs.glsl"}
     });
 
@@ -101,9 +100,9 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
             {GL_FRAGMENT_SHADER, "./res/crystal/debug-fs.glsl"}
     });
 
-    subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, std::function{[](unsigned int i){
-        std::cout << "Received value!" << std::endl;
-    }});
+    subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, [this](unsigned int level){
+        m_mip_map_level = level;
+    });
 }
 
 void GridSurfaceRenderer::display() {
@@ -145,6 +144,7 @@ void GridSurfaceRenderer::display() {
 
         shader->setUniform("MVP", MVP);
         shader->setUniform("tesselation", tesselation);
+        shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
 
         glPatchParameteri(GL_PATCH_VERTICES, 4);
         m_planeVAO->drawArrays(GL_PATCHES, 0, 4);
