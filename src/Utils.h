@@ -2,7 +2,6 @@
 #define MOLUMES_UTILS_H
 
 #include <memory>
-#include <chrono>
 
 #include <glbinding/gl/types.h>
 #include <glbinding/gl/enum.h>
@@ -127,47 +126,6 @@ namespace molumes {
             if (m_ref)
                 m_ref->unbind(m_target, m_index);
         }
-    };
-
-    class Timer {
-    protected:
-        std::chrono::steady_clock::time_point m_last_t{std::chrono::steady_clock::now()};
-
-    public:
-        Timer() = default;
-
-        void reset(std::chrono::steady_clock::time_point tp = std::chrono::steady_clock::now()) {
-            m_last_t = tp;
-        }
-
-        template<typename D = std::chrono::milliseconds>
-        auto elapsed() {
-            const auto current_t = std::chrono::steady_clock::now();
-            return std::chrono::duration_cast<D>(current_t - m_last_t).count();
-        }
-
-        // Returns the elapsed time since last reset and reset timer
-        template<typename D = std::chrono::milliseconds>
-        auto elapsed_reset() {
-            const auto current_t = std::chrono::steady_clock::now();
-            const auto el = std::chrono::duration_cast<D>(current_t - m_last_t).count();
-            reset(current_t);
-            return el;
-        }
-    };
-
-    class DebugTimer : public Timer {
-    private:
-        DebugTimer() = default;
-
-    public:
-        static DebugTimer &get() {
-            static DebugTimer instance{};
-            return instance;
-        }
-
-        template<typename D = std::chrono::milliseconds>
-        static auto elapsed() { return get().elapsed_reset<D>(); }
     };
 }
 

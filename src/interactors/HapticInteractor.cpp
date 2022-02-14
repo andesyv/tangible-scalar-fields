@@ -1,6 +1,7 @@
 #include "HapticInteractor.h"
 #include "../Viewer.h"
 #include "../Utils.h"
+#include "../Profile.h"
 
 #include <iostream>
 #include <format>
@@ -142,8 +143,8 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
     const auto v_len = glm::length(normal);
 
     // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len) * dist *
-                                             2.f/* (1.f - inverse_haptic_amount)*/; // Clamp to 1 Newton
+    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len) *
+                                             dist/* (1.f - inverse_haptic_amount)*/; // Clamp to 1 Newton
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
@@ -180,45 +181,65 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
     for (; !simulation_should_end.stop_requested(); /*std::this_thread::sleep_for(std::chrono::microseconds{1})*/) {
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
+        {
+            PROFILE("Haptic - Fetch position");
 #ifdef DHD
-        dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
+            dhdGetPosition(&local_pos.x, &local_pos.y, &local_pos.z);
 
-        // Update max_bound for transformation calculation:
-        max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
+            // Update max_bound for transformation calculation:
+            max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
 #else
-        auto current_t = chr::steady_clock::now();
-        constexpr auto MOVE_SPEED = 0.01;
-        const auto delta_t =
-                static_cast<double>(chr::duration_cast<chr::microseconds>(current_t - last_t).count()) * 0.000001;
-        last_t = current_t;
-        const auto disp = m_view_mat.load() * glm::vec4{KEY_HORIZONTAL_AXIS, 0., -KEY_VERTICAL_AXIS, 0.0};
-        local_pos += glm::dvec3{disp} * delta_t * MOVE_SPEED;
+            auto current_t = chr::steady_clock::now();
+            constexpr auto MOVE_SPEED = 0.01;
+            const auto delta_t =
+                    static_cast<double>(chr::duration_cast<chr::microseconds>(current_t - last_t).count()) * 0.000001;
+            last_t = current_t;
+            const auto disp = m_view_mat.load() * glm::vec4{KEY_HORIZONTAL_AXIS, 0., -KEY_VERTICAL_AXIS, 0.0};
+            local_pos += glm::dvec3{disp} * delta_t * MOVE_SPEED;
 #endif
+        }
 
-        // Transform to scene space:
-        // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
-        // right = y, up = z, forward = -x
-        const auto scale_mult =
-                interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
-        const auto pos = local_pos * scale_mult;
+        glm::vec3 pos;
+        {
+            PROFILE("Haptic - Transform space");
+            // Transform to scene space:
+            // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
+            // right = y, up = z, forward = -x
+            const auto scale_mult =
+                    interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
+            pos = local_pos * scale_mult;
+        }
 
-        global_pos.store(pos);
+        {
+            PROFILE("Haptic - Global pos");
+            global_pos.store(pos);
+        }
 
-        normal_tex_mip_maps = normal_tex_channel.get();
+        {
+            PROFILE("Haptic - Fetch normal tex");
+            normal_tex_mip_maps = normal_tex_channel.get();
+        }
 
 #ifdef DHD
-        // Simulation stuff
-        if (!enable_force.load()) {
-            if (force_enabled) {
-                dhdEnableForce(DHD_OFF);
-                force_enabled = false;
-                std::cout << "Force disabled!" << std::endl;
+        {
+            PROFILE("Haptic - Enable force");
+            // Simulation stuff
+            if (!enable_force.load()) {
+                if (force_enabled) {
+                    dhdEnableForce(DHD_OFF);
+                    force_enabled = false;
+                    std::cout << "Force disabled!" << std::endl;
+                }
+                continue;
             }
-            continue;
         }
 #endif
 
-        const auto force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load()) * max_force.load()};
+        glm::dvec3 force;
+        {
+            PROFILE("Haptic - Sample force");
+            force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load()) * max_force.load()};
+        }
 
 //        if (dhdGetTime() - last_time > 0.1) {
 //            last_time = dhdGetTime();
@@ -248,7 +269,10 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
 
 #ifdef DHD
-        dhdSetForce(force.x, force.y, force.z);
+        {
+            PROFILE("Haptic - Set force");
+            dhdSetForce(force.x, force.y, force.z);
+        }
 #endif
     }
 
@@ -297,6 +321,10 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
 
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
         m_enable_force.store(!m_enable_force.load());
+#ifndef NDEBUG
+    else if (key == GLFW_KEY_P && action == GLFW_PRESS)
+        Profiler::reset_profiler();
+#endif
 
 #ifdef FAKE_HAPTIC
     else if (!m_ctrl) {
