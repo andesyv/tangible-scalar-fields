@@ -160,9 +160,10 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
     std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> normal_tex_mip_maps;
     constexpr double EPSILON = 0.001;
     auto last_t = chr::steady_clock::now();
-//    auto last_time = dhdGetTime();
 
 #ifdef DHD
+    auto last_time = dhdGetTime();
+
     // Initialize haptics device
     if (0 <= dhdOpen()) {
         std::cout << std::format("Haptic device detected: {}", dhdGetSystemName()) << std::endl;
@@ -217,7 +218,8 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
 
         {
             PROFILE("Haptic - Fetch normal tex");
-            normal_tex_mip_maps = normal_tex_channel.get();
+            if (normal_tex_channel.has_update())
+                normal_tex_mip_maps = normal_tex_channel.get();
         }
 
 #ifdef DHD
@@ -241,10 +243,12 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
             force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load()) * max_force.load()};
         }
 
-//        if (dhdGetTime() - last_time > 0.1) {
-//            last_time = dhdGetTime();
-//            std::cout << std::format("Frequency: {}KHz, force: {}N", dhdGetComFreq(), glm::length(force)) << std::endl;
-//        }
+#if defined(DHD) && !defined(NDEBUG)
+        if (dhdGetTime() - last_time > 0.1) {
+            last_time = dhdGetTime();
+            std::cout << std::format("Frequency: {}KHz, force: {}N", dhdGetComFreq(), glm::length(force)) << std::endl;
+        }
+#endif
 
         if (force_enabled) {
             if (!enable_force.load()) {

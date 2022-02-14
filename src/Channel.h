@@ -139,6 +139,9 @@ public:
  */
 template<typename T>
 class ReaderChannel : public ChannelBase<T> {
+private:
+    std::size_t m_cached_index{0u-1};
+
 public:
     ReaderChannel() = default;
 
@@ -149,7 +152,15 @@ public:
 
     ReaderChannel(const auto &) = delete;
 
-    T get() { return this->m_shared->data.at(this->m_shared->index); }
+    /**
+     * Checks if the reader has new information (if the pointed to index is different from the last read one)
+     * False is not a guarantee that there's no updated information, but true is guaranteed to yield new information
+     */
+    [[nodiscard]] bool has_update() const { return m_cached_index != this->m_shared->index; }
+    T get() {
+        m_cached_index = this->m_shared->index;
+        return this->m_shared->data.at(m_cached_index);
+    }
 };
 
 /**
