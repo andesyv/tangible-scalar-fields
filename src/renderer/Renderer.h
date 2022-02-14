@@ -18,21 +18,6 @@ namespace globjects{
     class NamedString;
 }
 
-// Template specializations
-namespace std {
-    template <> struct equal_to<shared_ptr<globjects::File>> {
-        constexpr bool operator()(const auto& lhs, const auto& rhs) {
-            return *lhs == *rhs;
-        }
-    };
-
-    template <> struct equal_to<shared_ptr<globjects::AbstractStringSource>> {
-        constexpr bool operator()(const auto& lhs, const auto& rhs) {
-            return *lhs == *rhs;
-        }
-    };
-}
-
 namespace molumes
 {
 	class Viewer;

@@ -5,6 +5,9 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <map>
+#include <tuple>
+#include <functional>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -29,6 +32,25 @@ bool all_t_weak_ptr(const std::tuple<Ts...>& tuple) {
         return (!tupleArgs.expired() && ...);
     }, tuple);
 }
+
+template <typename ... Ts>
+auto initSubscribers(const std::tuple<Ts...>&) {
+    return std::make_tuple(std::vector<std::function<void(Ts)>>{}...);
+}
+
+// https://stackoverflow.com/questions/18063451/get-index-of-a-tuple-elements-type
+template <class T, class Tuple>
+struct TupleIndex;
+
+template <class T, class... Types>
+struct TupleIndex<T, std::tuple<T, Types...>> {
+    static const std::size_t value = 0;
+};
+
+template <class T, class U, class... Types>
+struct TupleIndex<T, std::tuple<U, Types...>> {
+    static const std::size_t value = 1 + TupleIndex<T, std::tuple<Types...>>::value;
+};
 
 namespace molumes
 {
@@ -120,6 +142,24 @@ namespace molumes
 
         glm::vec3 m_haptic_pos;
 
+        using BroadcastTypes = std::tuple<float, unsigned int>;
+        std::map<std::size_t, decltype(initSubscribers(BroadcastTypes{}))> m_subscribers{};
+
+        /**
+         * @brief Broadcast value to subscriber functors.
+         * Command pattern delegate implementation that uses the hash of a type as a identifier
+         * @param hash_id The type hash identifier. Should be the type hash of the class member variable ptr.
+         * (Use the molumes::getTypeHash() helper function)
+         * @param val The variable to pass down to subscribers
+         */
+        template <typename T>
+        void broadcast(const std::size_t& hash_id, T val) {
+            static constexpr auto I = TupleIndex<T, BroadcastTypes>::value;
+            auto& subs = std::get<I>(m_subscribers[hash_id]);
+            for (auto& f : subs)
+                f(val);
+        }
+
     private:
 
 		void beginFrame();
@@ -142,8 +182,6 @@ namespace molumes
 
 		std::vector<std::unique_ptr<Interactor>> m_interactors;
 		std::vector<std::unique_ptr<Renderer>> m_renderers;
-
-    private:
 
         double m_time = 0.0;
 		bool m_mousePressed[3] = { false, false, false };

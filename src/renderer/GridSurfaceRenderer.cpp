@@ -1,6 +1,8 @@
 #include "GridSurfaceRenderer.h"
 #include "../Utils.h"
 #include "../Viewer.h"
+#include "../DelegateUtils.h"
+#include "../interactors/HapticInteractor.h"
 
 #include <cassert>
 #include <iostream>
@@ -98,6 +100,10 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
             {GL_VERTEX_SHADER,   "./res/crystal/screen-vs.glsl"},
             {GL_FRAGMENT_SHADER, "./res/crystal/debug-fs.glsl"}
     });
+
+    subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, std::function{[](unsigned int i){
+        std::cout << "Received value!" << std::endl;
+    }});
 }
 
 void GridSurfaceRenderer::display() {

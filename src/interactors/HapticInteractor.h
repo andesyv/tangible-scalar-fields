@@ -41,6 +41,8 @@ public:
     static std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data);
 
     ~HapticInteractor() override;
+
+    unsigned int m_mip_map_ui_level{0};
 };
 }
 

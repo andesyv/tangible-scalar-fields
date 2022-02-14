@@ -2,6 +2,7 @@
 #include "../Viewer.h"
 #include "../Utils.h"
 #include "../Profile.h"
+#include "../DelegateUtils.h"
 
 #include <iostream>
 #include <format>
@@ -143,8 +144,7 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
     const auto v_len = glm::length(normal);
 
     // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len) *
-                                             dist/* (1.f - inverse_haptic_amount)*/; // Clamp to 1 Newton
+    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len)/* (1.f - inverse_haptic_amount)*/; // Clamp to 1 Newton
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
@@ -243,12 +243,12 @@ void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &
             force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load()) * max_force.load()};
         }
 
-#if defined(DHD) && !defined(NDEBUG)
-        if (dhdGetTime() - last_time > 0.1) {
-            last_time = dhdGetTime();
-            std::cout << std::format("Frequency: {}KHz, force: {}N", dhdGetComFreq(), glm::length(force)) << std::endl;
-        }
-#endif
+//#if defined(DHD) && !defined(NDEBUG)
+//        if (dhdGetTime() - last_time > 0.1) {
+//            last_time = dhdGetTime();
+//            std::cout << std::format("Frequency: {}KHz, force: {}N", dhdGetComFreq(), glm::length(force)) << std::endl;
+//        }
+//#endif
 
         if (force_enabled) {
             if (!enable_force.load()) {
@@ -349,13 +349,16 @@ void HapticInteractor::display() {
 
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_interaction_bounds.load();
-        auto mip_map_level = static_cast<int>(m_mip_map_level.load());
+        auto mip_map_level = static_cast<int>(m_mip_map_ui_level);
         auto enable_force = m_enable_force.load();
         auto max_force = m_max_force.load();
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_interaction_bounds.store(interaction_bounds);
-        if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3))
-            m_mip_map_level.store(static_cast<unsigned int>(mip_map_level));
+        if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3)) {
+            m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
+            m_mip_map_level.store(m_mip_map_ui_level);
+            viewer()->broadcast(getTypeHash(&HapticInteractor::m_mip_map_ui_level), m_mip_map_ui_level);
+        }
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_enable_force.store(enable_force);
         if (enable_force)
