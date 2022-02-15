@@ -7,7 +7,8 @@ namespace molumes
 	class Interactor
 	{
 	public:
-		Interactor(Viewer* viewer);
+        Interactor() = default;
+		explicit Interactor(Viewer* viewer);
 		Viewer * viewer();
 
 		void setEnabled(bool enabled);

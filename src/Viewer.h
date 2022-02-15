@@ -140,20 +140,19 @@ namespace molumes
             explicit operator bool() const { return all_t_weak_ptr(as_tuple()); }
         } m_sharedResources;
 
-        glm::vec3 m_haptic_pos;
-
-        using BroadcastTypes = std::tuple<float, unsigned int>;
-        std::map<std::size_t, decltype(initSubscribers(BroadcastTypes{}))> m_subscribers{};
+        using BroadcastHashType = std::size_t;
+        using BroadcastTypes = std::tuple<glm::vec3, unsigned int>;
+        std::map<BroadcastHashType, decltype(initSubscribers(BroadcastTypes{}))> m_subscribers{};
 
         /**
          * @brief Broadcast value to subscriber functors.
          * Command pattern delegate implementation that uses the hash of a type as a identifier
          * @param hash_id The type hash identifier. Should be the type hash of the class member variable ptr.
-         * (Use the molumes::getTypeHash() helper function)
+         * (Use the molumes::getMemberVariableHash() helper function)
          * @param val The variable to pass down to subscribers
          */
         template <typename T>
-        void broadcast(const std::size_t& hash_id, T val) {
+        void broadcast(const BroadcastHashType& hash_id, T val) {
             static constexpr auto I = TupleIndex<T, BroadcastTypes>::value;
             auto& subs = std::get<I>(m_subscribers[hash_id]);
             for (auto& f : subs)

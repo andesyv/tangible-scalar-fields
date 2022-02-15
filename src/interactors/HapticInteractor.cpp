@@ -148,12 +148,13 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
+using HapticLoopParamsTypes = std::tuple<std::atomic<glm::vec3> &, std::atomic<float> &, std::atomic<bool> &, std::atomic<float> &, std::atomic<glm::uint> &, std::atomic<float> &, std::atomic<glm::vec3> &>;
 
-void haptic_loop(std::stop_token simulation_should_end, std::atomic<glm::vec3> &global_pos,
-                 std::atomic<float> &interaction_bounds, std::atomic<bool> &enable_force, std::atomic<float> &max_force,
-                 std::atomic<glm::uint> &mip_map_level, std::promise<bool> &&setup_results,
+void haptic_loop(const std::stop_token &simulation_should_end, HapticLoopParamsTypes &&haptic_params,
+                 std::promise<bool> &&setup_results,
                  ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
+    auto&[global_pos, interaction_bounds, enable_force, max_force, mip_map_level, surface_softness, global_force] = haptic_params;
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
@@ -303,9 +304,10 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
 #if defined(DHD) || defined(FAKE_HAPTIC)
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
-    m_thread = std::jthread{haptic_loop, std::ref(m_haptic_finger_pos), std::ref(m_interaction_bounds),
-                            std::ref(m_enable_force), std::ref(m_max_force), std::ref(m_mip_map_level),
-                            std::move(setup_results), std::move(normal_tex_channel), std::ref(m_view_mat)};
+    auto haptics_params = std::tie(m_haptic_finger_pos, m_interaction_bounds, m_enable_force, m_max_force,
+                                   m_mip_map_level, m_surface_softness, m_haptic_force);
+    m_thread = std::jthread{haptic_loop, std::move(haptics_params), std::move(setup_results),
+                            std::move(normal_tex_channel), std::ref(m_view_mat)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }
@@ -357,7 +359,7 @@ void HapticInteractor::display() {
         if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3)) {
             m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
             m_mip_map_level.store(m_mip_map_ui_level);
-            viewer()->broadcast(getTypeHash(&HapticInteractor::m_mip_map_ui_level), m_mip_map_ui_level);
+            viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
         }
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_enable_force.store(enable_force);
@@ -368,7 +370,10 @@ void HapticInteractor::display() {
         ImGui::EndMenu();
     }
 
-    viewer()->m_haptic_pos = m_haptic_finger_pos.load();
+
+    m_haptic_global_pos = m_haptic_finger_pos.load();
+    viewer()->BROADCAST(&HapticInteractor::m_haptic_global_pos);
+
     m_view_mat.store(glm::inverse(viewer()->viewTransform()));
 
     // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection

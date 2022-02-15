@@ -31,6 +31,7 @@ private:
 public:
     std::function<void(bool)> m_on_haptic_toggle{};
 
+    HapticInteractor() = default;
     explicit HapticInteractor(Viewer* viewer, ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>>&& normal_tex_channel);
 
     bool hapticEnabled() const { return m_haptic_enabled; }

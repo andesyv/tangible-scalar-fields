@@ -1,6 +1,8 @@
 #include "HapticRenderer.h"
 #include "../Utils.h"
 #include "../Viewer.h"
+#include "../DelegateUtils.h"
+#include "../interactors/HapticInteractor.h"
 
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/functions.h>
@@ -35,6 +37,8 @@ HapticRenderer::HapticRenderer(Viewer *viewer) : Renderer(viewer) {
             { GL_GEOMETRY_SHADER, "./res/haptic/haptic-indicator-gs.glsl" },
             { GL_FRAGMENT_SHADER, "./res/haptic/haptic-indicator-fs.glsl" }
     });
+
+    subscribe(*viewer, &HapticInteractor::m_haptic_global_pos, [this](auto p){ m_haptic_pos = p; });
 }
 
 void HapticRenderer::display() {
