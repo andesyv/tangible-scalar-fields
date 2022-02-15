@@ -8,6 +8,7 @@ in vec2 tTexCoord[];
 
 uniform mat4 MVP = mat4(1.0);
 uniform uint tesselation = 16;
+uniform float mip_map_level = 0.0;
 layout(binding = 0) uniform sampler2D normalTex;
 
 out vec2 uv;
@@ -41,7 +42,7 @@ void main() {
 
     // Tesselation displacement mapping using normal
     const ivec2 texSize = textureSize(normalTex, 0);
-    vec4 normal = texture(normalTex, texCoord);
+    vec4 normal = textureLod(normalTex, texCoord, mip_map_level);
     float normalFactor = normal.a * 0.01;
 
     p.z += normalFactor;

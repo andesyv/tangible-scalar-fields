@@ -20,11 +20,11 @@ namespace molumes {
 class HapticInteractor : public Interactor {
 private:
     std::jthread m_thread;
-    std::atomic<glm::vec3> m_haptic_finger_pos;
+    std::atomic<glm::vec3> m_haptic_finger_pos, m_haptic_force;
     std::atomic<float> m_interaction_bounds{1.f};
     std::atomic<unsigned int> m_mip_map_level{0};
     std::atomic<bool> m_enable_force{false};
-    std::atomic<float> m_max_force{1.f};
+    std::atomic<float> m_max_force{1.f}, m_surface_softness{0.f};
     bool m_haptic_enabled{false};
     std::atomic<glm::mat4> m_view_mat;
 
@@ -44,6 +44,7 @@ public:
     ~HapticInteractor() override;
 
     unsigned int m_mip_map_ui_level{0};
+    glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
 };
 }
 

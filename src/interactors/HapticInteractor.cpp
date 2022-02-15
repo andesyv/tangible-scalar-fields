@@ -62,6 +62,7 @@ auto relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const gl
 }
 
 // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
+// (0,0) is therefore the top left coordinate (meaning uv coordinates have the v coordinate flipped)
 std::optional<glm::vec4>
 get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
     if (tex_data.empty() || tex_dims.x == 0 || tex_dims.y == 0 || tex_dims.x <= coord.x || tex_dims.y <= coord.y)
@@ -121,7 +122,7 @@ HapticInteractor::generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<
 
 auto
 sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> &tex_mip_maps,
-             glm::uint mip_map_level = 0) {
+             glm::uint mip_map_level = 0, float surface_softness = 0.f) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
     const auto coords = relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
@@ -141,10 +142,15 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
     if (0.f < dist)
         return glm::vec3{0.f};
 
+    // Unsure about the coordinate system, so just setting max to 1 for now:
+    static constexpr float max_dist = 1.f;
+    const float softness_interpolation =
+            surface_softness < 0.001f ? 1.f : std::min(dist / (-max_dist * surface_softness), 1.f);
+
     const auto v_len = glm::length(normal);
 
     // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len)/* (1.f - inverse_haptic_amount)*/; // Clamp to 1 Newton
+    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len) * softness_interpolation;
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
@@ -223,35 +229,30 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticLoopParamsT
                 normal_tex_mip_maps = normal_tex_channel.get();
         }
 
-#ifdef DHD
-        {
-            PROFILE("Haptic - Enable force");
-            // Simulation stuff
-            if (!enable_force.load()) {
-                if (force_enabled) {
-                    dhdEnableForce(DHD_OFF);
-                    force_enabled = false;
-                    std::cout << "Force disabled!" << std::endl;
-                }
-                continue;
-            }
-        }
-#endif
+        // Simulation stuff
 
         glm::dvec3 force;
         {
             PROFILE("Haptic - Sample force");
-            force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load()) * max_force.load()};
+            force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load(), surface_softness.load()) *
+                               max_force.load()};
         }
 
-//#if defined(DHD) && !defined(NDEBUG)
-//        if (dhdGetTime() - last_time > 0.1) {
-//            last_time = dhdGetTime();
-//            std::cout << std::format("Frequency: {}KHz, force: {}N", dhdGetComFreq(), glm::length(force)) << std::endl;
-//        }
-//#endif
+        {
+            PROFILE("Haptic - Globel force");
+            global_force.store(force);
+        }
+
+#if defined(DHD) && !defined(NDEBUG)
+        if (dhdGetTime() - last_time > 3.0) {
+            last_time = dhdGetTime();
+            std::cout << std::format("Haptic frequency: {:.3f} KHz, current force: {:.3f} N", dhdGetComFreq(),
+                                     glm::length(force)) << std::endl;
+        }
+#endif
 
         if (force_enabled) {
+            PROFILE("Haptic - Disable force");
             if (!enable_force.load()) {
 #ifdef DHD
                 dhdEnableForce(DHD_OFF);
@@ -261,6 +262,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticLoopParamsT
                 continue;
             }
         } else {
+            PROFILE("Haptic - Enable force");
             // Wait to apply force until we've arrived at a safe space
             if (enable_force.load() && glm::length(force) < EPSILON) {
 #ifdef DHD
@@ -354,6 +356,7 @@ void HapticInteractor::display() {
         auto mip_map_level = static_cast<int>(m_mip_map_ui_level);
         auto enable_force = m_enable_force.load();
         auto max_force = m_max_force.load();
+        auto softness = m_surface_softness.load();
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_interaction_bounds.store(interaction_bounds);
         if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3)) {
@@ -363,9 +366,12 @@ void HapticInteractor::display() {
         }
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_enable_force.store(enable_force);
-        if (enable_force)
+        if (enable_force) {
             if (ImGui::SliderFloat("Max haptic force (Newtons)", &max_force, 0.f, 9.f))
                 m_max_force.store(max_force);
+            if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 1.f))
+                m_surface_softness.store(softness);
+        }
 
         ImGui::EndMenu();
     }
