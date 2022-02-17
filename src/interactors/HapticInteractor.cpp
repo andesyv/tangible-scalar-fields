@@ -190,8 +190,9 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
     const float softness_interpolation =
             surface_softness < 0.001f ? 1.f : std::min(dist / (-max_dist * surface_softness), 1.f);
 
-    const auto v_len = glm::length(normal);
-    return (v_len < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / v_len)) * softness_interpolation;
+    // Residual force from the surface:
+    const auto f_len = glm::length(normal);
+    return (f_len < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / f_len)) * softness_interpolation;
 }
 
 auto sphere_sample_force(float sphere_radius, const glm::vec3 &pos,
@@ -210,14 +211,24 @@ auto sphere_sample_force(float sphere_radius, const glm::vec3 &pos,
     return sum * (1.f / 9.f);
 }
 
+auto get_friction(double friction_scale, glm::dvec3 velocity) {
+    const auto v_len = glm::length(velocity);
+    if (v_len < 0.01)
+        return glm::dvec3{0.0};
+
+    // Uniform friction is applied in opposite direction of movement
+    return -velocity * friction_scale;
+}
+
+
 #if defined(DHD) || defined(FAKE_HAPTIC)
 
 void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor::HapticParams &haptic_params,
                  std::promise<bool> &&setup_results,
                  ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
-    auto&[global_pos, interaction_bounds, enable_force, max_force, mip_map_level, surface_softness, global_force,
-    sphere_kernel_enabled, sphere_kernel_radius] = haptic_params;
+    auto&[global_pos, global_force, interaction_bounds, max_force, surface_softness, sphere_kernel_radius, friction_scale, enable_force,
+    sphere_kernel_enabled, enable_friction, mip_map_level] = haptic_params;
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
@@ -291,11 +302,25 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         glm::dvec3 force{0.0};
         {
             PROFILE("Haptic - Sample force");
+            const auto f_max = max_force.load();
             force = glm::dvec3{(sphere_kernel_enabled.load()
                                 ? sphere_sample_force(sphere_kernel_radius.load(), pos, normal_tex_mip_maps,
                                                       mip_map_level.load(), surface_softness.load())
-                                : sample_force(pos, normal_tex_mip_maps, mip_map_level.load(), surface_softness.load()))
-                               * max_force.load()};
+                                : sample_force(pos, normal_tex_mip_maps, mip_map_level.load(), surface_softness.load()))};
+
+            if (enable_friction.load() && 0.001 < glm::length(force)) {
+                // TODO: Estimate velocity for FAKE_DHD
+                glm::dvec3 estimated_velocity;
+                dhdGetLinearVelocity(&estimated_velocity.x, &estimated_velocity.y, &estimated_velocity.z);
+                force += get_friction(static_cast<double>(friction_scale.load()), estimated_velocity);
+            }
+
+            // Clamp velocity to 1
+            const auto f_len = glm::length(force);
+            if (1.0 < f_len)
+                force *= 1.0 / f_len;
+
+            force *= f_max;
         }
 
         {
@@ -417,6 +442,9 @@ void HapticInteractor::display() {
         auto softness = m_params.surface_softness.load();
         int kernel_type = m_params.sphere_kernel.load() ? 1 : 0;
         m_ui_sphere_kernel_size = m_params.sphere_kernel_radius.load();
+        bool enable_friction = m_params.friction.load();
+        float friction_scale = m_params.friction_scale.load();
+
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
         if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3)) {
@@ -437,6 +465,10 @@ void HapticInteractor::display() {
                 m_params.sphere_kernel_radius.store(m_ui_sphere_kernel_size);
                 viewer()->BROADCAST(&HapticInteractor::m_ui_sphere_kernel_size);
             }
+            if (ImGui::Checkbox("Enable uniform friction", &enable_friction))
+                m_params.friction.store(enable_friction);
+            if (enable_friction && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 10.f))
+                m_params.friction_scale.store(friction_scale);
         }
 
         ImGui::EndMenu();

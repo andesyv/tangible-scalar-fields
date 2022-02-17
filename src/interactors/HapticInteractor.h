@@ -20,15 +20,11 @@ namespace molumes {
     class HapticInteractor : public Interactor {
     public:
         struct HapticParams {
-            std::atomic<glm::vec3> finger_pos;
-            std::atomic<float> interaction_bounds{1.f};
-            std::atomic<bool> enable_force{false};
-            std::atomic<float> max_force{1.f};
+            std::atomic<glm::vec3> finger_pos, force;
+            std::atomic<float> interaction_bounds{1.f}, max_force{1.f}, surface_softness{0.015f},
+                    sphere_kernel_radius{0.01f}, friction_scale{0.1f};
+            std::atomic<bool> enable_force{false}, sphere_kernel{false}, friction{false};
             std::atomic<unsigned int> mip_map_level{0};
-            std::atomic<float> surface_softness{0.015f};
-            std::atomic<glm::vec3> force;
-            std::atomic<bool> sphere_kernel{false};
-            std::atomic<float> sphere_kernel_radius{0.01f};
         };
 
     private:
