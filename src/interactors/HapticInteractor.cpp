@@ -39,6 +39,13 @@ auto max(T &&a, Ts &&... rest) {
     return std::max(a, max(rest...));
 }
 
+template<glm::length_t L, typename T, glm::qualifier Q>
+struct std::formatter<glm::vec<L, T, Q>> : std::formatter<std::string> {
+    auto format(const glm::vec<L, T, Q> &v, format_context &ctx) {
+        return formatter<string>::format(glm::to_string(v), ctx);
+    }
+};
+
 // returns signed distance to plane (negative is below)
 auto point_to_plane(const glm::vec3 &pos, const glm::vec3 &pl_norm, const glm::vec3 &pl_pos) {
     glm::vec3 pl_to_pos = pos - pl_pos;
@@ -148,9 +155,7 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
             surface_softness < 0.001f ? 1.f : std::min(dist / (-max_dist * surface_softness), 1.f);
 
     const auto v_len = glm::length(normal);
-
-    // If sampled tex was 0, value can still be zero.
-    return v_len < 0.001f ? glm::vec3{0.f} : normal * (1.f / v_len) * softness_interpolation;
+    return (v_len < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / v_len)) * softness_interpolation;
 }
 
 #if defined(DHD) || defined(FAKE_HAPTIC)

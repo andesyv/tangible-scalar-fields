@@ -117,8 +117,14 @@ namespace molumes
 
         void setPerspective(bool bPerspective);
 
+        /**
+         * Forces the next frame to execute (at least) one offload render call, skipping waiting for an opening
+         */
+        void forceOffloadRender() { m_forceOffloadRender = true; }
+
 		bool m_perspective = false;
         bool m_cameraRotateAllowed = false;
+        bool m_forceOffloadRender = false;
         unsigned int m_focusRenderer = 0;
 
         /**

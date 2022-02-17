@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
         glfwSwapInterval(0); // Set to 0 for "UNLIMITED FRAMES!!"
 
         unsigned int frame_count = 0;
-        unsigned long long main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME}, offload_rendering_max_time{1};
+        unsigned long long main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME}, offload_rendering_time_max{1}, offload_rendering_time_local_max{0};
 
         std::unique_ptr<Query> main_rendering_query{Query::create()};
         std::unique_ptr<Sync> buffer_swapped_sync{};
@@ -201,7 +201,8 @@ int main(int argc, char *argv[]) {
             // Utilize free space before GPU has caught up from last frame to query new commands:
             for (uint i = 1; buffer_swapped_sync->clientWait(SyncObjectMask::GL_SYNC_FLUSH_COMMANDS_BIT, 0) ==
                              GL_TIMEOUT_EXPIRED; ++i) {
-                if (!offload_rendering_done && main_gpu_time_max + i * offload_rendering_max_time < NS_MAX_FRAME_TIME) {
+                if (!offload_rendering_done && (main_gpu_time_max + i * offload_rendering_time_max < NS_MAX_FRAME_TIME || viewer->m_forceOffloadRender)) {
+                    viewer->m_forceOffloadRender = false;
                     offload_rendering_queries.at(offload_rendering_query_index).push_back(std::move(Query::create()));
                     auto &q = offload_rendering_queries.at(offload_rendering_query_index).back();
                     q->begin(GL_TIME_ELAPSED);
@@ -214,13 +215,15 @@ int main(int argc, char *argv[]) {
 
             // Find max time of last frames offload rendering (for use in next frame:
             offload_rendering_query_index = !offload_rendering_query_index;
-            offload_rendering_max_time = std::max(
+            offload_rendering_time_local_max = std::max(
                     std::reduce(offload_rendering_queries.at(offload_rendering_query_index).begin(),
                                 offload_rendering_queries.at(offload_rendering_query_index).end(), GLuint64{0},
                                 [](const auto &init, auto &q) {
                                     return std::max(init, q->get64(GL_QUERY_RESULT));
-                                }), offload_rendering_max_time);
+                                }), offload_rendering_time_local_max);
             offload_rendering_queries.at(offload_rendering_query_index).clear();
+            offload_rendering_time_max = std::max(offload_rendering_time_max, offload_rendering_time_local_max);
+
 
 #ifndef NDEBUG
             assert(main_rendering_query->resultAvailable());
@@ -233,7 +236,14 @@ int main(int argc, char *argv[]) {
                 calibration_time_point = frame_start;
                 main_gpu_time_max = main_gpu_time_local_max;
                 main_gpu_time_local_max = 0;
-                std::cout << std::format("GPU time max: {}, offload rendering max: {}", main_gpu_time_max, offload_rendering_max_time) << std::endl;
+
+                // Make sure offload time also decreases its max every now and then (every 10th second)
+                static unsigned long long offload_reset_timer{1};
+                if (offload_reset_timer % 10 == 0) {
+                    offload_rendering_time_max = 0 < offload_rendering_time_local_max ? offload_rendering_time_local_max : 1;
+                    offload_rendering_time_local_max = 0;
+                }
+                ++offload_reset_timer;
             }
 
             // https://gameprogrammingpatterns.com/game-loop.html

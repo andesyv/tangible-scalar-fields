@@ -795,6 +795,7 @@ void Viewer::enumerateFocusRenderer(bool inc) {
     m_focusRenderer = !inc && m_focusRenderer == 0 ? FOCUS_RENDER_COUNT - 1 : (m_focusRenderer + (inc ? 1 : -1)) %
                                                                               FOCUS_RENDER_COUNT;
     m_renderers.at(m_focusRenderer)->setEnabled(true);
+    forceOffloadRender();
 }
 
 void Viewer::setPerspective(bool bPerspective) {
