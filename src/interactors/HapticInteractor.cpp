@@ -378,7 +378,9 @@ void HapticInteractor::display() {
 
 
     m_haptic_global_pos = m_haptic_finger_pos.load();
+    m_haptic_global_force = m_haptic_force.load();
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_pos);
+    viewer()->BROADCAST(&HapticInteractor::m_haptic_global_force);
 
     m_view_mat.store(glm::inverse(viewer()->viewTransform()));
 

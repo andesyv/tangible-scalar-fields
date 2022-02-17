@@ -19,7 +19,7 @@ namespace molumes {
         std::unique_ptr<globjects::VertexArray> m_vao;
         std::unique_ptr<globjects::Buffer> m_point_buffer;
         float m_radius = 0.01f;
-        float m_arrow_scale = 1.f;
+        float m_arrow_scale = 0.15f;
         glm::vec3 m_haptic_pos, m_haptic_dir{0.f, 0.f, 1.f};
 
     public:

@@ -655,8 +655,9 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
                                      nullptr, GL_STREAM_DRAW);
     }
     auto state = stateGuard();
+    auto& frame_data = m_normal_frame_data.at(round_robin_fb_index);
 
-    m_normal_frame_data.at(round_robin_fb_index).framebuffer->bind();
+    frame_data.framebuffer->bind();
     glDepthMask(GL_FALSE);
     // Normal gets converted from [-1,1] -> [0, 1] space, so the zero value is 0.5 (0.5 * 2 - 1 = 0)
     glClearColor(0.5f, 0.5f, 0.5f, 0.f);
@@ -701,12 +702,14 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
     Framebuffer::unbind();
 
-    m_normal_frame_data.at(round_robin_fb_index).texture->generateMipmap();
-    viewer()->m_sharedResources.smoothNormalsTexture = m_normal_frame_data.at(round_robin_fb_index).texture;
+    frame_data.texture->generateMipmap();
+    viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
 
     // Mark this "round-robin" pass available for the next frame
-    if (!m_normal_frame_data.at(round_robin_fb_index).transfer_buffer)
-        m_normal_frame_data.at(round_robin_fb_index).transfer_buffer = Buffer::create();
+    if (!frame_data.transfer_buffer) {
+        frame_data.transfer_buffer = Buffer::create();
+        frame_data.processed = false;
+    }
 }
 
 void TileRenderer::tileRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize,
@@ -1430,9 +1433,7 @@ bool TileRenderer::offscreen_render() {
     const auto round_robin_last_index = get_index_offset(round_robin_fb_index, -1);
     // Should be safe to read without synchronization, because it hasn't been written to this frame:
     auto &frame_data = m_normal_frame_data.at(round_robin_last_index);
-    if (!frame_data.transfer_buffer) {
-        frame_data.processed = false;
-    } else if (!frame_data.processed) {
+    if (frame_data.transfer_buffer && !frame_data.processed) {
         BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
         // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(

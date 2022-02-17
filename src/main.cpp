@@ -165,12 +165,13 @@ int main(int argc, char *argv[]) {
         glfwSwapInterval(0); // Set to 0 for "UNLIMITED FRAMES!!"
 
         unsigned int frame_count = 0;
-        GLuint main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME};
+        unsigned long long main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME}, offload_rendering_max_time{1};
 
         std::unique_ptr<Query> main_rendering_query{Query::create()};
         std::unique_ptr<Sync> buffer_swapped_sync{};
         std::array<std::vector<std::unique_ptr<Query>>, 2> offload_rendering_queries{};
-        uint offload_rendering_query_index{0}, offload_rendering_max_time{1};
+        unsigned int offload_rendering_query_index{0};
+        auto calibration_time_point = std::chrono::high_resolution_clock::now();
 
         /**
          * Rendering loop is a bit complex:
@@ -184,7 +185,7 @@ int main(int argc, char *argv[]) {
          */
         while (!glfwWindowShouldClose(window)) {
 //        defaultState->apply();
-            std::chrono::steady_clock::time_point frame_start = std::chrono::steady_clock::now();
+            auto frame_start = std::chrono::high_resolution_clock::now();
             glfwPollEvents();
             main_rendering_query->begin(GL_TIME_ELAPSED);
             viewer->display();
@@ -195,43 +196,44 @@ int main(int argc, char *argv[]) {
 
             // https://stackoverflow.com/questions/23612691/check-that-we-need-to-sleep-in-glfwswapbuffers-method
             buffer_swapped_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
+            bool offload_rendering_done = false;
 
             // Utilize free space before GPU has caught up from last frame to query new commands:
             for (uint i = 1; buffer_swapped_sync->clientWait(SyncObjectMask::GL_SYNC_FLUSH_COMMANDS_BIT, 0) ==
                              GL_TIMEOUT_EXPIRED; ++i) {
-                if (main_gpu_time_max + i * offload_rendering_max_time < NS_MAX_FRAME_TIME) {
+                if (!offload_rendering_done && main_gpu_time_max + i * offload_rendering_max_time < NS_MAX_FRAME_TIME) {
                     offload_rendering_queries.at(offload_rendering_query_index).push_back(std::move(Query::create()));
                     auto &q = offload_rendering_queries.at(offload_rendering_query_index).back();
                     q->begin(GL_TIME_ELAPSED);
-                    const auto res = viewer->offload_render();
+                    offload_rendering_done = viewer->offload_render();
                     q->end(GL_TIME_ELAPSED);
-                    if (res)
-                        break;
                 }
             }
 
-            // Here, the GPU is synced with CPU (last frame has has happened):
+            // Here, the GPU is synced with CPU (last frame has happened):
 
             // Find max time of last frames offload rendering (for use in next frame:
             offload_rendering_query_index = !offload_rendering_query_index;
             offload_rendering_max_time = std::max(
                     std::reduce(offload_rendering_queries.at(offload_rendering_query_index).begin(),
-                                offload_rendering_queries.at(offload_rendering_query_index).end(), GLuint{0},
+                                offload_rendering_queries.at(offload_rendering_query_index).end(), GLuint64{0},
                                 [](const auto &init, auto &q) {
-                                    return std::max(init, q->get(GL_QUERY_RESULT));
+                                    return std::max(init, q->get64(GL_QUERY_RESULT));
                                 }), offload_rendering_max_time);
             offload_rendering_queries.at(offload_rendering_query_index).clear();
 
 #ifndef NDEBUG
             assert(main_rendering_query->resultAvailable());
 #endif
-            main_gpu_time_local_max = std::max(main_rendering_query->get(GL_QUERY_RESULT), main_gpu_time_local_max);
+            main_gpu_time_local_max = std::max(main_rendering_query->get64(GL_QUERY_RESULT), main_gpu_time_local_max);
             ++frame_count;
 
-            // Every 10th frame, clear local maxima
-            if (frame_count % 30 == 0) {
+            // Every second, clear local maxima
+            if (0 < std::chrono::duration_cast<std::chrono::seconds>(frame_start - calibration_time_point).count()) {
+                calibration_time_point = frame_start;
                 main_gpu_time_max = main_gpu_time_local_max;
                 main_gpu_time_local_max = 0;
+                std::cout << std::format("GPU time max: {}, offload rendering max: {}", main_gpu_time_max, offload_rendering_max_time) << std::endl;
             }
 
             // https://gameprogrammingpatterns.com/game-loop.html
