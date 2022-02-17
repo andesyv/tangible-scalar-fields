@@ -1433,7 +1433,10 @@ bool TileRenderer::offscreen_render() {
     const auto round_robin_last_index = get_index_offset(round_robin_fb_index, -1);
     // Should be safe to read without synchronization, because it hasn't been written to this frame:
     auto &frame_data = m_normal_frame_data.at(round_robin_last_index);
-    if (frame_data.transfer_buffer && !frame_data.processed) {
+    // If there's no transfer buffer, we've already completed the work earlier. Mark as done
+    if (!frame_data.transfer_buffer)
+        return true;
+    else if (!frame_data.processed) {
         BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
         // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(
@@ -1469,7 +1472,9 @@ bool TileRenderer::offscreen_render() {
                 throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};
             frame_data.transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
 
-            m_normal_tex_channel.write(HapticInteractor::generateMipmaps(glm::uvec2{frame_data.size}, data));
+            m_tile_normal_async_task = std::async(std::launch::async, [&channel = this->m_normal_tex_channel, size = frame_data.size, data = std::move(data)](){
+                channel.write(HapticInteractor::generateMipmaps(glm::uvec2{size}, data));
+            });
 
             // Finish by releasing buffers:
             frame_data.transfer_buffer = {};

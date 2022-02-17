@@ -15,8 +15,9 @@ vec2 aspectRatioCorrectedTexCoords(ivec2 texSize, vec2 texCoords) {
 
 void main() {
     const ivec2 texSize = textureSize(normalTex, 0);
-    vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb * 2.0 - 1.0;
+    vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb;
 //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
 //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
     fragColor = vec4(normal, 1.0);
+//    fragColor = vec4(floor(uv * 10.0) * 0.1, 0.0, 1.0);
 }

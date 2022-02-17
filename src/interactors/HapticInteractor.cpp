@@ -9,6 +9,7 @@
 #include <chrono>
 #include <future>
 #include <numeric>
+#include <numbers>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -60,12 +61,30 @@ pos_uvs_in_plane(const glm::vec3 &pos, const glm::vec3 &pl_tan, const glm::vec3 
     return glm::vec2{glm::dot(dir, pl_tan) / pl_dims.x, glm::dot(dir, pl_bitan) / pl_dims.y};
 }
 
+auto pos_uvs_in_plane(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
+    return pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims);
+}
+
 // returns uv as xy and signed distance as z for a position given a orientation matrix for a plane and it's dimensions
 auto relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
     return glm::vec3{
             pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims),
             point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]})
     };
+}
+
+std::optional<glm::vec2> opt_pos_uvs_in_plane(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
+    const auto coords = pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims);
+    return (coords.x < 0.f || 1.f < coords.x || coords.y < 0.f || 1.f < coords.y) ? std::nullopt : std::make_optional(
+            coords);
+}
+
+// Exactly the same as the other one, but returns an optional:
+std::optional<glm::vec3>
+opt_relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
+    const auto coords = relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
+    return (coords.x < 0.f || 1.f < coords.x || coords.y < 0.f || 1.f < coords.y) ? std::nullopt : std::make_optional(
+            coords);
 }
 
 // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
@@ -100,6 +119,23 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
             f_pixel_coord.y);
 }
 
+glm::vec4 sphere_sample_tex(const glm::vec3 &pos, float sphere_radius, const glm::uvec2 &tex_dims,
+                            const std::vector<glm::vec4> &tex_data) {
+    static const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
+    constexpr float angle_piece = std::numbers::pi_v<float> / 8.f; // How is this not a thing before C++20 ???
+
+    glm::vec4 sum = sample_tex(pos_uvs_in_plane(pos, pl_mat, glm::vec2{2.f}), tex_dims, tex_data);
+
+    for (int i = 0; i < 8; ++i) {
+        const auto angle = angle_piece * static_cast<float>(i);
+        const auto displacement = glm::vec3{std::sin(angle), std::cos(angle), 0.f} * sphere_radius;
+        const auto coord = opt_pos_uvs_in_plane(pos + displacement, pl_mat, glm::vec2{2.f});
+        if (coord)
+            sum += sample_tex(*coord, tex_dims, tex_data);
+    }
+    return sum * (1.f / 9.f);
+}
+
 std::pair<glm::uvec2, std::vector<glm::vec4>>
 generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level = 0) {
     auto[dim, data] = std::pair<glm::uvec2, std::vector<glm::vec4>>{tex_dims, tex_data};
@@ -132,9 +168,9 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
              glm::uint mip_map_level = 0, float surface_softness = 0.f) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
-    const auto coords = relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
+    const auto coords = opt_relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
     // Can't calculate a force outside the bounds of the plane, so return no force
-    if (coords.x < 0.f || 1.f < coords.x || coords.y < 0.f || 1.f < coords.y)
+    if (!coords)
         return glm::vec3{0.f};
 
     // 4 mipmap levels
@@ -142,9 +178,9 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
 //    const auto mip_map_level = std::min(static_cast<uint>(std::round(inverse_haptic_amount * 4.f)), 3u);
     const auto&[dims, data] = tex_mip_maps.at(mip_map_level);
 
-    const auto value = sample_tex(glm::vec2{coords}, dims, data);
+    const auto value = sample_tex(glm::vec2{*coords}, dims, data);
     const auto normal = glm::vec3{value} * 2.f - 1.f;
-    float dist = coords.z - value.w * 0.01f;
+    float dist = coords->z - value.w * 0.01f;
     // If dist is positive, it means we're above the surface = no force applied
     if (0.f < dist)
         return glm::vec3{0.f};
@@ -158,14 +194,30 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
     return (v_len < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / v_len)) * softness_interpolation;
 }
 
-#if defined(DHD) || defined(FAKE_HAPTIC)
-using HapticLoopParamsTypes = std::tuple<std::atomic<glm::vec3> &, std::atomic<float> &, std::atomic<bool> &, std::atomic<float> &, std::atomic<glm::uint> &, std::atomic<float> &, std::atomic<glm::vec3> &>;
+auto sphere_sample_force(float sphere_radius, const glm::vec3 &pos,
+                         const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> &tex_mip_maps,
+                         glm::uint mip_map_level = 0, float surface_softness = 0.f) {
+    constexpr float angle_piece = std::numbers::pi_v<float> / 8.f; // How is this not a thing before C++20 ???
 
-void haptic_loop(const std::stop_token &simulation_should_end, HapticLoopParamsTypes &&haptic_params,
+    glm::vec3 sum = sample_force(pos - glm::vec3{0.f, 0.f, sphere_radius}, tex_mip_maps, mip_map_level,
+                                 surface_softness);
+
+    for (int i = 0; i < 8; ++i) {
+        const auto angle = angle_piece * static_cast<float>(i);
+        const auto displacement = glm::vec3{std::sin(angle), std::cos(angle), 0.f} * sphere_radius;
+        sum += sample_force(pos + displacement, tex_mip_maps, mip_map_level, surface_softness);
+    }
+    return sum * (1.f / 9.f);
+}
+
+#if defined(DHD) || defined(FAKE_HAPTIC)
+
+void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor::HapticParams &haptic_params,
                  std::promise<bool> &&setup_results,
                  ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
-    auto&[global_pos, interaction_bounds, enable_force, max_force, mip_map_level, surface_softness, global_force] = haptic_params;
+    auto&[global_pos, interaction_bounds, enable_force, max_force, mip_map_level, surface_softness, global_force,
+    sphere_kernel_enabled, sphere_kernel_radius] = haptic_params;
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
@@ -236,11 +288,14 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticLoopParamsT
 
         // Simulation stuff
 
-        glm::dvec3 force;
+        glm::dvec3 force{0.0};
         {
             PROFILE("Haptic - Sample force");
-            force = glm::dvec3{sample_force(pos, normal_tex_mip_maps, mip_map_level.load(), surface_softness.load()) *
-                               max_force.load()};
+            force = glm::dvec3{(sphere_kernel_enabled.load()
+                                ? sphere_sample_force(sphere_kernel_radius.load(), pos, normal_tex_mip_maps,
+                                                      mip_map_level.load(), surface_softness.load())
+                                : sample_force(pos, normal_tex_mip_maps, mip_map_level.load(), surface_softness.load()))
+                               * max_force.load()};
         }
 
         {
@@ -311,9 +366,7 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
 #if defined(DHD) || defined(FAKE_HAPTIC)
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
-    auto haptics_params = std::tie(m_haptic_finger_pos, m_interaction_bounds, m_enable_force, m_max_force,
-                                   m_mip_map_level, m_surface_softness, m_haptic_force);
-    m_thread = std::jthread{haptic_loop, std::move(haptics_params), std::move(setup_results),
+    m_thread = std::jthread{haptic_loop, std::ref(m_params), std::move(setup_results),
                             std::move(normal_tex_channel), std::ref(m_view_mat)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
@@ -333,7 +386,7 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
     const auto dec = int{action == GLFW_RELEASE};
 
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
-        m_enable_force.store(!m_enable_force.load());
+        m_params.enable_force.store(!m_params.enable_force.load());
 #ifndef NDEBUG
     else if (key == GLFW_KEY_P && action == GLFW_PRESS)
         Profiler::reset_profiler();
@@ -357,33 +410,41 @@ void HapticInteractor::display() {
     Interactor::display();
 
     if (ImGui::BeginMenu("Haptics")) {
-        auto interaction_bounds = m_interaction_bounds.load();
+        auto interaction_bounds = m_params.interaction_bounds.load();
         auto mip_map_level = static_cast<int>(m_mip_map_ui_level);
-        auto enable_force = m_enable_force.load();
-        auto max_force = m_max_force.load();
-        auto softness = m_surface_softness.load();
+        auto enable_force = m_params.enable_force.load();
+        auto max_force = m_params.max_force.load();
+        auto softness = m_params.surface_softness.load();
+        int kernel_type = m_params.sphere_kernel.load() ? 1 : 0;
+        m_ui_sphere_kernel_size = m_params.sphere_kernel_radius.load();
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
-            m_interaction_bounds.store(interaction_bounds);
+            m_params.interaction_bounds.store(interaction_bounds);
         if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3)) {
             m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
-            m_mip_map_level.store(m_mip_map_ui_level);
+            m_params.mip_map_level.store(m_mip_map_ui_level);
             viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
         }
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
-            m_enable_force.store(enable_force);
+            m_params.enable_force.store(enable_force);
         if (enable_force) {
             if (ImGui::SliderFloat("Max haptic force (Newtons)", &max_force, 0.f, 9.f))
-                m_max_force.store(max_force);
+                m_params.max_force.store(max_force);
             if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 1.f))
-                m_surface_softness.store(softness);
+                m_params.surface_softness.store(softness);
+            if (ImGui::Combo("Kernel type", &kernel_type, "Point\0Sphere"))
+                m_params.sphere_kernel.store(kernel_type == 1);
+            if (kernel_type == 1 && ImGui::SliderFloat("Kernel radius", &m_ui_sphere_kernel_size, 0.001f, 0.1f)) {
+                m_params.sphere_kernel_radius.store(m_ui_sphere_kernel_size);
+                viewer()->BROADCAST(&HapticInteractor::m_ui_sphere_kernel_size);
+            }
         }
 
         ImGui::EndMenu();
     }
 
 
-    m_haptic_global_pos = m_haptic_finger_pos.load();
-    m_haptic_global_force = m_haptic_force.load();
+    m_haptic_global_pos = m_params.finger_pos.load();
+    m_haptic_global_force = m_params.force.load();
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_pos);
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_force);
 

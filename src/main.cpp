@@ -165,13 +165,22 @@ int main(int argc, char *argv[]) {
         glfwSwapInterval(0); // Set to 0 for "UNLIMITED FRAMES!!"
 
         unsigned int frame_count = 0;
-        unsigned long long main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME}, offload_rendering_time_max{1}, offload_rendering_time_local_max{0};
+        unsigned long long main_gpu_time_local_max{0}, main_gpu_time_max{NS_MAX_FRAME_TIME}, offload_rendering_time_max{
+                1}, offload_rendering_time_local_max{0};
 
         std::unique_ptr<Query> main_rendering_query{Query::create()};
         std::unique_ptr<Sync> buffer_swapped_sync{};
         std::array<std::vector<std::unique_ptr<Query>>, 2> offload_rendering_queries{};
         unsigned int offload_rendering_query_index{0};
         auto calibration_time_point = std::chrono::high_resolution_clock::now();
+        const auto offload_render = [&offload_rendering_queries, viewer = viewer.get()](auto index) {
+            offload_rendering_queries.at(index).push_back(Query::create());
+            auto q = offload_rendering_queries.at(index).back().get();
+            q->begin(GL_TIME_ELAPSED);
+            const auto res = viewer->offload_render();
+            q->end(GL_TIME_ELAPSED);
+            return res;
+        };
 
         /**
          * Rendering loop is a bit complex:
@@ -198,18 +207,19 @@ int main(int argc, char *argv[]) {
             buffer_swapped_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
             bool offload_rendering_done = false;
 
+            if (viewer->m_forceOffloadRender) {
+                // Continue doing offload renders until it's eventually done
+                while (!offload_rendering_done)
+                    offload_rendering_done = offload_render(offload_rendering_query_index);
+
+                viewer->m_forceOffloadRender = false;
+            }
+
             // Utilize free space before GPU has caught up from last frame to query new commands:
             for (uint i = 1; buffer_swapped_sync->clientWait(SyncObjectMask::GL_SYNC_FLUSH_COMMANDS_BIT, 0) ==
-                             GL_TIMEOUT_EXPIRED; ++i) {
-                if (!offload_rendering_done && (main_gpu_time_max + i * offload_rendering_time_max < NS_MAX_FRAME_TIME || viewer->m_forceOffloadRender)) {
-                    viewer->m_forceOffloadRender = false;
-                    offload_rendering_queries.at(offload_rendering_query_index).push_back(std::move(Query::create()));
-                    auto &q = offload_rendering_queries.at(offload_rendering_query_index).back();
-                    q->begin(GL_TIME_ELAPSED);
-                    offload_rendering_done = viewer->offload_render();
-                    q->end(GL_TIME_ELAPSED);
-                }
-            }
+                             GL_TIMEOUT_EXPIRED; ++i)
+                if (!offload_rendering_done && main_gpu_time_max + i * offload_rendering_time_max < NS_MAX_FRAME_TIME)
+                    offload_rendering_done = offload_render(offload_rendering_query_index);
 
             // Here, the GPU is synced with CPU (last frame has happened):
 
@@ -240,7 +250,8 @@ int main(int argc, char *argv[]) {
                 // Make sure offload time also decreases its max every now and then (every 10th second)
                 static unsigned long long offload_reset_timer{1};
                 if (offload_reset_timer % 10 == 0) {
-                    offload_rendering_time_max = 0 < offload_rendering_time_local_max ? offload_rendering_time_local_max : 1;
+                    offload_rendering_time_max =
+                            0 < offload_rendering_time_local_max ? offload_rendering_time_local_max : 1;
                     offload_rendering_time_local_max = 0;
                 }
                 ++offload_reset_timer;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <future>
+
 #include "../Renderer.h"
 #include "../../Channel.h"
 
@@ -263,6 +265,7 @@ namespace molumes {
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
         unsigned int round_robin_fb_index = 0;
+        std::future<void> m_tile_normal_async_task{};
 
     public:
         WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> m_normal_tex_channel;

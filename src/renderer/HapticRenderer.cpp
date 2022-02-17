@@ -45,10 +45,11 @@ HapticRenderer::HapticRenderer(Viewer *viewer) : Renderer(viewer) {
     });
 
     subscribe(*viewer, &HapticInteractor::m_haptic_global_pos, [this](auto p){ m_haptic_pos = p; });
-    subscribe(*viewer, &HapticInteractor::m_haptic_global_force, [this](auto p){
-        auto p_l = glm::length(p);
-        m_haptic_dir = 0.001f < p_l ? p * (1.f / p_l) : glm::vec3{0.f, 0.f, 1.f};
+    subscribe(*viewer, &HapticInteractor::m_haptic_global_force, [this](auto f){
+        auto f_l = glm::length(f);
+        m_haptic_dir = 0.001f < f_l ? f * (1.f / f_l) : glm::vec3{0.f, 0.f, 1.f};
     });
+    subscribe(*viewer, &HapticInteractor::m_ui_sphere_kernel_size, [this](auto r){ m_radius = r; });
 }
 
 void HapticRenderer::display() {

@@ -17,35 +17,49 @@ namespace molumes {
 /**
  * Enables interaction with haptic devices
  */
-class HapticInteractor : public Interactor {
-private:
-    std::jthread m_thread;
-    std::atomic<glm::vec3> m_haptic_finger_pos, m_haptic_force;
-    std::atomic<float> m_interaction_bounds{1.f};
-    std::atomic<unsigned int> m_mip_map_level{0};
-    std::atomic<bool> m_enable_force{false};
-    std::atomic<float> m_max_force{1.f}, m_surface_softness{0.015f};
-    bool m_haptic_enabled{false};
-    std::atomic<glm::mat4> m_view_mat;
+    class HapticInteractor : public Interactor {
+    public:
+        struct HapticParams {
+            std::atomic<glm::vec3> finger_pos;
+            std::atomic<float> interaction_bounds{1.f};
+            std::atomic<bool> enable_force{false};
+            std::atomic<float> max_force{1.f};
+            std::atomic<unsigned int> mip_map_level{0};
+            std::atomic<float> surface_softness{0.015f};
+            std::atomic<glm::vec3> force;
+            std::atomic<bool> sphere_kernel{false};
+            std::atomic<float> sphere_kernel_radius{0.01f};
+        };
 
-public:
-    std::function<void(bool)> m_on_haptic_toggle{};
+    private:
+        std::jthread m_thread;
+        HapticParams m_params;
+        bool m_haptic_enabled{false};
+        std::atomic<glm::mat4> m_view_mat;
 
-    HapticInteractor() = default;
-    explicit HapticInteractor(Viewer* viewer, ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>>&& normal_tex_channel);
+    public:
+        std::function<void(bool)> m_on_haptic_toggle{};
 
-    bool hapticEnabled() const { return m_haptic_enabled; }
+        HapticInteractor() = default;
 
-    void keyEvent(int key, int scancode, int action, int mods) override;
-    void display() override;
+        explicit HapticInteractor(Viewer *viewer,
+                                  ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel);
 
-    static std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data);
+        bool hapticEnabled() const { return m_haptic_enabled; }
 
-    ~HapticInteractor() override;
+        void keyEvent(int key, int scancode, int action, int mods) override;
 
-    unsigned int m_mip_map_ui_level{0};
-    glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
-};
+        void display() override;
+
+        static std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>
+        generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data);
+
+        ~HapticInteractor() override;
+
+        unsigned int m_mip_map_ui_level{0};
+        glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
+        float m_ui_sphere_kernel_size = 0.01f;
+    };
 }
 
 
