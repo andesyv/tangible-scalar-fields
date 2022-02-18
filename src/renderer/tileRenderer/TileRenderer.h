@@ -4,6 +4,7 @@
 
 #include "../Renderer.h"
 #include "../../Channel.h"
+#include "../../Constants.h"
 
 #include <glm/glm.hpp>
 
@@ -29,7 +30,7 @@ namespace molumes {
     class TileRenderer : public Renderer {
     public:
         explicit TileRenderer(Viewer *viewer,
-                              WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_channel);
+                              WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_channel);
 
         void setEnabled(bool enabled) override;
 
@@ -268,7 +269,7 @@ namespace molumes {
         std::future<void> m_tile_normal_async_task{};
 
     public:
-        WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> m_normal_tex_channel;
+        WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> m_normal_tex_channel;
 
         bool updateColorMap();
     };

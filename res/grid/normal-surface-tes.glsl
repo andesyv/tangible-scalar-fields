@@ -9,6 +9,7 @@ in vec2 tTexCoord[];
 uniform mat4 MVP = mat4(1.0);
 uniform uint tesselation = 16;
 uniform float mip_map_level = 0.0;
+uniform float surface_height = 1.0;
 layout(binding = 0) uniform sampler2D normalTex;
 
 out vec2 uv;
@@ -45,7 +46,7 @@ void main() {
     vec4 normal = textureLod(normalTex, texCoord, mip_map_level);
     float normalFactor = normal.a * 0.01;
 
-    p.z += normalFactor;
+    p.z += normalFactor * surface_height;
 
     uv = texCoord;
     gl_Position = MVP * vec4(p, 1.0);

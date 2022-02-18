@@ -56,7 +56,7 @@ auto get_index_offset(uint current_index, int offset) {
 }
 
 TileRenderer::TileRenderer(Viewer *viewer,
-                           WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_channel)
+                           WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_channel)
         : Renderer(viewer), m_normal_tex_channel{normal_channel} {
     m_verticesQuad->setStorage(std::array<vec3, 1>({vec3(0.0f, 0.0f, 0.0f)}), gl::GL_NONE_BIT);
     auto vertexBindingQuad = m_vaoQuad->binding(0);

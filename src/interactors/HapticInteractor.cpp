@@ -47,6 +47,14 @@ struct std::formatter<glm::vec<L, T, Q>> : std::formatter<std::string> {
     }
 };
 
+// AMD C++ smoothstep function from 0 to 1 (https://en.wikipedia.org/wiki/Smoothstep)
+float smoothstep(float a, float b, float x) {
+    // Scale, bias and saturate x to 0..1 range
+    x = std::clamp((x - a) / (b - a), 0.f, 1.f);
+    // Evaluate polynomial
+    return x * x * (3.f - 2.f * x);
+}
+
 // returns signed distance to plane (negative is below)
 auto point_to_plane(const glm::vec3 &pos, const glm::vec3 &pl_norm, const glm::vec3 &pl_pos) {
     glm::vec3 pl_to_pos = pos - pl_pos;
@@ -137,7 +145,7 @@ glm::vec4 sphere_sample_tex(const glm::vec3 &pos, float sphere_radius, const glm
 }
 
 std::pair<glm::uvec2, std::vector<glm::vec4>>
-generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level = 0) {
+HapticInteractor::generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level) {
     auto[dim, data] = std::pair<glm::uvec2, std::vector<glm::vec4>>{tex_dims, tex_data};
     for (glm::uint i = 0; i < level; ++i) {
         // coord.y * tex_dims.x + coord.x
@@ -154,18 +162,11 @@ generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_dat
     return std::make_pair(dim, std::vector<glm::vec4>{data.begin(), data.begin() + dim.x * dim.y});
 }
 
-std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>
-HapticInteractor::generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
-    std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> levels;
-    levels.at(0) = std::make_pair(tex_dims, tex_data);
-    for (glm::uint i = 1; i < 4; ++i)
-        levels.at(i) = generateMipmap(levels.at(i - 1).first, levels.at(i - 1).second, 1);
-    return levels;
-}
+using TextureMipMaps = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
 
 auto
-sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> &tex_mip_maps,
-             glm::uint mip_map_level = 0, float surface_softness = 0.f) {
+sample_force(const glm::vec3 &pos, const TextureMipMaps &tex_mip_maps,
+             glm::uint mip_map_level = 0, float surface_softness = 0.f, float surface_height = 1.f) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
     const auto coords = opt_relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
@@ -180,7 +181,7 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
 
     const auto value = sample_tex(glm::vec2{*coords}, dims, data);
     const auto normal = glm::vec3{value} * 2.f - 1.f;
-    float dist = coords->z - value.w * 0.01f;
+    float dist = coords->z - value.w * 0.01f * surface_height;
     // If dist is positive, it means we're above the surface = no force applied
     if (0.f < dist)
         return glm::vec3{0.f};
@@ -188,7 +189,8 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
     // Unsure about the coordinate system, so just setting max to 1 for now:
     static constexpr float max_dist = 1.f;
     const float softness_interpolation =
-            surface_softness < 0.001f ? 1.f : std::min(dist / (-max_dist * surface_softness), 1.f);
+            surface_softness < 0.001f ? 1.f : smoothstep(0.f, 1.f,
+                                                         std::min(dist / (-max_dist * surface_softness), 1.f));
 
     // Residual force from the surface:
     const auto f_len = glm::length(normal);
@@ -196,7 +198,7 @@ sample_force(const glm::vec3 &pos, const std::array<std::pair<glm::uvec2, std::v
 }
 
 auto sphere_sample_force(float sphere_radius, const glm::vec3 &pos,
-                         const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> &tex_mip_maps,
+                         const TextureMipMaps &tex_mip_maps,
                          glm::uint mip_map_level = 0, float surface_softness = 0.f) {
     constexpr float angle_piece = std::numbers::pi_v<float> / 8.f; // How is this not a thing before C++20 ???
 
@@ -225,14 +227,14 @@ auto get_friction(double friction_scale, glm::dvec3 velocity) {
 
 void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor::HapticParams &haptic_params,
                  std::promise<bool> &&setup_results,
-                 ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel,
+                 ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
-    auto&[global_pos, global_force, interaction_bounds, max_force, surface_softness, sphere_kernel_radius, friction_scale, enable_force,
-    sphere_kernel_enabled, enable_friction, mip_map_level] = haptic_params;
+    auto&[global_pos, global_force, interaction_bounds, max_force, surface_softness, sphere_kernel_radius,
+    friction_scale, surface_height, enable_force, sphere_kernel_enabled, enable_friction, mip_map_level] = haptic_params;
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
-    std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4> normal_tex_mip_maps;
+    std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels> normal_tex_mip_maps;
     constexpr double EPSILON = 0.001;
     auto last_t = chr::steady_clock::now();
 
@@ -306,7 +308,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             force = glm::dvec3{(sphere_kernel_enabled.load()
                                 ? sphere_sample_force(sphere_kernel_radius.load(), pos, normal_tex_mip_maps,
                                                       mip_map_level.load(), surface_softness.load())
-                                : sample_force(pos, normal_tex_mip_maps, mip_map_level.load(), surface_softness.load()))};
+                                : sample_force(pos, normal_tex_mip_maps, mip_map_level.load(),
+                                               surface_softness.load(), surface_height.load()))};
 
             if (enable_friction.load() && 0.001 < glm::length(force)) {
                 // TODO: Estimate velocity for FAKE_DHD
@@ -379,7 +382,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 #endif // DHD
 
 HapticInteractor::HapticInteractor(Viewer *viewer,
-                                   ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>> &&normal_tex_channel)
+                                   ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_tex_channel)
         : Interactor(viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
@@ -444,13 +447,18 @@ void HapticInteractor::display() {
         m_ui_sphere_kernel_size = m_params.sphere_kernel_radius.load();
         bool enable_friction = m_params.friction.load();
         float friction_scale = m_params.friction_scale.load();
+        m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
-        if (ImGui::SliderInt("Mip map levels", &mip_map_level, 0, 3)) {
+        if (ImGui::SliderInt("Mip map level", &mip_map_level, 0, HapticMipMapLevels - 1)) {
             m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
             m_params.mip_map_level.store(m_mip_map_ui_level);
             viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
+        }
+        if (ImGui::SliderFloat("Surface height multiplier", &m_ui_surface_height_multiplier, 0.1f, 10.f)) {
+            m_params.surface_height_multiplier.store(m_ui_surface_height_multiplier);
+            viewer()->BROADCAST(&HapticInteractor::m_ui_surface_height_multiplier);
         }
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_params.enable_force.store(enable_force);

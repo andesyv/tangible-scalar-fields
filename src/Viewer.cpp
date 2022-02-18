@@ -122,7 +122,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     glfwSetScrollCallback(window, &Viewer::scrollCallback);
 
 
-    using NormalTexType = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, 4>;
+    using NormalTexType = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
     ReaderChannel<NormalTexType> normal_tex_channel{};
 
     m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
