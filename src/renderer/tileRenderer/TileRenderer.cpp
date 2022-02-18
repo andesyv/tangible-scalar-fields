@@ -1472,6 +1472,8 @@ bool TileRenderer::offscreen_render() {
                 throw std::runtime_error{"Failed to unmap GPU buffer! (m_normal_transfer_buffer)"};
             frame_data.transfer_buffer->unbind(GL_PIXEL_PACK_BUFFER);
 
+            // According to https://en.cppreference.com/w/cpp/thread/future/~future we don't have to explicitly wait for
+            // std::async to complete as the future destructor will automatically wait (std::async is magic)
             m_tile_normal_async_task = std::async(std::launch::async, [&channel = this->m_normal_tex_channel, size = frame_data.size, data = std::move(data)](){
                 channel.write(HapticInteractor::generateMipmaps(glm::uvec2{size}, data));
             });
