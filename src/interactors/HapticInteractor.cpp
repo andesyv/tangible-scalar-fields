@@ -164,8 +164,6 @@ HapticInteractor::generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::v
     return std::make_pair(new_dims, std::move(tex_data));
 }
 
-using TextureMipMaps = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
-
 auto
 sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2& tex_dims, const std::vector<glm::vec4> &tex_data,
                      glm::uint mip_map_level = 0, float surface_softness = 0.f, float surface_height = 1.f) {
@@ -208,25 +206,36 @@ auto sphere_sample_surface_force(float sphere_radius, const glm::vec3 &pos,
     return sum * (1.f / 9.f);
 }
 
-auto get_friction(double friction_scale, glm::dvec3 velocity, glm::dvec3 normal) {
+auto get_friction(double friction_scale, glm::dvec3 velocity, glm::dvec3 normal, glm::dvec3 last_normal) {
     const auto v_len = glm::length(velocity);
     if (v_len < 0.01)
         return glm::dvec3{0.0};
 
     const auto v_normalized = velocity * (-1.f / v_len);
-    // The steeper the normal, the more aligned with -velocity the normal will be, increasing the dot product
-    const auto projected_velocity = std::max(glm::dot(v_normalized, normal), 0.0) * (1.0 - glm::dot(normal, glm::dvec3{0., 0., 1.}));
 
-    return v_normalized * friction_scale * projected_velocity;
+    constexpr glm::dvec3 up = {0.0, 0.0, 1.0};
+    const auto normal_grad = normal - last_normal;
+
+    // If the dot product of the gradient and velocity is negative, we're moving away from the top (I think)
+    const auto k = glm::dot(normal_grad, velocity);
+    return k < 0.0 ? -k * v_normalized * friction_scale : glm::dvec3{0.0};
+
+
+//    // The steeper the normal, the more aligned with -velocity the normal will be, increasing the dot product
+//    // Multiplied with (1.0 - normal.z) to make it stronger the more it's not aligned with the default normal (straight up)
+//    const auto projected_velocity = std::max(glm::dot(v_normalized, normal) * (1.0 - normal.z), 0.0);
+//
+//    return v_normalized * friction_scale * projected_velocity;
 }
 
+using TextureMipMaps = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
 
 glm::dvec3 sample_force(float max_force, float surface_softness, float sphere_kernel_radius, float friction_scale,
                         float surface_height, bool sphere_kernel_enabled, bool enable_friction, bool uniform_friction,
                         unsigned int mip_map_level,
-                        const std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels> &tex_mip_maps,
+                        const TextureMipMaps &tex_mip_maps,
                         const glm::vec3 &pos) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
@@ -249,19 +258,22 @@ glm::dvec3 sample_force(float max_force, float surface_softness, float sphere_ke
         dhdGetLinearVelocity(&estimated_velocity.x, &estimated_velocity.y, &estimated_velocity.z);
 
         const auto& [friction_dims, friction_data] = tex_mip_maps.at(uniform_friction ? mip_map_level : std::min<std::size_t>(mip_map_level + 4, HapticMipMapLevels));
-        const auto normal = glm::normalize(glm::vec3{sample_tex(glm::vec2{*coords}, friction_dims, friction_data)} * 2.f - 1.f);
+        const auto current_normal = glm::normalize(glm::dvec3{sample_tex(glm::vec2{*coords}, friction_dims, friction_data)} * 2.0 - 1.0);
+        static auto last_normal = current_normal;
 
         // Should'nt be possible for coords to be negative
         assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})));
 
-        if (!glm::any(glm::isnan(normal))) {
-            const auto friction = get_friction(static_cast<double>(friction_scale), estimated_velocity, glm::dvec3{normal});
+//        if (!glm::any(glm::isnan(current_normal))) {
+//            const auto friction = get_friction(static_cast<double>(friction_scale), estimated_velocity, current_normal, last_normal);
 //            std::cout << std::format("Friction: {}", glm::length(friction)) << std::endl;
-//            force += friction;
-        }
+////            force += friction;
+//        }
+
+        last_normal = current_normal;
     }
 
-    // Clamp velocity to 1
+    // Clamp force to 1
     const auto f_len = glm::length(force);
     if (1.0 < f_len)
         force *= 1.0 / f_len;
@@ -272,7 +284,7 @@ glm::dvec3 sample_force(float max_force, float surface_softness, float sphere_ke
 
 void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor::HapticParams &haptic_params,
                  std::promise<bool> &&setup_results,
-                 ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_tex_channel,
+                 ReaderChannel<TextureMipMaps> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
     auto&[global_pos, global_force, interaction_bounds, max_force, surface_softness, sphere_kernel_radius,
     friction_scale, surface_height, enable_force, sphere_kernel_enabled, enable_friction, uniform_friction,
@@ -280,7 +292,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
     glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
-    std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels> normal_tex_mip_maps;
+    TextureMipMaps normal_tex_mip_maps;
     constexpr double EPSILON = 0.001;
     auto last_t = chr::steady_clock::now();
 
@@ -413,7 +425,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 #endif // DHD
 
 HapticInteractor::HapticInteractor(Viewer *viewer,
-                                   ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_tex_channel)
+                                   ReaderChannel<TextureMipMaps> &&normal_tex_channel)
         : Interactor(viewer) {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
@@ -508,7 +520,7 @@ void HapticInteractor::display() {
                 m_params.friction.store(friction_type != 0);
                 m_params.uniform_friction.store(friction_type == 1);
             }
-            if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 10.f))
+            if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1000.f))
                 m_params.friction_scale.store(friction_scale);
         }
 
