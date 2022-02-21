@@ -35,7 +35,7 @@ namespace molumes {
         std::atomic<glm::mat4> m_view_mat;
 
         static std::pair<glm::uvec2, std::vector<glm::vec4>>
-        generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level = 0);
+        generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data);
 
     public:
         std::function<void(bool)> m_on_haptic_toggle{};
@@ -57,7 +57,7 @@ namespace molumes {
             std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, N> levels;
             levels.at(0) = std::make_pair(tex_dims, tex_data);
             for (glm::uint i = 1; i < N; ++i)
-                levels.at(i) = generateMipmap(levels.at(i - 1).first, levels.at(i - 1).second, 1);
+                levels.at(i) = generate_single_mipmap(levels.at(i - 1).first, levels.at(i - 1).second);
             return levels;
         }
 

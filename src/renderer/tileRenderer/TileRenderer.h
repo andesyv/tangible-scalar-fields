@@ -256,20 +256,22 @@ namespace molumes {
                                glm::vec3 maxBounds, glm::vec3 minBounds);
 
 
+        using NormalTexType = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
         struct NormalFrameData {
             std::shared_ptr<globjects::Texture> texture{};
             std::unique_ptr<globjects::Buffer> transfer_buffer{};
             std::unique_ptr<globjects::Framebuffer> framebuffer{};
             glm::ivec2 size;
             std::unique_ptr<globjects::Sync> pass_sync{};
-            bool processed = false;
+            std::future<NormalTexType> tile_normal_async_task{};
+            unsigned int step = 0;
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
         unsigned int round_robin_fb_index = 0;
-        std::future<void> m_tile_normal_async_task{};
 
     public:
-        WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> m_normal_tex_channel;
+
+        WriterChannel<NormalTexType> m_normal_tex_channel;
 
         bool updateColorMap();
     };

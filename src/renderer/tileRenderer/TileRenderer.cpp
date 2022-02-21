@@ -148,6 +148,7 @@ TileRenderer::TileRenderer(Viewer *viewer,
         texture->setParameter(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         texture->setParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         texture->setParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        texture->setParameter(GL_TEXTURE_MAX_LEVEL, GLint{HapticMipMapLevels - 1});
         texture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
         m_normal_frame_data.at(i).texture = std::move(texture);
@@ -655,7 +656,7 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
                                      nullptr, GL_STREAM_DRAW);
     }
     auto state = stateGuard();
-    auto& frame_data = m_normal_frame_data.at(round_robin_fb_index);
+    auto &frame_data = m_normal_frame_data.at(round_robin_fb_index);
 
     frame_data.framebuffer->bind();
     glDepthMask(GL_FALSE);
@@ -702,13 +703,13 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
     glMemoryBarrier(GL_ALL_BARRIER_BITS);
     Framebuffer::unbind();
 
-    frame_data.texture->generateMipmap();
-    viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
+//    frame_data.texture->generateMipmap();
+//    viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
 
     // Mark this "round-robin" pass available for the next frame
     if (!frame_data.transfer_buffer) {
         frame_data.transfer_buffer = Buffer::create();
-        frame_data.processed = false;
+        frame_data.step = 0;
     }
 }
 
@@ -1012,7 +1013,7 @@ void TileRenderer::renderGUI() {
     if (ImGui::CollapsingHeader("Color Maps", ImGuiTreeNodeFlags_DefaultOpen)) {
         // show all available color-maps
         auto colorMapChanged = ImGui::Combo("Maps", &m_colorMap,
-                     "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
+                                            "None\0Bone\0Cubehelix\0GistEart\0GnuPlot2\0Grey\0Inferno\0Magma\0Plasma\0PuBuGn\0Rainbow\0Summer\0Virdis\0Winter\0Wista\0YlGnBu\0YlOrRd\0");
 
         // allow the user to load a discrete version of the color map
         colorMapChanged = ImGui::Checkbox("Discrete Colors (7)", &m_discreteMap) || colorMapChanged;
@@ -1078,23 +1079,23 @@ void TileRenderer::renderGUI() {
 
 bool TileRenderer::updateColorMap() {
     const static auto colorMapFilenames = std::to_array<std::string>({
-        "./dat/colormaps/bone_1D.png",
-        "./dat/colormaps/cubehelix_1D.png",
-        "./dat/colormaps/gist_earth_1D.png",
-        "./dat/colormaps/gnuplot2_1D.png",
-        "./dat/colormaps/grey_1D.png",
-        "./dat/colormaps/inferno_1D.png",
-        "./dat/colormaps/magma_1D.png",
-        "./dat/colormaps/plasma_1D.png",
-        "./dat/colormaps/PuBuGn_1D.png",
-        "./dat/colormaps/rainbow_1D.png",
-        "./dat/colormaps/summer_1D.png",
-        "./dat/colormaps/virdis_1D.png",
-        "./dat/colormaps/winter_1D.png",
-        "./dat/colormaps/wista_1D.png",
-        "./dat/colormaps/YlGnBu_1D.png",
-        "./dat/colormaps/YlOrRd_1D.png"
-    });
+                                                                             "./dat/colormaps/bone_1D.png",
+                                                                             "./dat/colormaps/cubehelix_1D.png",
+                                                                             "./dat/colormaps/gist_earth_1D.png",
+                                                                             "./dat/colormaps/gnuplot2_1D.png",
+                                                                             "./dat/colormaps/grey_1D.png",
+                                                                             "./dat/colormaps/inferno_1D.png",
+                                                                             "./dat/colormaps/magma_1D.png",
+                                                                             "./dat/colormaps/plasma_1D.png",
+                                                                             "./dat/colormaps/PuBuGn_1D.png",
+                                                                             "./dat/colormaps/rainbow_1D.png",
+                                                                             "./dat/colormaps/summer_1D.png",
+                                                                             "./dat/colormaps/virdis_1D.png",
+                                                                             "./dat/colormaps/winter_1D.png",
+                                                                             "./dat/colormaps/wista_1D.png",
+                                                                             "./dat/colormaps/YlGnBu_1D.png",
+                                                                             "./dat/colormaps/YlOrRd_1D.png"
+                                                                     });
 
     uint colorMapWidth, colorMapHeight;
     std::vector<unsigned char> colorMapImage;
@@ -1428,15 +1429,16 @@ void TileRenderer::updateData() {
 bool TileRenderer::offscreen_render() {
     Renderer::offscreen_render();
 
-    // Copy framebuffer from last frame:
-
+    // 1. Copy framebuffer from last frame to pixel transfer buffer:
     const auto round_robin_last_index = get_index_offset(round_robin_fb_index, -1);
     // Should be safe to read without synchronization, because it hasn't been written to this frame:
     auto &frame_data = m_normal_frame_data.at(round_robin_last_index);
     // If there's no transfer buffer, we've already completed the work earlier. Mark as done
-    if (!frame_data.transfer_buffer)
+    if (2 < frame_data.step)
         return true;
-    else if (!frame_data.processed) {
+
+    if (frame_data.step == 0) {
+        assert(!frame_data.pass_sync && "pass sync is not empty");
         BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
         // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(
@@ -1446,7 +1448,7 @@ bool TileRenderer::offscreen_render() {
 
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         frame_data.pass_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
-        frame_data.processed = true;
+        ++frame_data.step;
     }
 
 
@@ -1456,7 +1458,9 @@ bool TileRenderer::offscreen_render() {
     static constexpr auto MAX_SYNC_TIME = static_cast<GLuint64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::microseconds{10}).count());
 
-    if (frame_data.pass_sync) {
+    // 2. If transfer complete, transfer pixel transfer buffer to CPU
+    if (frame_data.step == 1) {
+        assert(frame_data.pass_sync && "pass sync is empty");
         const auto sync_result = frame_data.pass_sync->clientWait(GL_SYNC_FLUSH_COMMANDS_BIT, MAX_SYNC_TIME);
         if (sync_result == GL_CONDITION_SATISFIED || sync_result == GL_ALREADY_SIGNALED) {
             frame_data.transfer_buffer->bind(GL_PIXEL_PACK_BUFFER);
@@ -1474,13 +1478,37 @@ bool TileRenderer::offscreen_render() {
 
             // According to https://en.cppreference.com/w/cpp/thread/future/~future we don't have to explicitly wait for
             // std::async to complete as the future destructor will automatically wait (std::async is magic)
-            m_tile_normal_async_task = std::async(std::launch::async, [&channel = this->m_normal_tex_channel, size = frame_data.size, data = std::move(data)](){
-                channel.write(HapticInteractor::generateMipmaps(glm::uvec2{size}, data));
-            });
+            frame_data.tile_normal_async_task = std::async(std::launch::async,
+                                                           [&channel = this->m_normal_tex_channel, size = frame_data.size, data = std::move(
+                                                                   data)]() {
+                                                               auto levels = HapticInteractor::generateMipmaps(
+                                                                       glm::uvec2{size}, data);
+                                                               channel.write(levels);
+                                                               return std::move(levels);
+                                                           });
 
             // Finish by releasing buffers:
             frame_data.transfer_buffer = {};
             frame_data.pass_sync = {};
+            ++frame_data.step;
+        }
+    }
+
+    // 3. If mip-map generation is complete, set mip-map textures. Then mark as complete.
+    if (frame_data.step == 2) {
+        assert(frame_data.tile_normal_async_task.valid() && "normal async task is not valid");
+        using namespace std::chrono_literals;
+        if (frame_data.tile_normal_async_task.wait_for(1ns) == std::future_status::ready) {
+            const auto levels = frame_data.tile_normal_async_task.get();
+            // Manually set mipmap levels
+            BindGuard _g{frame_data.texture};
+            for (GLint i = 0; i < levels.size(); ++i)
+                frame_data.texture->image2D(i, GL_RGBA32F, levels.at(i).first, 0, GL_RGBA, GL_FLOAT,
+                                            levels.at(i).second.data());
+
+            viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
+            std::cout << "mip maps updated!" << std::endl;
+            ++frame_data.step;
 
             // We've finished all our work, mark as completed:
             return true;

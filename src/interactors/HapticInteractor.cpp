@@ -146,21 +146,22 @@ glm::vec4 sphere_sample_tex(const glm::vec3 &pos, float sphere_radius, const glm
 }
 
 std::pair<glm::uvec2, std::vector<glm::vec4>>
-HapticInteractor::generateMipmap(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data, glm::uint level) {
-    auto[dim, data] = std::pair<glm::uvec2, std::vector<glm::vec4>>{tex_dims, tex_data};
-    for (glm::uint i = 0; i < level; ++i) {
-        // coord.y * tex_dims.x + coord.x
-        for (glm::uint y = 0; y < dim.y / 2; ++y) {
-            for (glm::uint x = 0; x < (dim.x / 2); ++x) {
-                const auto sum = data.at(2 * y * dim.x + x * 2) + data.at((2 * y + 1) * dim.x + x * 2) +
-                                 data.at(2 * y * dim.x + x) + data.at((2 * y + 1) * dim.x + x * 2 + 1);
-                data.at(y * dim.x + x) = sum * 0.25f;
-            }
+HapticInteractor::generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data) {
+    const auto new_dims = tex_dims / 2u;
+    // coord.y * tex_dims.x + coord.x
+    for (glm::uint y = 0; y < new_dims.y; ++y) {
+        for (glm::uint x = 0; x < new_dims.x; ++x) {
+            const auto sum = tex_data.at(2 * y * tex_dims.x + x * 2) +
+                             tex_data.at(2 * y * tex_dims.x + x * 2 + 1) +
+                             tex_data.at((2 * y + 1) * tex_dims.x + x * 2) +
+                             tex_data.at((2 * y + 1) * tex_dims.x + x * 2 + 1);
+            tex_data.at(y * new_dims.x + x) = sum * 0.25f;
         }
-        dim /= 2;
     }
+    tex_data.resize(tex_data.size() / 4);
+    tex_data.shrink_to_fit();
 
-    return std::make_pair(dim, std::vector<glm::vec4>{data.begin(), data.begin() + dim.x * dim.y});
+    return std::make_pair(new_dims, std::move(tex_data));
 }
 
 using TextureMipMaps = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
