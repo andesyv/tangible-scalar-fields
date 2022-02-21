@@ -168,21 +168,37 @@ auto
 sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2& tex_dims, const std::vector<glm::vec4> &tex_data,
                      glm::uint mip_map_level = 0, float surface_softness = 0.f, float surface_height = 1.f) {
     const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
-    const auto normal = glm::vec3{value} * 2.f - 1.f;
-    float dist = relative_coords.z - value.w * 0.01f * surface_height;
+    auto normal = glm::vec3{value} * 2.f - 1.f;
+    float height = relative_coords.z - value.w * 0.01f * surface_height;
     // If dist is positive, it means we're above the surface = no force applied
-    if (0.f < dist)
+    if (0.f < height)
         return glm::vec3{0.f};
 
     // Unsure about the coordinate system, so just setting max to 1 for now:
     static constexpr float max_dist = 1.f;
     const float softness_interpolation =
             surface_softness < 0.001f ? 1.f : smoothstep(0.f, 1.f,
-                                                         std::min(dist / (-max_dist * surface_softness), 1.f));
+                                                         std::min(height / (-max_dist * surface_softness), 1.f));
 
-    // Residual force from the surface:
-    const auto f_len = glm::length(normal);
-    return (f_len < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / f_len)) * softness_interpolation;
+    // Surface normal
+    const auto norm = glm::length(normal);
+    normal = norm < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / norm);
+
+    // Modulate surface normal with kde-height:
+    // N = (M^-1)^T
+    // TODO: Manually calculate this to save "some" computation
+    const auto trans = glm::transpose(glm::inverse(glm::mat3{
+        {1.f, 0.f, 0.f},
+        {0.f, 1.f, 0.f},
+        {0.f, 0.f, surface_height /* * value.w */}
+    }));
+    normal = trans * normal;
+
+    // Find distance to surface (not the same as height, as that is projected down):
+    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
+
+    // Final force, the amount we want to push outwards (not along the surface) = normal * dist * softness_interpolation
+    return normal * dist * softness_interpolation;
 }
 
 auto sphere_sample_surface_force(float sphere_radius, const glm::vec3 &pos,
