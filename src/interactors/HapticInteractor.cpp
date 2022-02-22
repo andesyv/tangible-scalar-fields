@@ -104,7 +104,14 @@ get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<
     return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
 };
 
+glm::vec4 scaling_mix(const glm::vec4 &a, const glm::vec4 &b, float t) {
+    const auto &c = glm::mix(a, b, t);
+    const auto diff = b.w - a.w;
+    return glm::vec4{c.x, c.y, 0.001f < std::abs(diff) ? c.z / diff : c.z, c.w};
+};
+
 // Bi-linear interpolation of pixel
+template<bool SCALE_NORMAL = false>
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
     const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord) {
         return get_pixel(coord, tex_dims, tex_data);
@@ -114,17 +121,32 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
     const glm::vec2 f_pixel_coord = glm::fract(pixel_coord);
     const glm::uvec2 i_pixel_coord = glm::uvec2{pixel_coord - f_pixel_coord};
 
-    const auto aa = m_get_pixel(i_pixel_coord);
-    const auto ba = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y});
-    const auto ab = m_get_pixel(glm::uvec2{i_pixel_coord.x, i_pixel_coord.y + 1u});
-    const auto bb = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y + 1u});
+    auto aa = m_get_pixel(i_pixel_coord);
+    auto ba = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y});
+    auto ab = m_get_pixel(glm::uvec2{i_pixel_coord.x, i_pixel_coord.y + 1u});
+    auto bb = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y + 1u});
     if (!aa || !ba || !ab || !bb)
         return glm::vec4{0.};
 
-    const auto s = glm::mix(
-            glm::mix(*aa, *ba, f_pixel_coord.x),
-            glm::mix(*ab, *bb, f_pixel_coord.x),
-            f_pixel_coord.y);
+    // Convert to normalized range:
+    const auto n_aa = glm::vec4{glm::vec3{*aa} * 2.f - 1.f, aa->w};
+    const auto n_ba = glm::vec4{glm::vec3{*ba} * 2.f - 1.f, ba->w};
+    const auto n_ab = glm::vec4{glm::vec3{*ab} * 2.f - 1.f, ab->w};
+    const auto n_bb = glm::vec4{glm::vec3{*bb} * 2.f - 1.f, bb->w};
+
+    glm::vec4 s;
+    if constexpr (SCALE_NORMAL) {
+        s = scaling_mix(
+                scaling_mix(n_aa, n_ba, f_pixel_coord.x),
+                scaling_mix(n_ab, n_bb, f_pixel_coord.x),
+                f_pixel_coord.y);
+    } else {
+        s = glm::mix(
+                glm::mix(n_aa, n_ba, f_pixel_coord.x),
+                glm::mix(n_ab, n_bb, f_pixel_coord.x),
+                f_pixel_coord.y);
+    }
+
     return glm::any(glm::isnan(s)) ? glm::vec4{0.f} : s;
 }
 
@@ -165,10 +187,10 @@ HapticInteractor::generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::v
 }
 
 auto
-sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2& tex_dims, const std::vector<glm::vec4> &tex_data,
+sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
+                     const std::vector<glm::vec4> &tex_data,
                      glm::uint mip_map_level = 0, float surface_softness = 0.f, float surface_height = 1.f) {
-    const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
-    auto normal = glm::vec3{value} * 2.f - 1.f;
+    const auto value = sample_tex<true>(glm::vec2{relative_coords}, tex_dims, tex_data);
     float height = relative_coords.z - value.w * 0.01f * surface_height;
     // If dist is positive, it means we're above the surface = no force applied
     if (0.f < height)
@@ -181,18 +203,25 @@ sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2& tex_dim
                                                          std::min(height / (-max_dist * surface_softness), 1.f));
 
     // Surface normal
+    // At this point the normal has been scaled with the kde value of the surface
+    auto normal = glm::vec3{value};
     const auto norm = glm::length(normal);
     normal = norm < 0.001f ? glm::vec3{0., 0.f, 1.f} : normal * (1.f / norm);
 
-    // Modulate surface normal with kde-height:
-    // N = (M^-1)^T
-    // TODO: Manually calculate this to save "some" computation
-    const auto trans = glm::transpose(glm::inverse(glm::mat3{
-        {1.f, 0.f, 0.f},
-        {0.f, 1.f, 0.f},
-        {0.f, 0.f, surface_height /* * value.w */}
-    }));
-    normal = trans * normal;
+    /**
+     * Modulate surface normal with kde-height:
+     * Surface normal is uniformly scaled in the plane axis, so the scaling acts as a regular scaling model matrix.
+     * But since these are normal vectors along the surface, they should be treated the same way as a
+     * "computer graphics normal vector", meaning they should be multiplied with the "normal matrix", the transpose
+     * inverse of the model matrix:
+     * N = (M^-1)^T => (({[1, 0, 0], [0, 1, 0], [0, 0, S]})^-1)^T
+     *  => [x, y, z] -> [x, y, z / S]
+     */
+    normal.z /= surface_height;
+    normal = glm::normalize(normal);
+
+    if (glm::any(glm::isnan(normal)))
+        return glm::vec3{0.f};
 
     // Find distance to surface (not the same as height, as that is projected down):
     const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
@@ -202,7 +231,7 @@ sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2& tex_dim
 }
 
 auto sphere_sample_surface_force(float sphere_radius, const glm::vec3 &pos,
-                                 const glm::uvec2& tex_dims, const std::vector<glm::vec4> &tex_data,
+                                 const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data,
                                  glm::uint mip_map_level = 0, float surface_softness = 0.f) {
     constexpr float angle_piece = std::numbers::pi_v<float> / 8.f; // How is this not a thing before C++20 ???
 
@@ -270,11 +299,15 @@ glm::dvec3 sample_force(float max_force, float surface_softness, float sphere_ke
 
     if (enable_friction && 0.001 < glm::length(force)) {
         // TODO: Estimate velocity for FAKE_DHD
-        glm::dvec3 estimated_velocity;
+        glm::dvec3 estimated_velocity{0.f};
+#ifdef DHD
         dhdGetLinearVelocity(&estimated_velocity.x, &estimated_velocity.y, &estimated_velocity.z);
+#endif
 
-        const auto& [friction_dims, friction_data] = tex_mip_maps.at(uniform_friction ? mip_map_level : std::min<std::size_t>(mip_map_level + 4, HapticMipMapLevels));
-        const auto current_normal = glm::normalize(glm::dvec3{sample_tex(glm::vec2{*coords}, friction_dims, friction_data)} * 2.0 - 1.0);
+        const auto&[friction_dims, friction_data] = tex_mip_maps.at(
+                uniform_friction ? mip_map_level : std::min<std::size_t>(mip_map_level + 4, HapticMipMapLevels));
+        const auto current_normal = glm::normalize(
+                glm::dvec3{sample_tex(glm::vec2{*coords}, friction_dims, friction_data)} * 2.0 - 1.0);
         static auto last_normal = current_normal;
 
         // Should'nt be possible for coords to be negative
