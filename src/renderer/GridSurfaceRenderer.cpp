@@ -5,7 +5,6 @@
 #include "../interactors/HapticInteractor.h"
 
 #include <cassert>
-#include <iostream>
 #include <format>
 
 #include <glbinding/gl/enum.h>
@@ -14,10 +13,8 @@
 
 #include <globjects/globjects.h>
 #include <globjects/State.h>
-#include <globjects/Sync.h>
 #include <globjects/VertexAttributeBinding.h>
 
-#include <glm/glm.hpp>
 #include <imgui.h>
 
 
@@ -28,6 +25,7 @@ using namespace globjects;
 constexpr glm::uvec2 GRID_SIZE = {10u, 10u};
 constexpr GLsizei VERTEX_COUNT = GRID_SIZE.x * GRID_SIZE.y * 6;
 constexpr glm::uint TESSELATION = 64;
+constexpr int PLANE_SUBDIVISION = 3;
 
 /**
  * @brief Helper function that creates a guard object which reverts back to it's original OpenGL state when it exits the scope.
@@ -44,15 +42,118 @@ const auto stateGuard = []() {
     }};
 };
 
+// https://stackoverflow.com/questions/1505675/power-of-an-integer-in-c
+template <unsigned int p>
+int constexpr pow(const int x)
+{
+    if constexpr (p == 0) return 1;
+    if constexpr (p == 1) return x;
+
+    int tmp = pow<p / 2>(x);
+    if constexpr ((p % 2) == 0) { return tmp * tmp; }
+    else { return x * tmp * tmp; }
+}
+
+template<typename T>
+concept Insertable = requires(T a, T b) {
+    a.insert(std::end(a), std::begin(b), std::end(b));
+};
+
+/// Easier to make a custom concatenation function than to use C++20's horrible range library
+template<Insertable T, Insertable ... Ts>
+constexpr auto vec_insert(T &container, const Ts &... rest) {
+    auto end = std::end(container);
+    ((end = container.insert(end, std::begin(rest), std::end(rest))), ...);
+    return end;
+}
+
+/**
+ * Disallow implicit conversion from lvalue to universal reference
+ * Why C++ thought it was a good idea to have the rvalue sign be the same as the universal reference is beyond me.
+ * Cause now you have to explicitly delete lvalue referenced template functions to disallow non-move semantics.
+ */
+template <typename T, typename ... Ts>
+constexpr T vec_cat(T& container, const Ts&... rest) = delete;
+
+template <typename T, typename ... Ts>
+constexpr T vec_cat(T&& container, const Ts&... rest) {
+    vec_insert(container, rest...);
+    return std::move(container); // NOLINT(bugprone-move-forwarding-reference)
+}
+
+constexpr auto
+subdivide_plane(const std::vector<std::pair<glm::vec3, glm::vec2>> &quad, unsigned int subdivisions = 1) {
+    if (subdivisions == 1)
+        return quad;
+
+    using PointType = std::pair<glm::vec3, glm::vec2>;
+
+//    glm::vec3 min_p{std::numeric_limits<float>::max()}, max_p{std::numeric_limits<float>::min()};
+//    glm::vec2 min_uv{std::numeric_limits<float>::max()}, max_uv{std::numeric_limits<float>::min()};
+//
+//    for (const auto& [p, uv] : quad) {
+//        min_p = glm::min(p, min_p);
+//        max_p = glm::max(p, max_p);
+//        min_uv = glm::min(uv, min_uv);
+//        max_uv = glm::max(uv, max_uv);
+//    }
+    // Quad follows same pattern, so min is always the 3rd one and min is always the 2nd one
+    const auto &min{quad.at(2)}, max{quad.at(1)};
+
+    const auto diff_p = (max.first - min.first) * 0.5f;
+    const auto diff_uv = (max.second - min.second) * 0.5f;
+
+    // Divide quad into 4 smaller quads
+    std::vector<PointType> smaller_quads;
+    smaller_quads.reserve(16);
+    for (auto y = 0u; y < 2u; ++y) {
+        for (auto x = 0u; x < 2u; ++x) {
+            smaller_quads.emplace_back(min.first + glm::vec3{x + 1, y, 0.f} * diff_p,
+                                       min.second + glm::vec2{x + 1, y} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x + 1, y + 1, 0.f} * diff_p,
+                                       min.second + glm::vec2{x + 1, y + 1} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x, y, 0.f} * diff_p,
+                                       min.second + glm::vec2{x, y} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x, y + 1, 0.f} * diff_p,
+                                       min.second + glm::vec2{x, y + 1} * diff_uv);
+        }
+    }
+
+    const auto concatted_points = vec_cat(
+            subdivide_plane(std::vector<PointType>{smaller_quads.begin(), smaller_quads.begin() + 4},
+                            subdivisions - 1),
+            subdivide_plane(std::vector<PointType>{smaller_quads.begin() + 4, smaller_quads.begin() + 8},
+                            subdivisions - 1),
+            subdivide_plane(std::vector<PointType>{smaller_quads.begin() + 8, smaller_quads.begin() + 12},
+                            subdivisions - 1),
+            subdivide_plane(std::vector<PointType>{smaller_quads.begin() + 12, smaller_quads.begin() + 16},
+                            subdivisions - 1)
+    );
+
+    return std::vector<PointType>{concatted_points.begin(), concatted_points.end()};
+}
+
+template <std::size_t I>
+constexpr auto create_subdivided_plane() {
+    constexpr std::size_t count = pow<I>(4);
+    std::array<std::pair<glm::vec3, glm::vec2>, count> vertices;
+    auto vector_vertices = subdivide_plane(std::vector<std::pair<glm::vec3, glm::vec2>>{
+            {{1.f,  -1.f, 0.f}, {1.f, 0.f}},
+            {{1.f,  1.f,  0.f}, {1.f, 1.f}},
+            {{-1.f, -1.f, 0.f}, {0.f, 0.f}},
+            {{-1.f, 1.f,  0.f}, {0.f, 1.f}}
+    }, I);
+    for (auto i{0u}; i < count; ++i)
+        vertices.at(i) = vector_vertices.at(i);
+    return vertices;
+}
+
 GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
+    constexpr auto plane_vertices = create_subdivided_plane<PLANE_SUBDIVISION>();
+
     // Init plane:
     m_planeBounds = Buffer::create();
-    m_planeBounds->setData(std::to_array<std::pair<glm::vec3, glm::vec2>>({
-                                                                                  {{1.f,  -1.f, 0.f}, {1.f, 0.f}},
-                                                                                  {{1.f,  1.f,  0.f}, {1.f, 1.f}},
-                                                                                  {{-1.f, -1.f, 0.f}, {0.f, 0.f}},
-                                                                                  {{-1.f, 1.f,  0.f}, {0.f, 1.f}}
-                                                                          }), GL_STATIC_DRAW);
+    m_planeBounds->setData(plane_vertices, GL_STATIC_DRAW);
 
     m_planeVAO = VertexArray::create();
     auto binding = m_planeVAO->binding(0);
@@ -68,14 +169,14 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
 
     m_screenSpacedBuffer = Buffer::create();
     m_screenSpacedBuffer->setData(std::to_array({
-            glm::vec2{-1.f, -1.f},
-            glm::vec2{1.f, -1.f},
-            glm::vec2{1.f, 1.f},
+                                                        glm::vec2{-1.f, -1.f},
+                                                        glm::vec2{1.f, -1.f},
+                                                        glm::vec2{1.f, 1.f},
 
-            glm::vec2{1.f, 1.f},
-            glm::vec2{-1.f, 1.f},
-            glm::vec2{-1.f, -1.f}
-    }), GL_STATIC_DRAW);
+                                                        glm::vec2{1.f, 1.f},
+                                                        glm::vec2{-1.f, 1.f},
+                                                        glm::vec2{-1.f, -1.f}
+                                                }), GL_STATIC_DRAW);
 
     m_screenSpacedVAO = VertexArray::create();
     binding = m_screenSpacedVAO->binding(0);
@@ -95,13 +196,8 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
             {GL_FRAGMENT_SHADER,        "./res/grid/normal-surface-fs.glsl"}
     });
 
-//    createShaderProgram("screen-debug", {
-//            {GL_VERTEX_SHADER,   "./res/crystal/screen-vs.glsl"},
-//            {GL_FRAGMENT_SHADER, "./res/crystal/debug-fs.glsl"}
-//    });
-
-    subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, [this](unsigned int level){ m_mip_map_level = level; });
-    subscribe(*viewer, &HapticInteractor::m_ui_surface_height_multiplier, [this](float m){ m_height_multiplier = m; });
+    subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, [this](unsigned int level) { m_mip_map_level = level; });
+    subscribe(*viewer, &HapticInteractor::m_ui_surface_height_multiplier, [this](float m) { m_height_multiplier = m; });
 }
 
 void GridSurfaceRenderer::display() {
@@ -130,7 +226,6 @@ void GridSurfaceRenderer::display() {
 
     glPolygonMode(GL_FRONT, GL_FILL);
     glPolygonMode(GL_BACK, GL_LINE);
-//    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     /// ------------------- Render pass -------------------------------------------
     {
@@ -146,31 +241,10 @@ void GridSurfaceRenderer::display() {
         shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
         shader->setUniform("surface_height", m_height_multiplier);
 
+        constexpr auto vertex_count = static_cast<GLsizei>(pow<PLANE_SUBDIVISION>(4));
         glPatchParameteri(GL_PATCH_VERTICES, 4);
-        m_planeVAO->drawArrays(GL_PATCHES, 0, 4);
+        m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
 
         glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }
-
-//#ifndef NDEBUG
-//    {
-//        glDisable(GL_CULL_FACE);
-//        glDisable(GL_BLEND);
-//        glDisable(GL_DEPTH_TEST);
-//        const auto &shader = shaderProgram("screen-debug");
-//        if (shader) {
-//            shader->use();
-//
-//            auto smoothNormalTex = resources.smoothNormalsTexture.lock();
-//            smoothNormalTex->bindActive(0);
-//
-//            m_screenSpacedVAO->bind();
-//            m_screenSpacedVAO->drawArrays(GL_TRIANGLES, 0, 6);
-//
-//            VertexArray::unbind();
-//
-//            smoothNormalTex->unbindActive(0);
-//        }
-//    }
-//#endif
 }
