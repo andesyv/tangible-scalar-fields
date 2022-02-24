@@ -124,8 +124,11 @@ vec3 calculateNormalFromHeightMap(ivec2 texelCoord, sampler2D texture){
     float right = texelFetch(texture, ivec2(texelCoord.x+1, texelCoord.y), 0).r;
 
     // reconstruct normal
-    vec3 normal = vec3((left-right)/2,(bottom-top)/2, 1);
-    return normalize(normal);
+    // vec3 normal = vec3((left-right)/2,(bottom-top)/2, 1); <- Incorrent because if assumes normalized vectors
+    vec3 tangent = normalize(vec3(1.0, 0.0, right - left));
+    vec3 bitangent = normalize(vec3(0., 1.0, top - bottom));
+
+    return normalize(cross(tangent, bitangent));
 }
 //---------------------------------------------------------------------------------------------------------------
 

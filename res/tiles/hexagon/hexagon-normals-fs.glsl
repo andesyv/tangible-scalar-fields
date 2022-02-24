@@ -73,7 +73,7 @@ void main()
     
    // get value from density normals texture
     vec4 normal = vec4(calculateNormalFromHeightMap(ivec2(gl_FragCoord.xy), kdeTexture), 1.0);
-    fragmentNormal = normal;
+    const vec3 f_normal = normal.xyz;
     normal *= bufferAccumulationFactor;
 
     // accumulate fragment normals
@@ -89,5 +89,5 @@ void main()
     atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)], int(kdeHeight));
 
     // Multiply fragment normal by kdeheight (alpha is used to determine normal length)
-    fragmentNormal = vec4(fragmentNormal.rgb * 0.5 + 0.5, kdeHeight * 0.01);
+    fragmentNormal = vec4(f_normal * 0.5 + 0.5, kdeHeight * 0.0001);
 }

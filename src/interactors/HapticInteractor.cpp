@@ -13,6 +13,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <imgui.h>
 
@@ -106,14 +107,30 @@ get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<
     return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
 };
 
+// Uses the quaternion between two vectors to spherically interpolate between them. (quite more expensive than lerp)
+template<typename T>
+glm::vec<3, T, glm::defaultp>
+slerp(const glm::vec<3, T, glm::defaultp> &a, const glm::vec<3, T, glm::defaultp> &b, T t) {
+    const auto q = glm::angleAxis(t * std::acos(glm::dot(a, b)), glm::normalize(glm::cross(a, b)));
+    return q * a;
+}
+
 glm::vec4 scaling_mix(const glm::vec4 &a, const glm::vec4 &b, float t) {
-    const auto &c = glm::mix(a, b, t);
     const auto diff = b.w - a.w;
-    return glm::vec4{c.x, c.y, 0.001f < std::abs(diff) ? c.z / diff : c.z, c.w};
+    if (0.001f < std::abs(diff))
+        return glm::vec4{
+                slerp(glm::normalize(glm::vec3{a.x, a.y, a.z / diff}), glm::normalize(glm::vec3{b.x, b.y, b.z / diff}),
+                      t), // Maybe unnecessary to normalize here
+                std::lerp(a.w, b.w, t)
+        };
+    else
+        return glm::vec4{
+                slerp(glm::vec3{a}, glm::vec3{b}, t), // Maybe unnecessary to normalize here
+                std::lerp(a.w, b.w, t)
+        };
 };
 
 // Bi-linear interpolation of pixel
-template<bool SCALE_NORMAL = false>
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
     const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord) {
         return get_pixel(coord, tex_dims, tex_data);
@@ -136,18 +153,10 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
     const auto n_ab = glm::vec4{glm::vec3{*ab} * 2.f - 1.f, ab->w};
     const auto n_bb = glm::vec4{glm::vec3{*bb} * 2.f - 1.f, bb->w};
 
-    glm::vec4 s;
-    if constexpr (SCALE_NORMAL) {
-        s = scaling_mix(
-                scaling_mix(n_aa, n_ba, f_pixel_coord.x),
-                scaling_mix(n_ab, n_bb, f_pixel_coord.x),
-                f_pixel_coord.y);
-    } else {
-        s = glm::mix(
-                glm::mix(n_aa, n_ba, f_pixel_coord.x),
-                glm::mix(n_ab, n_bb, f_pixel_coord.x),
-                f_pixel_coord.y);
-    }
+    glm::vec4 s = glm::mix(
+            glm::mix(n_aa, n_ba, f_pixel_coord.x),
+            glm::mix(n_ab, n_bb, f_pixel_coord.x),
+            f_pixel_coord.y);
 
     return glm::any(glm::isnan(s)) ? glm::vec4{0.f} : s;
 }
@@ -192,8 +201,8 @@ auto
 sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
                      const std::vector<glm::vec4> &tex_data,
                      glm::uint mip_map_level = 0, float surface_softness = 0.f, float surface_height = 1.f) {
-    const auto value = sample_tex<true>(glm::vec2{relative_coords}, tex_dims, tex_data);
-    float height = relative_coords.z - value.w * 0.01f * surface_height;
+    const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
+    float height = relative_coords.z - value.w * surface_height;
     // If dist is positive, it means we're above the surface = no force applied
     if (0.f < height)
         return glm::vec3{0.f};
@@ -226,10 +235,10 @@ sample_surface_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dim
         return glm::vec3{0.f};
 
     // Find distance to surface (not the same as height, as that is projected down):
-    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
+//    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
 
     // Final force, the amount we want to push outwards (not along the surface) = normal * dist * softness_interpolation
-    return normal * dist * softness_interpolation;
+    return normal * softness_interpolation;
 }
 
 auto sphere_sample_surface_force(float sphere_radius, const glm::vec3 &pos,
@@ -342,6 +351,14 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
     TextureMipMaps normal_tex_mip_maps;
     constexpr double EPSILON = 0.001;
     auto last_t = chr::steady_clock::now();
+    // right = y, up = z, forward = -x
+    // Converts from the Novint falcon's coordinate system (up=z), to our (up=y)
+    const glm::dmat3 haptic_to_local{
+            glm::dvec3{0., 0., 1.},
+            glm::dvec3{1., 0., 0.},
+            glm::dvec3{0., 1., 0.}
+    };
+    const auto local_to_haptic = glm::inverse(haptic_to_local);
 
 #ifdef DHD
     auto last_time = dhdGetTime();
@@ -371,8 +388,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 
             // Update max_bound for transformation calculation:
             max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
-            // right = y, up = z, forward = -x
-            local_pos = glm::vec3{local_pos.y, local_pos.z, local_pos.x};
+            local_pos = haptic_to_local * local_pos;
 #else
             auto current_t = chr::steady_clock::now();
             constexpr auto MOVE_SPEED = 0.003;
@@ -396,7 +412,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                     max_bound; // [0, max_bound] -> [0, 10]
 
             world_pos = (haptic_params.input_space.load() == 0 ? glm::mat3{1.f} : haptic_params.view_mat.load()) *
-                                          (local_pos * scale_mult);
+                        (local_pos * scale_mult);
         }
 
         {
@@ -463,6 +479,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 #ifdef DHD
         {
             PROFILE("Haptic - Set force");
+            // Convert force from world space into the space of the haptic device
+            force = local_to_haptic * force;
             dhdSetForce(force.x, force.y, force.z);
         }
 #else
@@ -584,7 +602,7 @@ void HapticInteractor::display() {
             if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1000.f))
                 m_params.friction_scale.store(friction_scale);
         }
-        if (ImGui::Combo("Input space", &input_space, "X Aligned\0Camera Aligned")) {
+        if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned")) {
             m_params.input_space.store(input_space);
         }
 
