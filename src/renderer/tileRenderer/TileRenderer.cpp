@@ -706,11 +706,9 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
 //    frame_data.texture->generateMipmap();
 //    viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
 
-    // Mark this "round-robin" pass available for the next frame
-    if (!frame_data.transfer_buffer) {
-        frame_data.transfer_buffer = Buffer::create();
-        frame_data.step = 0;
-    }
+    // Mark this "round-robin" pass available for the next frame (overwriting and ignoring if the frame wasn't finished)
+    frame_data.transfer_buffer = Buffer::create();
+    frame_data.step = 0;
 }
 
 void TileRenderer::tileRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize,
@@ -1438,7 +1436,6 @@ bool TileRenderer::offscreen_render() {
         return true;
 
     if (frame_data.step == 0) {
-        assert(!frame_data.pass_sync && "pass sync is not empty");
         BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
         // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(
@@ -1507,7 +1504,6 @@ bool TileRenderer::offscreen_render() {
                                             levels.at(i).second.data());
 
             viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
-            std::cout << "mip maps updated!" << std::endl;
             ++frame_data.step;
 
             // We've finished all our work, mark as completed:

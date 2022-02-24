@@ -24,10 +24,12 @@
 
 using namespace molumes;
 namespace chr = std::chrono;
+using namespace std::chrono_literals;
 
 #ifdef FAKE_HAPTIC
-int KEY_HORIZONTAL_AXIS = 0;
-int KEY_VERTICAL_AXIS = 0;
+int KEY_X_AXIS = 0;
+int KEY_Y_AXIS = 0;
+int KEY_Z_AXIS = 0;
 #endif
 
 template<typename T, typename U>
@@ -335,10 +337,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                  std::promise<bool> &&setup_results,
                  ReaderChannel<TextureMipMaps> &&normal_tex_channel,
                  std::atomic<glm::mat4> &m_view_mat) {
-    auto&[global_pos, global_force, interaction_bounds, max_force, surface_softness, sphere_kernel_radius,
-    friction_scale, surface_height, enable_force, sphere_kernel_enabled, enable_friction, uniform_friction,
-    mip_map_level] = haptic_params;
-    glm::dvec3 local_pos{0.0};
+    glm::dvec3 local_pos{0.0}, old_local_pos, delta_pos;
     bool force_enabled = false;
     double max_bound = 0.01;
     TextureMipMaps normal_tex_mip_maps;
@@ -364,7 +363,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
     setup_results.set_value(true);
 #endif
 
-    for (; !simulation_should_end.stop_requested(); /*std::this_thread::sleep_for(std::chrono::microseconds{1})*/) {
+    while (!simulation_should_end.stop_requested()) {
         // Query for position (actual rate of querying from hardware is controlled by underlying SDK)
         {
             PROFILE("Haptic - Fetch position");
@@ -373,14 +372,22 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 
             // Update max_bound for transformation calculation:
             max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
+            delta_pos = local_pos - old_local_pos;
+            const auto temp_pos = local_pos;
+            // Overrite local_position to be the last position + delta position
+            local_pos = old_local_pos + delta_pos;
+            // Save current position as old one
+            old_local_pos = temp_pos;
 #else
             auto current_t = chr::steady_clock::now();
-            constexpr auto MOVE_SPEED = 0.01;
+            constexpr auto MOVE_SPEED = 0.003;
             const auto delta_t =
                     static_cast<double>(chr::duration_cast<chr::microseconds>(current_t - last_t).count()) * 0.000001;
             last_t = current_t;
-            const auto disp = m_view_mat.load() * glm::vec4{KEY_HORIZONTAL_AXIS, 0., -KEY_VERTICAL_AXIS, 0.0};
+            const auto disp = (haptic_params.input_space.load() == 0 ? glm::mat4{1.f} : m_view_mat.load()) *
+                              glm::vec4{KEY_X_AXIS, KEY_Y_AXIS, -KEY_Z_AXIS, 0.0};
             local_pos += glm::dvec3{disp} * delta_t * MOVE_SPEED;
+//            (haptic_params.input_space.load() == 0 ? glm::mat4{1.f} : m_view_mat.load())
 #endif
         }
 
@@ -391,13 +398,15 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
             // right = y, up = z, forward = -x
             const auto scale_mult =
-                    interaction_bounds.load(std::memory_order_relaxed) / max_bound; // [0, max_bound] -> [0, 10]
+                    haptic_params.interaction_bounds.load(std::memory_order_relaxed) /
+                    max_bound; // [0, max_bound] -> [0, 10]
+            local_pos = old_local_pos + delta_pos;
             pos = local_pos * scale_mult;
         }
 
         {
             PROFILE("Haptic - Global pos");
-            global_pos.store(pos);
+            haptic_params.finger_pos.store(pos);
         }
 
         {
@@ -411,16 +420,17 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         glm::dvec3 force{0.0};
         {
             PROFILE("Haptic - Sample force");
-            force = sample_force(max_force.load(), surface_softness.load(), sphere_kernel_radius.load(),
-                                 friction_scale.load(), surface_height.load(), sphere_kernel_enabled.load(),
-                                 enable_friction.load(), uniform_friction.load(), mip_map_level.load(),
-                                 normal_tex_mip_maps, pos);
+            force = sample_force(haptic_params.max_force.load(), haptic_params.surface_softness.load(),
+                                 haptic_params.sphere_kernel_radius.load(), haptic_params.friction_scale.load(),
+                                 haptic_params.surface_height_multiplier.load(), haptic_params.sphere_kernel.load(),
+                                 haptic_params.friction.load(), haptic_params.uniform_friction.load(),
+                                 haptic_params.mip_map_level.load(), normal_tex_mip_maps, pos);
 
         }
 
         {
             PROFILE("Haptic - Globel force");
-            global_force.store(force);
+            haptic_params.force.store(force);
         }
 
 #if defined(DHD) && !defined(NDEBUG)
@@ -433,7 +443,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 
         if (force_enabled) {
             PROFILE("Haptic - Disable force");
-            if (!enable_force.load()) {
+            if (!haptic_params.enable_force.load()) {
 #ifdef DHD
                 dhdEnableForce(DHD_OFF);
 #endif
@@ -444,7 +454,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         } else {
             PROFILE("Haptic - Enable force");
             // Wait to apply force until we've arrived at a safe space
-            if (enable_force.load() && glm::length(force) < EPSILON) {
+            if (haptic_params.enable_force.load() && glm::length(force) < EPSILON) {
 #ifdef DHD
                 dhdEnableForce(DHD_ON);
 #endif
@@ -460,6 +470,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             PROFILE("Haptic - Set force");
             dhdSetForce(force.x, force.y, force.z);
         }
+#else
+        std::this_thread::sleep_for(1us);
 #endif
     }
 
@@ -515,13 +527,17 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
 #ifdef FAKE_HAPTIC
     else if (!m_ctrl) {
         if (key == GLFW_KEY_RIGHT)
-            KEY_HORIZONTAL_AXIS += inc - dec;
+            KEY_X_AXIS += inc - dec;
         else if (key == GLFW_KEY_LEFT)
-            KEY_HORIZONTAL_AXIS -= inc - dec;
+            KEY_X_AXIS -= inc - dec;
+        else if (key == GLFW_KEY_PAGE_UP)
+            KEY_Y_AXIS += inc - dec;
+        else if (key == GLFW_KEY_PAGE_DOWN)
+            KEY_Y_AXIS -= inc - dec;
         else if (key == GLFW_KEY_UP)
-            KEY_VERTICAL_AXIS += inc - dec;
+            KEY_Z_AXIS += inc - dec;
         else if (key == GLFW_KEY_DOWN)
-            KEY_VERTICAL_AXIS -= inc - dec;
+            KEY_Z_AXIS -= inc - dec;
     }
 #endif
 }
@@ -540,6 +556,7 @@ void HapticInteractor::display() {
         int friction_type = m_params.friction.load() ? (m_params.uniform_friction.load() ? 1 : 2) : 0;
         float friction_scale = m_params.friction_scale.load();
         m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
+        int input_space = static_cast<unsigned int>(m_params.input_space.load());
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -571,6 +588,9 @@ void HapticInteractor::display() {
             }
             if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1000.f))
                 m_params.friction_scale.store(friction_scale);
+        }
+        if (ImGui::Combo("Input space", &input_space, "X Aligned\0Camera Aligned")) {
+            m_params.input_space.store(input_space);
         }
 
         ImGui::EndMenu();
