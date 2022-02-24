@@ -17,6 +17,8 @@
 
 #include <imgui.h>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 
 using namespace gl;
 using namespace molumes;
@@ -43,9 +45,8 @@ const auto stateGuard = []() {
 };
 
 // https://stackoverflow.com/questions/1505675/power-of-an-integer-in-c
-template <unsigned int p>
-int constexpr pow(const int x)
-{
+template<unsigned int p>
+int constexpr pow(const int x) {
     if constexpr (p == 0) return 1;
     if constexpr (p == 1) return x;
 
@@ -72,11 +73,11 @@ constexpr auto vec_insert(T &container, const Ts &... rest) {
  * Why C++ thought it was a good idea to have the rvalue sign be the same as the universal reference is beyond me.
  * Cause now you have to explicitly delete lvalue referenced template functions to disallow non-move semantics.
  */
-template <typename T, typename ... Ts>
-constexpr T vec_cat(T& container, const Ts&... rest) = delete;
+template<typename T, typename ... Ts>
+constexpr T vec_cat(T &container, const Ts &... rest) = delete;
 
-template <typename T, typename ... Ts>
-constexpr T vec_cat(T&& container, const Ts&... rest) {
+template<typename T, typename ... Ts>
+constexpr T vec_cat(T &&container, const Ts &... rest) {
     vec_insert(container, rest...);
     return std::move(container); // NOLINT(bugprone-move-forwarding-reference)
 }
@@ -133,7 +134,7 @@ subdivide_plane(const std::vector<std::pair<glm::vec3, glm::vec2>> &quad, unsign
     return std::vector<PointType>{concatted_points.begin(), concatted_points.end()};
 }
 
-template <std::size_t I>
+template<std::size_t I>
 constexpr auto create_subdivided_plane() {
     constexpr std::size_t count = pow<I>(4);
     std::array<std::pair<glm::vec3, glm::vec2>, count> vertices;
@@ -198,6 +199,8 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
 
     subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, [this](unsigned int level) { m_mip_map_level = level; });
     subscribe(*viewer, &HapticInteractor::m_ui_surface_height_multiplier, [this](float m) { m_height_multiplier = m; });
+    subscribe(*viewer, &HapticInteractor::m_ui_gradual_surface_accuracy_mode,
+              [this](bool b) { m_gradual_surface_accuracy_mode = b; });
 }
 
 void GridSurfaceRenderer::display() {
@@ -223,6 +226,10 @@ void GridSurfaceRenderer::display() {
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
+    if (m_gradual_surface_accuracy_mode) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
 
     glPolygonMode(GL_FRONT, GL_FILL);
     glPolygonMode(GL_BACK, GL_LINE);
@@ -236,14 +243,30 @@ void GridSurfaceRenderer::display() {
 
         BindActiveGuard _g{smoothNormalTex, 0};
 
-        shader->setUniform("MVP", MVP);
-        shader->setUniform("tesselation", tesselation);
-        shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
-        shader->setUniform("surface_height", m_height_multiplier);
-
         constexpr auto vertex_count = static_cast<GLsizei>(pow<PLANE_SUBDIVISION>(4));
         glPatchParameteri(GL_PATCH_VERTICES, 4);
-        m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
+
+        shader->setUniform("tesselation", tesselation);
+        shader->setUniform("surface_height", m_height_multiplier);
+
+        if (m_gradual_surface_accuracy_mode) {
+            for (int i = 0; i < HapticMipMapLevels; ++i) {
+                const auto t = static_cast<float>(i) / static_cast<float>(HapticMipMapLevels - 1);
+                const auto mvp = glm::translate(MVP, glm::vec3{0.f, 0.f, std::lerp(-0.5f, 0.5f, t)});
+
+                shader->setUniform("MVP", mvp);
+                shader->setUniform("mip_map_level", static_cast<float>(i));
+                shader->setUniform("opacity", 1.f - t);
+
+                m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
+            }
+        } else {
+            shader->setUniform("MVP", MVP);
+            shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
+            shader->setUniform("opacity", 1.f);
+
+            m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
+        }
 
         glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }

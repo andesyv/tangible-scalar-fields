@@ -569,7 +569,7 @@ void HapticInteractor::display() {
         int friction_type = m_params.friction.load() ? (m_params.uniform_friction.load() ? 1 : 2) : 0;
         float friction_scale = m_params.friction_scale.load();
         m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
-        int input_space = static_cast<unsigned int>(m_params.input_space.load());
+        int input_space = static_cast<int>(m_params.input_space.load());
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -602,8 +602,11 @@ void HapticInteractor::display() {
             if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1000.f))
                 m_params.friction_scale.store(friction_scale);
         }
-        if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned")) {
+        if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
+        if (ImGui::Checkbox("Gradual surface accuracy mode", &m_ui_gradual_surface_accuracy_mode)) {
+            m_params.gradual_surface_accuracy.store(m_ui_gradual_surface_accuracy_mode);
+            viewer()->BROADCAST(&HapticInteractor::m_ui_gradual_surface_accuracy_mode);
         }
 
         ImGui::EndMenu();

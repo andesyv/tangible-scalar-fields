@@ -25,6 +25,7 @@ namespace molumes {
         std::unique_ptr<globjects::VertexArray> m_planeVAO, m_screenSpacedVAO;
         unsigned int m_mip_map_level{0};
         float m_height_multiplier{1.f};
+        bool m_gradual_surface_accuracy_mode{false};
     };
 }
 

@@ -24,7 +24,8 @@ namespace molumes {
             std::atomic<glm::vec3> finger_pos, force;
             std::atomic<float> interaction_bounds{1.f}, max_force{1.f}, surface_softness{0.018f},
                     sphere_kernel_radius{0.01f}, friction_scale{3.f}, surface_height_multiplier{1.f};
-            std::atomic<bool> enable_force{false}, sphere_kernel{false}, friction{false}, uniform_friction{false};
+            std::atomic<bool> enable_force{false}, sphere_kernel{false}, friction{false}, uniform_friction{false},
+                    gradual_surface_accuracy{false};
             std::atomic<unsigned int> mip_map_level{0}, input_space{0};
             std::atomic<glm::mat3> view_mat;
         };
@@ -51,7 +52,7 @@ namespace molumes {
 
         void display() override;
 
-        template <std::size_t N = HapticMipMapLevels>
+        template<std::size_t N = HapticMipMapLevels>
         static std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, N>
         generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
             std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, N> levels;
@@ -66,6 +67,7 @@ namespace molumes {
         unsigned int m_mip_map_ui_level{0};
         glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
         float m_ui_sphere_kernel_size{0.01f}, m_ui_surface_height_multiplier{1.f};
+        bool m_ui_gradual_surface_accuracy_mode{false};
     };
 }
 
