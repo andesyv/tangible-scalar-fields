@@ -26,13 +26,13 @@ namespace molumes {
                     sphere_kernel_radius{0.01f}, friction_scale{3.f}, surface_height_multiplier{1.f};
             std::atomic<bool> enable_force{false}, sphere_kernel{false}, friction{false}, uniform_friction{false};
             std::atomic<unsigned int> mip_map_level{0}, input_space{0};
+            std::atomic<glm::mat3> view_mat;
         };
 
     private:
         std::jthread m_thread;
         HapticParams m_params;
         bool m_haptic_enabled{false};
-        std::atomic<glm::mat4> m_view_mat;
 
         static std::pair<glm::uvec2, std::vector<glm::vec4>>
         generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data);

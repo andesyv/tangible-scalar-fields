@@ -312,7 +312,7 @@ glm::dvec3 sample_force(float max_force, float surface_softness, float sphere_ke
                 glm::dvec3{sample_tex(glm::vec2{*coords}, friction_dims, friction_data)} * 2.0 - 1.0);
         static auto last_normal = current_normal;
 
-        // Should'nt be possible for coords to be negative
+        // Shouldn't be possible for coords to be negative
         assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})));
 
 //        if (!glm::any(glm::isnan(current_normal))) {
@@ -335,9 +335,8 @@ glm::dvec3 sample_force(float max_force, float surface_softness, float sphere_ke
 
 void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor::HapticParams &haptic_params,
                  std::promise<bool> &&setup_results,
-                 ReaderChannel<TextureMipMaps> &&normal_tex_channel,
-                 std::atomic<glm::mat4> &m_view_mat) {
-    glm::dvec3 local_pos{0.0}, old_local_pos, delta_pos;
+                 ReaderChannel<TextureMipMaps> &&normal_tex_channel) {
+    glm::dvec3 local_pos{0.0};
     bool force_enabled = false;
     double max_bound = 0.01;
     TextureMipMaps normal_tex_mip_maps;
@@ -372,41 +371,37 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 
             // Update max_bound for transformation calculation:
             max_bound = max(std::abs(local_pos.x), std::abs(local_pos.y), std::abs(local_pos.z), max_bound);
-            delta_pos = local_pos - old_local_pos;
-            const auto temp_pos = local_pos;
-            // Overrite local_position to be the last position + delta position
-            local_pos = old_local_pos + delta_pos;
-            // Save current position as old one
-            old_local_pos = temp_pos;
+            // right = y, up = z, forward = -x
+            local_pos = glm::vec3{local_pos.y, local_pos.z, local_pos.x};
 #else
             auto current_t = chr::steady_clock::now();
             constexpr auto MOVE_SPEED = 0.003;
             const auto delta_t =
                     static_cast<double>(chr::duration_cast<chr::microseconds>(current_t - last_t).count()) * 0.000001;
             last_t = current_t;
-            const auto disp = (haptic_params.input_space.load() == 0 ? glm::mat4{1.f} : m_view_mat.load()) *
-                              glm::vec4{KEY_X_AXIS, KEY_Y_AXIS, -KEY_Z_AXIS, 0.0};
+            const auto disp = glm::vec3{KEY_X_AXIS, KEY_Y_AXIS, -KEY_Z_AXIS};
             local_pos += glm::dvec3{disp} * delta_t * MOVE_SPEED;
-//            (haptic_params.input_space.load() == 0 ? glm::mat4{1.f} : m_view_mat.load())
 #endif
         }
 
-        glm::vec3 pos;
+        glm::vec3 world_pos;
         {
             PROFILE("Haptic - Transform space");
             // Transform to scene space:
             // Novint Falcon is in 10x10x10cm space = 0.1x0.1x0.1m = [-0.05, 0.05] m^3'
-            // right = y, up = z, forward = -x
+
+            // Scaling multiplication factor to be applied to local coordinates
             const auto scale_mult =
                     haptic_params.interaction_bounds.load(std::memory_order_relaxed) /
                     max_bound; // [0, max_bound] -> [0, 10]
-            local_pos = old_local_pos + delta_pos;
-            pos = local_pos * scale_mult;
+
+            world_pos = (haptic_params.input_space.load() == 0 ? glm::mat3{1.f} : haptic_params.view_mat.load()) *
+                                          (local_pos * scale_mult);
         }
 
         {
             PROFILE("Haptic - Global pos");
-            haptic_params.finger_pos.store(pos);
+            haptic_params.finger_pos.store(world_pos);
         }
 
         {
@@ -424,12 +419,12 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                  haptic_params.sphere_kernel_radius.load(), haptic_params.friction_scale.load(),
                                  haptic_params.surface_height_multiplier.load(), haptic_params.sphere_kernel.load(),
                                  haptic_params.friction.load(), haptic_params.uniform_friction.load(),
-                                 haptic_params.mip_map_level.load(), normal_tex_mip_maps, pos);
+                                 haptic_params.mip_map_level.load(), normal_tex_mip_maps, world_pos);
 
         }
 
         {
-            PROFILE("Haptic - Globel force");
+            PROFILE("Haptic - Global force");
             haptic_params.force.store(force);
         }
 
@@ -499,7 +494,7 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
     std::promise<bool> setup_results{};
     auto haptics_enabled = setup_results.get_future();
     m_thread = std::jthread{haptic_loop, std::ref(m_params), std::move(setup_results),
-                            std::move(normal_tex_channel), std::ref(m_view_mat)};
+                            std::move(normal_tex_channel)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
 }
@@ -596,13 +591,12 @@ void HapticInteractor::display() {
         ImGui::EndMenu();
     }
 
+    m_params.view_mat.store(glm::mat3{glm::inverse(viewer()->viewTransform())});
 
     m_haptic_global_pos = m_params.finger_pos.load();
     m_haptic_global_force = m_params.force.load();
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_pos);
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_force);
-
-    m_view_mat.store(glm::inverse(viewer()->viewTransform()));
 
     // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection
     static auto last_haptic_enabled = m_haptic_enabled;
