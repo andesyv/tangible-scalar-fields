@@ -25,6 +25,7 @@ vec3 rgb2hsv(vec3 c)
     return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
 }
 
+// HSL/HSV conversion functions taken from http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl by Sam Hocevar and Emil Persson
 vec3 hsv2rgb(vec3 c)
 {
     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
@@ -35,10 +36,10 @@ vec3 hsv2rgb(vec3 c)
 void main() {
     const ivec2 texSize = textureSize(normalTex, 0);
     vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb;
-//    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
-//    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
+    //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
+    //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
     vec3 hsv = rgb2hsv(normal);
     hsv.r *= opacity;
     fragColor = vec4(hsv2rgb(hsv), opacity * opacity);
-//    fragColor = vec4(floor(uv * 10.0) * 0.1, 0.0, 1.0);
+    //    fragColor = vec4(floor(uv * 10.0) * 0.1, 0.0, 1.0);
 }
