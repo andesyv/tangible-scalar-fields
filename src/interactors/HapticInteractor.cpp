@@ -411,7 +411,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                     haptic_params.interaction_bounds.load(std::memory_order_relaxed) /
                     max_bound; // [0, max_bound] -> [0, 10]
 
-            world_pos = (haptic_params.input_space.load() == 0 ? glm::mat3{1.f} : haptic_params.view_mat.load()) *
+            world_pos = (haptic_params.input_space.load() == 0 ? glm::mat3{1.f} : haptic_params.view_mat_inv.load()) *
                         (local_pos * scale_mult);
         }
 
@@ -480,7 +480,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         {
             PROFILE("Haptic - Set force");
             // Convert force from world space into the space of the haptic device
-            force = local_to_haptic * force;
+            force = local_to_haptic * (haptic_params.input_space.load() == 0 ? glm::dmat3{1.0} : haptic_params.view_mat.load()) * force;
             dhdSetForce(force.x, force.y, force.z);
         }
 #else
@@ -612,7 +612,8 @@ void HapticInteractor::display() {
         ImGui::EndMenu();
     }
 
-    m_params.view_mat.store(glm::mat3{glm::inverse(viewer()->viewTransform())});
+    m_params.view_mat.store(glm::dmat3{viewer()->viewTransform()});
+    m_params.view_mat_inv.store(glm::mat3{glm::inverse(viewer()->viewTransform())});
 
     m_haptic_global_pos = m_params.finger_pos.load();
     m_haptic_global_force = m_params.force.load();

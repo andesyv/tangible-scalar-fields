@@ -14,6 +14,7 @@ vec2 aspectRatioCorrectedTexCoords(ivec2 texSize, vec2 texCoords) {
     return vec2((texCoords.x * 2.0 - 1.0) / ratio * 0.5 + 0.5, texCoords.y);
 }
 
+// HSL/HSV conversion functions taken from http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl by Sam Hocevar and Emil Persson
 vec3 rgb2hsv(vec3 c)
 {
     vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -25,7 +26,6 @@ vec3 rgb2hsv(vec3 c)
     return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
 }
 
-// HSL/HSV conversion functions taken from http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl by Sam Hocevar and Emil Persson
 vec3 hsv2rgb(vec3 c)
 {
     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);

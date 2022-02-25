@@ -1054,8 +1054,8 @@ void TileRenderer::renderGUI() {
         ImGui::Checkbox("Render KDE", &m_renderKDE);
         ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
         ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
-        ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 10.0f);
-        ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 100.0f);
+        ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 50.0f);
+        ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 500.0f);
         ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
         ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 1.0f, 20.0f);
         // the borderWidth cannot go from 0-1

@@ -27,7 +27,8 @@ namespace molumes {
             std::atomic<bool> enable_force{false}, sphere_kernel{false}, friction{false}, uniform_friction{false},
                     gradual_surface_accuracy{false};
             std::atomic<unsigned int> mip_map_level{0}, input_space{0};
-            std::atomic<glm::mat3> view_mat;
+            std::atomic<glm::mat3> view_mat_inv;
+            std::atomic<glm::dmat3> view_mat;
         };
 
     private:
