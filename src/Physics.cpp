@@ -134,29 +134,19 @@ glm::vec4 sphere_sample_tex(const glm::vec3 &pos, float sphere_radius, const glm
     return sum * (1.f / 9.f);
 }
 
-auto estimate_force(std::array<molumes::SimulationStepData, 2> last_steps, double mass_scale = 1.0) {
-    /** Estimating user force:
-     * Net acceleration would be: a = delta_velocity / delta_time = (v_1 - v_0) / delta_time
-     * Acceleration since last frame is therefore: (velocity this frame - velocity last frame) / time since last frame
-     * Force is F = ma, meaning the force applied since last frame is:
-     * F = mass * (velocity this frame - velocity last frame) / time since last frame
-     * We don't know the mass, so we use that as a force/friction scaling user parameter
-     * We also apply force each frame it touches something (in the opposite direction), so the applied force this frame is:
-     * F = -force applied last frame + force scaling parameter * (velocity this frame - velocity last frame) / time since last frame
+auto estimate_user_force(std::array<molumes::SimulationStepData, 2> last_steps, const glm::dvec3 &normal_force,
+                         double friction_scale, const glm::dvec3 &up = glm::dvec3{0.0, 1.0, 0.0}) {
+    /** If the end-effector is stationary situated on the surface, the applied force can be found from the normal force
+     * pushing away from the surface:
+     * F_n = F_u * cos(angle) => F_u = F_n / cos(angle) => F_u = F_n / dot(|n|, |up|)
+     *
+     * F = F_u + F_n + F_fr = a * m => F_u = a * m - F_n - F_fr = a * m - F_n - F_n * u
+     * F_u = a * m - F_n (1 + u)
      */
 
-    /**
-     * Note: Since velocity is calculated as difference in current and last position, acceleration gets is calculated as:
-     * a = (v_1 - v_0) / t_1 = ((p_2 - p_1) / t_1 - (p_1 - p_0) / t_0) / t_1
-     * meaning the average acceleration over last 3 steps. Maybe it would also be beneficial to then also use the
-     * average force over the last 3 steps?
-     */
-
-    // Estimate acceleration:
-    // Same as (last_steps[1].velocity - last_steps[0].velocity) / (last_steps[1].delta_us / 1000000.0):
-    const auto a = (last_steps[1].velocity - last_steps[0].velocity) *
-                   (1000000.0 / static_cast<double>(last_steps[1].delta_us));
-    return mass_scale * a - last_steps[1].force;
+    const auto n_len = glm::length(normal_force);
+    const auto n = normal_force * (1.0 / n_len);
+    return n_len / glm::dot(n, up);
 }
 
 /**
@@ -165,7 +155,7 @@ auto estimate_force(std::array<molumes::SimulationStepData, 2> last_steps, doubl
  * @return A dvec3 containing normal force, or std::nullopt if there's no force
  */
 std::optional<glm::dvec3> sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
-                                              const std::vector<glm::vec4> &tex_data, glm::dvec3 user_force,
+                                              const std::vector<glm::vec4> &tex_data,
                                               glm::uint mip_map_level = 0, float surface_softness = 0.f,
                                               float surface_height = 1.f) {
     const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
@@ -208,9 +198,7 @@ std::optional<glm::dvec3> sample_normal_force(const glm::vec3 &relative_coords, 
     // Find distance to surface (not the same as height, as that is projected down):
 //    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
 
-    // Normal (constraint) force: F_n = dot(F_u, n)
-    const auto n_k = glm::dot(user_force, glm::dvec3{normal * softness_interpolation});
-    return n_k < 0.0001 ? std::nullopt : std::make_optional(d_normal * n_k);
+    return std::make_optional(glm::dvec3{normal * softness_interpolation});
 }
 
 //auto sphere_sample_surface_force(float sphere_radius, const glm::vec3 &pos,
@@ -258,14 +246,13 @@ calc_friction(double friction_scale, const glm::dvec3 &user_force, const glm::dv
  * 6. Apply sum of forces: F = F_n + F_f + F_g
  */
 glm::dvec3 molumes::sample_force(float max_force, float surface_softness, float friction_scale, float surface_height,
-                        FrictionMode friction_mode, unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
-                        const glm::vec3 &pos, std::array<SimulationStepData, 2> last_steps) {
+                                 FrictionMode friction_mode, unsigned int mip_map_level,
+                                 const TextureMipMaps &tex_mip_maps,
+                                 const glm::dvec3 &pos, std::array<SimulationStepData, 2> last_steps,
+                                 const glm::dmat3 &haptic_mat) {
     const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
-    // 1-2. Estimate force
-    const auto user_force = estimate_force(last_steps);
-
-    const auto coords = opt_relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
+    const auto coords = opt_relative_pos_coords(glm::vec3{pos}, pl_mat, glm::vec2{2.f});
     // Can't calculate a force outside the bounds of the plane, so return no force
     if (!coords)
         return glm::vec3{0.f};
@@ -278,7 +265,7 @@ glm::dvec3 molumes::sample_force(float max_force, float surface_softness, float 
     glm::dvec3 sum_forces{0.0};
 
     // 3-4. Calculate normal (constraint) force
-    const auto normal_force = sample_normal_force(*coords, dims, data, user_force, mip_map_level, surface_softness,
+    const auto normal_force = sample_normal_force(*coords, dims, data, mip_map_level, surface_softness,
                                                   surface_height);
 
     // Early exit of there's no surface force (we're moving through air / empty space)
@@ -286,6 +273,9 @@ glm::dvec3 molumes::sample_force(float max_force, float surface_softness, float 
         return glm::dvec3{0.0};
 
     sum_forces += *normal_force;
+
+    // 1-2. Estimate user force
+    const auto user_force_len = estimate_user_force(last_steps, *normal_force, friction_scale);
 
     // Note: Currently only uniform friction is implemented
     if (friction_mode == FrictionMode::Uniform) {
