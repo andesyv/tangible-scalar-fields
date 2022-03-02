@@ -1,9 +1,13 @@
 #include "Physics.h"
 
 #include <numbers>
+#include <iostream>
+#include <format>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+
+using namespace molumes;
 
 
 // AMD C++ smoothstep function from 0 to 1 (https://en.wikipedia.org/wiki/Smoothstep)
@@ -243,19 +247,36 @@ calc_friction(double friction_scale, const glm::dvec3 &user_force, const glm::dv
     return {f_fr_dir * fr_len};
 }
 
-namespace molumes {
+auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulation_steps, const glm::dvec3 &surface_pos,
+                           double friction_scale, const glm::dvec3 &normal_force) {
+    auto &current_step = simulation_steps.get_from_back<0>();
+    auto &last_step = simulation_steps.get_from_back<1>();
+    current_step.sticktion_point = last_step.sticktion_point;
 
-/** General plan:
- * 1. Estimate user velocity (dhdGetLinearVelocity() )
- * 2. Estimate user force applied to haptic device (using estimated velocity): F_u
- * 2.2 Optionally apply gravity force: F_g
- * (haptic device applies force to make the haptic device stationary, meaning we can add artificial gravity if we'd like)
- * 3. Find surface normal: n
- * 4. Calculate normal (constraint) force. F_n = dot(F_u, n)
- * 5. Calculate friction force:
- * F_f = F_f_dir * F_f_len = (-||F_u + F_n||) * (|F_n| * (if |v| < threshold then u_s else u_k)), where u_k < u_s
- * 6. Apply sum of forces: F = F_n + F_f + F_g
- */
+    const bool entered_surface = 0.f < last_step.surface_height && current_step.surface_height <= 0.f;
+    if (entered_surface) {
+        // Place a "sticktion" point onto the spot where we hit the surface (the projected point)
+        current_step.sticktion_point = surface_pos;
+    }
+
+    // Temporarily just hard coding the kinetic friction scale. It is required that u_k < u_s, but they can both be
+    // arbitrary set to anything that fulfills this requirement.
+    const auto[u_s, u_k] = std::make_pair(friction_scale, friction_scale * 0.5);
+    // Radius of area where friction is static, otherwise kinetic
+    const auto sticktion_radius = glm::length(normal_force) * u_s;
+    const auto f_s = current_step.sticktion_point - surface_pos;
+
+    // static friction if |sticktion_point - surface_pos| < sticktion_radius. Otherwise kinetic
+    if (glm::length(f_s) <= sticktion_radius) {
+        return f_s;
+    } else {
+        const auto f_k = glm::normalize(f_s) * glm::length(normal_force) * u_k;
+        current_step.sticktion_point = surface_pos + f_k;
+        return f_k;
+    }
+}
+
+namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(float max_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
@@ -298,48 +319,29 @@ namespace molumes {
         glm::dvec3 sum_forces{0.0};
 
         // 3-4. Calculate normal (constraint) force
-        const auto[surface_height, normal_force] = sample_normal_force(*coords, dims, data, mip_map_level,
+        const auto[surface_height, opt_normal_force] = sample_normal_force(*coords, dims, data, mip_map_level,
                                                                        surface_height_multiplier);
 
         current_simulation_step.surface_height = surface_height;
 
         // Early exit of there's no surface force (we're moving through air / empty space)
-        if (!normal_force)
+        if (!opt_normal_force)
             return glm::dvec3{0.0};
 
-        sum_forces += soften_surface_normal(*normal_force, surface_height, surface_softness);
+        // Scale normal force with max_force:
+        const auto normal_force = *opt_normal_force * static_cast<double>(max_force);
+        sum_forces += soften_surface_normal(normal_force, surface_height, surface_softness);
 
 //        // 1-2. Estimate user force
 //        const auto user_force_len = estimate_user_force(last_steps, *normal_force, friction_scale);
 
         // Note: Currently only uniform friction is implemented
         if (friction_mode == FrictionMode::Uniform) {
-            current_simulation_step.sticktion_point = m_simulation_steps.get_from_back<1>().sticktion_point;
-            const auto surface_pos = project_to_surface(pos, *normal_force, surface_height);
-
-            const bool entered_surface =
-                    0.f < m_simulation_steps.get_from_back<1>().surface_height && surface_height <= 0.f;
-            if (entered_surface) {
-                // Place a "sticktion" point onto the spot where we hit the surface (the projected point)
-                current_simulation_step.sticktion_point = surface_pos;
-            }
-
-            // Temporarily just hard coding the kinetic friction scale. It is required that u_k < u_s, but they can both be
-            // arbitrary set to anything that fulfills this requirement.
-            const auto[u_s, u_k] = std::make_pair(static_cast<double>(friction_scale),
-                                                  static_cast<double>(friction_scale) * 0.5);
-            // Radius of area where friction is static, otherwise kinetic
-            const auto sticktion_radius = glm::length(*normal_force) * u_s;
-            const auto f_s = current_simulation_step.sticktion_point - surface_pos;
-
-            // static friction if |sticktion_point - surface_pos| < sticktion_radius. Otherwise kinetic
-            if (glm::length(f_s) <= sticktion_radius) {
-                sum_forces += f_s;
-            } else {
-                const auto f_k = glm::normalize(f_s) * glm::length(*normal_force) * u_k;
-                sum_forces += f_k;
-                current_simulation_step.sticktion_point = surface_pos + f_k;
-            }
+            const auto surface_pos = project_to_surface(pos, normal_force, surface_height);
+            const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos, static_cast<double>(friction_scale),
+                                                        normal_force);
+//            std::cout << std::format("friction: {}", glm::length(friction)) << std::endl;
+            sum_forces += friction;
         }
 
         // Optional gravity force:
@@ -353,5 +355,4 @@ namespace molumes {
         const auto f_len = glm::length(sum_forces);
         return max_force < f_len ? (sum_forces * (max_force / f_len)) : sum_forces;
     }
-
 }

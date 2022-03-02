@@ -162,9 +162,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        haptic_params.surface_softness.load(),
                                                                        haptic_params.friction_scale.load(),
                                                                        haptic_params.surface_height_multiplier.load(),
-                                                                       haptic_params.friction.load() &&
-                                                                       haptic_params.uniform_friction.load()
-                                                                       ? FrictionMode::Uniform : FrictionMode::Disabled,
+                                                                       static_cast<FrictionMode>(haptic_params.friction_mode.load()),
                                                                        haptic_params.mip_map_level.load(),
                                                                        normal_tex_mip_maps, world_pos);
         }
@@ -214,7 +212,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             const auto haptic_force = local_to_haptic * (haptic_params.input_space.load() == 0 ? glm::dmat3{1.0}
                                                                                                : haptic_params.view_mat.load()) *
                                       world_force;
-            dhdSetForce(0.0, 0.0, 0.0);
+            dhdSetForce(haptic_force.x, haptic_force.y, haptic_force.z);
         }
 #endif
 
@@ -269,6 +267,8 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
 #ifndef NDEBUG
     else if (key == GLFW_KEY_P && action == GLFW_PRESS)
         Profiler::reset_profiler();
+    else if (key == GLFW_KEY_U && action == GLFW_PRESS)
+        m_params.friction_mode.store(!m_params.friction_mode.load());
 #endif
 
 #ifdef FAKE_HAPTIC
@@ -300,7 +300,7 @@ void HapticInteractor::display() {
         auto softness = m_params.surface_softness.load();
         int kernel_type = m_params.sphere_kernel.load() ? 1 : 0;
         m_ui_sphere_kernel_size = m_params.sphere_kernel_radius.load();
-        int friction_type = m_params.friction.load() ? (m_params.uniform_friction.load() ? 1 : 2) : 0;
+        int friction_type = static_cast<int>(m_params.friction_mode.load());
         float friction_scale = m_params.friction_scale.load();
         m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
         int input_space = static_cast<int>(m_params.input_space.load());
@@ -329,11 +329,9 @@ void HapticInteractor::display() {
                 m_params.sphere_kernel_radius.store(m_ui_sphere_kernel_size);
                 viewer()->BROADCAST(&HapticInteractor::m_ui_sphere_kernel_size);
             }
-            if (ImGui::Combo("Friction", &friction_type, "None\0Uniform\0Directional")) {
-                m_params.friction.store(friction_type != 0);
-                m_params.uniform_friction.store(friction_type == 1);
-            }
-            if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1000.f))
+            if (ImGui::Combo("Friction", &friction_type, "None\0Uniform\0Directional"))
+                m_params.friction_mode.store(static_cast<unsigned int>(friction_type));
+            if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1.f))
                 m_params.friction_scale.store(friction_scale);
         }
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))

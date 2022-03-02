@@ -44,9 +44,9 @@ namespace molumes {
         [[nodiscard]] auto &get_from_back() { return get<I - N - 1>(); }
     };
 
-    enum FrictionMode {
-        Disabled,
-        Uniform
+    enum FrictionMode : unsigned int {
+        Disabled = 0,
+        Uniform = 1
         // Directional
     };
 
