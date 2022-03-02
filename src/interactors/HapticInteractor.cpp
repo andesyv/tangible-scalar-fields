@@ -26,23 +26,6 @@ using namespace molumes;
 namespace chr = std::chrono;
 using namespace std::chrono_literals;
 
-template<typename T, std::size_t I>
-class SizedQueue {
-public:
-    std::array<T, I> m_data;
-
-    void push(T &&elem) {
-        static_assert(0 < I);
-        for (std::size_t i{0}; i + 1 < I; ++i)
-            m_data[i] = std::move(m_data[i + 1]);
-        m_data[I - 1] = std::forward<T>(elem);
-    }
-
-    [[nodiscard]] auto &get() { return m_data; }
-
-    [[nodiscard]] auto get() const { return m_data; }
-};
-
 #ifdef FAKE_HAPTIC
 int KEY_X_AXIS = 0;
 int KEY_Y_AXIS = 0;
@@ -104,8 +87,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             glm::dvec3{0., 1., 0.}
     };
     const auto local_to_haptic = glm::inverse(haptic_to_local);
-    SizedQueue<SimulationStepData, 2> previous_steps{};
-//    SimulationStepData previous_step{.delta_us = 0u, .velocity{0.0}, .force{0.0}};
+    Physics physics_simulation;
 
 #ifdef DHD
     // Initialize haptics device
@@ -176,13 +158,15 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         glm::dvec3 world_force{0.0};
         {
             PROFILE("Haptic - Sample force");
-            world_force = sample_force(haptic_params.max_force.load(), haptic_params.surface_softness.load(),
-                                       haptic_params.friction_scale.load(),
-                                       haptic_params.surface_height_multiplier.load(),
-                                       haptic_params.friction.load() && haptic_params.uniform_friction.load()
-                                       ? FrictionMode::Uniform : FrictionMode::Disabled,
-                                       haptic_params.mip_map_level.load(),
-                                       normal_tex_mip_maps, world_pos, previous_steps.get());
+            world_force = physics_simulation.simulate_and_sample_force(haptic_params.max_force.load(),
+                                                                       haptic_params.surface_softness.load(),
+                                                                       haptic_params.friction_scale.load(),
+                                                                       haptic_params.surface_height_multiplier.load(),
+                                                                       haptic_params.friction.load() &&
+                                                                       haptic_params.uniform_friction.load()
+                                                                       ? FrictionMode::Uniform : FrictionMode::Disabled,
+                                                                       haptic_params.mip_map_level.load(),
+                                                                       normal_tex_mip_maps, world_pos);
         }
 
         {
@@ -233,32 +217,6 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             dhdSetForce(0.0, 0.0, 0.0);
         }
 #endif
-
-        {
-            PROFILE("Haptic - Record step");
-            auto current_t = chr::high_resolution_clock::now();
-            const auto delta_time = chr::duration_cast<chr::microseconds>(current_t - last_t).count();
-            const auto inv_delta_s = 1000000.0 / (static_cast<double>(delta_time));
-            // Estimate velocity for next frame:
-            // Same as (local_pos - previous_step.pos) / (delta_time / 1000000.0):
-            const auto v = (world_pos - previous_steps.get().back().pos) * inv_delta_s;
-            // Estimate acceleration:
-            // Same as (last_steps[1].velocity - last_steps[0].velocity) / (last_steps[1].delta_us / 1000000.0):
-            const auto delta_a = (v - previous_steps.get().back().velocity) * inv_delta_s;
-            previous_steps.push({
-                                        .delta_us = delta_time,
-                                        .pos = world_pos,
-                                        .velocity = v,
-                                        .acceleration = previous_steps.get().back().acceleration + delta_a,
-                                        .force = world_force
-                                });
-            last_t = current_t;
-
-            std::cout << std::format("Previous step: {{ delta_us: {}, pos: {}, velocity: {}, force: {} }}",
-                                     previous_steps.get().back().delta_us, previous_steps.get().back().pos,
-                                     previous_steps.get().back().velocity, previous_steps.get().back().force)
-                      << std::endl;
-        };
 
 #ifdef FAKE_DHD
         std::this_thread::sleep_for(1us);
