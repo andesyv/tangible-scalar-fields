@@ -158,7 +158,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         glm::dvec3 world_force{0.0};
         {
             PROFILE("Haptic - Sample force");
-            world_force = physics_simulation.simulate_and_sample_force(haptic_params.max_force.load(),
+            world_force = physics_simulation.simulate_and_sample_force(haptic_params.surface_force.load(),
                                                                        haptic_params.surface_softness.load(),
                                                                        haptic_params.friction_scale.load(),
                                                                        haptic_params.surface_height_multiplier.load(),
@@ -296,7 +296,7 @@ void HapticInteractor::display() {
         auto interaction_bounds = m_params.interaction_bounds.load();
         auto mip_map_level = static_cast<int>(m_mip_map_ui_level);
         auto enable_force = m_params.enable_force.load();
-        auto max_force = m_params.max_force.load();
+        auto normal_force = m_params.surface_force.load();
         auto softness = m_params.surface_softness.load();
         int kernel_type = m_params.sphere_kernel.load() ? 1 : 0;
         m_ui_sphere_kernel_size = m_params.sphere_kernel_radius.load();
@@ -319,8 +319,8 @@ void HapticInteractor::display() {
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_params.enable_force.store(enable_force);
         if (enable_force) {
-            if (ImGui::SliderFloat("Max haptic force (Newtons)", &max_force, 0.f, 9.f))
-                m_params.max_force.store(max_force);
+            if (ImGui::SliderFloat("Surface force (in Newtons)", &normal_force, 0.f, 9.f))
+                m_params.surface_force.store(normal_force);
             if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 1.f))
                 m_params.surface_softness.store(softness);
             if (ImGui::Combo("Kernel type", &kernel_type, "Point\0Sphere"))

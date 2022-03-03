@@ -41,7 +41,16 @@ namespace molumes {
         }
 
         template<std::size_t N>
+        [[nodiscard]] auto get() const {
+            static_assert(N < I);
+            return m_data[N];
+        }
+
+        template<std::size_t N>
         [[nodiscard]] auto &get_from_back() { return get<I - N - 1>(); }
+
+        template<std::size_t N>
+        [[nodiscard]] auto get_from_back() const { return get<I - N - 1>(); }
     };
 
     enum FrictionMode : unsigned int {
@@ -72,10 +81,11 @@ namespace molumes {
     private:
         SizedQueue<SimulationStepData, 2> m_simulation_steps{};
         std::chrono::high_resolution_clock::time_point m_tp{std::chrono::high_resolution_clock::now()};
+        [[nodiscard]] SimulationStepData& create_simulation_record(const glm::dvec3& pos);
 
     public:
         glm::dvec3
-        simulate_and_sample_force(float max_force, float surface_softness, float friction_scale,
+        simulate_and_sample_force(float surface_force, float surface_softness, float friction_scale,
                                   float surface_height_multiplier,
                                   FrictionMode friction_mode, unsigned int mip_map_level,
                                   const TextureMipMaps &tex_mip_maps,

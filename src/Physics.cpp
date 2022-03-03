@@ -6,9 +6,16 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 using namespace molumes;
 
+template<glm::length_t L, typename T, glm::qualifier Q>
+struct std::formatter<glm::vec<L, T, Q>> : std::formatter<std::string> {
+    auto format(const glm::vec<L, T, Q> &v, format_context &ctx) {
+        return formatter<string>::format(glm::to_string(v), ctx);
+    }
+};
 
 // AMD C++ smoothstep function from 0 to 1 (https://en.wikipedia.org/wiki/Smoothstep)
 float smoothstep(float a, float b, float x) {
@@ -235,6 +242,29 @@ glm::dvec3 project_to_surface(const glm::dvec3 &world_pos, const glm::dvec3 &nor
 //    return sum * (1.f / 9.f);
 //}
 
+Physics::SimulationStepData &Physics::create_simulation_record(const glm::dvec3 &pos) {
+    using namespace std::chrono;
+
+    SimulationStepData &current_simulation_step = m_simulation_steps.emplace();
+    current_simulation_step.pos = pos;
+
+    auto current_tp = high_resolution_clock::now();
+    const auto delta_time = duration_cast<microseconds>(current_tp - m_tp).count();
+    current_simulation_step.delta_us = delta_time;
+    const auto inv_delta_s = 1000000.0 / (static_cast<double>(delta_time));
+    m_tp = current_tp;
+
+    // Estimate velocity for next frame:
+    // Same as (local_pos - previous_step.pos) / (delta_time / 1000000.0):
+    const auto delta_v = (pos - m_simulation_steps.get_from_back<1>().pos) * inv_delta_s;
+    current_simulation_step.velocity = delta_v;
+    // Estimate acceleration:
+    // Same as (last_steps[1].velocity - last_steps[0].velocity) / (last_steps[1].delta_us / 1000000.0):
+    const auto delta_a = (delta_v - m_simulation_steps.get_from_back<1>().velocity) * inv_delta_s;
+    current_simulation_step.acceleration = delta_a;
+    return current_simulation_step;
+}
+
 std::optional<glm::dvec3>
 calc_friction(double friction_scale, const glm::dvec3 &user_force, const glm::dvec3 &normal_force) {
     // F_fr = F_fr_dir * F_fr_len = (-||F_u + F_n||) * (|F_n| * (if |v| < threshold then u_s else u_k)), where u_k < u_s
@@ -262,48 +292,40 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     // Temporarily just hard coding the kinetic friction scale. It is required that u_k < u_s, but they can both be
     // arbitrary set to anything that fulfills this requirement.
     const auto[u_s, u_k] = std::make_pair(friction_scale, friction_scale * 0.5);
-    // Radius of area where friction is static, otherwise kinetic
-    const auto sticktion_radius = glm::length(normal_force) * u_s;
     const auto f_s = current_step.sticktion_point - surface_pos;
+    const auto n_len = glm::length(normal_force);
 
-    // static friction if |sticktion_point - surface_pos| < sticktion_radius. Otherwise kinetic
-    if (glm::length(f_s) <= sticktion_radius) {
-        return f_s;
+    // Since I'm only using velocity as a directional / guiding vector it shouldn't matter whether it's normalized or not
+    auto velocity = current_step.velocity + last_step.velocity;
+    // Project velocity down into plane:
+    velocity = velocity - velocity * (glm::dot(normal_force, velocity) / n_len);
+    const auto v = glm::length(velocity);
+
+    const auto f_s_len = glm::length(f_s);
+    /**
+     * The more force exerted onto the surface, giving a higher normal force, the higher the threshold is for when the
+     * static friction should switch to dynamic friction.
+     */
+    const auto static_distance = n_len * u_s;
+    // If the velocity is above the threshold, we're using kinetic friction. We then want the sticktion point to keep
+    // "hanging" behind our surface point such that we keep maintaining the dynamic friction until we loose momentum
+    if (0.0001 < v && static_distance < v) {
+        const auto f_s_dir = velocity * (-1.0 / v);
+        const auto kinetic_distance = n_len * u_k;
+        current_step.sticktion_point = surface_pos + f_s_dir * kinetic_distance;
+        return f_s * kinetic_distance;
     } else {
-        const auto f_k = glm::normalize(f_s) * glm::length(normal_force) * u_k;
-        current_step.sticktion_point = surface_pos + f_k;
-        return f_k;
+        return f_s * static_distance;
     }
 }
 
 namespace molumes {
-    glm::dvec3 Physics::simulate_and_sample_force(float max_force, float surface_softness, float friction_scale,
+    glm::dvec3 Physics::simulate_and_sample_force(float surface_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
                                                   const glm::dvec3 &pos, const glm::dmat3 &haptic_mat) {
-        using namespace std::chrono;
-
-        SimulationStepData &current_simulation_step = m_simulation_steps.emplace();
-        current_simulation_step.pos = pos;
-
-        auto current_tp = high_resolution_clock::now();
-        const auto delta_time = duration_cast<microseconds>(current_tp - m_tp).count();
-        current_simulation_step.delta_us = delta_time;
-        const auto inv_delta_s = 1000000.0 / (static_cast<double>(delta_time));
-        m_tp = current_tp;
-
-        // Estimate velocity for next frame:
-        // Same as (local_pos - previous_step.pos) / (delta_time / 1000000.0):
-        const auto delta_v = (pos - m_simulation_steps.get_from_back<1>().pos) * inv_delta_s;
-        current_simulation_step.velocity = delta_v;
-        // Estimate acceleration:
-        // Same as (last_steps[1].velocity - last_steps[0].velocity) / (last_steps[1].delta_us / 1000000.0):
-        const auto delta_a = (delta_v - m_simulation_steps.get_from_back<1>().velocity) * inv_delta_s;
-        current_simulation_step.acceleration = delta_a;
-
+        auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
-
-
 
 
         const auto coords = opt_relative_pos_coords(glm::vec3{pos}, pl_mat, glm::vec2{2.f});
@@ -320,7 +342,7 @@ namespace molumes {
 
         // 3-4. Calculate normal (constraint) force
         const auto[surface_height, opt_normal_force] = sample_normal_force(*coords, dims, data, mip_map_level,
-                                                                       surface_height_multiplier);
+                                                                           surface_height_multiplier);
 
         current_simulation_step.surface_height = surface_height;
 
@@ -328,9 +350,10 @@ namespace molumes {
         if (!opt_normal_force)
             return glm::dvec3{0.0};
 
-        // Scale normal force with max_force:
-        const auto normal_force = *opt_normal_force * static_cast<double>(max_force);
-        sum_forces += soften_surface_normal(normal_force, surface_height, surface_softness);
+        // Scale normal force with normal_force:
+        const auto normal_force = *opt_normal_force * static_cast<double>(surface_force);
+        const auto soft_normal_force = soften_surface_normal(normal_force, surface_height, surface_softness);
+        sum_forces += soft_normal_force;
 
 //        // 1-2. Estimate user force
 //        const auto user_force_len = estimate_user_force(last_steps, *normal_force, friction_scale);
@@ -338,9 +361,10 @@ namespace molumes {
         // Note: Currently only uniform friction is implemented
         if (friction_mode == FrictionMode::Uniform) {
             const auto surface_pos = project_to_surface(pos, normal_force, surface_height);
-            const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos, static_cast<double>(friction_scale),
-                                                        normal_force);
-//            std::cout << std::format("friction: {}", glm::length(friction)) << std::endl;
+            const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos,
+                                                        static_cast<double>(friction_scale),
+                                                        soft_normal_force);
+//            std::cout << std::format("friction: {}", friction) << std::endl;
             sum_forces += friction;
         }
 
@@ -348,11 +372,12 @@ namespace molumes {
         // sum_forces += glm::dvec3{0.0, 0.0, -9.81};
 
         /**
-         * Clamp force to max_force:
+         * Clamp force to normal_force:
          * Note: The force scaling should (in the future) come from the user_force via a user_mass scaling parameter, so it
          * should only be necessary to clamp it to the physical limit (9 Newton) of the device here.
          */
-        const auto f_len = glm::length(sum_forces);
-        return max_force < f_len ? (sum_forces * (max_force / f_len)) : sum_forces;
+//        const auto f_len = glm::length(sum_forces);
+//        return normal_force < f_len ? (sum_forces * (normal_force / f_len)) : sum_forces;
+        return sum_forces;
     }
 }
