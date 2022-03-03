@@ -81,7 +81,8 @@ namespace molumes {
     private:
         SizedQueue<SimulationStepData, 2> m_simulation_steps{};
         std::chrono::high_resolution_clock::time_point m_tp{std::chrono::high_resolution_clock::now()};
-        [[nodiscard]] SimulationStepData& create_simulation_record(const glm::dvec3& pos);
+
+        [[nodiscard]] SimulationStepData &create_simulation_record(const glm::dvec3 &pos);
 
     public:
         glm::dvec3
@@ -89,7 +90,7 @@ namespace molumes {
                                   float surface_height_multiplier,
                                   FrictionMode friction_mode, unsigned int mip_map_level,
                                   const TextureMipMaps &tex_mip_maps,
-                                  const glm::dvec3 &pos, const glm::dmat3 &haptic_mat = glm::dmat3{1.0});
+                                  const glm::dvec3 &pos, bool normal_offset = false);
     };
 }
 

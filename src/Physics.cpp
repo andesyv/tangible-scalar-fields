@@ -178,7 +178,7 @@ glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float height, f
 std::pair<float, std::optional<glm::dvec3>>
 sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
                     const std::vector<glm::vec4> &tex_data, glm::uint mip_map_level = 0,
-                    float surface_height_multiplier = 1.f) {
+                    float surface_height_multiplier = 1.f, bool normal_offset = false) {
     const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
     float height = relative_coords.z - value.w * surface_height_multiplier;
     // If dist is positive, it means we're above the surface = no force applied
@@ -188,6 +188,16 @@ sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims
     // Surface normal
     // At this point the normal has been scaled with the kde value of the surface
     glm::dvec3 normal{value};
+
+    if (normal_offset) {
+        /**
+         * Sample the normal at an offset from the height, using the sampled normal as an offset basis. The idea is that
+         * the offset surface point is (hopefully) closer to the projected point.
+         */
+        const auto offset = 2.f * glm::vec2{value} / glm::vec2{tex_dims};
+        const auto offset_value = sample_tex(glm::vec2{relative_coords} - offset, tex_dims, tex_data);
+        normal = {offset_value};
+    }
 
     /**
      * Modulate surface normal with surface scale:
@@ -323,7 +333,7 @@ namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(float surface_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
-                                                  const glm::dvec3 &pos, const glm::dmat3 &haptic_mat) {
+                                                  const glm::dvec3 &pos, bool normal_offset) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
 
@@ -342,7 +352,7 @@ namespace molumes {
 
         // 3-4. Calculate normal (constraint) force
         const auto[surface_height, opt_normal_force] = sample_normal_force(*coords, dims, data, mip_map_level,
-                                                                           surface_height_multiplier);
+                                                                           surface_height_multiplier, normal_offset);
 
         current_simulation_step.surface_height = surface_height;
 

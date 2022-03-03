@@ -164,7 +164,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        haptic_params.surface_height_multiplier.load(),
                                                                        static_cast<FrictionMode>(haptic_params.friction_mode.load()),
                                                                        haptic_params.mip_map_level.load(),
-                                                                       normal_tex_mip_maps, world_pos);
+                                                                       normal_tex_mip_maps, world_pos,
+                                                                       haptic_params.normal_offset.load());
         }
 
         {
@@ -304,6 +305,7 @@ void HapticInteractor::display() {
         float friction_scale = m_params.friction_scale.load();
         m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
         int input_space = static_cast<int>(m_params.input_space.load());
+        bool normal_offset = m_params.normal_offset.load();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -339,6 +341,9 @@ void HapticInteractor::display() {
         if (ImGui::Checkbox("Gradual surface accuracy mode", &m_ui_gradual_surface_accuracy_mode)) {
             m_params.gradual_surface_accuracy.store(m_ui_gradual_surface_accuracy_mode);
             viewer()->BROADCAST(&HapticInteractor::m_ui_gradual_surface_accuracy_mode);
+        }
+        if (ImGui::Checkbox("Offset normal", &normal_offset)) {
+            m_params.normal_offset.store(normal_offset);
         }
 
         ImGui::EndMenu();
