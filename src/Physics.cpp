@@ -268,10 +268,6 @@ Physics::SimulationStepData &Physics::create_simulation_record(const glm::dvec3 
     // Same as (local_pos - previous_step.pos) / (delta_time / 1000000.0):
     const auto delta_v = (pos - m_simulation_steps.get_from_back<1>().pos) * inv_delta_s;
     current_simulation_step.velocity = delta_v;
-    // Estimate acceleration:
-    // Same as (last_steps[1].velocity - last_steps[0].velocity) / (last_steps[1].delta_us / 1000000.0):
-    const auto delta_a = (delta_v - m_simulation_steps.get_from_back<1>().velocity) * inv_delta_s;
-    current_simulation_step.acceleration = delta_a;
     return current_simulation_step;
 }
 
@@ -361,7 +357,18 @@ namespace molumes {
             return glm::dvec3{0.0};
 
         // Scale normal force with normal_force:
-        const auto normal_force = *opt_normal_force * static_cast<double>(surface_force);
+        auto normal_force = *opt_normal_force * static_cast<double>(surface_force);
+
+        // Save the unmodified normal:
+        current_simulation_step.normal_force = *opt_normal_force;
+        // Adjust normal by using the half of the last normal_vector (smoothes out big changes in normal, like a moving over a bump)
+        auto half_normal = m_simulation_steps.get_from_back<1>().normal_force + normal_force;
+        const auto half_normal_len = glm::length(half_normal);
+        if (0.001 < half_normal_len) {
+            half_normal *= (static_cast<double>(surface_force) / half_normal_len);
+            normal_force = half_normal;
+        }
+
         const auto soft_normal_force = soften_surface_normal(normal_force, surface_height, surface_softness);
         sum_forces += soft_normal_force;
 

@@ -72,8 +72,7 @@ namespace molumes {
             std::chrono::high_resolution_clock::duration::rep delta_us; // time since last recording in microseconds
             glm::dvec3 pos; // Current position
             glm::dvec3 velocity; // Delta velocity from last frame (to current pos)
-            glm::dvec3 acceleration;
-            glm::dvec3 force;
+            glm::dvec3 normal_force{0.0, 0.0, 1.0};
             float surface_height; // Height of pos relative to surface
             glm::dvec3 sticktion_point;
         };
