@@ -156,18 +156,6 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     }
 
     setPerspective(false);
-
-    m_offscreen_fb_color_rt = Renderbuffer::create();
-    m_offscreen_fb_color_rt->storage(GL_RGBA32F, viewportSize().x, viewportSize().y);
-
-    m_offscreen_fb_depth_rt = Renderbuffer::create();
-    m_offscreen_fb_depth_rt->storage(GL_DEPTH_COMPONENT16, viewportSize().x, viewportSize().y);
-
-    // Create offscreen FBO
-    m_offscreen_fb = Framebuffer::create();
-    m_offscreen_fb->attachRenderBuffer(GL_COLOR_ATTACHMENT0, m_offscreen_fb_color_rt.get());
-    m_offscreen_fb->attachRenderBuffer(GL_DEPTH_ATTACHMENT, m_offscreen_fb_depth_rt.get());
-    m_offscreen_fb->setDrawBuffers({GL_COLOR_ATTACHMENT0});
 }
 
 void Viewer::display() {
@@ -838,6 +826,19 @@ std::vector<std::unique_ptr<Renderer>> &Viewer::getRenderers() {
 bool Viewer::offload_render() {
     auto state = stateGuard();
 
+    if (!m_offscreen_fb) {
+        m_offscreen_fb_color_rt = Renderbuffer::create();
+        m_offscreen_fb_color_rt->storage(GL_RGBA32F, viewportSize().x, viewportSize().y);
+
+        m_offscreen_fb_depth_rt = Renderbuffer::create();
+        m_offscreen_fb_depth_rt->storage(GL_DEPTH_COMPONENT16, viewportSize().x, viewportSize().y);
+
+        // Create offscreen FBO
+        m_offscreen_fb = Framebuffer::create();
+        m_offscreen_fb->attachRenderBuffer(GL_COLOR_ATTACHMENT0, m_offscreen_fb_color_rt.get());
+        m_offscreen_fb->attachRenderBuffer(GL_DEPTH_ATTACHMENT, m_offscreen_fb_depth_rt.get());
+        m_offscreen_fb->setDrawBuffers({GL_COLOR_ATTACHMENT0});
+    }
     m_offscreen_fb->bind();
     glViewport(0, 0, viewportSize().x, viewportSize().y);
 

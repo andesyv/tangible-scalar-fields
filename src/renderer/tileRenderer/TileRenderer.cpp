@@ -1,5 +1,7 @@
 #include "TileRenderer.h"
 #include "../../Utils.h"
+#include "../../DelegateUtils.h"
+#include "../../interactors/CameraInteractor.h"
 
 #include <imgui.h>
 #include <omp.h>
@@ -245,6 +247,10 @@ TileRenderer::TileRenderer(Viewer *viewer,
     }
 
     m_colorMapLoaded = updateColorMap();
+
+    subscribe(*viewer, &CameraInteractor::m_view_matrix_changed, [this](bool _changed){
+        m_normals_parameters_changed = true;
+    });
 }
 
 void molumes::TileRenderer::setEnabled(bool enabled) {
@@ -386,7 +392,7 @@ void TileRenderer::display() {
     maxValRenderPass(modelViewProjectionMatrix, maxBounds, minBounds);
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
-    const bool shouldRenderNormal = tile != nullptr && m_renderTileNormals;
+    const bool shouldRenderNormal = tile != nullptr && m_renderTileNormals && m_normals_parameters_changed;
     if (shouldRenderNormal)
         normalRenderPass(modelViewProjectionMatrix, viewportSize);
 
@@ -707,8 +713,8 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
 //    viewer()->m_sharedResources.smoothNormalsTexture = frame_data.texture;
 
     // Mark this "round-robin" pass available for the next frame (overwriting and ignoring if the frame wasn't finished)
-    frame_data.transfer_buffer = Buffer::create();
     frame_data.step = 0;
+    m_normals_parameters_changed = false;
 }
 
 void TileRenderer::tileRenderPass(const mat4 &modelViewProjectionMatrix, const ivec2 &viewportSize,
@@ -999,11 +1005,12 @@ void TileRenderer::renderGUI() {
 
         // show all column names from selected CSV file
         ImGui::Text("Selected Columns:");
-        ImGui::Combo("X-axis", &m_xAxisDataID, m_guiColumnNames.c_str());
-        ImGui::Combo("Y-axis", &m_yAxisDataID, m_guiColumnNames.c_str());
+        m_normals_parameters_changed |= ImGui::Combo("X-axis", &m_xAxisDataID, m_guiColumnNames.c_str());
+        m_normals_parameters_changed |= ImGui::Combo("Y-axis", &m_yAxisDataID, m_guiColumnNames.c_str());
 
         if (ImGui::Button("Update")) {
             updateData();
+            m_normals_parameters_changed = true;
         }
     }
 
@@ -1035,10 +1042,10 @@ void TileRenderer::renderGUI() {
     }
     if (ImGui::CollapsingHeader("Tiles", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char *tile_styles[]{"none", "square", "hexagon"};
-        ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
+        m_normals_parameters_changed |= ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
         ImGui::Checkbox("Render Grid", &m_renderGrid);
         ImGui::SliderFloat("Grid Width", &m_gridWidth, 1.0f, 3.0f);
-        ImGui::SliderFloat("Tile Size", &m_tileSize_tmp, 1.0f, 100.0f);
+        m_normals_parameters_changed |= ImGui::SliderFloat("Tile Size", &m_tileSize_tmp, 1.0f, 100.0f);
 
         // allow for (optional) analytical ambient occlusion of the hex-tiles
         ImGui::Checkbox("Analytical AO", &m_renderAnalyticalAO);
@@ -1052,12 +1059,12 @@ void TileRenderer::renderGUI() {
 
     if (ImGui::CollapsingHeader("Regression Triangle", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Render KDE", &m_renderKDE);
-        ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
-        ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
-        ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 50.0f);
-        ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 500.0f);
-        ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
-        ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 1.0f, 20.0f);
+        m_normals_parameters_changed |= ImGui::Checkbox("Render Tile Normals", &m_renderTileNormals);
+        m_normals_parameters_changed |= ImGui::Checkbox("Smooth Normals", &m_smoothTileNormals);
+        m_normals_parameters_changed |= ImGui::SliderFloat("Sigma", &m_sigma, 0.1f, 50.0f);
+        m_normals_parameters_changed |= ImGui::SliderFloat("Sample Radius", &m_kdeRadius, 1.0f, 500.0f);
+        m_normals_parameters_changed |= ImGui::SliderFloat("Density Multiply", &m_densityMult, 1.0f, 20.0f);
+        m_normals_parameters_changed |= ImGui::SliderFloat("Tile Height Mult", &m_tileHeightMult, 1.0f, 20.0f);
         // the borderWidth cannot go from 0-1
         // if borderWidth == 1, all inside corner points are at the exact same position (tile center)
         // and we can not longer decide if a point is in the border or not
@@ -1436,8 +1443,11 @@ bool TileRenderer::offscreen_render() {
         return true;
 
     if (frame_data.step == 0) {
+        // No need to recreate buffer handle each time, as buffer will (probably) be orphaned on GPU anyway
+        if (!frame_data.transfer_buffer)
+            frame_data.transfer_buffer = Buffer::create();
+
         BindTargetGuard _g{frame_data.transfer_buffer, GL_PIXEL_PACK_BUFFER};
-        // Assign buffer here on runtime before render so buffer can be orphaned
         frame_data.transfer_buffer->setData(
                 frame_data.size.x * frame_data.size.y * sizeof(vec4), nullptr, GL_STATIC_READ);
         BindActiveGuard _g2{frame_data.texture, 0};
@@ -1485,7 +1495,6 @@ bool TileRenderer::offscreen_render() {
                                                            });
 
             // Finish by releasing buffers:
-            frame_data.transfer_buffer = {};
             frame_data.pass_sync = {};
             ++frame_data.step;
         }

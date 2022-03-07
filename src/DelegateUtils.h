@@ -6,12 +6,6 @@
 #include "Viewer.h"
 
 namespace molumes {
-//    template <typename T, typename C>
-//    constexpr auto get_member_variable_offset(T C::* variable_ref) {
-//        auto instance = C{};
-//        return std::ptrdiff_t{&(std::mem_fn(variable_ref))(instance) - reinterpret_cast<T*>(&instance)};
-//    }
-
     template <typename C>
     auto& create_class_instance() {
         static C dummy{};

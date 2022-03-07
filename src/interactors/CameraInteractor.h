@@ -9,6 +9,7 @@ namespace molumes
 	class CameraInteractor : public Interactor
 	{
 	public:
+        CameraInteractor() = default;
 		CameraInteractor(Viewer * viewer);
 		virtual void framebufferSizeEvent(int width, int height) override;
 		virtual void keyEvent(int key, int scancode, int action, int mods) override;
@@ -40,6 +41,9 @@ namespace molumes
 		glm::dvec2 m_mousePrevious{0.0}, m_mouseCurrent{0.0};
 		glm::dvec2 m_scrollCurrent{0.0}, m_scrollPrevious{0.0};
         bool m_shift{false};
+
+    public:
+        bool m_view_matrix_changed = true;
 	};
 
 }

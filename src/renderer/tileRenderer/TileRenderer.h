@@ -167,6 +167,7 @@ namespace molumes {
         int m_colorMap = 12;                        // use "virdis" as default heatmap
         bool m_colorMapLoaded = false;
         bool m_discreteMap = false;
+        bool m_normals_parameters_changed = true;
         // ---------------------------------
 
         float m_aaoScaling = 1.0f;
@@ -264,7 +265,7 @@ namespace molumes {
             glm::ivec2 size;
             std::unique_ptr<globjects::Sync> pass_sync{};
             std::future<NormalTexType> tile_normal_async_task{};
-            unsigned int step = 0;
+            unsigned int step = 3;
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
         unsigned int round_robin_fb_index = 0;

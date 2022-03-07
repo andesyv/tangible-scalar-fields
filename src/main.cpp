@@ -7,9 +7,9 @@
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/bitfield.h>
 #include <glbinding/ContextHandle.h>
+#include <glbinding/glbinding.h>
 
 #include <glbinding-aux/ContextInfo.h>
-#include <glbinding-aux/ValidVersions.h>
 
 #define GLFW_INCLUDE_NONE
 
@@ -77,10 +77,30 @@ int main(int argc, char *argv[]) {
     glfwMakeContextCurrent(window);
 
     // Initialize globjects (internally initializes glbinding, and registers the current context)
-    glbinding::ContextHandle context_handle = 0;
-    globjects::init(context_handle, [](const char *name) {
-        return glfwGetProcAddress(name);
-    }, globjects::Shader::IncludeImplementation::Fallback);
+    glbinding::ContextHandle main_context_handle{0}, offscreen_context_handle{1};
+    globjects::init(main_context_handle, glfwGetProcAddress, globjects::Shader::IncludeImplementation::Fallback);
+
+    // Offscreen context:
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    // Make sure offscreen window shares context with main window
+    GLFWwindow *offscreen_window = glfwCreateWindow(1280, 720, "", nullptr, window);
+    if (offscreen_window == nullptr) {
+        globjects::critical() << "Context creation failed - terminating execution.";
+
+        glfwTerminate();
+        return 1;
+    }
+    glfwMakeContextCurrent(offscreen_window);
+    globjects::init(offscreen_context_handle, glfwGetProcAddress, globjects::Shader::IncludeImplementation::Fallback);
+
+    // Utility function to set context of GLFW, glbinding and globjects
+    const auto setContext = [=, main_window = window](auto window){
+        assert(window == main_window || window == offscreen_window);
+        glfwMakeContextCurrent(window);
+        globjects::setContext(window == main_window ? main_context_handle : offscreen_context_handle);
+    };
+
+    setContext(window);
 
     const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/0_10_sampled_testdata_10.000.csv";
 
@@ -206,6 +226,7 @@ int main(int argc, char *argv[]) {
             // https://stackoverflow.com/questions/23612691/check-that-we-need-to-sleep-in-glfwswapbuffers-method
             buffer_swapped_sync = Sync::fence(GL_SYNC_GPU_COMMANDS_COMPLETE);
             bool offload_rendering_done = false;
+            setContext(offscreen_window);
 
             if (viewer->m_forceOffloadRender) {
                 // Continue doing offload renders until it's eventually done
@@ -234,7 +255,7 @@ int main(int argc, char *argv[]) {
             offload_rendering_queries.at(offload_rendering_query_index).clear();
             offload_rendering_time_max = std::max(offload_rendering_time_max, offload_rendering_time_local_max);
 
-
+            setContext(window);
 #ifndef NDEBUG
             assert(main_rendering_query->resultAvailable());
 #endif
@@ -264,6 +285,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Destroy window
+    glfwDestroyWindow(offscreen_window);
     glfwDestroyWindow(window);
 
     // Properly shutdown GLFW

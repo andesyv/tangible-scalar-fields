@@ -1,5 +1,6 @@
 #include "CameraInteractor.h"
 #include "../Viewer.h"
+#include "../DelegateUtils.h"
 
 #include <iostream>
 #include <algorithm>
@@ -80,6 +81,8 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 
             mat4 newViewTransform = rotate(viewTransform, 0.5f*quarter_pi<float>(), vec3(transformedAxis));
             viewer()->setViewTransform(newViewTransform);
+
+            viewer()->BROADCAST(&CameraInteractor::m_view_matrix_changed);
         }
 	}
 	else if (key == GLFW_KEY_B && action == GLFW_RELEASE)
@@ -153,6 +156,8 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 				mat4 newViewTransform = rotate(viewTransform, angle, vec3(transformedAxis));
 				viewer()->setViewTransform(newViewTransform);
+
+                viewer()->BROADCAST(&CameraInteractor::m_view_matrix_changed);
 			}
 		}
 
@@ -184,6 +189,8 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			mat4 viewTransform = viewer()->viewTransform();
 			mat4 newViewTransform = scale(viewTransform, vec3(s, s, s));
 			viewer()->setViewTransform(newViewTransform);
+
+            viewer()->BROADCAST(&CameraInteractor::m_view_matrix_changed);
 		}
 	}
 
@@ -200,6 +207,8 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 			mat4 viewTransform = viewer()->viewTransform();
 			mat4 newViewTransform = translate(mat4(1.0), vec3(aspect*d.x, d.y, 0.0f))*viewTransform;
 			viewer()->setViewTransform(newViewTransform);
+
+            viewer()->BROADCAST(&CameraInteractor::m_view_matrix_changed);
 		}
 	}
 
