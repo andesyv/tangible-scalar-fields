@@ -75,6 +75,8 @@ namespace molumes {
             glm::dvec3 normal_force{0.0, 0.0, 1.0};
             float surface_height; // Height of pos relative to surface
             glm::dvec3 sticktion_point;
+            glm::dvec3 surface_pos;
+            glm::dvec3 surface_velocity;
         };
 
     private:

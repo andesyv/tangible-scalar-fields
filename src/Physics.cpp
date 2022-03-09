@@ -288,6 +288,10 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     auto &current_step = simulation_steps.get_from_back<0>();
     auto &last_step = simulation_steps.get_from_back<1>();
     current_step.sticktion_point = last_step.sticktion_point;
+    current_step.surface_pos = surface_pos;
+
+    const auto inv_delta_s = 1000000.0 / (static_cast<double>(current_step.delta_us));
+    current_step.surface_velocity = (surface_pos - last_step.surface_pos) * inv_delta_s;
 
     const bool entered_surface = 0.f < last_step.surface_height && current_step.surface_height <= 0.f;
     if (entered_surface) {
@@ -302,10 +306,8 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     const auto n_len = glm::length(normal_force);
 
     // Since I'm only using velocity as a directional / guiding vector it shouldn't matter whether it's normalized or not
-    auto velocity = current_step.velocity + last_step.velocity;
-    // Project velocity down into plane:
-    velocity = velocity - velocity * (glm::dot(normal_force, velocity) / n_len);
-    const auto v = glm::length(velocity);
+    const auto velocity = (current_step.surface_velocity + last_step.surface_velocity) * 0.5;
+    const auto v_len = glm::length(velocity);
 
     const auto f_s_len = glm::length(f_s);
     /**
@@ -315,8 +317,8 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     const auto static_distance = n_len * u_s;
     // If the velocity is above the threshold, we're using kinetic friction. We then want the sticktion point to keep
     // "hanging" behind our surface point such that we keep maintaining the dynamic friction until we loose momentum
-    if (0.0001 < v && static_distance < v) {
-        const auto f_s_dir = velocity * (-1.0 / v);
+    if (0.0001 < v_len && static_distance < v_len) {
+        const auto f_s_dir = velocity * (-1.0 / v_len);
         const auto kinetic_distance = n_len * u_k;
         current_step.sticktion_point = surface_pos + f_s_dir * kinetic_distance;
         return f_s * kinetic_distance;
