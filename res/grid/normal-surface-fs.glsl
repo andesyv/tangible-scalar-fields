@@ -33,13 +33,20 @@ vec3 hsv2rgb(vec3 c)
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
+bool isZero(vec3 normal) {
+    const float EPS = 0.01;
+    return -EPS < normal.x && normal.x < EPS && -EPS < normal.y && normal.y < EPS && -EPS < normal.z && normal.z < EPS;
+}
+
 void main() {
     const ivec2 texSize = textureSize(normalTex, 0);
     vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb;
+    if (isZero(normal * 2.0 - 1.0))
+        normal = vec3(0.5, 0.5, 1.0);
     //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
     //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
     vec3 hsv = rgb2hsv(normal);
     hsv.r *= opacity;
-    fragColor = vec4(hsv2rgb(hsv), opacity * opacity);
+    fragColor = vec4(hsv2rgb(hsv), 0.4);
     //    fragColor = vec4(floor(uv * 10.0) * 0.1, 0.0, 1.0);
 }

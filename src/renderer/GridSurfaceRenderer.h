@@ -19,6 +19,7 @@ namespace molumes {
 //    void setEnabled(bool enabled) override;
 
         void display() override;
+        void setEnabled(bool enabled) override;
 
     private:
         std::unique_ptr<globjects::Buffer> m_planeBounds, m_screenSpacedBuffer;

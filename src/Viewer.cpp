@@ -162,7 +162,7 @@ void Viewer::display() {
     beginFrame();
     mainMenu();
 
-    glClearColor(m_backgroundColor.r, m_backgroundColor.g, m_backgroundColor.b, 1.0f);
+    glClearColor(m_backgroundColor.r, m_backgroundColor.g, m_backgroundColor.b, 0.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, viewportSize().x, viewportSize().y);
 

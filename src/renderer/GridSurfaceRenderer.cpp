@@ -228,11 +228,12 @@ void GridSurfaceRenderer::display() {
     glEnable(GL_DEPTH_TEST);
     if (m_gradual_surface_accuracy_mode) {
         glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     glPolygonMode(GL_FRONT, GL_FILL);
-    glPolygonMode(GL_BACK, GL_LINE);
+    glPolygonMode(GL_BACK, m_gradual_surface_accuracy_mode ? GL_FILL : GL_LINE);
 
     /// ------------------- Render pass -------------------------------------------
     {
@@ -250,13 +251,29 @@ void GridSurfaceRenderer::display() {
         shader->setUniform("surface_height", m_height_multiplier);
 
         if (m_gradual_surface_accuracy_mode) {
+            struct DrawParams {
+                glm::mat4 mvp;
+                float mip_map_level, opacity;
+            };
+
+            std::map<float, DrawParams, std::greater<>> drawCalls;
+
+            const auto inv_v_mat = glm::inverse(viewer()->viewTransform());
+            const auto camera_pos = glm::vec3{inv_v_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}};
+
             for (int i = 0; i < HapticMipMapLevels; ++i) {
                 const auto t = static_cast<float>(i) / static_cast<float>(HapticMipMapLevels - 1);
-                const auto mvp = glm::translate(MVP, glm::vec3{0.f, 0.f, std::lerp(-0.5f, 0.5f, t)});
+                const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.5f, 0.5f, t)};
+                const auto mvp = glm::translate(MVP, pos);
 
-                shader->setUniform("MVP", mvp);
-                shader->setUniform("mip_map_level", static_cast<float>(i));
-                shader->setUniform("opacity", 1.f - t);
+                // Transparancy sorting done using a map sorted on distance to camera
+                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, static_cast<float>(i), 1.f - t});
+            }
+
+            for (const auto& [key, drawcall]: drawCalls) {
+                shader->setUniform("MVP", drawcall.mvp);
+                shader->setUniform("mip_map_level", drawcall.mip_map_level);
+                shader->setUniform("opacity", drawcall.opacity);
 
                 m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
             }
@@ -270,4 +287,11 @@ void GridSurfaceRenderer::display() {
 
         glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }
+}
+
+void GridSurfaceRenderer::setEnabled(bool enabled) {
+    Renderer::setEnabled(enabled);
+
+    if (enabled)
+        viewer()->setPerspective(true);
 }
