@@ -331,22 +331,25 @@ namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(float surface_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
-                                                  const glm::dvec3 &pos, bool normal_offset) {
+                                                  const glm::dvec3 &pos, bool normal_offset,
+                                                  std::optional<float> gravity_factor) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
+        glm::dvec3 sum_forces{0.0};
 
+        // Optional gravity force (always constant, does not care whether inside bounds or not)
+        if (gravity_factor)
+            sum_forces.z -= *gravity_factor;
 
         const auto coords = opt_relative_pos_coords(glm::vec3{pos}, pl_mat, glm::vec2{2.f});
         // Can't calculate a force outside the bounds of the plane, so return no force
         if (!coords)
-            return glm::vec3{0.f};
+            return sum_forces;
 
         // Shouldn't be possible for coords to be negative
         assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})));
 
         const auto&[dims, data] = tex_mip_maps.at(mip_map_level);
-
-        glm::dvec3 sum_forces{0.0};
 
         // 3-4. Calculate normal (constraint) force
         const auto[surface_height, opt_normal_force] = sample_normal_force(*coords, dims, data, mip_map_level,
@@ -356,7 +359,7 @@ namespace molumes {
 
         // Early exit of there's no surface force (we're moving through air / empty space)
         if (!opt_normal_force)
-            return glm::dvec3{0.0};
+            return sum_forces;
 
         // Scale normal force with normal_force:
         auto normal_force = *opt_normal_force * static_cast<double>(surface_force);
@@ -386,9 +389,6 @@ namespace molumes {
 //            std::cout << std::format("friction: {}", friction) << std::endl;
             sum_forces += friction;
         }
-
-        // Optional gravity force:
-        // sum_forces += glm::dvec3{0.0, 0.0, -9.81};
 
         /**
          * Clamp force to normal_force:

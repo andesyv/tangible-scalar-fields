@@ -165,7 +165,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        static_cast<FrictionMode>(haptic_params.friction_mode.load()),
                                                                        haptic_params.mip_map_level.load(),
                                                                        normal_tex_mip_maps, world_pos,
-                                                                       haptic_params.normal_offset.load());
+                                                                       haptic_params.normal_offset.load(),
+                                                                       haptic_params.gravity_factor.load());
         }
 
         {
@@ -265,11 +266,14 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
 
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
         m_params.enable_force.store(!m_params.enable_force.load());
+    else if (key == GLFW_KEY_U && action == GLFW_PRESS)
+        m_params.friction_mode.store(!m_params.friction_mode.load());
+    else if (key == GLFW_KEY_G && action == GLFW_PRESS)
+        m_params.gravity_factor.store(m_params.gravity_factor.load().has_value() ? std::nullopt : std::make_optional(
+                m_ui_gravity_factor_value));
 #ifndef NDEBUG
     else if (key == GLFW_KEY_P && action == GLFW_PRESS)
         Profiler::reset_profiler();
-    else if (key == GLFW_KEY_U && action == GLFW_PRESS)
-        m_params.friction_mode.store(!m_params.friction_mode.load());
 #endif
 
 #ifdef FAKE_HAPTIC
@@ -306,6 +310,7 @@ void HapticInteractor::display() {
         m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
         int input_space = static_cast<int>(m_params.input_space.load());
         bool normal_offset = m_params.normal_offset.load();
+        bool gravity_enabled = m_params.gravity_factor.load().has_value();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -335,6 +340,10 @@ void HapticInteractor::display() {
                 m_params.friction_mode.store(static_cast<unsigned int>(friction_type));
             if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1.f))
                 m_params.friction_scale.store(friction_scale);
+            if (ImGui::Checkbox("Gravity", &gravity_enabled) ||
+                (gravity_enabled && ImGui::SliderFloat("Gravity factor", &m_ui_gravity_factor_value, 0.f, 10.f)))
+                m_params.gravity_factor.store(
+                        gravity_enabled ? std::make_optional(m_ui_gravity_factor_value) : std::nullopt);
         }
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
