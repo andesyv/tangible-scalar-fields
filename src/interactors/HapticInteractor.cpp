@@ -184,17 +184,15 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 #endif
 
         if (force_enabled) {
-            PROFILE("Haptic - Disable force");
             if (!haptic_params.enable_force.load()) {
 #ifdef DHD
+                dhdSetForce(0.0, 0.0, 0.0);
                 dhdEnableForce(DHD_OFF);
 #endif
                 force_enabled = false;
                 std::cout << "Force disabled!" << std::endl;
-                continue;
             }
         } else {
-            PROFILE("Haptic - Enable force");
             // Wait to apply force until we've arrived at a safe space
             if (haptic_params.enable_force.load() && glm::length(world_force) < EPSILON) {
 #ifdef DHD
@@ -202,9 +200,11 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 #endif
                 force_enabled = true;
                 std::cout << "Force enabled!" << std::endl;
-            } else
-                continue;
+            }
         }
+
+        if (!force_enabled)
+            continue;
 
 
 #ifdef DHD
