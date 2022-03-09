@@ -1,6 +1,8 @@
 #ifndef MOLUMES_HAPTICRENDERER_H
 #define MOLUMES_HAPTICRENDERER_H
 
+#include <optional>
+
 #include <glm/vec3.hpp>
 
 #include "Renderer.h"
@@ -19,8 +21,9 @@ namespace molumes {
         std::unique_ptr<globjects::VertexArray> m_vao;
         std::unique_ptr<globjects::Buffer> m_point_buffer;
         float m_radius = 0.01f;
-        float m_arrow_scale = 0.15f;
-        glm::vec3 m_haptic_pos, m_haptic_dir{0.f, 0.f, 1.f};
+        float m_arrow_scale = 0.04f;
+        glm::vec3 m_haptic_pos;
+        std::optional<glm::vec3> m_haptic_dir;
 
     public:
         explicit HapticRenderer(Viewer* viewer);

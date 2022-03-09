@@ -33,23 +33,22 @@ HapticRenderer::HapticRenderer(Viewer *viewer) : Renderer(viewer) {
     VertexArray::unbind();
 
     createShaderProgram("haptic", {
-            { GL_VERTEX_SHADER, "./res/haptic/haptic-indicator-vs.glsl" },
-            { GL_GEOMETRY_SHADER, "./res/haptic/haptic-indicator-gs.glsl" },
-            { GL_FRAGMENT_SHADER, "./res/haptic/haptic-indicator-fs.glsl" }
+            {GL_VERTEX_SHADER,   "./res/haptic/haptic-indicator-vs.glsl"},
+            {GL_GEOMETRY_SHADER, "./res/haptic/haptic-indicator-gs.glsl"},
+            {GL_FRAGMENT_SHADER, "./res/haptic/haptic-indicator-fs.glsl"}
     });
 
     createShaderProgram("haptic-arrow", {
-            { GL_VERTEX_SHADER, "./res/haptic/haptic-indicator-vs.glsl" },
-            { GL_GEOMETRY_SHADER, "./res/haptic/haptic-indicator-arrow-gs.glsl" },
-            { GL_FRAGMENT_SHADER, "./res/haptic/haptic-indicator-arrow-fs.glsl" }
+            {GL_VERTEX_SHADER,   "./res/haptic/haptic-indicator-vs.glsl"},
+            {GL_GEOMETRY_SHADER, "./res/haptic/haptic-indicator-arrow-gs.glsl"},
+            {GL_FRAGMENT_SHADER, "./res/haptic/haptic-indicator-arrow-fs.glsl"}
     });
 
-    subscribe(*viewer, &HapticInteractor::m_haptic_global_pos, [this](auto p){ m_haptic_pos = p; });
-    subscribe(*viewer, &HapticInteractor::m_haptic_global_force, [this](auto f){
-        auto f_l = glm::length(f);
-        m_haptic_dir = 0.001f < f_l ? f * (1.f / f_l) : glm::vec3{0.f, 0.f, 1.f};
+    subscribe(*viewer, &HapticInteractor::m_haptic_global_pos, [this](auto p) { m_haptic_pos = p; });
+    subscribe(*viewer, &HapticInteractor::m_haptic_global_force, [this](auto f) {
+        m_haptic_dir = 0.001f < glm::length(f) ? std::make_optional(f) : std::nullopt;
     });
-    subscribe(*viewer, &HapticInteractor::m_ui_sphere_kernel_size, [this](auto r){ m_radius = r; });
+    subscribe(*viewer, &HapticInteractor::m_ui_sphere_kernel_size, [this](auto r) { m_radius = r; });
 }
 
 void HapticRenderer::display() {
@@ -57,7 +56,7 @@ void HapticRenderer::display() {
 
     if (ImGui::BeginMenu("Haptic Debug")) {
         ImGui::SliderFloat("Radius", &m_radius, 0.001f, 1.f);
-        ImGui::SliderFloat("Arrow scale", &m_arrow_scale, 0.01f, 1.f);
+        ImGui::SliderFloat("Arrow scale", &m_arrow_scale, 0.01f, 0.3f);
 
         ImGui::EndMenu();
     }
@@ -69,35 +68,35 @@ void HapticRenderer::display() {
     const auto P = viewer()->projectionTransform();
     const auto PInv = glm::inverse(P);
     const auto MVP = P * V * glm::translate(glm::mat4{1.f}, m_haptic_pos);
-    const auto haptic_dir = V * glm::vec4{m_haptic_dir, 0.f};
 
     {
-            const auto &shader = shaderProgram("haptic");
-            if (!shader)
-            return;
-
-            shader->use();
-
-            shader->setUniform("P", P);
-            shader->setUniform("MVP", MVP);
-            shader->setUniform("radius", m_radius);
-            shader->setUniform("PInv", PInv);
-
-            m_vao->drawArrays(GL_POINTS, 0, 1);
-    }
-
-    {
-        const auto &shader = shaderProgram("haptic-arrow");
+        const auto &shader = shaderProgram("haptic");
         if (!shader)
             return;
 
         shader->use();
 
         shader->setUniform("P", P);
+        shader->setUniform("MVP", MVP);
+        shader->setUniform("radius", m_radius);
+        shader->setUniform("PInv", PInv);
+
+        m_vao->drawArrays(GL_POINTS, 0, 1);
+    }
+
+    if (m_haptic_dir) {
+        const auto &shader = shaderProgram("haptic-arrow");
+        if (!shader)
+            return;
+
+        const glm::vec3 haptic_dir{V * glm::vec4{*m_haptic_dir * m_arrow_scale, 0.f}};
+
+        shader->use();
+
+        shader->setUniform("P", P);
         shader->setUniform("PInv", PInv);
         shader->setUniform("MVP", MVP);
-        shader->setUniform("view_dir", glm::vec3{haptic_dir});
-        shader->setUniform("scale", m_arrow_scale);
+        shader->setUniform("dir", haptic_dir);
 
         m_vao->drawArrays(GL_POINTS, 0, 1);
     }
