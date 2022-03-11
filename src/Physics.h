@@ -92,7 +92,7 @@ namespace molumes {
                                   FrictionMode friction_mode, unsigned int mip_map_level,
                                   const TextureMipMaps &tex_mip_maps,
                                   const glm::dvec3 &pos, bool normal_offset = false,
-                                  std::optional<float> gravity_factor = std::nullopt);
+                                  std::optional<float> gravity_factor = std::nullopt, bool softLODsMode = false);
     };
 }
 

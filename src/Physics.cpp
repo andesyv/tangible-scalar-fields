@@ -259,12 +259,51 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     }
 }
 
+struct NormalLevelResult {
+    glm::dvec3 normal, soft_normal;
+    float height;
+};
+
+std::optional<NormalLevelResult>
+sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
+                    const glm::dvec3 &coords, unsigned int level,
+                    float surface_height_multiplier, bool normal_offset, float surface_force, float surface_softness) {
+    const auto&[dims, data] = tex_mip_maps.at(level);
+
+    // 3-4. Calculate normal (constraint) force
+    const auto[surface_height, opt_normal_force] = sample_normal_force(coords, dims, data, level,
+                                                                       surface_height_multiplier, normal_offset);
+
+    simulation_steps.get_from_back<0>().surface_height = surface_height;
+
+    // Early exit of there's no surface force (we're moving through air / empty space)
+    if (!opt_normal_force)
+        return std::nullopt;
+
+    // Scale normal force with normal_force:
+    auto normal_force = *opt_normal_force * static_cast<double>(surface_force);
+
+    // Save the unmodified normal:
+    simulation_steps.get_from_back<0>().normal_force = *opt_normal_force;
+    // Adjust normal by using the half of the last normal_vector (smoothes out big changes in normal, like a moving over a bump)
+    auto half_normal = simulation_steps.get_from_back<1>().normal_force + normal_force;
+    const auto half_normal_len = glm::length(half_normal);
+    if (0.001 < half_normal_len) {
+        half_normal *= (static_cast<double>(surface_force) / half_normal_len);
+        normal_force = half_normal;
+    }
+
+    const auto soft_normal_force = soften_surface_normal(normal_force, surface_height, surface_softness);
+    return std::make_optional(
+            NormalLevelResult{.normal = normal_force, .soft_normal = soft_normal_force, .height = surface_height});
+}
+
 namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(float surface_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
                                                   const glm::dvec3 &pos, bool normal_offset,
-                                                  std::optional<float> gravity_factor) {
+                                                  std::optional<float> gravity_factor, bool softLODsMode) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
         glm::dvec3 sum_forces{0.0};
@@ -281,33 +320,44 @@ namespace molumes {
         // Shouldn't be possible for coords to be negative
         assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})));
 
-        const auto&[dims, data] = tex_mip_maps.at(mip_map_level);
+        glm::dvec3 sum_normal_force{0.0};
+        std::optional<NormalLevelResult> sample_level_results;
+        double normal_force_multiplier{1.0};
+        if (softLODsMode) {
+            // Get upper and lower mip map levels:
+            const auto f_i = std::clamp(coords->z + 0.5f, 0.f, 1.f) * (HapticMipMapLevels - 1);
+            const auto upper_level = static_cast<int>(std::ceil(f_i));
+            const auto lower_level = static_cast<int>(std::floor(f_i));
 
-        // 3-4. Calculate normal (constraint) force
-        const auto[surface_height, opt_normal_force] = sample_normal_force(*coords, dims, data, mip_map_level,
-                                                                           surface_height_multiplier, normal_offset);
+            normal_force_multiplier = static_cast<float>(lower_level) / static_cast<float>(HapticMipMapLevels - 1);
+            sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
+                                                                  lower_level, surface_height_multiplier,
+                                                                  normal_offset, surface_force, surface_softness);
+            /*
+             * If lower level normal doesn't exist, it means we're above the lower surface. So use the normal force
+             * from the upper level instead.
+             */
+            if (!sample_level_results) {
+                sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
+                                                           upper_level, surface_height_multiplier,
+                                                           normal_offset, surface_force, surface_softness);
+                normal_force_multiplier = static_cast<float>(upper_level) / static_cast<float>(HapticMipMapLevels - 1);
+            }
 
-        current_simulation_step.surface_height = surface_height;
-
-        // Early exit of there's no surface force (we're moving through air / empty space)
-        if (!opt_normal_force)
+            // If it also misses the upper level, we're above all the surfaces (in air). Return early...
+        } else {
+            sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
+                                                                  mip_map_level, surface_height_multiplier,
+                                                                  normal_offset, surface_force, surface_softness);
+        }
+        // We're above the (all) surface(s). In the air, return early.
+        if (!sample_level_results)
             return sum_forces;
 
-        // Scale normal force with normal_force:
-        auto normal_force = *opt_normal_force * static_cast<double>(surface_force);
+        auto [normal_force, soft_normal_force, surface_height] = *sample_level_results;
+        if (softLODsMode) {
 
-        // Save the unmodified normal:
-        current_simulation_step.normal_force = *opt_normal_force;
-        // Adjust normal by using the half of the last normal_vector (smoothes out big changes in normal, like a moving over a bump)
-        auto half_normal = m_simulation_steps.get_from_back<1>().normal_force + normal_force;
-        const auto half_normal_len = glm::length(half_normal);
-        if (0.001 < half_normal_len) {
-            half_normal *= (static_cast<double>(surface_force) / half_normal_len);
-            normal_force = half_normal;
         }
-
-        const auto soft_normal_force = soften_surface_normal(normal_force, surface_height, surface_softness);
-        sum_forces += soft_normal_force;
 
         // Note: Currently only uniform friction is implemented
         if (friction_mode == FrictionMode::Uniform) {
@@ -317,6 +367,8 @@ namespace molumes {
                                                         soft_normal_force);
             sum_forces += friction;
         }
+
+        sum_forces += sum_normal_force;
 
         return sum_forces;
     }

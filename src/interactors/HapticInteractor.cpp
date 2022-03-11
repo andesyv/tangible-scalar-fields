@@ -226,7 +226,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        haptic_params.mip_map_level.load(),
                                                                        normal_tex_mip_maps, world_pos,
                                                                        haptic_params.normal_offset.load(),
-                                                                       haptic_params.gravity_factor.load());
+                                                                       haptic_params.gravity_factor.load(),
+                                                                       haptic_params.gradual_surface_accuracy.load());
         }
 
         {
