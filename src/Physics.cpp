@@ -60,9 +60,9 @@ std::optional<glm::vec2> opt_pos_uvs_in_plane(const glm::vec3 &pos, const glm::m
 // Exactly the same as the other one, but returns an optional:
 std::optional<glm::vec3>
 opt_relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
-    const auto coords = relative_pos_coords(pos, pl_mat, glm::vec2{2.f});
-    return (coords.x < 0.f || 1.f < coords.x || coords.y < 0.f || 1.f < coords.y) ? std::nullopt : std::make_optional(
-            coords);
+    const auto coords = opt_pos_uvs_in_plane(pos, pl_mat, glm::vec2{2.f});
+    return coords ? std::make_optional(
+            glm::vec3{*coords, point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]})}) : std::nullopt;
 }
 
 // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
@@ -81,21 +81,6 @@ slerp(const glm::vec<3, T, glm::defaultp> &a, const glm::vec<3, T, glm::defaultp
     const auto q = glm::angleAxis(t * std::acos(glm::dot(a, b)), glm::normalize(glm::cross(a, b)));
     return q * a;
 }
-
-glm::vec4 scaling_mix(const glm::vec4 &a, const glm::vec4 &b, float t) {
-    const auto diff = b.w - a.w;
-    if (0.001f < std::abs(diff))
-        return glm::vec4{
-                slerp(glm::normalize(glm::vec3{a.x, a.y, a.z / diff}), glm::normalize(glm::vec3{b.x, b.y, b.z / diff}),
-                      t), // Maybe unnecessary to normalize here
-                std::lerp(a.w, b.w, t)
-        };
-    else
-        return glm::vec4{
-                slerp(glm::vec3{a}, glm::vec3{b}, t), // Maybe unnecessary to normalize here
-                std::lerp(a.w, b.w, t)
-        };
-};
 
 // Bi-linear interpolation of pixel
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
@@ -126,38 +111,6 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
             f_pixel_coord.y);
 
     return glm::any(glm::isnan(s)) ? glm::vec4{0.f} : s;
-}
-
-glm::vec4 sphere_sample_tex(const glm::vec3 &pos, float sphere_radius, const glm::uvec2 &tex_dims,
-                            const std::vector<glm::vec4> &tex_data) {
-    static const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
-    constexpr float angle_piece = std::numbers::pi_v<float> / 8.f; // How is this not a thing before C++20 ???
-
-    glm::vec4 sum = sample_tex(pos_uvs_in_plane(pos, pl_mat, glm::vec2{2.f}), tex_dims, tex_data);
-
-    for (int i = 0; i < 8; ++i) {
-        const auto angle = angle_piece * static_cast<float>(i);
-        const auto displacement = glm::vec3{std::sin(angle), std::cos(angle), 0.f} * sphere_radius;
-        const auto coord = opt_pos_uvs_in_plane(pos + displacement, pl_mat, glm::vec2{2.f});
-        if (coord)
-            sum += sample_tex(*coord, tex_dims, tex_data);
-    }
-    return sum * (1.f / 9.f);
-}
-
-auto estimate_user_force(std::array<molumes::Physics::SimulationStepData, 2> last_steps, const glm::dvec3 &normal_force,
-                         double friction_scale, const glm::dvec3 &up = glm::dvec3{0.0, 1.0, 0.0}) {
-    /** If the end-effector is stationary situated on the surface, the applied force can be found from the normal force
-     * pushing away from the surface:
-     * F_n = F_u * cos(angle) => F_u = F_n / cos(angle) => F_u = F_n / dot(|n|, |up|)
-     *
-     * F = F_u + F_n + F_fr = a * m => F_u = a * m - F_n - F_fr = a * m - F_n - F_n * u
-     * F_u = a * m - F_n (1 + u)
-     */
-
-    const auto n_len = glm::length(normal_force);
-    const auto n = normal_force * (1.0 / n_len);
-    return n_len / glm::dot(n, up);
 }
 
 glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float height, float surface_softness = 0.f) {
@@ -230,27 +183,6 @@ glm::dvec3 project_to_surface(const glm::dvec3 &world_pos, const glm::dvec3 &nor
     const auto dist = -height * normal_force.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
     return world_pos + normal_force * dist;
 }
-
-//auto sphere_sample_surface_force(float sphere_radius, const glm::vec3 &pos,
-//                                 const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data,
-//                                 glm::uint mip_map_level = 0, float surface_softness = 0.f) {
-//    constexpr float angle_piece = std::numbers::pi_v<float> / 8.f; // How is this not a thing before C++20 ???
-//
-//    const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
-//    const auto coords = relative_pos_coords(pos - glm::vec3{0.f, 0.f, sphere_radius}, pl_mat, glm::vec2{2.f});
-//
-//    glm::vec3 sum = sample_surface_force(coords, tex_dims, tex_data, mip_map_level,
-//                                         surface_softness);
-//
-//    for (int i = 0; i < 8; ++i) {
-//        const auto angle = angle_piece * static_cast<float>(i);
-//        const auto displacement = glm::vec3{std::sin(angle), std::cos(angle), 0.f} * sphere_radius;
-//        const auto coord = opt_relative_pos_coords(pos + displacement, pl_mat, glm::vec2{2.f});
-//        if (coord)
-//            sum += sample_surface_force(*coord, tex_dims, tex_data, mip_map_level, surface_softness);
-//    }
-//    return sum * (1.f / 9.f);
-//}
 
 Physics::SimulationStepData &Physics::create_simulation_record(const glm::dvec3 &pos) {
     using namespace std::chrono;
@@ -377,26 +309,15 @@ namespace molumes {
         const auto soft_normal_force = soften_surface_normal(normal_force, surface_height, surface_softness);
         sum_forces += soft_normal_force;
 
-//        // 1-2. Estimate user force
-//        const auto user_force_len = estimate_user_force(last_steps, *normal_force, friction_scale);
-
         // Note: Currently only uniform friction is implemented
         if (friction_mode == FrictionMode::Uniform) {
             const auto surface_pos = project_to_surface(pos, normal_force, surface_height);
             const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos,
                                                         static_cast<double>(friction_scale),
                                                         soft_normal_force);
-//            std::cout << std::format("friction: {}", friction) << std::endl;
             sum_forces += friction;
         }
 
-        /**
-         * Clamp force to normal_force:
-         * Note: The force scaling should (in the future) come from the user_force via a user_mass scaling parameter, so it
-         * should only be necessary to clamp it to the physical limit (9 Newton) of the device here.
-         */
-//        const auto f_len = glm::length(sum_forces);
-//        return normal_force < f_len ? (sum_forces * (normal_force / f_len)) : sum_forces;
         return sum_forces;
     }
 }
