@@ -70,6 +70,52 @@ HapticInteractor::generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::v
 
 #if defined(DHD) || defined(FAKE_HAPTIC)
 
+class HapticKeyHandler {
+public:
+    struct State {
+        bool enabled{false};
+        std::vector<std::function<void(bool)>> changed_events;
+    };
+private:
+    std::map<int, State> m_key_states;
+
+public:
+    explicit HapticKeyHandler(std::vector<int> &&key_ids) {
+        for (auto id: key_ids)
+            m_key_states.emplace(id, State{});
+    }
+
+    void add_on_changed_event(int key, std::function<void(bool)> &&func) {
+        m_key_states[key].changed_events.push_back(std::move(func));
+    }
+
+    [[nodiscard]] bool get(int key) {
+        return m_key_states[key].enabled;
+    }
+
+    bool operator[](int i) { return get(i); }
+
+    void update() {
+        for (auto&[key, state]: m_key_states) {
+#ifdef DHD
+            const auto btn = dhdGetButton(key);
+            if (btn < 0) {
+                std::cout
+                        << std::format("Failed to query key: {{id: {}, error code: {}, error: {}}}", key, btn,
+                                       dhdErrorGetLastStr())
+                        << std::endl;
+            } else {
+                const auto new_enabled = btn == DHD_ON;
+                if (state.enabled != new_enabled)
+                    for (auto &event: state.changed_events)
+                        event(new_enabled);
+                state.enabled = new_enabled;
+            }
+#endif
+        }
+    }
+};
+
 void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor::HapticParams &haptic_params,
                  std::promise<bool> &&setup_results,
                  ReaderChannel<TextureMipMaps> &&normal_tex_channel) {
@@ -88,6 +134,15 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
     };
     const auto local_to_haptic = glm::inverse(haptic_to_local);
     Physics physics_simulation;
+    HapticKeyHandler key_handler{{0}};
+    key_handler.add_on_changed_event(0, [&haptic_params, old_mip_map = 0u](bool enabled) mutable {
+        if (enabled) {
+            old_mip_map = haptic_params.mip_map_level.load();
+            haptic_params.mip_map_level.store(HapticMipMapLevels - 1);
+        } else {
+            haptic_params.mip_map_level.store(old_mip_map);
+        }
+    });
 
 #ifdef DHD
     // Initialize haptics device
@@ -125,6 +180,11 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             const auto disp = glm::vec3{KEY_X_AXIS, KEY_Y_AXIS, -KEY_Z_AXIS};
             local_pos += glm::dvec3{disp} * delta_t * MOVE_SPEED;
 #endif
+        }
+
+        {
+            PROFILE("Haptic - Query keys");
+            key_handler.update();
         }
 
         glm::dvec3 world_pos;
@@ -297,9 +357,10 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
 void HapticInteractor::display() {
     Interactor::display();
 
+    auto mip_map_level = static_cast<int>(m_params.mip_map_level.load());
+
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_params.interaction_bounds.load();
-        auto mip_map_level = static_cast<int>(m_mip_map_ui_level);
         auto enable_force = m_params.enable_force.load();
         auto normal_force = m_params.surface_force.load();
         auto softness = m_params.surface_softness.load();
@@ -314,11 +375,8 @@ void HapticInteractor::display() {
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
-        if (ImGui::SliderInt("Mip map level", &mip_map_level, 0, HapticMipMapLevels - 1)) {
-            m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
-            m_params.mip_map_level.store(m_mip_map_ui_level);
-            viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
-        }
+        ImGui::SliderInt("Mip map level", &mip_map_level, 0, HapticMipMapLevels - 1);
+
         if (ImGui::SliderFloat("Surface height multiplier", &m_ui_surface_height_multiplier, 0.1f, 10.f)) {
             m_params.surface_height_multiplier.store(m_ui_surface_height_multiplier);
             viewer()->BROADCAST(&HapticInteractor::m_ui_surface_height_multiplier);
@@ -356,6 +414,13 @@ void HapticInteractor::display() {
         }
 
         ImGui::EndMenu();
+    }
+
+    // Have to check it here because it can be set both from within haptic thread and the UI:
+    if (static_cast<unsigned int>(mip_map_level) != m_mip_map_ui_level) {
+        m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
+        m_params.mip_map_level.store(m_mip_map_ui_level);
+        viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
     }
 
     const auto m = glm::dmat3{viewer()->viewTransform()};
