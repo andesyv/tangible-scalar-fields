@@ -135,8 +135,8 @@ sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims
     const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
     float height = relative_coords.z - value.w * surface_height_multiplier;
     // If dist is positive, it means we're above the surface = no force applied
-    if (0.f < height)
-        return {height, std::nullopt};
+//    if (0.f < height)
+//        return {height, std::nullopt};
 
     // Surface normal
     // At this point the normal has been scaled with the kde value of the surface
@@ -322,42 +322,43 @@ namespace molumes {
 
         glm::dvec3 sum_normal_force{0.0};
         std::optional<NormalLevelResult> sample_level_results;
-        double normal_force_multiplier{1.0};
         if (softLODsMode) {
             // Get upper and lower mip map levels:
             const auto f_i = std::clamp(coords->z + 0.5f, 0.f, 1.f) * (HapticMipMapLevels - 1);
+            const auto f_f = f_i - std::floor(f_i);
             const auto upper_level = static_cast<int>(std::ceil(f_i));
             const auto lower_level = static_cast<int>(std::floor(f_i));
 
-            normal_force_multiplier = static_cast<float>(lower_level) / static_cast<float>(HapticMipMapLevels - 1);
-            sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
-                                                                  lower_level, surface_height_multiplier,
-                                                                  normal_offset, surface_force, surface_softness);
-            /*
-             * If lower level normal doesn't exist, it means we're above the lower surface. So use the normal force
-             * from the upper level instead.
-             */
-            if (!sample_level_results) {
-                sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
-                                                           upper_level, surface_height_multiplier,
-                                                           normal_offset, surface_force, surface_softness);
-                normal_force_multiplier = static_cast<float>(upper_level) / static_cast<float>(HapticMipMapLevels - 1);
-            }
+            auto r1 = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
+                                                lower_level, surface_height_multiplier,
+                                                normal_offset, surface_force, surface_softness);
+            if (lower_level == upper_level) {
+                sample_level_results = r1 && r1->height <= 0.f ? r1 : std::nullopt;
+            } else {
+                const auto r2 = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords, upper_level,
+                                                    surface_height_multiplier, normal_offset, surface_force,
+                                                    surface_softness);
 
-            // If it also misses the upper level, we're above all the surfaces (in air). Return early...
+                if (r1 && r2) {
+                    const auto n = glm::mix(r1->normal, r2->normal, f_f);
+                    sample_level_results = std::make_optional(
+                            NormalLevelResult{.normal = n, .soft_normal = n, .height = std::lerp(r1->height, r2->height,
+                                                                                                 f_f)});
+                } else {
+                    sample_level_results = r1 ? r1 : r2;
+                }
+            }
         } else {
             sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
-                                                                  mip_map_level, surface_height_multiplier,
-                                                                  normal_offset, surface_force, surface_softness);
+                                                       mip_map_level, surface_height_multiplier,
+                                                       normal_offset, surface_force, surface_softness);
         }
         // We're above the (all) surface(s). In the air, return early.
         if (!sample_level_results)
             return sum_forces;
 
-        auto [normal_force, soft_normal_force, surface_height] = *sample_level_results;
-        if (softLODsMode) {
-
-        }
+        auto[normal_force, soft_normal_force, surface_height] = *sample_level_results;
+        sum_forces += soft_normal_force;
 
         // Note: Currently only uniform friction is implemented
         if (friction_mode == FrictionMode::Uniform) {
