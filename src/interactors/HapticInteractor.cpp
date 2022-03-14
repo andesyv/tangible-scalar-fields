@@ -387,7 +387,7 @@ void HapticInteractor::display() {
         if (enable_force) {
             if (ImGui::SliderFloat("Surface force (in Newtons)", &normal_force, 0.f, 9.f))
                 m_params.surface_force.store(normal_force);
-            if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 1.f))
+            if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 0.4f))
                 m_params.surface_softness.store(softness);
             if (ImGui::Combo("Kernel type", &kernel_type, "Point\0Sphere"))
                 m_params.sphere_kernel.store(kernel_type == 1);
