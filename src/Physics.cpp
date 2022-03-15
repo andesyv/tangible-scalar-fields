@@ -322,12 +322,6 @@ namespace molumes {
 
         glm::dvec3 sum_normal_force{0.0};
         std::optional<NormalLevelResult> sample_level_results;
-        /**
-         * TODO:
-         * Instead of sampling between every LOD, make a volume with just a few LODs (2-3). Theres little difference
-         * between each LOD, so interpolating between them all gives little differences. Interpolating between a few
-         * more varying levels should prove more useful. Or pack the level stack closer together?
-         */
         if (softLODsMode) {
             const auto level_relative_coordinates = [](const glm::vec3 &coords, int level) {
                 return coords - glm::vec3{0.f, 0.f, static_cast<float>(level) / (HapticMipMapLevels - 1) - 0.5f};
@@ -341,10 +335,11 @@ namespace molumes {
             const auto t = std::clamp(coords->z + 0.5f, 0.f, 1.f);
             const auto f_i = t * (HapticMipMapLevels - 1);
             const auto f_f = f_i - std::floor(f_i);
-            const auto upper_level = static_cast<int>(std::ceil(f_i));
-            const auto lower_level = static_cast<int>(std::floor(f_i));
+            auto upper_level = static_cast<int>(std::ceil(f_i));
+            auto lower_level = static_cast<int>(std::floor(f_i));
             auto is_top_level = upper_level == HapticMipMapLevels - 1;
-            auto force_multiplier = std::lerp(surface_force, surface_force * 0.5f, t);
+            auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
+                                              static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
 
             auto r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
                                           level_relative_coordinates(*coords, lower_level),
@@ -363,23 +358,29 @@ namespace molumes {
                 if (r1 && r2) {
                     // The relative interpolation between the height levels (like f_f but corresponding to heights):
                     auto h_t = r1->height / (r1->height - r2->height);
-                    const auto is_shifted_down = h_t < 0.f && lower_level != 0;
                     // If h_t is negative, our probe is below our lower_bounds sampled height, so shift the interval one down
-                    if (is_shifted_down) {
-                        r1 = r2;
-                        r2 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                                 level_relative_coordinates(*coords, lower_level - 1),
-                                                 upper_level, surface_height_multiplier, normal_offset, 1.f,
+                    const auto should_shift_down = h_t < 0.f && lower_level != 0;
+                    if (should_shift_down) {
+                        r2 = r1;
+                        upper_level = lower_level;
+                        --lower_level;
+                        force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
+                                                     static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
+
+                        r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
+                                                 level_relative_coordinates(*coords, lower_level),
+                                                 lower_level, surface_height_multiplier, normal_offset, 1.f,
                                                  surface_softness);
                         h_t = r1->height / (r1->height - r2->height);
-                        is_top_level = false;
+                        is_top_level = false; // Since we shifted down, it's guaranteed to not be the top level anymore
                     }
 
                     const auto n = glm::mix(r1->normal, is_top_level ? r2->soft_normal : r2->normal, h_t);
                     sample_level_results = std::make_optional(
-                            NormalLevelResult{.normal = n, .soft_normal = n, .height = is_shifted_down ? surface_height(
-                                    h_t, lower_level - 1, upper_level - 1) : surface_height(h_t, lower_level,
-                                                                                            upper_level)});
+                            NormalLevelResult{.normal = n, .soft_normal = n, .height = should_shift_down
+                                                                                       ? surface_height(
+                                            h_t, lower_level - 1, upper_level - 1) : surface_height(h_t, lower_level,
+                                                                                                    upper_level)});
                 } else {
                     sample_level_results = r1 ? r1 : r2;
                 }
