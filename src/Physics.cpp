@@ -303,7 +303,8 @@ namespace molumes {
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
                                                   const glm::dvec3 &pos, bool normal_offset,
-                                                  std::optional<float> gravity_factor, bool softLODsMode) {
+                                                  std::optional<float> gravity_factor,
+                                                  std::optional<unsigned int> surface_volume_mip_map_counts) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
         glm::dvec3 sum_forces{0.0};
@@ -322,21 +323,28 @@ namespace molumes {
 
         glm::dvec3 sum_normal_force{0.0};
         std::optional<NormalLevelResult> sample_level_results;
-        if (softLODsMode) {
+        if (surface_volume_mip_map_counts) {
             const auto level_relative_coordinates = [](const glm::vec3 &coords, int level) {
-                return coords - glm::vec3{0.f, 0.f, static_cast<float>(level) / (HapticMipMapLevels - 1) - 0.5f};
+                // 2x+0.5 = t <=> t/2-0.25 = x
+                return coords -
+                       glm::vec3{0.f, 0.f, 0.5f * static_cast<float>(level) / (HapticMipMapLevels - 1) - 0.25f};
             };
             const auto surface_height = [](float height_interp, int lower, int upper) {
-                return std::lerp(static_cast<float>(lower), static_cast<float>(upper), height_interp) /
-                       (HapticMipMapLevels - 1) - 0.5f;
+                return 0.5f * std::lerp(static_cast<float>(lower), static_cast<float>(upper), height_interp) /
+                       (HapticMipMapLevels - 1) - 0.25f;
             };
 
             // Get upper and lower mip map levels:
-            const auto t = std::clamp(coords->z + 0.5f, 0.f, 1.f);
-            const auto f_i = t * (HapticMipMapLevels - 1);
-            const auto f_f = f_i - std::floor(f_i);
-            auto upper_level = static_cast<int>(std::ceil(f_i));
-            auto lower_level = static_cast<int>(std::floor(f_i));
+            const auto haptic_levels_enabled = static_cast<float>(*surface_volume_mip_map_counts - 1);
+            const auto t = std::clamp(coords->z * 2.f + 0.5f, 0.f, 1.f);
+            const auto f_i = haptic_levels_enabled * t;
+            auto upper_level = static_cast<int>(std::round(
+                    std::ceil(f_i) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
+            auto lower_level = static_cast<int>(std::round(
+                    std::floor(f_i) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
+//            std::cout << std::format("lower: {}, upper: {}, lower_relative_coords: {}, upper_relative_coords: {}",
+//                                     lower_level, upper_level, level_relative_coordinates(*coords, lower_level),
+//                                     level_relative_coordinates(*coords, upper_level)) << std::endl;
             auto is_top_level = upper_level == HapticMipMapLevels - 1;
             auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
                                               static_cast<float>(lower_level) / (HapticMipMapLevels - 1));

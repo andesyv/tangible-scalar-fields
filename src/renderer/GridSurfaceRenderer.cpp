@@ -149,7 +149,8 @@ constexpr auto create_subdivided_plane() {
     return vertices;
 }
 
-GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
+GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer),
+                                                           m_surface_volume_enabled_count{HapticMipMapLevels} {
     constexpr auto plane_vertices = create_subdivided_plane<PLANE_SUBDIVISION>();
 
     // Init plane:
@@ -200,7 +201,9 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
     subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, [this](unsigned int level) { m_mip_map_level = level; });
     subscribe(*viewer, &HapticInteractor::m_ui_surface_height_multiplier, [this](float m) { m_height_multiplier = m; });
     subscribe(*viewer, &HapticInteractor::m_ui_gradual_surface_accuracy_mode,
-              [this](bool b) { m_gradual_surface_accuracy_mode = b; });
+              [this](bool b) { m_surface_volume_mode = b; });
+    subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_mip_map_count,
+              [this](int c) { m_surface_volume_enabled_count = c; });
 }
 
 void GridSurfaceRenderer::display() {
@@ -226,14 +229,14 @@ void GridSurfaceRenderer::display() {
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    if (m_gradual_surface_accuracy_mode) {
+    if (m_surface_volume_mode) {
         glEnable(GL_BLEND);
         glBlendEquation(GL_FUNC_ADD);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     glPolygonMode(GL_FRONT, GL_FILL);
-    glPolygonMode(GL_BACK, m_gradual_surface_accuracy_mode ? GL_FILL : GL_LINE);
+    glPolygonMode(GL_BACK, m_surface_volume_mode ? GL_FILL : GL_LINE);
 
     /// ------------------- Render pass -------------------------------------------
     {
@@ -250,7 +253,7 @@ void GridSurfaceRenderer::display() {
         shader->setUniform("tesselation", tesselation);
         shader->setUniform("surface_height", m_height_multiplier);
 
-        if (m_gradual_surface_accuracy_mode) {
+        if (m_surface_volume_mode) {
             struct DrawParams {
                 glm::mat4 mvp;
                 float mip_map_level, opacity;
@@ -258,19 +261,23 @@ void GridSurfaceRenderer::display() {
 
             std::map<float, DrawParams, std::greater<>> drawCalls;
 
+
+
             const auto inv_v_mat = glm::inverse(viewer()->viewTransform());
             const auto camera_pos = glm::vec3{inv_v_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}};
 
-            for (int i = 0; i < HapticMipMapLevels; ++i) {
-                const auto t = static_cast<float>(i) / static_cast<float>(HapticMipMapLevels - 1);
-                const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.5f, 0.5f, t)};
+            for (int i = 0; i < m_surface_volume_enabled_count; ++i) {
+                const auto t_i = static_cast<unsigned int>(std::round(static_cast<float>(i * (HapticMipMapLevels - 1)) / static_cast<float>(m_surface_volume_enabled_count-1)));
+                const auto t = static_cast<float>(t_i) / static_cast<float>(HapticMipMapLevels - 1);
+//                const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_count - 1);
+                const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.25f, 0.25f, t)};
                 const auto mvp = glm::translate(MVP, pos);
 
                 // Transparancy sorting done using a map sorted on distance to camera
-                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, static_cast<float>(i), 1.f - t});
+                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, static_cast<float>(t_i), 1.f - t});
             }
 
-            for (const auto& [key, drawcall]: drawCalls) {
+            for (const auto&[key, drawcall]: drawCalls) {
                 shader->setUniform("MVP", drawcall.mvp);
                 shader->setUniform("mip_map_level", drawcall.mip_map_level);
                 shader->setUniform("opacity", drawcall.opacity);

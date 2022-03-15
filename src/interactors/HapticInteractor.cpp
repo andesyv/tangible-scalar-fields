@@ -227,7 +227,10 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        normal_tex_mip_maps, world_pos,
                                                                        haptic_params.normal_offset.load(),
                                                                        haptic_params.gravity_factor.load(),
-                                                                       haptic_params.gradual_surface_accuracy.load());
+                                                                       haptic_params.gradual_surface_accuracy.load()
+                                                                       ? std::make_optional(
+                                                                               haptic_params.surface_volume_mip_map_count.load())
+                                                                       : std::nullopt);
         }
 
         {
@@ -406,9 +409,17 @@ void HapticInteractor::display() {
         }
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
-        if (ImGui::Checkbox("Gradual surface accuracy mode", &m_ui_gradual_surface_accuracy_mode)) {
+        if (ImGui::Checkbox("Surface volume mode", &m_ui_gradual_surface_accuracy_mode)) {
             m_params.gradual_surface_accuracy.store(m_ui_gradual_surface_accuracy_mode);
             viewer()->BROADCAST(&HapticInteractor::m_ui_gradual_surface_accuracy_mode);
+        }
+        if (m_ui_gradual_surface_accuracy_mode) {
+            if (ImGui::SliderInt("Surface volume mip map count", &m_ui_surface_volume_mip_map_count, 2,
+                                 HapticMipMapLevels)) {
+                m_params.surface_volume_mip_map_count.store(
+                        static_cast<unsigned int>(m_ui_surface_volume_mip_map_count));
+                viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mip_map_count);
+            }
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {
             m_params.normal_offset.store(normal_offset);

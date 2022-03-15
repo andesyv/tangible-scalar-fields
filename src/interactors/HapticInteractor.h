@@ -27,7 +27,7 @@ namespace molumes {
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};
             std::atomic<bool> enable_force{false}, sphere_kernel{false}, gradual_surface_accuracy{false},
                     normal_offset{false};
-            std::atomic<unsigned int> mip_map_level{0}, input_space{1}, friction_mode{1};
+            std::atomic<unsigned int> mip_map_level{0}, input_space{1}, friction_mode{1}, surface_volume_mip_map_count{HapticMipMapLevels};
             std::atomic<glm::dmat3> view_mat_inv, view_mat;
         };
 
@@ -68,6 +68,7 @@ namespace molumes {
         ~HapticInteractor() override;
 
         unsigned int m_mip_map_ui_level{0};
+        int m_ui_surface_volume_mip_map_count{HapticMipMapLevels};
         glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
         float m_ui_sphere_kernel_size{0.01f}, m_ui_surface_height_multiplier{1.f};
         bool m_ui_gradual_surface_accuracy_mode{false};
