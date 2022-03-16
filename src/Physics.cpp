@@ -327,7 +327,7 @@ namespace molumes {
             const auto level_relative_coordinates = [](const glm::vec3 &coords, int level) {
                 // 2x+0.5 = t <=> t/2-0.25 = x
                 return coords -
-                       glm::vec3{0.f, 0.f, 0.5f * static_cast<float>(level) / (HapticMipMapLevels - 1) - 0.25f};
+                       glm::vec3{0.f, 0.f, static_cast<float>(level) / (2 * (HapticMipMapLevels - 1)) - 0.25f};
             };
             const auto surface_height = [](float height_interp, int lower, int upper) {
                 return 0.5f * std::lerp(static_cast<float>(lower), static_cast<float>(upper), height_interp) /
@@ -338,13 +338,16 @@ namespace molumes {
             const auto haptic_levels_enabled = static_cast<float>(*surface_volume_mip_map_counts - 1);
             const auto t = std::clamp(coords->z * 2.f + 0.5f, 0.f, 1.f);
             const auto f_i = haptic_levels_enabled * t;
-            auto upper_level = static_cast<int>(std::round(
-                    std::ceil(f_i) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
-            auto lower_level = static_cast<int>(std::round(
-                    std::floor(f_i) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
-//            std::cout << std::format("lower: {}, upper: {}, lower_relative_coords: {}, upper_relative_coords: {}",
-//                                     lower_level, upper_level, level_relative_coordinates(*coords, lower_level),
-//                                     level_relative_coordinates(*coords, upper_level)) << std::endl;
+            /**
+             * Small bias of 0.01 to make sure floor() works with whole numbers (ex: 0.999... + 0.01 = 1.009...)
+             * Would use round() instead, but that would round up from 2.5, which will give weird results when
+             * calculating back surface height offset in level_relative_coordinates(). Using floor with a bias
+             * will ensure number is always rounded down until 0.999, which is close enough I think.
+             */
+            auto upper_level = static_cast<int>(std::floor(
+                    (std::ceil(f_i) + 0.01f) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
+            auto lower_level = static_cast<int>(std::floor(
+                    (std::floor(f_i) + 0.01f) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
             auto is_top_level = upper_level == HapticMipMapLevels - 1;
             auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
                                               static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
@@ -385,10 +388,8 @@ namespace molumes {
 
                     const auto n = glm::mix(r1->normal, is_top_level ? r2->soft_normal : r2->normal, h_t);
                     sample_level_results = std::make_optional(
-                            NormalLevelResult{.normal = n, .soft_normal = n, .height = should_shift_down
-                                                                                       ? surface_height(
-                                            h_t, lower_level - 1, upper_level - 1) : surface_height(h_t, lower_level,
-                                                                                                    upper_level)});
+                            NormalLevelResult{.normal = n, .soft_normal = n, .height = surface_height(h_t, lower_level,
+                                                                                                      upper_level)});
                 } else {
                     sample_level_results = r1 ? r1 : r2;
                 }

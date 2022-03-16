@@ -267,7 +267,7 @@ void GridSurfaceRenderer::display() {
             const auto camera_pos = glm::vec3{inv_v_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}};
 
             for (int i = 0; i < m_surface_volume_enabled_count; ++i) {
-                const auto t_i = static_cast<unsigned int>(std::round(static_cast<float>(i * (HapticMipMapLevels - 1)) / static_cast<float>(m_surface_volume_enabled_count-1)));
+                const auto t_i = static_cast<unsigned int>(std::floor(static_cast<float>(i * (HapticMipMapLevels - 1)) / static_cast<float>(m_surface_volume_enabled_count-1)));
                 const auto t = static_cast<float>(t_i) / static_cast<float>(HapticMipMapLevels - 1);
 //                const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_count - 1);
                 const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.25f, 0.25f, t)};
