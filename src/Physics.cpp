@@ -17,6 +17,16 @@ struct std::formatter<glm::vec<L, T, Q>> : std::formatter<std::string> {
     }
 };
 
+template<typename T, typename R>
+std::optional<R> optional_chain(const std::optional<T> &opt) {
+    return opt ? std::make_optional<R>(*opt) : std::nullopt;
+}
+
+template<typename T, typename F>
+auto optional_chain(const std::optional<T> &opt, F &&func) {
+    return opt ? func(*opt) : std::nullopt;
+}
+
 // AMD C++ smoothstep function from 0 to 1 (https://en.wikipedia.org/wiki/Smoothstep)
 float smoothstep(float a, float b, float x) {
     // Scale, bias and saturate x to 0..1 range
@@ -259,12 +269,17 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     }
 }
 
+struct NormalLevelSampleResult {
+    glm::dvec3 normal;
+    float height;
+};
+
 struct NormalLevelResult {
     glm::dvec3 normal, soft_normal;
     float height;
 };
 
-std::optional<NormalLevelResult>
+std::optional<NormalLevelSampleResult>
 sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
                     const glm::dvec3 &coords, unsigned int level,
                     float surface_height_multiplier, bool normal_offset, float surface_force, float surface_softness) {
@@ -293,9 +308,7 @@ sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::Simu
         normal_force = half_normal;
     }
 
-    const auto soft_normal_force = soften_surface_normal(normal_force, surface_height, surface_softness);
-    return std::make_optional(
-            NormalLevelResult{.normal = normal_force, .soft_normal = soft_normal_force, .height = surface_height});
+    return {{normal_force, surface_height}};
 }
 
 namespace molumes {
@@ -349,7 +362,6 @@ namespace molumes {
             auto upper_level = enabled_mip_maps.at(upper_j);
             auto lower_level = enabled_mip_maps.at(lower_j);
 
-            std::cout << std::format("Levels: [{}, {}]", lower_level, upper_level) << std::endl;
             auto is_top_level = upper_level == HapticMipMapLevels - 1;
 
             auto r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
@@ -357,10 +369,11 @@ namespace molumes {
                                           lower_level, surface_height_multiplier,
                                           normal_offset, 1.f, surface_softness);
             if (lower_level == upper_level) {
-                sample_level_results = r1 && r1->height <= 0.f ? std::make_optional(
-                        NormalLevelResult{.normal = r1->normal, .soft_normal = is_top_level ? r1->soft_normal
-                                                                                            : r1->normal, .height = r1->height})
-                                                               : std::nullopt;
+                const auto soft_normal = is_top_level ? soften_surface_normal(r1->normal, r1->height, surface_softness)
+                                                      : r1->normal;
+                sample_level_results =
+                        r1 && r1->height <= 0.f ? std::make_optional<NormalLevelResult>(r1->normal, soft_normal,
+                                                                                        r1->height) : std::nullopt;
             } else {
                 auto r2 = sample_normal_level(tex_mip_maps, m_simulation_steps,
                                               level_relative_coordinates(*coords, upper_j), upper_level,
@@ -384,26 +397,34 @@ namespace molumes {
                         is_top_level = false; // Since we shifted down, it's guaranteed to not be the top level anymore
                     }
 
-                    const auto n = glm::mix(r1->normal, is_top_level ? r2->soft_normal : r2->normal, h_t);
-                    sample_level_results = std::make_optional(
-                            NormalLevelResult{.normal = n, .soft_normal = n, .height = surface_height(h_t, lower_level,
-                                                                                                      upper_level)});
+                    const auto n = glm::mix(r1->normal, is_top_level ? soften_surface_normal(r2->normal, r2->height,
+                                                                                             surface_softness)
+                                                                     : r2->normal, h_t);
+                    sample_level_results = std::make_optional<NormalLevelResult>(n, n, surface_height(h_t, lower_level,
+                                                                                                      upper_level));
                 } else {
-                    sample_level_results = r1 ? r1 : r2;
+                    sample_level_results = optional_chain(r1 ? r1 : r2, [](const auto &s) {
+                        return std::make_optional<NormalLevelResult>(s.normal, s.normal, s.height);
+                    });
                 }
             }
 
             if (sample_level_results) {
                 const auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
-                                                  static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
+                                                        static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
 
                 sample_level_results->normal *= force_multiplier;
                 sample_level_results->soft_normal *= force_multiplier;
             }
         } else {
-            sample_level_results = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
-                                                       mip_map_level, surface_height_multiplier,
-                                                       normal_offset, surface_force, surface_softness);
+            const auto res = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
+                                                 mip_map_level, surface_height_multiplier,
+                                                 normal_offset, surface_force, surface_softness);
+            sample_level_results = optional_chain(res, [=](const auto &r) {
+                return std::make_optional<NormalLevelResult>(r.normal, soften_surface_normal(r.normal, r.height,
+                                                                                             surface_softness),
+                                                             r.height);
+            });
         }
         // We're above the (all) surface(s). In the air, return early.
         if (!sample_level_results)
