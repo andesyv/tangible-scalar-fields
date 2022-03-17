@@ -324,36 +324,36 @@ namespace molumes {
         glm::dvec3 sum_normal_force{0.0};
         std::optional<NormalLevelResult> sample_level_results;
         if (surface_volume_mip_map_counts) {
-            const auto level_relative_coordinates = [](const glm::vec3 &coords, int level) {
-                // 2x+0.5 = t <=> t/2-0.25 = x
-                return coords -
-                       glm::vec3{0.f, 0.f, static_cast<float>(level) / (2 * (HapticMipMapLevels - 1)) - 0.25f};
-            };
+            const auto enabled_mip_maps = generate_enabled_mip_maps(*surface_volume_mip_map_counts);
             const auto surface_height = [](float height_interp, int lower, int upper) {
                 return 0.5f * std::lerp(static_cast<float>(lower), static_cast<float>(upper), height_interp) /
                        (HapticMipMapLevels - 1) - 0.25f;
             };
 
+            const auto level_relative_height =
+                    [enabled_levels_count = static_cast<float>(enabled_mip_maps.size() - 1)]
+                            (auto level_index) {
+                        return std::lerp(-0.25f, 0.25f, static_cast<float>(level_index) / enabled_levels_count);
+                    };
+            const auto level_relative_coordinates = [level_relative_height](const glm::vec3 &coords, auto level_index) {
+                // 2x+0.5 = t <=> t/2-0.25 = x
+                return coords - glm::vec3{0.f, 0.f, level_relative_height(level_index)};
+            };
+
             // Get upper and lower mip map levels:
-            const auto haptic_levels_enabled = static_cast<float>(*surface_volume_mip_map_counts - 1);
+            const auto enabled_mip_maps_range_mult = static_cast<float>(*surface_volume_mip_map_counts - 1);
             const auto t = std::clamp(coords->z * 2.f + 0.5f, 0.f, 1.f);
-            const auto f_i = haptic_levels_enabled * t;
-            /**
-             * Small bias of 0.01 to make sure floor() works with whole numbers (ex: 0.999... + 0.01 = 1.009...)
-             * Would use round() instead, but that would round up from 2.5, which will give weird results when
-             * calculating back surface height offset in level_relative_coordinates(). Using floor with a bias
-             * will ensure number is always rounded down until 0.999, which is close enough I think.
-             */
-            auto upper_level = static_cast<int>(std::floor(
-                    (std::ceil(f_i) + 0.01f) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
-            auto lower_level = static_cast<int>(std::floor(
-                    (std::floor(f_i) + 0.01f) * ((HapticMipMapLevels - 1) / haptic_levels_enabled)));
+
+            const auto upper_j = static_cast<std::size_t>(std::ceil(t * enabled_mip_maps_range_mult));
+            const auto lower_j = static_cast<std::size_t>(std::floor(t * enabled_mip_maps_range_mult));
+            auto upper_level = enabled_mip_maps.at(upper_j);
+            auto lower_level = enabled_mip_maps.at(lower_j);
+
+            std::cout << std::format("Levels: [{}, {}]", lower_level, upper_level) << std::endl;
             auto is_top_level = upper_level == HapticMipMapLevels - 1;
-            auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
-                                              static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
 
             auto r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                          level_relative_coordinates(*coords, lower_level),
+                                          level_relative_coordinates(*coords, lower_j),
                                           lower_level, surface_height_multiplier,
                                           normal_offset, 1.f, surface_softness);
             if (lower_level == upper_level) {
@@ -363,23 +363,21 @@ namespace molumes {
                                                                : std::nullopt;
             } else {
                 auto r2 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                              level_relative_coordinates(*coords, upper_level), upper_level,
+                                              level_relative_coordinates(*coords, upper_j), upper_level,
                                               surface_height_multiplier, normal_offset, 1.f, surface_softness);
 
                 if (r1 && r2) {
                     // The relative interpolation between the height levels (like f_f but corresponding to heights):
                     auto h_t = r1->height / (r1->height - r2->height);
                     // If h_t is negative, our probe is below our lower_bounds sampled height, so shift the interval one down
-                    const auto should_shift_down = h_t < 0.f && lower_level != 0;
+                    const auto should_shift_down = h_t < 0.f && lower_j != 0;
                     if (should_shift_down) {
                         r2 = r1;
                         upper_level = lower_level;
-                        --lower_level;
-                        force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
-                                                     static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
+                        lower_level = enabled_mip_maps.at(lower_j - 1);
 
                         r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                                 level_relative_coordinates(*coords, lower_level),
+                                                 level_relative_coordinates(*coords, lower_j - 1),
                                                  lower_level, surface_height_multiplier, normal_offset, 1.f,
                                                  surface_softness);
                         h_t = r1->height / (r1->height - r2->height);
@@ -396,6 +394,9 @@ namespace molumes {
             }
 
             if (sample_level_results) {
+                const auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
+                                                  static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
+
                 sample_level_results->normal *= force_multiplier;
                 sample_level_results->soft_normal *= force_multiplier;
             }
@@ -423,5 +424,15 @@ namespace molumes {
         sum_forces += sum_normal_force;
 
         return sum_forces;
+    }
+
+    std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count) {
+        std::vector<int> out;
+        out.reserve(enabled_count);
+        for (unsigned int i{0}; i < enabled_count; ++i)
+            out.push_back(static_cast<int>(std::round(
+                    (HapticMipMapLevels - 1) * static_cast<float>(i) / static_cast<float>(enabled_count - 1) + 0.01f
+            )));
+        return out;
     }
 }

@@ -3,6 +3,7 @@
 #include "../Viewer.h"
 #include "../DelegateUtils.h"
 #include "../interactors/HapticInteractor.h"
+#include "../Physics.h"
 
 #include <cassert>
 #include <format>
@@ -149,8 +150,7 @@ constexpr auto create_subdivided_plane() {
     return vertices;
 }
 
-GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer),
-                                                           m_surface_volume_enabled_count{HapticMipMapLevels} {
+GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
     constexpr auto plane_vertices = create_subdivided_plane<PLANE_SUBDIVISION>();
 
     // Init plane:
@@ -198,12 +198,14 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer),
             {GL_FRAGMENT_SHADER,        "./res/grid/normal-surface-fs.glsl"}
     });
 
+    m_surface_volume_enabled_mip_maps = generate_enabled_mip_maps(HapticMipMapLevels);
+
     subscribe(*viewer, &HapticInteractor::m_mip_map_ui_level, [this](unsigned int level) { m_mip_map_level = level; });
     subscribe(*viewer, &HapticInteractor::m_ui_surface_height_multiplier, [this](float m) { m_height_multiplier = m; });
-    subscribe(*viewer, &HapticInteractor::m_ui_gradual_surface_accuracy_mode,
+    subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_mode,
               [this](bool b) { m_surface_volume_mode = b; });
-    subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_mip_map_count,
-              [this](int c) { m_surface_volume_enabled_count = c; });
+    subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_enabled_mip_maps,
+              [this](auto mips) { m_surface_volume_enabled_mip_maps = std::move(mips); });
 }
 
 void GridSurfaceRenderer::display() {
@@ -262,19 +264,18 @@ void GridSurfaceRenderer::display() {
             std::map<float, DrawParams, std::greater<>> drawCalls;
 
 
-
             const auto inv_v_mat = glm::inverse(viewer()->viewTransform());
             const auto camera_pos = glm::vec3{inv_v_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}};
 
-            for (int i = 0; i < m_surface_volume_enabled_count; ++i) {
-                const auto t_i = static_cast<unsigned int>(std::floor(static_cast<float>(i * (HapticMipMapLevels - 1)) / static_cast<float>(m_surface_volume_enabled_count-1)));
-                const auto t = static_cast<float>(t_i) / static_cast<float>(HapticMipMapLevels - 1);
+            for (int i = 0; i < m_surface_volume_enabled_mip_maps.size(); ++i) {
+                const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_mip_maps.size() - 1);
+                const auto level = static_cast<float>(m_surface_volume_enabled_mip_maps.at(i));
 //                const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_count - 1);
                 const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.25f, 0.25f, t)};
                 const auto mvp = glm::translate(MVP, pos);
 
                 // Transparancy sorting done using a map sorted on distance to camera
-                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, static_cast<float>(t_i), 1.f - t});
+                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, level, 1.f - t});
             }
 
             for (const auto&[key, drawcall]: drawCalls) {

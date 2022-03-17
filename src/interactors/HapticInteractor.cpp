@@ -376,6 +376,7 @@ void HapticInteractor::display() {
         int input_space = static_cast<int>(m_params.input_space.load());
         bool normal_offset = m_params.normal_offset.load();
         bool gravity_enabled = m_params.gravity_factor.load().has_value();
+        int surface_volume_mip_map_count = static_cast<int>(m_params.surface_volume_mip_map_count.load());
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -409,16 +410,16 @@ void HapticInteractor::display() {
         }
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
-        if (ImGui::Checkbox("Surface volume mode", &m_ui_gradual_surface_accuracy_mode)) {
-            m_params.gradual_surface_accuracy.store(m_ui_gradual_surface_accuracy_mode);
-            viewer()->BROADCAST(&HapticInteractor::m_ui_gradual_surface_accuracy_mode);
+        if (ImGui::Checkbox("Surface volume mode", &m_ui_surface_volume_mode)) {
+            m_params.gradual_surface_accuracy.store(m_ui_surface_volume_mode);
+            viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mode);
         }
-        if (m_ui_gradual_surface_accuracy_mode) {
-            if (ImGui::SliderInt("Surface volume mip map count", &m_ui_surface_volume_mip_map_count, 2,
+        if (m_ui_surface_volume_mode) {
+            if (ImGui::SliderInt("Surface volume mip map count", &surface_volume_mip_map_count, 2,
                                  HapticMipMapLevels)) {
-                m_params.surface_volume_mip_map_count.store(
-                        static_cast<unsigned int>(m_ui_surface_volume_mip_map_count));
-                viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mip_map_count);
+                m_params.surface_volume_mip_map_count.store(static_cast<unsigned int>(surface_volume_mip_map_count));
+                m_ui_surface_volume_enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_count);
+                viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_enabled_mip_maps);
             }
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {

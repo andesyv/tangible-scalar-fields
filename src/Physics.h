@@ -95,6 +95,8 @@ namespace molumes {
                                   std::optional<float> gravity_factor = std::nullopt,
                                   std::optional<unsigned int> surface_volume_mip_map_counts = std::nullopt);
     };
+
+    std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels);
 }
 
 #endif //MOLUMES_PHYSICS_H
