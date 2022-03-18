@@ -230,6 +230,10 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        haptic_params.gradual_surface_accuracy.load()
                                                                        ? std::make_optional(
                                                                                haptic_params.surface_volume_mip_map_count.load())
+                                                                       : std::nullopt,
+                                                                       haptic_params.sphere_kernel.load()
+                                                                       ? std::make_optional(
+                                                                               haptic_params.sphere_kernel_radius.load())
                                                                        : std::nullopt);
         }
 

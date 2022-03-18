@@ -93,7 +93,8 @@ namespace molumes {
                                   const TextureMipMaps &tex_mip_maps,
                                   const glm::dvec3 &pos, bool normal_offset = false,
                                   std::optional<float> gravity_factor = std::nullopt,
-                                  std::optional<unsigned int> surface_volume_mip_map_counts = std::nullopt);
+                                  std::optional<unsigned int> surface_volume_mip_map_counts = std::nullopt,
+                                  std::optional<float> sphere_kernel_radius = std::nullopt);
     };
 
     std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels);

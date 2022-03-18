@@ -71,8 +71,9 @@ std::optional<glm::vec2> opt_pos_uvs_in_plane(const glm::vec3 &pos, const glm::m
 std::optional<glm::vec3>
 opt_relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
     const auto coords = opt_pos_uvs_in_plane(pos, pl_mat, glm::vec2{2.f});
-    return coords ? std::make_optional(
-            glm::vec3{*coords, point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]})}) : std::nullopt;
+    return optional_chain(coords, [&](const auto &coord) {
+        return std::make_optional<glm::vec3>(coord, point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]}));
+    });
 }
 
 // Opengl 4.0 Specs: glReadPixels: Pixels are returned in row order from the lowest to the highest row, left to right in each row.
@@ -213,18 +214,6 @@ Physics::SimulationStepData &Physics::create_simulation_record(const glm::dvec3 
     return current_simulation_step;
 }
 
-std::optional<glm::dvec3>
-calc_friction(double friction_scale, const glm::dvec3 &user_force, const glm::dvec3 &normal_force) {
-    // F_fr = F_fr_dir * F_fr_len = (-||F_u + F_n||) * (|F_n| * (if |v| < threshold then u_s else u_k)), where u_k < u_s
-    const auto fr_len = friction_scale * glm::length(normal_force);
-    if (fr_len < 0.0001)
-        return std::nullopt;
-
-    // f_n + f_fr = -f => f_n + f = -f_fr => -(f_n + f) = f_fr -> f_fr_dir = -||f_n + f||
-    const auto f_fr_dir = -glm::normalize(user_force + normal_force);
-    return {f_fr_dir * fr_len};
-}
-
 auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulation_steps, const glm::dvec3 &surface_pos,
                            double friction_scale, const glm::dvec3 &normal_force) {
     auto &current_step = simulation_steps.get_from_back<0>();
@@ -269,6 +258,47 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     }
 }
 
+// Fibonacci sphere algorithm, inspired by https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+std::vector<glm::dvec3> fibonacci_sphere(unsigned int count = 8, double radius = 1.0) {
+    // golden angle in radians
+    static const auto phi = std::numbers::pi * (3.0 - std::sqrt(5.0));
+    std::vector<glm::dvec3> points;
+    points.reserve(count);
+
+    for (auto i{0u}; i < count; ++i) {
+        const auto y = radius - (static_cast<double>(i) / static_cast<double>(count - 1)) * 2.0 * radius;
+        const auto y_radius = std::sqrt(radius - y * y);
+        const auto theta = phi * static_cast<double>(i);
+
+        points.emplace_back(std::cos(theta) * y_radius, std::sin(theta) * y_radius, y);
+    }
+
+    return points;
+}
+
+// Does a sphere sample around the center and chooses a new point that is closer to the surface within a specified radius
+glm::dvec3 find_closest_point_in_sphere(const glm::dvec3 &center, double radius, const TextureMipMaps &tex_mip_maps,
+                                        unsigned int level, float surface_height_multiplier) {
+    auto sample_points = fibonacci_sphere(18, radius);
+    for (auto &p: sample_points)
+        p += center;
+    sample_points.push_back(center);
+    std::pair<double, glm::dvec3> closest{std::numeric_limits<double>::max(), {}};
+
+    const auto&[dims, data] = tex_mip_maps.at(level);
+    for (const auto &p: sample_points) {
+        if (p.x < 0.0 || 1.0 < p.x || p.y < 0.0 || 1.0 < p.y)
+            continue;
+        const auto value = sample_tex(glm::vec2{p}, dims, data);
+        auto dist = std::abs(p.z - value.w * surface_height_multiplier);
+        if (dist < closest.first)
+            closest = {dist, p};
+    }
+
+    // Since we include the center, we should be guaranteed that at least 1 point will be closest
+    return closest.second;
+}
+
 struct NormalLevelSampleResult {
     glm::dvec3 normal;
     float height;
@@ -281,9 +311,14 @@ struct NormalLevelResult {
 
 std::optional<NormalLevelSampleResult>
 sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
-                    const glm::dvec3 &coords, unsigned int level,
+                    glm::dvec3 coords, unsigned int level,
                     float surface_height_multiplier, bool normal_offset, float surface_force, float surface_softness) {
     const auto&[dims, data] = tex_mip_maps.at(level);
+
+//    // Find a better estimation to closest point:
+//    coords = find_closest_point_in_sphere(coords, 0.00001, tex_mip_maps, level,
+//                                          surface_height_multiplier);
+
 
     // 3-4. Calculate normal (constraint) force
     const auto[surface_height, opt_normal_force] = sample_normal_force(coords, dims, data, level,
@@ -317,7 +352,8 @@ namespace molumes {
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
                                                   const glm::dvec3 &pos, bool normal_offset,
                                                   std::optional<float> gravity_factor,
-                                                  std::optional<unsigned int> surface_volume_mip_map_counts) {
+                                                  std::optional<unsigned int> surface_volume_mip_map_counts,
+                                                  std::optional<float> sphere_kernel_radius) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
         glm::dvec3 sum_forces{0.0};
@@ -327,15 +363,20 @@ namespace molumes {
             sum_forces.z -= *gravity_factor;
 
         const auto coords = opt_relative_pos_coords(glm::vec3{pos}, pl_mat, glm::vec2{2.f});
-        // Can't calculate a force outside the bounds of the plane, so return no force
-        if (!coords)
+        if (!coords) {
+            // Apply a constant up-facing surface force outside of bounds (simulating an infinite plane)
+            sum_forces += soften_surface_normal(glm::dvec3{0.f, 0.f, surface_force},
+                                                point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]}),
+                                                surface_softness);
             return sum_forces;
+        }
 
         // Shouldn't be possible for coords to be negative
         assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})));
 
         glm::dvec3 sum_normal_force{0.0};
         std::optional<NormalLevelResult> sample_level_results;
+        // Surface volume (multiple surfaces)
         if (surface_volume_mip_map_counts) {
             const auto enabled_mip_maps = generate_enabled_mip_maps(*surface_volume_mip_map_counts);
             const auto surface_height = [](float height_interp, int lower, int upper) {
@@ -416,6 +457,7 @@ namespace molumes {
                 sample_level_results->normal *= force_multiplier;
                 sample_level_results->soft_normal *= force_multiplier;
             }
+            // Singular surface:
         } else {
             const auto res = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
                                                  mip_map_level, surface_height_multiplier,
