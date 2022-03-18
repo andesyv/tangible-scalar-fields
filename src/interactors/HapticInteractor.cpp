@@ -234,7 +234,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        haptic_params.sphere_kernel.load()
                                                                        ? std::make_optional(
                                                                                haptic_params.sphere_kernel_radius.load())
-                                                                       : std::nullopt);
+                                                                       : std::nullopt,
+                                                                       haptic_params.linear_volume_surface_force.load());
         }
 
         {
@@ -381,6 +382,7 @@ void HapticInteractor::display() {
         bool normal_offset = m_params.normal_offset.load();
         bool gravity_enabled = m_params.gravity_factor.load().has_value();
         int surface_volume_mip_map_count = static_cast<int>(m_params.surface_volume_mip_map_count.load());
+        bool linear_volume_surface_force = m_params.linear_volume_surface_force.load();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -425,6 +427,8 @@ void HapticInteractor::display() {
                 m_ui_surface_volume_enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_count);
                 viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_enabled_mip_maps);
             }
+            if (ImGui::Checkbox("Linear force interpolation", &linear_volume_surface_force))
+                m_params.linear_volume_surface_force.store(linear_volume_surface_force);
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {
             m_params.normal_offset.store(normal_offset);

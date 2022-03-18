@@ -353,7 +353,8 @@ namespace molumes {
                                                   const glm::dvec3 &pos, bool normal_offset,
                                                   std::optional<float> gravity_factor,
                                                   std::optional<unsigned int> surface_volume_mip_map_counts,
-                                                  std::optional<float> sphere_kernel_radius) {
+                                                  std::optional<float> sphere_kernel_radius,
+                                                  bool linear_volume_surface_force) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
         glm::dvec3 sum_forces{0.0};
@@ -452,7 +453,7 @@ namespace molumes {
 
             if (sample_level_results) {
                 const auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
-                                                        static_cast<float>(lower_level) / (HapticMipMapLevels - 1));
+                                                        linear_volume_surface_force ? t : (static_cast<float>(lower_level) / (HapticMipMapLevels - 1)));
 
                 sample_level_results->normal *= force_multiplier;
                 sample_level_results->soft_normal *= force_multiplier;
