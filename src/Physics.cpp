@@ -299,6 +299,44 @@ glm::dvec3 find_closest_point_in_sphere(const glm::dvec3 &center, double radius,
     return closest.second;
 }
 
+/**
+ * @brief Samples texture slices like a volume.
+ * Using 2 slices, samples a density in a volume constructed from the slices, using the (un?)signed height differences
+ * as the density. The xy-part of the sampling coordinates translates to the uv-coordinates in the plane, and the
+ * z-coordinate translates to the difference between the 2 slices - the interpolation from the first layer to the
+ * second layer.
+ */
+float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_maps,
+                       std::array<unsigned int, 2> levels) {
+    const auto&[dims0, data0] = tex_mip_maps.at(levels[0]);
+    const auto&[dims1, data1] = tex_mip_maps.at(levels[1]);
+
+    // If coordinates are outside of bounds, just return 0 as the density (air)
+    if (glm::any(glm::lessThan(coord, glm::vec3{0.f})) || glm::any(glm::greaterThan(coord, glm::vec3{1.f})))
+        return 0.0;
+
+    return std::lerp(
+            sample_tex(glm::vec2{coord}, dims0, data0).w,
+            sample_tex(glm::vec2{coord}, dims1, data1).w,
+            coord.z);
+}
+
+// Sample a volume gradient using central differences
+glm::dvec3 sample_volume_gradient(const TextureMipMaps &tex_mip_maps, const glm::vec3 &coords,
+                                  std::array<unsigned int, 2> levels, float interp = 0.5f) {
+    static constexpr double EPS = 0.01f;
+    using namespace glm;
+    const auto &tf = [&tex_mip_maps, levels](const vec3 &coord) {
+        return sample_volume_tf(coord, tex_mip_maps, levels);
+    };
+
+    return {
+            tf(vec3{coords.x + EPS, coords.y, interp}) - tf(vec3{coords.x - EPS, coords.y, interp}),
+            tf(vec3{coords.x, coords.y + EPS, interp}) - tf(vec3{coords.x, coords.y - EPS, interp}),
+            tf(vec3{coords.x, coords.y, interp + EPS}) - tf(vec3{coords.x, coords.y, interp - EPS}),
+    };
+}
+
 struct NormalLevelSampleResult {
     glm::dvec3 normal;
     float height;
@@ -401,63 +439,74 @@ namespace molumes {
 
             const auto upper_j = static_cast<std::size_t>(std::ceil(t * enabled_mip_maps_range_mult));
             const auto lower_j = static_cast<std::size_t>(std::floor(t * enabled_mip_maps_range_mult));
-            auto upper_level = enabled_mip_maps.at(upper_j);
-            auto lower_level = enabled_mip_maps.at(lower_j);
+            auto upper_level = static_cast<unsigned int>(enabled_mip_maps.at(upper_j));
+            auto lower_level = static_cast<unsigned int>(enabled_mip_maps.at(lower_j));
 
-            auto is_top_level = upper_level == HapticMipMapLevels - 1;
+            const auto f_f = t * enabled_mip_maps_range_mult - static_cast<float>(lower_j);
 
-            auto r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                          level_relative_coordinates(*coords, lower_j),
-                                          lower_level, surface_height_multiplier,
-                                          normal_offset, 1.f, surface_softness);
-            if (lower_level == upper_level) {
-                const auto soft_normal = is_top_level ? soften_surface_normal(r1->normal, r1->height, surface_softness)
-                                                      : r1->normal;
-                sample_level_results =
-                        r1 && r1->height <= 0.f ? std::make_optional<NormalLevelResult>(r1->normal, soft_normal,
-                                                                                        r1->height) : std::nullopt;
-            } else {
-                auto r2 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                              level_relative_coordinates(*coords, upper_j), upper_level,
-                                              surface_height_multiplier, normal_offset, 1.f, surface_softness);
+            const auto gradient = sample_volume_gradient(tex_mip_maps, *coords, {lower_level, upper_level}, f_f) *
+                                  static_cast<double>(surface_force) * 100.0;
 
-                if (r1 && r2) {
-                    // The relative interpolation between the height levels (like f_f but corresponding to heights):
-                    auto h_t = r1->height / (r1->height - r2->height);
-                    // If h_t is negative, our probe is below our lower_bounds sampled height, so shift the interval one down
-                    const auto should_shift_down = h_t < 0.f && lower_j != 0;
-                    if (should_shift_down) {
-                        r2 = r1;
-                        upper_level = lower_level;
-                        lower_level = enabled_mip_maps.at(lower_j - 1);
-
-                        r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
-                                                 level_relative_coordinates(*coords, lower_j - 1),
-                                                 lower_level, surface_height_multiplier, normal_offset, 1.f,
-                                                 surface_softness);
-                        h_t = r1->height / (r1->height - r2->height);
-                        is_top_level = false; // Since we shifted down, it's guaranteed to not be the top level anymore
-                    }
-
-                    const auto n = glm::mix(r1->normal, is_top_level ? soften_surface_normal(r2->normal, r2->height,
-                                                                                             surface_softness)
-                                                                     : r2->normal, h_t);
-                    sample_level_results = std::make_optional<NormalLevelResult>(n, n, surface_height(h_t, lower_level,
-                                                                                                      upper_level));
-                } else {
-                    sample_level_results = optional_chain(r1 ? r1 : r2, [](const auto &s) {
-                        return std::make_optional<NormalLevelResult>(s.normal, s.normal, s.height);
-                    });
-                }
+            if (0.001 < glm::length(gradient)) {
+                sample_level_results = {{.normal = gradient, .soft_normal = gradient, .height = coords->z}};
             }
 
-            if (sample_level_results) {
-                const auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
-                                                        linear_volume_surface_force ? t : (static_cast<float>(lower_level) / (HapticMipMapLevels - 1)));
-
-                sample_level_results->normal *= force_multiplier;
-                sample_level_results->soft_normal *= force_multiplier;
-            }
+//            auto is_top_level = upper_level == HapticMipMapLevels - 1;
+//
+//            auto r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
+//                                          level_relative_coordinates(*coords, lower_j),
+//                                          lower_level, surface_height_multiplier,
+//                                          normal_offset, 1.f, surface_softness);
+//            if (lower_level == upper_level) {
+//                const auto soft_normal = is_top_level ? soften_surface_normal(r1->normal, r1->height, surface_softness)
+//                                                      : r1->normal;
+//                sample_level_results =
+//                        r1 && r1->height <= 0.f ? std::make_optional<NormalLevelResult>(r1->normal, soft_normal,
+//                                                                                        r1->height) : std::nullopt;
+//            } else {
+//                auto r2 = sample_normal_level(tex_mip_maps, m_simulation_steps,
+//                                              level_relative_coordinates(*coords, upper_j), upper_level,
+//                                              surface_height_multiplier, normal_offset, 1.f, surface_softness);
+//
+//                if (r1 && r2) {
+//                    // The relative interpolation between the height levels (like f_f but corresponding to heights):
+//                    auto h_t = r1->height / (r1->height - r2->height);
+//                    // If h_t is negative, our probe is below our lower_bounds sampled height, so shift the interval one down
+//                    const auto should_shift_down = h_t < 0.f && lower_j != 0;
+//                    if (should_shift_down) {
+//                        r2 = r1;
+//                        upper_level = lower_level;
+//                        lower_level = enabled_mip_maps.at(lower_j - 1);
+//
+//                        r1 = sample_normal_level(tex_mip_maps, m_simulation_steps,
+//                                                 level_relative_coordinates(*coords, lower_j - 1),
+//                                                 lower_level, surface_height_multiplier, normal_offset, 1.f,
+//                                                 surface_softness);
+//                        h_t = r1->height / (r1->height - r2->height);
+//                        is_top_level = false; // Since we shifted down, it's guaranteed to not be the top level anymore
+//                    }
+//
+//                    const auto n = glm::mix(r1->normal, is_top_level ? soften_surface_normal(r2->normal, r2->height,
+//                                                                                             surface_softness)
+//                                                                     : r2->normal, h_t);
+//                    sample_level_results = std::make_optional<NormalLevelResult>(n, n, surface_height(h_t, lower_level,
+//                                                                                                      upper_level));
+//                } else {
+//                    sample_level_results = optional_chain(r1 ? r1 : r2, [](const auto &s) {
+//                        return std::make_optional<NormalLevelResult>(s.normal, s.normal, s.height);
+//                    });
+//                }
+//            }
+//
+//            if (sample_level_results) {
+//                const auto force_multiplier = std::lerp(surface_force, surface_force * 0.25f,
+//                                                        linear_volume_surface_force ? t : (
+//                                                                static_cast<float>(lower_level) /
+//                                                                (HapticMipMapLevels - 1)));
+//
+//                sample_level_results->normal *= force_multiplier;
+//                sample_level_results->soft_normal *= force_multiplier;
+//            }
             // Singular surface:
         } else {
             const auto res = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
