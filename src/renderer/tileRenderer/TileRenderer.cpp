@@ -11,6 +11,7 @@
 #include <format>
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 
 #include <glbinding/gl/gl.h>
 
@@ -391,7 +392,7 @@ void TileRenderer::display() {
     maxValRenderPass(modelViewProjectionMatrix, maxBounds, minBounds);
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
-    const bool shouldRenderNormal = tile != nullptr && m_renderTileNormals && m_normals_parameters_changed;
+    const bool shouldRenderNormal = !m_debug_heightmap && tile != nullptr && m_renderTileNormals && m_normals_parameters_changed;
     if (shouldRenderNormal)
         normalRenderPass(modelViewProjectionMatrix, viewportSize);
 
@@ -1350,25 +1351,68 @@ TileRenderer::calculateDiscrepancy2D(const std::vector<float> &samplesX, const s
 }
 
 void TileRenderer::fileLoaded(const std::string &filename) {
-    // reset column names
-    m_guiColumnNames = "None";
-    m_guiColumnNames += '\0'; /// Trailing null-terminators in string literals apparently gets truncated by STL
+    using namespace std::filesystem;
+    const path filepath{filename};
+    m_debug_heightmap = filepath.extension() != path{".csv"};
+    if (m_debug_heightmap) {
+        unsigned int width, height;
+        std::vector<GLubyte> processed_img;
+        std::vector<unsigned char> img;
+        if (!lodepng::decode(img, width, height, filename)) {
+            const auto channel_count = img.size() / (width * height);
+            processed_img.reserve(width * height * 4);
 
-    // extract column names and prepare GUI
-    std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
+            for (std::size_t y{0}; y < height; ++y) {
+                for (std::size_t x{0}; x < width; ++x) {
+                    // Image is read left -> right, top -> bottom. opengl expects images in left -> right, bottom -> top
+                    const auto img_pixel = img.at(channel_count * (x + (height - y - 1) * width));
 
-    for (const auto &tempName: tempNames)
-        m_guiColumnNames += tempName + '\0';
+                    // Converting it to a fractional double in the middle, in case GLubyte != unsigned char
+                    const auto f = static_cast<double>(img_pixel) / std::numeric_limits<unsigned char>::max();
+                    const auto value = static_cast<double>(std::numeric_limits<GLubyte>::max()) * f;
+                    processed_img.emplace_back(); processed_img.emplace_back(); processed_img.emplace_back();
+                    processed_img.push_back(static_cast<GLubyte>(value));
+                }
+            }
 
-    m_currentFileName = filename;
+            // Manually set the texture of one of the frame_data structs (so mip maps will be generated from that in next offload renders)
+            auto& frame_data = m_normal_frame_data[0];
+            frame_data.texture->image2D(0, GL_RGBA32F, {width, height}, 0, GL_RGBA, GL_UNSIGNED_BYTE, processed_img.data());
+            frame_data.size = {width, height};
+            frame_data.step = 0;
 
-    // provide default selections assuming
-    m_xAxisDataID = 1;        // contains the X-values
-    m_yAxisDataID = 2;        // contains the Y-values
-    m_radiusDataID = 3;        // contains the radii
-    m_colorDataID = 4;        // contains the colors
+            // Set all other frame_data to the same, to ensure one of them gets processed next offload render
+            for (auto i = 1; i < ROUND_ROBIN_SIZE; ++i) {
+                m_normal_frame_data[i].texture = frame_data.texture;
+                m_normal_frame_data[i].size = frame_data.size;
+                m_normal_frame_data[i].step = 0;
+            }
+        }
+    } else {
+        // reset column names
+        m_guiColumnNames = "None";
+        m_guiColumnNames += '\0'; /// Trailing null-terminators in string literals apparently gets truncated by STL
 
-    updateData();
+        // extract column names and prepare GUI
+        std::vector<std::string> tempNames = viewer()->scene()->table()->getColumnNames();
+
+        for (const auto &tempName: tempNames)
+            m_guiColumnNames += tempName + '\0';
+
+        m_currentFileName = filename;
+
+        // provide default selections assuming
+        m_xAxisDataID = 1;        // contains the X-values
+        m_yAxisDataID = 2;        // contains the Y-values
+        m_radiusDataID = 3;        // contains the radii
+        m_colorDataID = 4;        // contains the colors
+
+        updateData();
+
+        // Make sure every frame data is invalidated:
+        for (auto i = 1; i < ROUND_ROBIN_SIZE; ++i)
+            m_normal_frame_data[i].step = 3;
+    }
 }
 
 void TileRenderer::updateData() {

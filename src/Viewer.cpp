@@ -798,7 +798,9 @@ void Viewer::openFile(const std::string &path) {
     std::filesystem::path filepath{path};
     if (filepath.empty()) {
         const auto rootPath = std::filesystem::current_path() / "dat";
-        auto fileDialog = pfd::open_file("Open file", rootPath.string(), {"CSV Files", "*.csv"}, pfd::opt::none);
+        auto fileDialog = pfd::open_file("Open file", rootPath.string(),
+                                         {"CSV Files", "*.csv", "Height-field images", "*.png *.jpg *.jpeg *.bmp"},
+                                         pfd::opt::none);
         const auto result = fileDialog.result();
         if (result.empty())
             return;
@@ -810,8 +812,11 @@ void Viewer::openFile(const std::string &path) {
         return;
 
     const auto filename = filepath.string();
-    // initialize table
-    scene()->table()->load(filename);
+
+    if (filepath.extension() == std::filesystem::path{".csv"}) {
+        // initialize table
+        scene()->table()->load(filename);
+    }
 
     for (auto &r: m_renderers)
         r->fileLoaded(filename);

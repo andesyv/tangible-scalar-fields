@@ -269,6 +269,7 @@ namespace molumes {
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
         unsigned int round_robin_fb_index = 0;
+        bool m_debug_heightmap{false};
 
     public:
 

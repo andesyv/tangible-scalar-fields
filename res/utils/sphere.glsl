@@ -21,5 +21,5 @@ void mainImage(out vec4 fragColor, in vec2 texCoords) {
     float r = random(uv);
     float threshold = 2.0 * mousePos.x - 0.5;
 
-    fragColor = vec4(vec3(threshold < r ? 1.0 : 0.0), 1.0);
+    fragColor = vec4(vec3(threshold < r ? value : 0.0), 1.0);
 }
