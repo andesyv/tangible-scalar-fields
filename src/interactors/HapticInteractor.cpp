@@ -235,7 +235,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                        ? std::make_optional(
                                                                                haptic_params.sphere_kernel_radius.load())
                                                                        : std::nullopt,
-                                                                       haptic_params.linear_volume_surface_force.load());
+                                                                       haptic_params.linear_volume_surface_force.load(),
+                                                                       haptic_params.monte_carlo_sampling.load());
         }
 
         {
@@ -383,6 +384,7 @@ void HapticInteractor::display() {
         bool gravity_enabled = m_params.gravity_factor.load().has_value();
         int surface_volume_mip_map_count = static_cast<int>(m_params.surface_volume_mip_map_count.load());
         bool linear_volume_surface_force = m_params.linear_volume_surface_force.load();
+        auto monte_carlo_sampling = m_params.monte_carlo_sampling.load();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -401,7 +403,7 @@ void HapticInteractor::display() {
                 m_params.surface_softness.store(softness);
             if (ImGui::Combo("Kernel type", &kernel_type, "Point\0Sphere"))
                 m_params.sphere_kernel.store(kernel_type == 1);
-            if (kernel_type == 1 && ImGui::SliderFloat("Kernel radius", &m_ui_sphere_kernel_size, 0.001f, 0.1f)) {
+            if (kernel_type == 1 && ImGui::SliderFloat("Kernel radius", &m_ui_sphere_kernel_size, 0.0001f, 0.01f)) {
                 m_params.sphere_kernel_radius.store(m_ui_sphere_kernel_size);
                 viewer()->BROADCAST(&HapticInteractor::m_ui_sphere_kernel_size);
             }
@@ -432,6 +434,9 @@ void HapticInteractor::display() {
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {
             m_params.normal_offset.store(normal_offset);
+        }
+        if (ImGui::Checkbox("Monte Carlo Sampling", &monte_carlo_sampling)) {
+            m_params.monte_carlo_sampling.store(monte_carlo_sampling);
         }
 
         ImGui::EndMenu();

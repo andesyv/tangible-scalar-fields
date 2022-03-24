@@ -4,12 +4,12 @@ float random(vec2 st) {
         43758.5453123);
 }
 
-void mainImage(out vec4 fragColor, in vec2 texCoords) {
-    const float sphereScale = 4.0; // default: 2.0
-    const float radius = 0.8;
+#define PI 3.1415
 
+void mainImage(out vec4 fragColor, in vec2 texCoords) {
+    const float radius = 0.5;
     vec2 mousePos = iMouse.xy / iResolution.xy;
-    vec2 uv =   mod(sphereScale * texCoords / iResolution.xx, 2.0) -
+    vec2 uv =   2.0 * texCoords / iResolution.xx -
                 vec2(1.0, iResolution.y / iResolution.x);
     float UVLen = length(uv);
     if (radius < UVLen) {
@@ -18,7 +18,10 @@ void mainImage(out vec4 fragColor, in vec2 texCoords) {
     }
 
     vec3 normal = normalize(vec3(uv, radius * sin(acos(UVLen / radius))));
-    float value = dot(vec3(0.0, 0.0, 1.0), normal);
+    // float value = dot(vec3(0.0, 0.0, 1.0), normal);
+    float freq = 24.0;
+    float value = abs(sin(freq * uv.x) * cos(freq * uv.y+0.25*PI) * 0.5 + cos(freq * uv.x) * cos(freq * uv.y) * 0.5) + 0.25;
+    value *= dot(vec3(0.0, 0.0, 1.0), normal);
     float r = random(uv);
     float threshold = 2.0 * mousePos.x - 0.5;
 

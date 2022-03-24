@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/random.hpp>
 
 using namespace molumes;
 
@@ -306,35 +307,53 @@ glm::dvec3 find_closest_point_in_sphere(const glm::dvec3 &center, double radius,
  * z-coordinate translates to the difference between the 2 slices - the interpolation from the first layer to the
  * second layer.
  */
-float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_maps,
-                       std::array<unsigned int, 2> levels) {
+std::optional<float> sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_maps,
+                                      std::array<unsigned int, 2> levels) {
     const auto&[dims0, data0] = tex_mip_maps.at(levels[0]);
     const auto&[dims1, data1] = tex_mip_maps.at(levels[1]);
 
     // If coordinates are outside of bounds, just return 0 as the density (air)
     if (glm::any(glm::lessThan(coord, glm::vec3{0.f})) || glm::any(glm::greaterThan(coord, glm::vec3{1.f})))
-        return 0.0;
+        return std::nullopt;
 
-    return std::lerp(
-            sample_tex(glm::vec2{coord}, dims0, data0).w,
-            sample_tex(glm::vec2{coord}, dims1, data1).w,
-            coord.z);
+    const auto t0 = sample_tex(glm::vec2{coord}, dims0, data0).w;
+    const auto t1 = sample_tex(glm::vec2{coord}, dims1, data1).w;
+
+    // (t1 - coord.z) - (t0 - coord.z) =
+    return std::lerp(t0, t1, coord.z);
 }
 
 // Sample a volume gradient using central differences
 glm::dvec3 sample_volume_gradient(const TextureMipMaps &tex_mip_maps, const glm::vec3 &coords,
-                                  std::array<unsigned int, 2> levels, float interp = 0.5f) {
-    static constexpr double EPS = 0.01f;
+                                  std::array<unsigned int, 2> levels, float interp = 0.5f, double kernel_size = 0.001) {
     using namespace glm;
     const auto &tf = [&tex_mip_maps, levels](const vec3 &coord) {
         return sample_volume_tf(coord, tex_mip_maps, levels);
     };
 
+    const auto samples = std::to_array({
+                                               tf(vec3{coords.x + kernel_size, coords.y, interp}),
+                                               tf(vec3{coords.x - kernel_size, coords.y, interp}),
+                                               tf(vec3{coords.x, coords.y + kernel_size, interp}),
+                                               tf(vec3{coords.x, coords.y - kernel_size, interp}),
+                                               tf(vec3{coords.x, coords.y, std::clamp(interp + kernel_size, 0.0, 1.0)}),
+                                               tf(vec3{coords.x, coords.y, std::clamp(interp - kernel_size, 0.0, 1.0)})
+                                       });
+
     return {
-            tf(vec3{coords.x + EPS, coords.y, interp}) - tf(vec3{coords.x - EPS, coords.y, interp}),
-            tf(vec3{coords.x, coords.y + EPS, interp}) - tf(vec3{coords.x, coords.y - EPS, interp}),
-            tf(vec3{coords.x, coords.y, interp + EPS}) - tf(vec3{coords.x, coords.y, interp - EPS}),
+            samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0,
+            samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0,
+            samples[4] && samples[5] ? (*samples[4] - *samples[5]) * 100.0 : 0.0,
     };
+//    return glm::cross(glm::dvec3{1.0, 0.0, samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0}, glm::dvec3{0.0, 1.0, samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0});
+}
+
+template <std::size_t I>
+std::array<glm::dvec3, I> get_random_distributed_points_sphere(const glm::dvec3& pos, double radius = 0.0001) {
+    std::array<glm::dvec3, I> out;
+    for (std::size_t i{0}; i < I; ++i)
+        out.at(i) = pos + glm::ballRand(radius);
+    return out;
 }
 
 struct NormalLevelSampleResult {
@@ -392,7 +411,7 @@ namespace molumes {
                                                   std::optional<float> gravity_factor,
                                                   std::optional<unsigned int> surface_volume_mip_map_counts,
                                                   std::optional<float> sphere_kernel_radius,
-                                                  bool linear_volume_surface_force) {
+                                                  bool linear_volume_surface_force, bool monte_carlo_sampling) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
         glm::dvec3 sum_forces{0.0};
@@ -444,8 +463,17 @@ namespace molumes {
 
             const auto f_f = t * enabled_mip_maps_range_mult - static_cast<float>(lower_j);
 
-            const auto gradient = sample_volume_gradient(tex_mip_maps, *coords, {lower_level, upper_level}, f_f) *
-                                  static_cast<double>(surface_force) * 100.0;
+            glm::dvec3 gradient{};
+            if (monte_carlo_sampling) {
+                constexpr auto SampleCount = 8u;
+                for (auto sample_coord : get_random_distributed_points_sphere<SampleCount>(*coords))
+                    gradient += sample_volume_gradient(tex_mip_maps, sample_coord, {lower_level, upper_level}, f_f, sphere_kernel_radius ? *sphere_kernel_radius : 0.001f) *
+                                (static_cast<double>(surface_force) * -100.0);
+                gradient *= 1.0 / static_cast<double>(SampleCount);
+            } else {
+                gradient = sample_volume_gradient(tex_mip_maps, *coords, {lower_level, upper_level}, f_f, sphere_kernel_radius ? *sphere_kernel_radius : 0.001f) *
+                           (static_cast<double>(surface_force) * -100.0);
+            }
 
             if (0.001 < glm::length(gradient)) {
                 sample_level_results = {{.normal = gradient, .soft_normal = gradient, .height = coords->z}};

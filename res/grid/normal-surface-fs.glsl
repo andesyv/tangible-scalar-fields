@@ -40,6 +40,9 @@ bool isZero(vec3 normal) {
 
 void main() {
     const ivec2 texSize = textureSize(normalTex, 0);
+//    float height = textureLod(normalTex, uv, mip_map_level).a;
+//    fragColor = vec4(vec3(height), 1.0);
+//    return;
     vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb;
     if (isZero(normal * 2.0 - 1.0))
         normal = vec3(0.5, 0.5, 1.0);
