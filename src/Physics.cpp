@@ -481,7 +481,12 @@ namespace molumes {
                            (static_cast<double>(surface_force) * -100.0);
             }
 
-            if (0.001 < glm::length(gradient)) {
+            const auto g_len = glm::length(gradient);
+            if (0.001 < g_len) {
+                // Clamp down (for safety)
+                if (static_cast<double>(surface_force) < g_len) {
+                    gradient *= static_cast<double>(surface_force) / g_len;
+                }
                 sample_level_results = {{.normal = gradient, .soft_normal = gradient, .height = coords->z}};
             }
 
