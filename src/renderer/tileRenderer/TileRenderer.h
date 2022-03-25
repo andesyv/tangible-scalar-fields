@@ -29,6 +29,7 @@ namespace molumes {
 
     class TileRenderer : public Renderer {
     public:
+        TileRenderer();
         explicit TileRenderer(Viewer *viewer,
                               WriterChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_channel);
 
@@ -269,13 +270,13 @@ namespace molumes {
         };
         std::array<NormalFrameData, ROUND_ROBIN_SIZE> m_normal_frame_data{};
         unsigned int round_robin_fb_index = 0;
-        bool m_debug_heightmap{false};
 
     public:
 
         WriterChannel<NormalTexType> m_normal_tex_channel;
 
         bool updateColorMap();
+        bool m_debug_heightmap{false};
     };
 
 }

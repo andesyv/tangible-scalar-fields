@@ -325,7 +325,8 @@ std::optional<float> sample_volume_tf(const glm::vec3 &coord, const TextureMipMa
 
 // Sample a volume gradient using central differences
 glm::dvec3 sample_volume_gradient(const TextureMipMaps &tex_mip_maps, const glm::vec3 &coords,
-                                  std::array<unsigned int, 2> levels, float interp = 0.5f, double kernel_size = 0.001) {
+                                  std::array<unsigned int, 2> levels, float interp = 0.5f, double kernel_size = 0.001,
+                                  double z_multiplier = 100.0) {
     using namespace glm;
     const auto &tf = [&tex_mip_maps, levels](const vec3 &coord) {
         return sample_volume_tf(coord, tex_mip_maps, levels);
@@ -343,13 +344,13 @@ glm::dvec3 sample_volume_gradient(const TextureMipMaps &tex_mip_maps, const glm:
     return {
             samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0,
             samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0,
-            samples[4] && samples[5] ? (*samples[4] - *samples[5]) * 100.0 : 0.0,
+            samples[4] && samples[5] ? (*samples[4] - *samples[5]) * z_multiplier : 0.0,
     };
 //    return glm::cross(glm::dvec3{1.0, 0.0, samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0}, glm::dvec3{0.0, 1.0, samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0});
 }
 
-template <std::size_t I>
-std::array<glm::dvec3, I> get_random_distributed_points_sphere(const glm::dvec3& pos, double radius = 0.0001) {
+template<std::size_t I>
+std::array<glm::dvec3, I> get_random_distributed_points_sphere(const glm::dvec3 &pos, double radius = 0.0001) {
     std::array<glm::dvec3, I> out;
     for (std::size_t i{0}; i < I; ++i)
         out.at(i) = pos + glm::ballRand(radius);
@@ -411,7 +412,8 @@ namespace molumes {
                                                   std::optional<float> gravity_factor,
                                                   std::optional<unsigned int> surface_volume_mip_map_counts,
                                                   std::optional<float> sphere_kernel_radius,
-                                                  bool linear_volume_surface_force, bool monte_carlo_sampling) {
+                                                  bool linear_volume_surface_force, bool monte_carlo_sampling,
+                                                  double volume_z_multiplier) {
         auto &current_simulation_step = create_simulation_record(pos);
         const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
         glm::dvec3 sum_forces{0.0};
@@ -466,12 +468,16 @@ namespace molumes {
             glm::dvec3 gradient{};
             if (monte_carlo_sampling) {
                 constexpr auto SampleCount = 8u;
-                for (auto sample_coord : get_random_distributed_points_sphere<SampleCount>(*coords))
-                    gradient += sample_volume_gradient(tex_mip_maps, sample_coord, {lower_level, upper_level}, f_f, sphere_kernel_radius ? *sphere_kernel_radius : 0.001f) *
+                for (auto sample_coord: get_random_distributed_points_sphere<SampleCount>(*coords))
+                    gradient += sample_volume_gradient(tex_mip_maps, sample_coord, {lower_level, upper_level}, f_f,
+                                                       sphere_kernel_radius ? *sphere_kernel_radius : 0.001f,
+                                                       volume_z_multiplier) *
                                 (static_cast<double>(surface_force) * -100.0);
                 gradient *= 1.0 / static_cast<double>(SampleCount);
             } else {
-                gradient = sample_volume_gradient(tex_mip_maps, *coords, {lower_level, upper_level}, f_f, sphere_kernel_radius ? *sphere_kernel_radius : 0.001f) *
+                gradient = sample_volume_gradient(tex_mip_maps, *coords, {lower_level, upper_level}, f_f,
+                                                  sphere_kernel_radius ? *sphere_kernel_radius : 0.001f,
+                                                  volume_z_multiplier) *
                            (static_cast<double>(surface_force) * -100.0);
             }
 

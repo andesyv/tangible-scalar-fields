@@ -236,7 +236,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                                                                                haptic_params.sphere_kernel_radius.load())
                                                                        : std::nullopt,
                                                                        haptic_params.linear_volume_surface_force.load(),
-                                                                       haptic_params.monte_carlo_sampling.load());
+                                                                       haptic_params.monte_carlo_sampling.load(),
+                                                                       haptic_params.volume_z_multiplier.load());
         }
 
         {
@@ -385,6 +386,7 @@ void HapticInteractor::display() {
         int surface_volume_mip_map_count = static_cast<int>(m_params.surface_volume_mip_map_count.load());
         bool linear_volume_surface_force = m_params.linear_volume_surface_force.load();
         auto monte_carlo_sampling = m_params.monte_carlo_sampling.load();
+        float volume_z_multiplier = static_cast<float>(m_params.volume_z_multiplier.load());
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -403,7 +405,8 @@ void HapticInteractor::display() {
                 m_params.surface_softness.store(softness);
             if (ImGui::Combo("Kernel type", &kernel_type, "Point\0Sphere"))
                 m_params.sphere_kernel.store(kernel_type == 1);
-            if (kernel_type == 1 && ImGui::SliderFloat("Kernel radius", &m_ui_sphere_kernel_size, 0.0001f, 0.01f)) {
+            if (kernel_type == 1 &&
+                ImGui::DragFloat("Kernel radius", &m_ui_sphere_kernel_size, 0.0001f, 0.0001f, 0.01f)) {
                 m_params.sphere_kernel_radius.store(m_ui_sphere_kernel_size);
                 viewer()->BROADCAST(&HapticInteractor::m_ui_sphere_kernel_size);
             }
@@ -431,6 +434,8 @@ void HapticInteractor::display() {
             }
             if (ImGui::Checkbox("Linear force interpolation", &linear_volume_surface_force))
                 m_params.linear_volume_surface_force.store(linear_volume_surface_force);
+            if (ImGui::SliderFloat("Volume Z-Multiplier", &volume_z_multiplier, 1.f, 1000.f))
+                m_params.volume_z_multiplier.store(static_cast<double>(volume_z_multiplier));
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {
             m_params.normal_offset.store(normal_offset);

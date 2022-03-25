@@ -4,6 +4,7 @@
 #include "../DelegateUtils.h"
 #include "../interactors/HapticInteractor.h"
 #include "../Physics.h"
+#include "tileRenderer/TileRenderer.h"
 
 #include <cassert>
 #include <format>
@@ -15,6 +16,12 @@
 #include <globjects/globjects.h>
 #include <globjects/State.h>
 #include <globjects/VertexAttributeBinding.h>
+
+// From forward declarations in tileRenderer.h:
+#include <globjects/base/File.h>
+#include <globjects/NamedString.h>
+#include <globjects/base/StaticStringSource.h>
+#include <globjects/Sync.h>
 
 #include <imgui.h>
 
@@ -206,6 +213,7 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
               [this](bool b) { m_surface_volume_mode = b; });
     subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_enabled_mip_maps,
               [this](auto mips) { m_surface_volume_enabled_mip_maps = std::move(mips); });
+    subscribe(*viewer, &TileRenderer::m_debug_heightmap, [this](auto b){ m_heightfield = b; });
 }
 
 void GridSurfaceRenderer::display() {
@@ -254,6 +262,7 @@ void GridSurfaceRenderer::display() {
 
         shader->setUniform("tesselation", tesselation);
         shader->setUniform("surface_height", m_height_multiplier);
+        shader->setUniform("heightfield", m_heightfield);
 
         if (m_surface_volume_mode) {
             struct DrawParams {

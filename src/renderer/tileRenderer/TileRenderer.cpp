@@ -153,6 +153,8 @@ TileRenderer::TileRenderer(Viewer *viewer,
         texture->setParameter(GL_TEXTURE_MAX_LEVEL, GLint{HapticMipMapLevels - 1});
         texture->image2D(0, GL_RGBA32F, m_framebufferSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
+        // Apparantly a bug in clang-tidy: Clang-tidy incorrectly tries to convert unique_ptr{} with designated initializers to make_unique(). (won't work before (hopefully) c++23)
+//        m_normal_frame_data.at(i) = std::move(std::unique_ptr<NormalFrameData>{new NormalFrameData{.texture = std::move(texture)}});
         m_normal_frame_data.at(i).texture = std::move(texture);
     }
     // TODO: Switch around this one
@@ -1354,6 +1356,7 @@ void TileRenderer::fileLoaded(const std::string &filename) {
     using namespace std::filesystem;
     const path filepath{filename};
     m_debug_heightmap = filepath.extension() != path{".csv"};
+    viewer()->BROADCAST(&TileRenderer::m_debug_heightmap);
     if (m_debug_heightmap) {
         unsigned int width, height;
         std::vector<GLubyte> processed_img;
@@ -1565,3 +1568,5 @@ bool TileRenderer::offscreen_render() {
 
     return false;
 }
+
+TileRenderer::TileRenderer() = default;

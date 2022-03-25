@@ -38,7 +38,8 @@ namespace molumes
 
 
 	public:
-		Renderer(Viewer* viewer);
+        Renderer() = default;
+		explicit Renderer(Viewer* viewer);
         virtual ~Renderer();
 		Viewer * viewer();
 		virtual void setEnabled(bool enabled);
