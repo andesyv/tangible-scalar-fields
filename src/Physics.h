@@ -87,7 +87,7 @@ namespace molumes {
 
     public:
         glm::dvec3
-        simulate_and_sample_force(float surface_force, float surface_softness, float friction_scale,
+        simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
                                   float surface_height_multiplier,
                                   FrictionMode friction_mode, unsigned int mip_map_level,
                                   const TextureMipMaps &tex_mip_maps,
