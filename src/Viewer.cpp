@@ -33,6 +33,7 @@
 #include "renderer/CrystalRenderer.h"
 #include "renderer/GridSurfaceRenderer.h"
 #include "renderer/HapticRenderer.h"
+#include "renderer/AxisRenderer.h"
 #include "Scene.h"
 #include "CSV/Table.h"
 #include "Utils.h"
@@ -140,6 +141,7 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
             std::make_unique<HapticRenderer>(this)).get());
     m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
+    m_renderers.emplace_back(std::make_unique<AxisRenderer>(this))->setEnabled(false);
     auto &haptic_interactor = *static_cast<HapticInteractor *>(m_interactors.emplace_back(
             std::make_unique<HapticInteractor>(this, std::move(normal_tex_channel))).get());
 
