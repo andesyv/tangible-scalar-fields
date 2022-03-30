@@ -4,6 +4,7 @@ in vec2 uv;
 
 uniform mat4 MVP = mat4(1.0);
 uniform float mip_map_level = 0.0;
+uniform float hue_shift = 1.0;
 uniform float opacity = 1.0;
 uniform bool heightfield = false;
 layout(binding = 0) uniform sampler2D normalTex;
@@ -46,13 +47,13 @@ void main() {
         fragColor = vec4(vec3(height), 1.0);
     } else {
         vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb;
-        if (isZero(normal * 2.0 - 1.0))
-        normal = vec3(0.5, 0.5, 1.0);
+        if (isZero(normal * 2.0 - 1.0)) {
+            normal = vec3(0.5, 0.5, 1.0);
+        }
         //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
         //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
         vec3 hsv = rgb2hsv(normal);
-        hsv.r *= opacity;
-        fragColor = vec4(hsv2rgb(hsv), 0.4);
-        //    fragColor = vec4(floor(uv * 10.0) * 0.1, 0.0, 1.0);
+        hsv.r *= hue_shift;
+        fragColor = vec4(hsv2rgb(hsv), opacity);
     }
 }

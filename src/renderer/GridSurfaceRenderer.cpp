@@ -213,7 +213,7 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
               [this](bool b) { m_surface_volume_mode = b; });
     subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_enabled_mip_maps,
               [this](auto mips) { m_surface_volume_enabled_mip_maps = std::move(mips); });
-    subscribe(*viewer, &TileRenderer::m_debug_heightmap, [this](auto b){ m_heightfield = b; });
+    subscribe(*viewer, &TileRenderer::m_debug_heightmap, [this](auto b) { m_heightfield = b; });
 }
 
 void GridSurfaceRenderer::display() {
@@ -267,7 +267,7 @@ void GridSurfaceRenderer::display() {
         if (m_surface_volume_mode) {
             struct DrawParams {
                 glm::mat4 mvp;
-                float mip_map_level, opacity;
+                float mip_map_level, opacity, hue_shift;
             };
 
             std::map<float, DrawParams, std::greater<>> drawCalls;
@@ -276,31 +276,33 @@ void GridSurfaceRenderer::display() {
             const auto inv_v_mat = glm::inverse(viewer()->viewTransform());
             const auto camera_pos = glm::vec3{inv_v_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}};
 
-            for (int i = 0; i < m_surface_volume_enabled_mip_maps.size(); ++i) {
+            for (int i = 1; i < m_surface_volume_enabled_mip_maps.size(); ++i) {
                 const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_mip_maps.size() - 1);
                 const auto level = static_cast<float>(m_surface_volume_enabled_mip_maps.at(i));
-//                const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_count - 1);
+
                 const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.25f, 0.25f, t)};
                 const auto mvp = glm::translate(MVP, pos);
 
                 // Transparancy sorting done using a map sorted on distance to camera
-                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, level, 1.f - t});
+                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, level, 0.4f, 1.f - t});
             }
 
             for (const auto&[key, drawcall]: drawCalls) {
                 shader->setUniform("MVP", drawcall.mvp);
                 shader->setUniform("mip_map_level", drawcall.mip_map_level);
+                shader->setUniform("hue_shift", drawcall.hue_shift);
                 shader->setUniform("opacity", drawcall.opacity);
 
                 m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
             }
-        } else {
-            shader->setUniform("MVP", MVP);
-            shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
-            shader->setUniform("opacity", 1.f);
-
-            m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
         }
+
+        shader->setUniform("MVP", m_surface_volume_mode ? glm::translate(MVP, glm::vec3{0.f, 0.f, -0.25f}) : MVP);
+        shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
+        shader->setUniform("hue_shift", 1.f);
+        shader->setUniform("opacity", 1.f);
+
+        m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
 
         glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }
