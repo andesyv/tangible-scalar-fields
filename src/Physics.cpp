@@ -125,6 +125,37 @@ glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::
     return glm::any(glm::isnan(s)) ? glm::vec4{0.f} : s;
 }
 
+
+/**
+ * @brief The same as sample_tex, but only with height.
+ * On a GPU most stuff is passed as a vec4 anyway, so interpolating vec4's and then swizzling the last component is
+ * just as fast as interpolating singular floats. But on a CPU a singular component function could be optimized by the
+ * compiler.
+ */
+float sample_height(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
+    const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord) {
+        return get_pixel(coord, tex_dims, tex_data);
+    };
+
+    const glm::vec2 pixel_coord = uv * glm::vec2{tex_dims + 1u};
+    const glm::vec2 f_pixel_coord = glm::fract(pixel_coord);
+    const glm::uvec2 i_pixel_coord = glm::uvec2{pixel_coord - f_pixel_coord};
+
+    auto aa = m_get_pixel(i_pixel_coord);
+    auto ba = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y});
+    auto ab = m_get_pixel(glm::uvec2{i_pixel_coord.x, i_pixel_coord.y + 1u});
+    auto bb = m_get_pixel(glm::uvec2{i_pixel_coord.x + 1u, i_pixel_coord.y + 1u});
+    if (!aa || !ba || !ab || !bb)
+        return 0.f;
+
+    const auto s = std::lerp(
+            std::lerp(aa->w, ba->w, f_pixel_coord.x),
+            std::lerp(ab->w, bb->w, f_pixel_coord.x),
+            f_pixel_coord.y);
+
+    return std::isnan(s) ? 0.f : s;
+}
+
 glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float height, float surface_softness = 0.f,
                                  float min_force = 0.f) {
     // Unsure about the coordinate system, so just setting max to 1 for now:
@@ -317,8 +348,8 @@ float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_map
     // It is a logic error if we use the transfer function on invalid coords, so assert here:
     assert(!(glm::any(glm::lessThan(coord, glm::vec3{0.f})) || glm::any(glm::greaterThan(coord, glm::vec3{1.f}))));
 
-    const auto t0 = sample_tex(glm::vec2{coord}, dims0, data0).w;
-    const auto t1 = sample_tex(glm::vec2{coord}, dims1, data1).w;
+    const auto t0 = sample_height(glm::vec2{coord}, dims0, data0);
+    const auto t1 = sample_height(glm::vec2{coord}, dims1, data1);
 
     // (t1 - coord.z) - (t0 - coord.z) =
     return std::lerp(t0, t1, coord.z);
@@ -447,6 +478,7 @@ sample_volume(double surface_force, float surface_softness, const TextureMipMaps
     const auto enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_counts);
     const auto enabled_mip_maps_range_mult = static_cast<float>(surface_volume_mip_map_counts - 1);
 
+    // t(z) = [0, 1], z = [-0.25, 0.25]
     const auto upper_j = static_cast<std::size_t>(std::ceil(t * enabled_mip_maps_range_mult));
     const auto lower_j = static_cast<std::size_t>(std::floor(t * enabled_mip_maps_range_mult));
     auto upper_level = static_cast<unsigned int>(enabled_mip_maps.at(upper_j));
@@ -498,9 +530,9 @@ namespace molumes {
          * (it was easier to work with the xy plane while doing the physics calculations)
          */
         const static glm::dmat4 pl_r_mat{{1.0, 0.0, 0.0,  0.0},
-                                        {0.0, 0.0, -1.0, 0.0},
-                                        {0.0, 1.0, 0.0,  0.0},
-                                        {0.0, 0.0, 0.0,  1.0}};
+                                         {0.0, 0.0, -1.0, 0.0},
+                                         {0.0, 1.0, 0.0,  0.0},
+                                         {0.0, 0.0, 0.0,  1.0}};
         const static glm::dmat4 pl_ri_mat{glm::inverse(pl_r_mat)};
         pos = glm::dvec3{pl_ri_mat * glm::dvec4{pos, 1.0}};
         /**

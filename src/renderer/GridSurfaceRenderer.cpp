@@ -147,10 +147,10 @@ constexpr auto create_subdivided_plane() {
     constexpr std::size_t count = pow<I>(4);
     std::array<std::pair<glm::vec3, glm::vec2>, count> vertices;
     auto vector_vertices = subdivide_plane(std::vector<std::pair<glm::vec3, glm::vec2>>{
-            {{1.f,  0.f, 1.f}, {1.f, 0.f}},
-            {{1.f,  0.f,  -1.f}, {1.f, 1.f}},
-            {{-1.f, 0.f, 1.f}, {0.f, 0.f}},
-            {{-1.f, 0.f,  -1.f}, {0.f, 1.f}}
+            {{1.f,  0.f, 1.f},  {1.f, 0.f}},
+            {{1.f,  0.f, -1.f}, {1.f, 1.f}},
+            {{-1.f, 0.f, 1.f},  {0.f, 0.f}},
+            {{-1.f, 0.f, -1.f}, {0.f, 1.f}}
     }, I);
     for (auto i{0u}; i < count; ++i)
         vertices.at(i) = vector_vertices.at(i);
@@ -297,7 +297,7 @@ void GridSurfaceRenderer::display() {
             }
         }
 
-        shader->setUniform("MVP", m_surface_volume_mode ? glm::translate(MVP, glm::vec3{0.f, 0.f, -0.25f}) : MVP);
+        shader->setUniform("MVP", m_surface_volume_mode ? glm::translate(MVP, glm::vec3{0.f, -0.25f, 0.f}) : MVP);
         shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
         shader->setUniform("hue_shift", 1.f);
         shader->setUniform("opacity", 1.f);
