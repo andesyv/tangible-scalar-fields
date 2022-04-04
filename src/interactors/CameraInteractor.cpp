@@ -187,7 +187,7 @@ void CameraInteractor::cursorPosEvent(double xpos, double ypos)
 
 			viewer()->setScaleFactor(viewer()->scaleFactor()*s);
 			mat4 viewTransform = viewer()->viewTransform();
-			mat4 newViewTransform = scale(viewTransform, vec3(s, s, s));
+			mat4 newViewTransform = scale(viewTransform, vec3{s});
 			viewer()->setViewTransform(newViewTransform);
 
             viewer()->BROADCAST(&CameraInteractor::m_view_matrix_changed);
@@ -276,16 +276,10 @@ void CameraInteractor::display()
 
 void CameraInteractor::resetViewTransform()
 {
-	viewer()->setViewTransform(lookAt(vec3(0.0f, 0.0f, m_distance), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)));
-
-	// necessary to perform the bounding-box dependent adaption-------------------------------------------------------
-	// --> making sure the resulting visualization has the same dimensions as the screenshot used in the user study
-	mat4 newViewTransform = scale(viewer()->viewTransform(), vec3(0.5f, 0.5f, 0.5f));
-	viewer()->setViewTransform(newViewTransform);
-	//----------------------------------------------------------------------------------------------------------------
+    const auto m = scale(lookAt(vec3(0.0f, 0.0f, m_distance), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)), vec3{1.0f});
+    viewer()->setViewTransform(m);
 
 	setLightPosition();
-
 	viewer()->setScaleFactor(1.0f);
 }
 

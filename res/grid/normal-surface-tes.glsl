@@ -47,7 +47,7 @@ void main() {
     float normalFactor = normal.a * surface_height;
 
 //    p += normal.xyz * 0.1;
-    p.z += normalFactor;
+    p.y += normalFactor;
 //    p += normalize(normal.xyz * 2.0 - 1.0) * normalFactor;
 
     uv = texCoord;

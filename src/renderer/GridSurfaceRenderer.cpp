@@ -115,16 +115,16 @@ subdivide_plane(const std::vector<std::pair<glm::vec3, glm::vec2>> &quad, unsign
     // Divide quad into 4 smaller quads
     std::vector<PointType> smaller_quads;
     smaller_quads.reserve(16);
-    for (auto y = 0u; y < 2u; ++y) {
+    for (auto z = 0u; z < 2u; ++z) {
         for (auto x = 0u; x < 2u; ++x) {
-            smaller_quads.emplace_back(min.first + glm::vec3{x + 1, y, 0.f} * diff_p,
-                                       min.second + glm::vec2{x + 1, y} * diff_uv);
-            smaller_quads.emplace_back(min.first + glm::vec3{x + 1, y + 1, 0.f} * diff_p,
-                                       min.second + glm::vec2{x + 1, y + 1} * diff_uv);
-            smaller_quads.emplace_back(min.first + glm::vec3{x, y, 0.f} * diff_p,
-                                       min.second + glm::vec2{x, y} * diff_uv);
-            smaller_quads.emplace_back(min.first + glm::vec3{x, y + 1, 0.f} * diff_p,
-                                       min.second + glm::vec2{x, y + 1} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x + 1, 0.f, z} * diff_p,
+                                       min.second + glm::vec2{x + 1, z} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x + 1, 0.f, z + 1} * diff_p,
+                                       min.second + glm::vec2{x + 1, z + 1} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x, 0.f, z} * diff_p,
+                                       min.second + glm::vec2{x, z} * diff_uv);
+            smaller_quads.emplace_back(min.first + glm::vec3{x, 0.f, z + 1} * diff_p,
+                                       min.second + glm::vec2{x, z + 1} * diff_uv);
         }
     }
 
@@ -147,10 +147,10 @@ constexpr auto create_subdivided_plane() {
     constexpr std::size_t count = pow<I>(4);
     std::array<std::pair<glm::vec3, glm::vec2>, count> vertices;
     auto vector_vertices = subdivide_plane(std::vector<std::pair<glm::vec3, glm::vec2>>{
-            {{1.f,  -1.f, 0.f}, {1.f, 0.f}},
-            {{1.f,  1.f,  0.f}, {1.f, 1.f}},
-            {{-1.f, -1.f, 0.f}, {0.f, 0.f}},
-            {{-1.f, 1.f,  0.f}, {0.f, 1.f}}
+            {{1.f,  0.f, 1.f}, {1.f, 0.f}},
+            {{1.f,  0.f,  -1.f}, {1.f, 1.f}},
+            {{-1.f, 0.f, 1.f}, {0.f, 0.f}},
+            {{-1.f, 0.f,  -1.f}, {0.f, 1.f}}
     }, I);
     for (auto i{0u}; i < count; ++i)
         vertices.at(i) = vector_vertices.at(i);
@@ -280,7 +280,7 @@ void GridSurfaceRenderer::display() {
                 const auto t = static_cast<float>(i) / static_cast<float>(m_surface_volume_enabled_mip_maps.size() - 1);
                 const auto level = static_cast<float>(m_surface_volume_enabled_mip_maps.at(i));
 
-                const auto pos = glm::vec3{0.f, 0.f, std::lerp(-0.25f, 0.25f, t)};
+                const auto pos = glm::vec3{0.f, std::lerp(-0.25f, 0.25f, t), 0.f};
                 const auto mvp = glm::translate(MVP, pos);
 
                 // Transparancy sorting done using a map sorted on distance to camera

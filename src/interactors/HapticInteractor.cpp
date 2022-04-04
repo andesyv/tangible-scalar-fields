@@ -218,26 +218,17 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         glm::dvec3 world_force{0.0};
         {
             PROFILE("Haptic - Sample force");
-            world_force = physics_simulation.simulate_and_sample_force(haptic_params.surface_force.load(),
-                                                                       haptic_params.surface_softness.load(),
-                                                                       haptic_params.friction_scale.load(),
-                                                                       haptic_params.surface_height_multiplier.load(),
-                                                                       static_cast<FrictionMode>(haptic_params.friction_mode.load()),
-                                                                       haptic_params.mip_map_level.load(),
-                                                                       normal_tex_mip_maps, world_pos,
-                                                                       haptic_params.normal_offset.load(),
-                                                                       haptic_params.gravity_factor.load(),
-                                                                       haptic_params.gradual_surface_accuracy.load()
-                                                                       ? std::make_optional(
-                                                                               haptic_params.surface_volume_mip_map_count.load())
-                                                                       : std::nullopt,
-                                                                       haptic_params.sphere_kernel.load()
-                                                                       ? std::make_optional(
-                                                                               haptic_params.sphere_kernel_radius.load())
-                                                                       : std::nullopt,
-                                                                       haptic_params.linear_volume_surface_force.load(),
-                                                                       haptic_params.monte_carlo_sampling.load(),
-                                                                       haptic_params.volume_z_multiplier.load());
+            world_force = physics_simulation.simulate_and_sample_force(
+                    haptic_params.surface_force.load(), haptic_params.surface_softness.load(),
+                    haptic_params.friction_scale.load(), haptic_params.surface_height_multiplier.load(),
+                    static_cast<FrictionMode>(haptic_params.friction_mode.load()), haptic_params.mip_map_level.load(),
+                    normal_tex_mip_maps, world_pos, haptic_params.normal_offset.load(),
+                    haptic_params.gravity_factor.load(),
+                    haptic_params.gradual_surface_accuracy.load() ? std::make_optional(
+                            haptic_params.surface_volume_mip_map_count.load()) : std::nullopt,
+                    haptic_params.sphere_kernel.load() ? std::make_optional(haptic_params.sphere_kernel_radius.load())
+                                                       : std::nullopt, haptic_params.linear_volume_surface_force.load(),
+                    haptic_params.monte_carlo_sampling.load(), haptic_params.volume_z_multiplier.load());
         }
 
         {

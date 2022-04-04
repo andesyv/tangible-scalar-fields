@@ -43,11 +43,11 @@ auto point_to_plane(const glm::vec3 &pos, const glm::vec3 &pl_norm, const glm::v
 }
 
 // Finds relative uv coords in a plane given the planes tangent and bi-tangent
-auto
+glm::vec2
 pos_uvs_in_plane(const glm::vec3 &pos, const glm::vec3 &pl_tan, const glm::vec3 &pl_bitan, const glm::vec2 &pl_dims) {
-    const glm::vec3 origo{-pl_dims * 0.5f, 0.f};
+    const glm::vec3 origo{-0.5f * pl_dims.x * pl_tan + -0.5f * pl_dims.y * pl_bitan};
     const glm::vec3 dir = pos - origo;
-    return glm::vec2{glm::dot(dir, pl_tan) / pl_dims.x, glm::dot(dir, pl_bitan) / pl_dims.y};
+    return {glm::dot(dir, pl_tan) / pl_dims.x, glm::dot(dir, pl_bitan) / pl_dims.y};
 }
 
 auto pos_uvs_in_plane(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
@@ -487,14 +487,34 @@ namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
-                                                  const glm::dvec3 &pos, bool normal_offset,
+                                                  glm::dvec3 pos, bool normal_offset,
                                                   std::optional<float> gravity_factor,
                                                   std::optional<unsigned int> surface_volume_mip_map_counts,
                                                   std::optional<float> sphere_kernel_radius,
                                                   bool linear_volume_surface_force, bool monte_carlo_sampling,
                                                   double volume_z_multiplier) {
+        /**
+         * Currently just hardcoding a xy-plane lying in origo, and then rotating that plane to be a xz-plane
+         * (it was easier to work with the xy plane while doing the physics calculations)
+         */
+        const static glm::dmat4 pl_r_mat{{1.0, 0.0, 0.0,  0.0},
+                                        {0.0, 0.0, -1.0, 0.0},
+                                        {0.0, 1.0, 0.0,  0.0},
+                                        {0.0, 0.0, 0.0,  1.0}};
+        const static glm::dmat4 pl_ri_mat{glm::inverse(pl_r_mat)};
+        pos = glm::dvec3{pl_ri_mat * glm::dvec4{pos, 1.0}};
+        /**
+         * Note: It seems matrix multiplication is very expensive (about 1/4 increased time), so a big performance
+         * boost would be to not multiply with rotation matrices before and after, but instead just to do the whole
+         * force calculation in the correct space.
+         *
+         * Without matrix mult, avg: 11754ns
+         * With matrix mult, avg: 14777ns
+         */
+
         auto &current_simulation_step = create_simulation_record(pos);
-        const glm::mat4 pl_mat{1.0}; // Currently just hardcoding a xy-plane lying in origo
+        const static glm::mat4 pl_mat{1.f};
+
         glm::dvec3 sum_forces{0.0};
 
         // Optional gravity force (always constant, does not care whether inside bounds or not)
@@ -507,11 +527,12 @@ namespace molumes {
             sum_forces += soften_surface_normal(glm::dvec3{0.0, 0.0, surface_force},
                                                 point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]}),
                                                 surface_softness);
-            return sum_forces;
+            return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
         }
 
         // Shouldn't be possible for coords to be negative
-        assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})));
+        assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})) ||
+               !glm::any(glm::greaterThan(glm::vec2{*coords}, glm::vec2{1.f})));
 
         glm::dvec3 sum_normal_force{0.0};
         std::optional<NormalLevelResult> sample_level_results;
@@ -542,7 +563,7 @@ namespace molumes {
         }
         // We're above the (all) surface(s). In the air, return early.
         if (!sample_level_results)
-            return sum_forces;
+            return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
 
         auto[normal_force, soft_normal_force, surface_height] = *sample_level_results;
         sum_forces += soft_normal_force;
@@ -558,7 +579,7 @@ namespace molumes {
 
         sum_forces += sum_normal_force;
 
-        return sum_forces;
+        return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
     }
 
     std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count) {

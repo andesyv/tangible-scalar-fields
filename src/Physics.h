@@ -91,7 +91,7 @@ namespace molumes {
                                   float surface_height_multiplier,
                                   FrictionMode friction_mode, unsigned int mip_map_level,
                                   const TextureMipMaps &tex_mip_maps,
-                                  const glm::dvec3 &pos, bool normal_offset = false,
+                                  glm::dvec3 pos, bool normal_offset = false,
                                   std::optional<float> gravity_factor = std::nullopt,
                                   std::optional<unsigned int> surface_volume_mip_map_counts = std::nullopt,
                                   std::optional<float> sphere_kernel_radius = std::nullopt,
