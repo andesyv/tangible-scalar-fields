@@ -40,16 +40,20 @@ bool isZero(vec3 normal) {
     return -EPS < normal.x && normal.x < EPS && -EPS < normal.y && normal.y < EPS && -EPS < normal.z && normal.z < EPS;
 }
 
+vec2 rectUvs(ivec2 texSize, vec2 uv) {
+    float xmin = 0.5 - float(texSize.y) / float(texSize.x + texSize.x);
+    return vec2((1.0 - xmin - xmin) * uv.x + xmin, uv.y);
+}
+
 void main() {
     const ivec2 texSize = textureSize(normalTex, 0);
     if (heightfield) {
-        float height = textureLod(normalTex, uv, mip_map_level).a;
+        float height = textureLod(normalTex, rectUvs(texSize, uv), mip_map_level).a;
         fragColor = vec4(vec3(height), 1.0);
     } else {
-        vec3 normal = textureLod(normalTex, uv, mip_map_level).rgb;
-        if (isZero(normal * 2.0 - 1.0)) {
+        vec3 normal = textureLod(normalTex, rectUvs(texSize, uv), mip_map_level).rgb;
+        if (isZero(normal * 2.0 - 1.0))
             normal = vec3(0.5, 0.5, 1.0);
-        }
         //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
         //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
         vec3 hsv = rgb2hsv(normal);

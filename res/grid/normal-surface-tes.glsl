@@ -14,9 +14,9 @@ layout(binding = 0) uniform sampler2D normalTex;
 
 out vec2 uv;
 
-vec2 aspectRatioCorrectedTexCoords(ivec2 texSize, vec2 texCoords) {
-    float ratio = float(texSize.x) / float(texSize.y);
-    return vec2((texCoords.x * 2.0 - 1.0) / ratio * 0.5 + 0.5, texCoords.y);
+vec2 rectUvs(ivec2 texSize, vec2 uv) {
+    float xmin = 0.5 - float(texSize.y) / float(texSize.x + texSize.x);
+    return vec2((1.0 - xmin - xmin) * uv.x + xmin, uv.y);
 }
 
 void main() {
@@ -43,7 +43,7 @@ void main() {
 
     // Tesselation displacement mapping using normal
     const ivec2 texSize = textureSize(normalTex, 0);
-    vec4 normal = textureLod(normalTex, texCoord, mip_map_level);
+    vec4 normal = textureLod(normalTex, rectUvs(texSize, texCoord), mip_map_level);
     float normalFactor = normal.a * surface_height;
 
 //    p += normal.xyz * 0.1;

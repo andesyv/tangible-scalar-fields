@@ -56,8 +56,8 @@ auto pos_uvs_in_plane(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::
 }
 
 // returns uv as xy and signed distance as z for a position given a orientation matrix for a plane and it's dimensions
-auto relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
-    return glm::vec3{
+glm::vec3 relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
+    return {
             pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims),
             point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]})
     };
@@ -95,13 +95,26 @@ slerp(const glm::vec<3, T, glm::defaultp> &a, const glm::vec<3, T, glm::defaultp
     return q * a;
 }
 
+/**
+ * @brief Convert UVs into rectangular UVs
+ * The mip maps are calculated in screen-space pixel coordinates, which is typically widescreen. So this function
+ * counteracts the widescreen by transforming the uv-coordinates back to a rectangular format.
+ *
+ * TODO: Since the textures are only generated for the purpose of sampling them here, the textures could be
+ * made quads in the mip map generation process instead, saving some calculations here.
+ */
+glm::vec2 rect_uvs(const glm::uvec2& tex_dims, const glm::vec2& uv) {
+    const float x_min = 0.5f - static_cast<float>(tex_dims.y) / static_cast<float>(tex_dims.x + tex_dims.x);
+    return {(1.f - x_min - x_min) * uv.x + x_min, uv.y};
+}
+
 // Bi-linear interpolation of pixel
 glm::vec4 sample_tex(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::vector<glm::vec4> &tex_data) {
     const auto m_get_pixel = [tex_dims, &tex_data = std::as_const(tex_data)](const glm::uvec2 &coord) {
         return get_pixel(coord, tex_dims, tex_data);
     };
 
-    const glm::vec2 pixel_coord = uv * glm::vec2{tex_dims + 1u};
+    const glm::vec2 pixel_coord = rect_uvs(tex_dims, uv) * glm::vec2{tex_dims + 1u};
     const glm::vec2 f_pixel_coord = glm::fract(pixel_coord);
     const glm::uvec2 i_pixel_coord = glm::uvec2{pixel_coord - f_pixel_coord};
 
@@ -138,7 +151,7 @@ float sample_height(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::v
         return get_pixel(coord, tex_dims, tex_data);
     };
 
-    const glm::vec2 pixel_coord = uv * glm::vec2{tex_dims + 1u};
+    const glm::vec2 pixel_coord = rect_uvs(tex_dims, uv) * glm::vec2{tex_dims + 1u};
     const glm::vec2 f_pixel_coord = glm::fract(pixel_coord);
     const glm::uvec2 i_pixel_coord = glm::uvec2{pixel_coord - f_pixel_coord};
 
