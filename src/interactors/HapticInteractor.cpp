@@ -228,7 +228,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                             haptic_params.surface_volume_mip_map_count.load()) : std::nullopt,
                     haptic_params.sphere_kernel.load() ? std::make_optional(haptic_params.sphere_kernel_radius.load())
                                                        : std::nullopt, haptic_params.linear_volume_surface_force.load(),
-                    haptic_params.monte_carlo_sampling.load(), haptic_params.volume_z_multiplier.load());
+                    haptic_params.monte_carlo_sampling.load(), haptic_params.volume_z_multiplier.load(),
+                    haptic_params.volume_use_height_differences.load());
         }
 
         {
@@ -378,6 +379,7 @@ void HapticInteractor::display() {
         bool linear_volume_surface_force = m_params.linear_volume_surface_force.load();
         auto monte_carlo_sampling = m_params.monte_carlo_sampling.load();
         float volume_z_multiplier = static_cast<float>(m_params.volume_z_multiplier.load());
+        auto volume_use_height_diffs = m_params.volume_use_height_differences.load();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -427,6 +429,8 @@ void HapticInteractor::display() {
                 m_params.linear_volume_surface_force.store(linear_volume_surface_force);
             if (ImGui::SliderFloat("Volume Z-Multiplier", &volume_z_multiplier, 1.f, 1000.f))
                 m_params.volume_z_multiplier.store(static_cast<double>(volume_z_multiplier));
+            if (ImGui::Checkbox("Volume: Use height differences?", &volume_use_height_diffs))
+                m_params.volume_use_height_differences.store(volume_use_height_diffs);
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {
             m_params.normal_offset.store(normal_offset);

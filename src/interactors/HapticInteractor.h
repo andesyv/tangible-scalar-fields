@@ -28,18 +28,21 @@ namespace molumes {
             std::atomic<double> volume_z_multiplier{100.0};
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};
             std::atomic<bool> enable_force{false}, sphere_kernel{true}, gradual_surface_accuracy{false},
-                    normal_offset{false}, linear_volume_surface_force{false}, monte_carlo_sampling{true};
+                    normal_offset{false}, linear_volume_surface_force{false}, monte_carlo_sampling{true},
+                    volume_use_height_differences{false};
             std::atomic<unsigned int> mip_map_level{0}, input_space{1}, friction_mode{1}, surface_volume_mip_map_count{
                     HapticMipMapLevels};
             std::atomic<glm::dmat3> view_mat_inv, view_mat;
         };
+
+        using MipMapLevel = std::pair<glm::uvec2, std::vector<glm::vec4>>;
 
     private:
         std::jthread m_thread;
         HapticParams m_params;
         bool m_haptic_enabled{false};
 
-        static std::pair<glm::uvec2, std::vector<glm::vec4>>
+        static MipMapLevel
         generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data);
 
         float m_ui_gravity_factor_value{3.4f};
@@ -50,7 +53,7 @@ namespace molumes {
         HapticInteractor() = default;
 
         explicit HapticInteractor(Viewer *viewer,
-                                  ReaderChannel<std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>> &&normal_tex_channel);
+                                  ReaderChannel<std::array<MipMapLevel, HapticMipMapLevels>> &&normal_tex_channel);
 
         bool hapticEnabled() const { return m_haptic_enabled; }
 
@@ -59,10 +62,9 @@ namespace molumes {
         void display() override;
 
         template<std::size_t N = HapticMipMapLevels>
-        static std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, N>
-        generateMipmaps(const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
-            std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, N> levels;
-            levels.at(0) = std::make_pair(tex_dims, tex_data);
+        static auto generateMipmaps(const glm::uvec2& tex_dims, std::vector<glm::vec4>&& tex_data) {
+            std::array<MipMapLevel, N> levels;
+            levels.at(0) = std::make_pair(tex_dims, std::move(tex_data));
             for (glm::uint i = 1; i < N; ++i)
                 levels.at(i) = generate_single_mipmap(levels.at(i - 1).first, levels.at(i - 1).second);
             return levels;

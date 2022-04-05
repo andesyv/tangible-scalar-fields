@@ -1532,10 +1532,11 @@ bool TileRenderer::offscreen_render() {
             // According to https://en.cppreference.com/w/cpp/thread/future/~future we don't have to explicitly wait for
             // std::async to complete as the future destructor will automatically wait (std::async is magic)
             frame_data.tile_normal_async_task = std::async(std::launch::async,
-                                                           [&channel = this->m_normal_tex_channel, size = frame_data.size, data = std::move(
-                                                                   data)]() {
+                                                           [&channel = this->m_normal_tex_channel,
+                                                            size = frame_data.size,
+                                                            data = std::move(data)]() mutable {
                                                                auto levels = HapticInteractor::generateMipmaps(
-                                                                       glm::uvec2{size}, data);
+                                                                       glm::uvec2{size}, std::move(data));
                                                                channel.write(levels);
                                                                return std::move(levels);
                                                            });

@@ -1,4 +1,5 @@
 #include "Physics.h"
+#include "Profile.h"
 
 #include <numbers>
 #include <iostream>
@@ -340,7 +341,7 @@ glm::dvec3 find_closest_point_in_sphere(const glm::dvec3 &center, double radius,
  * second layer.
  */
 float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_maps,
-                       std::array<unsigned int, 2> levels) {
+                       std::array<unsigned int, 2> levels, bool use_height_differences = false) {
     const auto&[dims0, data0] = tex_mip_maps.at(levels[0]);
     const auto&[dims1, data1] = tex_mip_maps.at(levels[1]);
 
@@ -352,12 +353,13 @@ float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_map
     const auto t1 = sample_height(glm::vec2{coord}, dims1, data1);
 
     // (t1 - coord.z) - (t0 - coord.z) =
-    return std::lerp(t0, t1, coord.z);
+    return use_height_differences ? (t1 - t0) : std::lerp(t0, t1, coord.z);
 }
 
 // Sample a volume gradient using central differences
 glm::dvec2 sample_volume_gradient(const glm::vec3 &coords, const TextureMipMaps &tex_mip_maps,
-                                  std::array<unsigned int, 2> levels, float kernel_size = 0.001f) {
+                                  std::array<unsigned int, 2> levels, float kernel_size = 0.001f,
+                                  bool use_height_differences = false) {
     using namespace glm;
     const auto &tf = [&tex_mip_maps, levels](const vec3 &coord) {
         return sample_volume_tf(coord, tex_mip_maps, levels);
@@ -473,7 +475,8 @@ sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::Simu
 std::optional<NormalLevelResult>
 sample_volume(double surface_force, float surface_softness, const TextureMipMaps &tex_mip_maps,
               const std::optional<float> &sphere_kernel_radius, bool monte_carlo_sampling,
-              const glm::vec3 &coords, unsigned int surface_volume_mip_map_counts, float t) {
+              const glm::vec3 &coords, unsigned int surface_volume_mip_map_counts, float t,
+              bool use_height_differences = false) {
     // Get upper and lower mip map levels:
     const auto enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_counts);
     const auto enabled_mip_maps_range_mult = static_cast<float>(surface_volume_mip_map_counts - 1);
@@ -491,11 +494,11 @@ sample_volume(double surface_force, float surface_softness, const TextureMipMaps
         g_2d = monte_carlo_sample<8>(glm::vec3{coords.x, coords.y, f_f}, 0.0001,
                                      sample_volume_gradient,
                                      tex_mip_maps, std::to_array({lower_level, upper_level}),
-                                     sphere_kernel_radius ? *sphere_kernel_radius : 0.001f);
+                                     sphere_kernel_radius ? *sphere_kernel_radius : 0.001f, use_height_differences);
     } else {
         g_2d = sample_volume_gradient(glm::vec3{coords.x, coords.y, f_f}, tex_mip_maps,
                                       std::to_array({lower_level, upper_level}),
-                                      sphere_kernel_radius ? *sphere_kernel_radius : 0.001f);
+                                      sphere_kernel_radius ? *sphere_kernel_radius : 0.001f, use_height_differences);
     }
     g_2d *= surface_force * -100.0;
 
@@ -524,7 +527,9 @@ namespace molumes {
                                                   std::optional<unsigned int> surface_volume_mip_map_counts,
                                                   std::optional<float> sphere_kernel_radius,
                                                   bool linear_volume_surface_force, bool monte_carlo_sampling,
-                                                  double volume_z_multiplier) {
+                                                  double volume_z_multiplier, bool volume_use_height_differences) {
+        PROFILE("Physics - Sample force");
+
         /**
          * Currently just hardcoding a xy-plane lying in origo, and then rotating that plane to be a xz-plane
          * (it was easier to work with the xy plane while doing the physics calculations)
@@ -578,7 +583,8 @@ namespace molumes {
 
             sample_level_results = sample_volume(surface_force * VOLUME_MAX_FORCE, surface_softness,
                                                  tex_mip_maps, sphere_kernel_radius,
-                                                 monte_carlo_sampling, *coords, *surface_volume_mip_map_counts, t);
+                                                 monte_carlo_sampling, *coords, *surface_volume_mip_map_counts, t,
+                                                 volume_use_height_differences);
 
             // Singular surface:
         } else {
