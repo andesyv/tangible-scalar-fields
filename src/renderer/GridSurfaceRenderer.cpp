@@ -214,6 +214,7 @@ GridSurfaceRenderer::GridSurfaceRenderer(Viewer *viewer) : Renderer(viewer) {
     subscribe(*viewer, &HapticInteractor::m_ui_surface_volume_enabled_mip_maps,
               [this](auto mips) { m_surface_volume_enabled_mip_maps = std::move(mips); });
     subscribe(*viewer, &TileRenderer::m_debug_heightmap, [this](auto b) { m_heightfield = b; });
+    subscribe(*viewer, &HapticInteractor::m_ui_mip_map_scale_multiplier, [this](auto m){ m_mip_map_scale_multiplier = m; });
 }
 
 void GridSurfaceRenderer::display() {
@@ -263,11 +264,12 @@ void GridSurfaceRenderer::display() {
         shader->setUniform("tesselation", tesselation);
         shader->setUniform("surface_height", m_height_multiplier);
         shader->setUniform("heightfield", m_heightfield);
+        shader->setUniform("mip_map_scale_mult", m_mip_map_scale_multiplier);
 
         if (m_surface_volume_mode) {
             struct DrawParams {
                 glm::mat4 mvp;
-                float mip_map_level, opacity, hue_shift;
+                float mip_map_level, opacity, hue_shift, index;
             };
 
             std::map<float, DrawParams, std::greater<>> drawCalls;
@@ -284,7 +286,7 @@ void GridSurfaceRenderer::display() {
                 const auto mvp = glm::translate(MVP, pos);
 
                 // Transparancy sorting done using a map sorted on distance to camera
-                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, level, 0.4f, 1.f - t});
+                drawCalls.emplace(glm::length(pos - camera_pos), DrawParams{mvp, level, 0.4f, 1.f - t, static_cast<float>(i)});
             }
 
             for (const auto&[key, drawcall]: drawCalls) {
@@ -292,6 +294,7 @@ void GridSurfaceRenderer::display() {
                 shader->setUniform("mip_map_level", drawcall.mip_map_level);
                 shader->setUniform("hue_shift", drawcall.hue_shift);
                 shader->setUniform("opacity", drawcall.opacity);
+                shader->setUniform("index", drawcall.index);
 
                 m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
             }
@@ -301,6 +304,7 @@ void GridSurfaceRenderer::display() {
         shader->setUniform("mip_map_level", static_cast<float>(m_mip_map_level));
         shader->setUniform("hue_shift", 1.f);
         shader->setUniform("opacity", 1.f);
+        shader->setUniform("index", 0.f);
 
         m_planeVAO->drawArrays(GL_PATCHES, 0, vertex_count);
 

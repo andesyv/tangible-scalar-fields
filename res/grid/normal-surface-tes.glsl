@@ -10,6 +10,8 @@ uniform mat4 MVP = mat4(1.0);
 uniform uint tesselation = 16;
 uniform float mip_map_level = 0.0;
 uniform float surface_height = 1.0;
+uniform float index = 0.0;
+uniform float mip_map_scale_mult = 1.5;
 layout(binding = 0) uniform sampler2D normalTex;
 
 out vec2 uv;
@@ -47,7 +49,7 @@ void main() {
     float normalFactor = normal.a * surface_height;
 
 //    p += normal.xyz * 0.1;
-    p.y += normalFactor;
+    p.y += normalFactor * pow(mip_map_scale_mult, index);
 //    p += normalize(normal.xyz * 2.0 - 1.0) * normalFactor;
 
     uv = texCoord;

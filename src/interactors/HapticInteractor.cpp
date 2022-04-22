@@ -59,7 +59,8 @@ HapticInteractor::generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::v
                              tex_data.at(2 * y * tex_dims.x + x * 2 + 1) +
                              tex_data.at((2 * y + 1) * tex_dims.x + x * 2) +
                              tex_data.at((2 * y + 1) * tex_dims.x + x * 2 + 1);
-            tex_data.at(y * new_dims.x + x) = sum * 0.25f;
+            tex_data.at(y * new_dims.x + x) =
+                    sum * (0.25f/* * 1.5f*/); // Multiplied by 1.5 to strengthen further mipmap levels
         }
     }
     tex_data.resize(tex_data.size() / 4);
@@ -96,7 +97,7 @@ public:
     bool operator[](int i) { return get(i); }
 
     void update() {
-        for (auto&[key, state]: m_key_states) {
+        for (auto &[key, state]: m_key_states) {
 #ifdef DHD
             const auto btn = dhdGetButton(key);
             if (btn < 0) {
@@ -229,7 +230,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                     haptic_params.sphere_kernel.load() ? std::make_optional(haptic_params.sphere_kernel_radius.load())
                                                        : std::nullopt, haptic_params.linear_volume_surface_force.load(),
                     haptic_params.monte_carlo_sampling.load(), haptic_params.volume_z_multiplier.load(),
-                    haptic_params.volume_use_height_differences.load());
+                    haptic_params.volume_use_height_differences.load(), haptic_params.mip_map_scale_multiplier.load());
         }
 
         {
@@ -431,6 +432,10 @@ void HapticInteractor::display() {
                 m_params.volume_z_multiplier.store(static_cast<double>(volume_z_multiplier));
             if (ImGui::Checkbox("Volume: Use height differences?", &volume_use_height_diffs))
                 m_params.volume_use_height_differences.store(volume_use_height_diffs);
+            if (ImGui::SliderFloat("Mip map scale multiplier", &m_ui_mip_map_scale_multiplier, 1.f, 3.f)) {
+                m_params.mip_map_scale_multiplier.store(m_ui_mip_map_scale_multiplier);
+                viewer()->BROADCAST(&HapticInteractor::m_ui_mip_map_scale_multiplier);
+            }
         }
         if (ImGui::Checkbox("Offset normal", &normal_offset)) {
             m_params.normal_offset.store(normal_offset);

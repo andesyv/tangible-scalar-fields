@@ -3,6 +3,6 @@
 
 #include <cstddef>
 
-constexpr std::size_t HapticMipMapLevels = 6;
+constexpr std::size_t HapticMipMapLevels = 10;
 
 #endif //MOLUMES_CONSTANTS_H

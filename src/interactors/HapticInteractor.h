@@ -23,12 +23,12 @@ namespace molumes {
         struct HapticParams {
             std::atomic<glm::vec3> finger_pos, force;
             std::atomic<float> interaction_bounds{1.f}, surface_force{6.f}, surface_softness{0.016f},
-                    sphere_kernel_radius{0.001f}, friction_scale{0.23f}, surface_height_multiplier{
-                    1.f};
+                    sphere_kernel_radius{0.001f}, friction_scale{0.23f}, surface_height_multiplier{1.f},
+                    mip_map_scale_multiplier{1.5f};
             std::atomic<double> volume_z_multiplier{100.0};
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};
             std::atomic<bool> enable_force{false}, sphere_kernel{true}, gradual_surface_accuracy{false},
-                    normal_offset{false}, linear_volume_surface_force{false}, monte_carlo_sampling{true},
+                    normal_offset{false}, linear_volume_surface_force{false}, monte_carlo_sampling{false},
                     volume_use_height_differences{false};
             std::atomic<unsigned int> mip_map_level{0}, input_space{1}, friction_mode{1}, surface_volume_mip_map_count{
                     HapticMipMapLevels};
@@ -76,7 +76,7 @@ namespace molumes {
         std::vector<int> m_ui_surface_volume_enabled_mip_maps;
         int m_ui_surface_volume_mip_map_count{HapticMipMapLevels};
         glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
-        float m_ui_sphere_kernel_size{0.001f}, m_ui_surface_height_multiplier{1.f};
+        float m_ui_sphere_kernel_size{0.001f}, m_ui_surface_height_multiplier{1.f}, m_ui_mip_map_scale_multiplier{1.5f};
         bool m_ui_surface_volume_mode{false};
     };
 }
