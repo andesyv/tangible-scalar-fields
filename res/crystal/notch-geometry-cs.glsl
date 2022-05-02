@@ -21,14 +21,24 @@ uniform vec3 n2 = normalize((normalize(vec3(-1.0, -1.0, 0.0)) + vec3(0., 0.0, -1
 uniform uint POINT_COUNT = 1u;
 uniform bool mirroredMesh = true;
 
+/**
+ * Projects a point onto the middle plane of two planes. Then, if the point is within
+ * the two planes, the z-axis of the projected point is returned
+ */
 float orientationPlaneProjectedDepth(vec3 pos, bool mirrored, out float middleLine) {
     const vec3 p1 = vec3(1.0, 1.0, notchHeightAdjust + notchDepth);
     const vec3 p2 = vec3(1.0, 1.0, notchHeightAdjust - notchDepth);
 
+    // Middle plane between the two planes
     const vec3 n3 = vec3(0., 0., 1.0);
     const vec3 p3 = (p1 + p2) * 0.5;
 
-    // Projected point in z dir => p' = p + dot(p3 - p, n3) / dot(n3, vec3(0., 0., 1.)) = p + dot(p3 - p, n3) / n3.z
+    /* 
+     * Projected point in z dir:
+     * p' = p + dot(p3 - p, n3) / dot(n3, vec3(0., 0., 1.))
+     * p' = p + dot(p3 - p, n3) / n3.z
+     * p' = p + dot(p3 - p, n3)
+     */
     vec3 middleProjected = pos + vec3(0., 0., dot(p3 - pos, n3));
 
     middleLine = middleProjected.z;
@@ -36,8 +46,10 @@ float orientationPlaneProjectedDepth(vec3 pos, bool mirrored, out float middleLi
     float d1 = dot(p1 - middleProjected, n1);
     float d2 = dot(p2 - middleProjected, n2);
 
+    // If both distances >= 0 then the points is within the planes
     if (-EPSILON < d1 && -EPSILON < d2)
         return mirrored ? middleProjected.z - d2 : middleProjected.z + d1;
+    // Otherwise clamp to the middle plane
     else
         return middleProjected.z;
 }
@@ -57,6 +69,13 @@ Line findOrientationPlaneIntersectingLine() {
     Line l;
     l.dir = normalize(cross(n1, n2));
 
+    /**
+     * We need to find any point the line travels through, which we do by solving the two equations:
+     * n1.x * x + n1.y * y + n1.z * z + d1 = 0
+     * n2.x * x + n2.y * y + n2.z * z + d2 = 0
+     * As there's 3 variables in 2 equations, one variable is free. So by setting x = t we can get a solution
+     * for all points given a t parameter. We don't care about all points, just one. So we set t = 0 so simplify.
+     */
     float z = ((n2.y/n1.y)*d1 -d2)/(n2.z - n1.z*n2.y/n1.y);
     float y = (-n1.z * z -d1) / n1.y;
     l.pos = vec3(0., y, z);
