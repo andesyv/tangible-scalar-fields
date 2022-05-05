@@ -28,6 +28,8 @@ layout(std430, binding = 3) buffer valueMaxBuffer
     uint maxPointAlpha;
 };
 
+layout(binding = 4) uniform atomic_uint kdeMax;
+
 //min = 0
 uniform int maxTexCoordX;
 uniform int maxTexCoordY;
@@ -85,9 +87,9 @@ void main()
 
     //accumulate height of kdeTexture
     float kdeHeight = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy), 0).r;
-    kdeHeight *= bufferAccumulationFactor;
-    atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)], int(kdeHeight));
+    atomicAdd(tileNormals[int((hex.x*(maxTexCoordY+1) + hex.y) * 5 + 4)], int(kdeHeight * bufferAccumulationFactor));
 
     // Multiply fragment normal by kdeheight (alpha is used to determine normal length)
-    fragmentNormal = vec4(f_normal * 0.5 + 0.5, kdeHeight * 0.0001);
+    float kdeMaxValue = float(atomicCounter(kdeMax)) * 0.01;
+    fragmentNormal = vec4(f_normal * 0.5 + 0.5, 0.01 < kdeMaxValue ? kdeHeight / kdeMaxValue : 0.0);
 }

@@ -248,6 +248,9 @@ TileRenderer::TileRenderer(Viewer *viewer,
         fb->attachTexture(GL_DEPTH_ATTACHMENT, m_depthTexture.get());
     }
 
+    m_kdeMaxCounter = Buffer::create();
+    m_kdeMaxCounter->setStorage(sizeof(uint), nullptr, GL_NONE_BIT);
+
     m_colorMapLoaded = updateColorMap();
 
     subscribe(*viewer, &CameraInteractor::m_view_matrix_changed, [this](bool _changed) {
@@ -602,6 +605,9 @@ void TileRenderer::maxValRenderPass(const mat4 &modelViewProjectionMatrix, const
     // Get maximum alpha of additive blended point circles (used for alpha normalization)
     // no framebuffer needed, because we don't render anything. we just save the max value into the storage buffer
 
+    // Clear counter
+    m_kdeMaxCounter->clearData(GL_R32UI, GL_RED, GL_UNSIGNED_INT, nullptr);
+
     // SSBO --------------------------------------------------------------------------------------------------------------------------------------------------
     BindBaseGuard _g{m_valueMaxBuffer, GL_SHADER_STORAGE_BUFFER, 0};
 
@@ -614,6 +620,8 @@ void TileRenderer::maxValRenderPass(const mat4 &modelViewProjectionMatrix, const
 
     BindActiveGuard _g2{m_tileAccumulateTexture, 1};
     BindActiveGuard _g3{m_pointCircleTexture, 2};
+    BindActiveGuard _g4{m_kdeTexture, 3};
+    BindBaseGuard _g5{m_kdeMaxCounter, GL_ATOMIC_COUNTER_BUFFER, 4};
 
     //can use the same shader for hexagon and square tiles
     auto shaderProgram_max_val = shaderProgram("max-val");
@@ -684,6 +692,7 @@ void TileRenderer::normalRenderPass(const mat4 &modelViewProjectionMatrix, const
 
     BindActiveGuard _g2{m_kdeTexture, 1};
     BindActiveGuard _g3{m_tileAccumulateTexture, 2};
+    BindBaseGuard _g5{m_kdeMaxCounter, GL_ATOMIC_COUNTER_BUFFER, 4};
 
     auto shaderProgram_tile_normals = tile->getTileNormalsProgram();
 

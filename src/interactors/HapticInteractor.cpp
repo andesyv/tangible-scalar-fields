@@ -387,7 +387,7 @@ void HapticInteractor::display() {
             m_params.interaction_bounds.store(interaction_bounds);
         ImGui::SliderInt("Mip map level", &mip_map_level, 0, HapticMipMapLevels - 1);
 
-        if (ImGui::SliderFloat("Surface height multiplier", &m_ui_surface_height_multiplier, 0.1f, 10.f)) {
+        if (ImGui::SliderFloat("Surface height multiplier", &m_ui_surface_height_multiplier, 0.01f, 2.f)) {
             m_params.surface_height_multiplier.store(m_ui_surface_height_multiplier);
             viewer()->BROADCAST(&HapticInteractor::m_ui_surface_height_multiplier);
         }

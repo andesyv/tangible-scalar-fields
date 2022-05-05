@@ -1,4 +1,4 @@
-#version 450
+#version 460
 #include "/defines.glsl"
 #include "/globals.glsl"
 
@@ -22,6 +22,9 @@ layout(std430, binding = 0) buffer valueMaxBuffer
 #endif
 
 uniform sampler2D pointCircleTexture;
+
+layout(binding = 3) uniform sampler2D kdeTexture;
+layout(binding = 4) uniform atomic_uint kdeMax;
 
 void main()
 {
@@ -48,4 +51,8 @@ void main()
 	uint uintPointAlphaValue = floatBitsToUint(pointAlpha);
 
 	atomicMax(maxPointAlpha, uintPointAlphaValue);
+
+    // kde max
+    float kdeVal = texelFetch(kdeTexture, ivec2(gl_FragCoord.xy),0).r * 100.0;
+    atomicCounterMax(kdeMax, int(kdeVal));
 }

@@ -99,6 +99,9 @@ namespace molumes {
         std::shared_ptr<globjects::Buffer> m_valueMaxBuffer;
         std::shared_ptr<globjects::Buffer> m_tileNormalsBuffer;
 
+        // Atomic Counters
+        std::shared_ptr<globjects::Buffer> m_kdeMaxCounter;
+
         // FRAMEBUFFER -------------------------------------------------------------------------
         std::unique_ptr<globjects::Framebuffer> m_pointFramebuffer = nullptr;
         std::unique_ptr<globjects::Framebuffer> m_pointCircleFramebuffer = nullptr;

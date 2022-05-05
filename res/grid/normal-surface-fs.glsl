@@ -47,17 +47,17 @@ vec2 rectUvs(ivec2 texSize, vec2 uv) {
 
 void main() {
     const ivec2 texSize = textureSize(normalTex, 0);
-        float height = textureLod(normalTex, rectUvs(texSize, uv), mip_map_level).a;
-        fragColor = vec4(vec3(height), 1.0);
+//        float height = textureLod(normalTex, rectUvs(texSize, uv), mip_map_level).a;
+//        fragColor = vec4(vec3(height), 1.0);
 ////    if (heightfield) {
 ////    } else {
 ////    }
-//        vec3 normal = textureLod(normalTex, rectUvs(texSize, uv), mip_map_level).rgb;
-//        if (isZero(normal * 2.0 - 1.0))
-//            normal = vec3(0.5, 0.5, 1.0);
-//        //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
-//        //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
-//        vec3 hsv = rgb2hsv(normal);
-//        hsv.r *= hue_shift;
-//        fragColor = vec4(hsv2rgb(hsv), opacity);
+        vec4 normal = textureLod(normalTex, rectUvs(texSize, uv), mip_map_level);
+        if (isZero(normal.rgb * 2.0 - 1.0))
+            normal.rgb = vec3(0.5, 0.5, 1.0);
+        //    vec3 p_normal = (MVP * vec4(normal, 0.0)).xyz;
+        //    float phong = max(dot(p_normal, vec3(1., 0., 0.)), 0.15);
+        vec3 hsv = rgb2hsv(normal.rgb);
+        hsv.r *= hue_shift;
+        fragColor = vec4(hsv2rgb(hsv) * (normal.a * 0.5 + 0.5), opacity);
 }
