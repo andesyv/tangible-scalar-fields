@@ -381,6 +381,7 @@ void HapticInteractor::display() {
         auto monte_carlo_sampling = m_params.monte_carlo_sampling.load();
         float volume_z_multiplier = static_cast<float>(m_params.volume_z_multiplier.load());
         auto volume_use_height_diffs = m_params.volume_use_height_differences.load();
+        int normal_interpolation = static_cast<int>(m_params.pre_interpolative_normals.load());
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -392,11 +393,11 @@ void HapticInteractor::display() {
         }
         if (ImGui::Checkbox("Enable force (F)", &enable_force))
             m_params.enable_force.store(enable_force);
+        if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 0.4f))
+            m_params.surface_softness.store(softness);
         if (enable_force) {
             if (ImGui::SliderFloat("Surface force (in Newtons)", &normal_force, 0.f, 9.f))
                 m_params.surface_force.store(normal_force);
-            if (ImGui::SliderFloat("Soft surface-ness", &softness, 0.f, 0.4f))
-                m_params.surface_softness.store(softness);
             if (ImGui::Combo("Kernel type", &kernel_type, "Point\0Sphere"))
                 m_params.sphere_kernel.store(kernel_type == 1);
             if (kernel_type == 1 &&
@@ -404,15 +405,15 @@ void HapticInteractor::display() {
                 m_params.sphere_kernel_radius.store(m_ui_sphere_kernel_size);
                 viewer()->BROADCAST(&HapticInteractor::m_ui_sphere_kernel_size);
             }
-            if (ImGui::Combo("Friction", &friction_type, "None\0Uniform\0Directional"))
-                m_params.friction_mode.store(static_cast<unsigned int>(friction_type));
-            if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1.f))
-                m_params.friction_scale.store(friction_scale);
             if (ImGui::Checkbox("Gravity", &gravity_enabled) ||
                 (gravity_enabled && ImGui::SliderFloat("Gravity factor", &m_ui_gravity_factor_value, 0.f, 10.f)))
                 m_params.gravity_factor.store(
                         gravity_enabled ? std::make_optional(m_ui_gravity_factor_value) : std::nullopt);
         }
+        if (ImGui::Combo("Friction", &friction_type, "None\0Uniform\0Directional"))
+            m_params.friction_mode.store(static_cast<unsigned int>(friction_type));
+        if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1.f))
+            m_params.friction_scale.store(friction_scale);
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
         if (ImGui::Checkbox("Surface volume mode", &m_ui_surface_volume_mode)) {
@@ -442,6 +443,9 @@ void HapticInteractor::display() {
         }
         if (ImGui::Checkbox("Monte Carlo Sampling", &monte_carlo_sampling)) {
             m_params.monte_carlo_sampling.store(monte_carlo_sampling);
+        }
+        if (ImGui::Combo("Normal interpolation", &normal_interpolation, "Post-interpolation\0Pre-interpolation\0")) {
+            m_params.pre_interpolative_normals.store(static_cast<bool>(normal_interpolation));
         }
 
         ImGui::EndMenu();

@@ -235,7 +235,7 @@ glm::dvec2 surface_gradient(const glm::vec2 &uv, const glm::uvec2 &tex_dims, con
 glm::dvec3
 surface_normal_from_gradient(const glm::vec2 &uv, const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
     using namespace glm;
-    const auto g = surface_gradient(uv, tex_dims, tex_data) * 100.0;
+    const auto g = surface_gradient(uv, tex_dims, tex_data) * 100.0; // Arbitrary scaling number for gradient
     return normalize(cross(normalize(dvec3{1.0, 0.0, g.x}), normalize(dvec3{0.0, 1.0, g.y})));
 }
 
@@ -401,17 +401,22 @@ auto monte_carlo_sample(const glm::dvec3 &pos, double radius, F &&func, Args &&.
 std::pair<float, std::optional<glm::dvec3>>
 sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
                     const std::vector<glm::vec4> &tex_data, glm::uint mip_map_level = 0,
-                    float surface_height_multiplier = 1.f, bool normal_offset = false) {
+                    float surface_height_multiplier = 1.f, bool normal_offset = false, bool pre_interpolative = true) {
     const auto uv = glm::vec2{relative_coords};
-    const auto h = sample_height(uv, tex_dims, tex_data);
-    float height = relative_coords.z - h * surface_height_multiplier;
+    float height{0.f};
+    glm::dvec3 normal{};
+    if (pre_interpolative) {
+        const auto h = sample_height(uv, tex_dims, tex_data);
+        height = relative_coords.z - h * surface_height_multiplier;
+        normal = surface_normal_from_gradient(uv, tex_dims, tex_data);
+    } else {
+        const auto value = sample_tex(uv, tex_dims, tex_data);
+        height = relative_coords.z - value.w * surface_height_multiplier;
+        normal = {value};
+    }
     // If dist is positive, it means we're above the surface = no force applied
 //    if (0.f < height)
 //        return {height, std::nullopt};
-
-    // Surface normal
-
-    auto normal = surface_normal_from_gradient(uv, tex_dims, tex_data);
 
 //    if (normal_offset) {
 //        /**
@@ -461,7 +466,7 @@ struct NormalLevelResult {
 std::optional<NormalLevelSampleResult>
 sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
                     glm::dvec3 coords, unsigned int level, float surface_height_multiplier, bool normal_offset,
-                    double surface_force, float surface_softness) {
+                    double surface_force, float surface_softness, bool pre_interpolative = true) {
     const auto &[dims, data] = tex_mip_maps.at(level);
 
 //    // Find a better estimation to closest point:
@@ -490,7 +495,7 @@ sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::Simu
 //        }
 //    } else
 
-    sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset);
+    sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset, pre_interpolative);
 
     simulation_steps.get_from_back<0>().surface_height = surface_height;
 
@@ -574,7 +579,7 @@ namespace molumes {
                                                   std::optional<float> sphere_kernel_radius,
                                                   bool linear_volume_surface_force, bool monte_carlo_sampling,
                                                   double volume_z_multiplier, bool volume_use_height_differences,
-                                                  float mip_map_scale_multiplier) {
+                                                  float mip_map_scale_multiplier, bool pre_interpolative_normal) {
         PROFILE("Physics - Sample force");
 
         /**
@@ -657,7 +662,7 @@ namespace molumes {
         } else {
             const auto res = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
                                                  mip_map_level, surface_height_multiplier,
-                                                 normal_offset, surface_force, surface_softness);
+                                                 normal_offset, surface_force, surface_softness, pre_interpolative_normal);
             sample_level_results = optional_chain(res, [=](const auto &r) -> std::optional<NormalLevelResult> {
                 return {{r.normal, soften_surface_normal(r.normal, r.height, surface_softness, 0.f), r.height}};
             });

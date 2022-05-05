@@ -29,8 +29,8 @@ namespace molumes {
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};
             std::atomic<bool> enable_force{false}, sphere_kernel{true}, gradual_surface_accuracy{false},
                     normal_offset{false}, linear_volume_surface_force{false}, monte_carlo_sampling{false},
-                    volume_use_height_differences{false};
-            std::atomic<unsigned int> mip_map_level{0}, input_space{1}, friction_mode{1}, surface_volume_mip_map_count{
+                    volume_use_height_differences{false}, pre_interpolative_normals{true};
+            std::atomic<unsigned int> mip_map_level{0}, input_space{1}, friction_mode{0}, surface_volume_mip_map_count{
                     HapticMipMapLevels};
             std::atomic<glm::dmat3> view_mat_inv, view_mat;
         };

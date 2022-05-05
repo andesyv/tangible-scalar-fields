@@ -1370,7 +1370,7 @@ double sample_value(std::vector<GLubyte> &img, unsigned int width, unsigned int 
     return b2f(d);
 }
 
-void generate_heightmap_normals(std::vector<GLubyte> &img, unsigned int width, unsigned int height) {
+void generate_normals_from_heightmap(std::vector<GLubyte> &img, unsigned int width, unsigned int height) {
     const auto sample = [&](int x, int y) { return sample_value(img, width, height, x, y); };
     for (std::size_t y{0}; y < height; ++y) {
         for (std::size_t x{0}; x < width; ++x) {
@@ -1414,7 +1414,7 @@ void TileRenderer::fileLoaded(const std::string &filename) {
                 }
             }
 
-            generate_heightmap_normals(processed_img, width, height);
+            generate_normals_from_heightmap(processed_img, width, height);
 
             // Manually set the texture of one of the frame_data structs (so mip maps will be generated from that in next offload renders)
             auto &frame_data = m_normal_frame_data[0];
