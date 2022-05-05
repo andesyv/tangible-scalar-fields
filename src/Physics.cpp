@@ -170,6 +170,75 @@ float sample_height(const glm::vec2 &uv, const glm::uvec2 tex_dims, const std::v
     return std::isnan(s) ? 0.f : s;
 }
 
+/**
+ * @brief Samples texture slices like a volume.
+ * Using 2 slices, samples a density in a volume constructed from the slices, using the (un?)signed height differences
+ * as the density. The xy-part of the sampling coordinates translates to the uv-coordinates in the plane, and the
+ * z-coordinate translates to the difference between the 2 slices - the interpolation from the first layer to the
+ * second layer.
+ */
+float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_maps,
+                       std::array<unsigned int, 2> levels, bool use_height_differences = false,
+                       float mip_map_scale_mutliplier = 1.5f) {
+    const auto &[dims0, data0] = tex_mip_maps.at(levels[0]);
+    const auto &[dims1, data1] = tex_mip_maps.at(levels[1]);
+
+    // If coordinates are outside of bounds, just return 0 as the density (air)
+    // It is a logic error if we use the transfer function on invalid coords, so assert here:
+    assert(!(glm::any(glm::lessThan(coord, glm::vec3{0.f})) || glm::any(glm::greaterThan(coord, glm::vec3{1.f}))));
+
+    const auto t0 = sample_height(glm::vec2{coord}, dims0, data0) *
+                    std::pow(mip_map_scale_mutliplier, static_cast<float>(levels[0]));
+    const auto t1 = sample_height(glm::vec2{coord}, dims1, data1) *
+                    std::pow(mip_map_scale_mutliplier, static_cast<float>(levels[1]));
+
+    // (t1 - coord.z) - (t0 - coord.z) =
+    return use_height_differences ? (t1 - t0) : std::lerp(t0, t1, coord.z);
+}
+
+// Sample a volume gradient using central differences
+glm::dvec2 sample_volume_gradient(const glm::vec3 &coords, const TextureMipMaps &tex_mip_maps,
+                                  std::array<unsigned int, 2> levels, float kernel_size = 0.001f,
+                                  bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f) {
+    using namespace glm;
+    const auto &tf = [&tex_mip_maps, levels, mip_map_scale_multiplier](const vec3 &coord) {
+        return sample_volume_tf(coord, tex_mip_maps, levels, mip_map_scale_multiplier);
+    };
+
+    if (glm::any(glm::lessThan(coords, glm::vec3{0.f})) || glm::any(glm::greaterThan(coords, glm::vec3{1.f})))
+        return {0.0, 0.0};
+
+    /**
+     * Volume gradient is central differences of transfer function in the X and Y directions, and an interpolated
+     * constant upwards aligned vector in the Z-direction.
+     */
+    return {
+            tf(vec3{std::min(coords.x + kernel_size, 1.f), coords.y, coords.z}) -
+            tf(vec3{std::max(coords.x - kernel_size, 0.f), coords.y, coords.z}),
+            tf(vec3{coords.x, std::min(coords.y + kernel_size, 1.f), coords.z}) -
+            tf(vec3{coords.x, std::max(coords.y - kernel_size, 0.f), coords.z})
+    };
+//    return glm::cross(glm::dvec3{1.0, 0.0, samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0}, glm::dvec3{0.0, 1.0, samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0});
+}
+
+glm::dvec2 surface_gradient(const glm::vec2 &uv, const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data,
+                            float kernel = 0.001f) {
+    const auto tf = [&](const glm::vec2 &uv) { return sample_height(uv, tex_dims, tex_data); };
+    // Note: Using the same kernel in x and y direction doesn't seem to change anything when using oblong textures
+    return {
+            tf({std::min(uv.x + kernel, 1.f), uv.y}) - tf({std::max(uv.x - kernel, 0.f), uv.y}),
+            tf({uv.x, std::min(uv.y + kernel, 1.f)}) - tf({uv.x, std::max(uv.y - kernel, 0.f)})
+    };
+}
+
+// Basically does the same on the CPU as calculateNormalFromHeightMap() from res/tiles/globals.glsl does on the GPU
+glm::dvec3
+surface_normal_from_gradient(const glm::vec2 &uv, const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data) {
+    using namespace glm;
+    const auto g = surface_gradient(uv, tex_dims, tex_data) * 100.0;
+    return normalize(cross(normalize(dvec3{1.0, 0.0, g.x}), normalize(dvec3{0.0, 1.0, g.y})));
+}
+
 glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float height, float surface_softness = 0.f,
                                  float min_force = 0.f) {
     // Unsure about the coordinate system, so just setting max to 1 for now:
@@ -185,60 +254,6 @@ auto get_relative_height(const glm::vec3 &relative_coords, const glm::uvec2 &tex
                          const std::vector<glm::vec4> &tex_data, float surface_height_multiplier = 1.f) {
     const auto value = sample_height(glm::vec2{relative_coords}, tex_dims, tex_data);
     return relative_coords.z - value * surface_height_multiplier;
-}
-
-/**
- * Samples the normal force, meaning the force pushing away from surface. In our case, this is the constraint force
- * of the haptic device.
- * @return A dvec3 containing normal force, or std::nullopt if there's no force
- */
-std::pair<float, std::optional<glm::dvec3>>
-sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
-                    const std::vector<glm::vec4> &tex_data, glm::uint mip_map_level = 0,
-                    float surface_height_multiplier = 1.f, bool normal_offset = false) {
-    const auto value = sample_tex(glm::vec2{relative_coords}, tex_dims, tex_data);
-    float height = relative_coords.z - value.w * surface_height_multiplier;
-    // If dist is positive, it means we're above the surface = no force applied
-//    if (0.f < height)
-//        return {height, std::nullopt};
-
-    // Surface normal
-    // At this point the normal has been scaled with the kde value of the surface
-    glm::dvec3 normal{value};
-
-    if (normal_offset) {
-        /**
-         * Sample the normal at an offset from the height, using the sampled normal as an offset basis. The idea is that
-         * the offset surface point is (hopefully) closer to the projected point.
-         */
-        const auto offset = 2.f * glm::vec2{value} / glm::vec2{tex_dims};
-        const auto offset_value = sample_tex(glm::vec2{relative_coords} - offset, tex_dims, tex_data);
-        normal = {offset_value};
-    }
-
-    /**
-     * Modulate surface normal with surface scale:
-     * Surface normal is uniformly scaled in the plane axis, so the scaling acts as a regular scaling model matrix.
-     * But since these are normal vectors along the surface, they should be treated the same way as a
-     * "computer graphics normal vector", meaning they should be multiplied with the "normal matrix", the transpose
-     * inverse of the model matrix:
-     * N = (M^-1)^T => (({[1, 0, 0], [0, 1, 0], [0, 0, S]})^-1)^T
-     *  => [x, y, z] -> [x, y, z / S]
-     */
-    normal.z /= static_cast<double>(surface_height_multiplier);
-
-    // Normalize:
-    const auto norm = glm::length(normal);
-    normal = norm < 0.0001 ? glm::dvec3{0., 0.f, 1.0} : normal * (1.0 / norm);
-
-    if (glm::any(glm::isnan(normal)))
-        return {height, std::nullopt};
-
-
-    // Find distance to surface (not the same as height, as that is projected down):
-//    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
-
-    return {height, std::make_optional(normal)};
 }
 
 // Projects a point in world space onto the surface specified by a normal_force vector and
@@ -352,57 +367,6 @@ glm::dvec3 find_closest_point_in_sphere(const glm::dvec3 &center, double radius,
     return closest.second;
 }
 
-/**
- * @brief Samples texture slices like a volume.
- * Using 2 slices, samples a density in a volume constructed from the slices, using the (un?)signed height differences
- * as the density. The xy-part of the sampling coordinates translates to the uv-coordinates in the plane, and the
- * z-coordinate translates to the difference between the 2 slices - the interpolation from the first layer to the
- * second layer.
- */
-float sample_volume_tf(const glm::vec3 &coord, const TextureMipMaps &tex_mip_maps,
-                       std::array<unsigned int, 2> levels, bool use_height_differences = false,
-                       float mip_map_scale_mutliplier = 1.5f) {
-    const auto &[dims0, data0] = tex_mip_maps.at(levels[0]);
-    const auto &[dims1, data1] = tex_mip_maps.at(levels[1]);
-
-    // If coordinates are outside of bounds, just return 0 as the density (air)
-    // It is a logic error if we use the transfer function on invalid coords, so assert here:
-    assert(!(glm::any(glm::lessThan(coord, glm::vec3{0.f})) || glm::any(glm::greaterThan(coord, glm::vec3{1.f}))));
-
-    const auto t0 = sample_height(glm::vec2{coord}, dims0, data0) *
-                    std::pow(mip_map_scale_mutliplier, static_cast<float>(levels[0]));
-    const auto t1 = sample_height(glm::vec2{coord}, dims1, data1) *
-                    std::pow(mip_map_scale_mutliplier, static_cast<float>(levels[1]));
-
-    // (t1 - coord.z) - (t0 - coord.z) =
-    return use_height_differences ? (t1 - t0) : std::lerp(t0, t1, coord.z);
-}
-
-// Sample a volume gradient using central differences
-glm::dvec2 sample_volume_gradient(const glm::vec3 &coords, const TextureMipMaps &tex_mip_maps,
-                                  std::array<unsigned int, 2> levels, float kernel_size = 0.001f,
-                                  bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f) {
-    using namespace glm;
-    const auto &tf = [&tex_mip_maps, levels, mip_map_scale_multiplier](const vec3 &coord) {
-        return sample_volume_tf(coord, tex_mip_maps, levels, mip_map_scale_multiplier);
-    };
-
-    if (glm::any(glm::lessThan(coords, glm::vec3{0.f})) || glm::any(glm::greaterThan(coords, glm::vec3{1.f})))
-        return {0.0, 0.0};
-
-    /**
-     * Volume gradient is central differences of transfer function in the X and Y directions, and an interpolated
-     * constant upwards aligned vector in the Z-direction.
-     */
-    return {
-            tf(vec3{std::min(coords.x + kernel_size, 1.f), coords.y, coords.z}) -
-            tf(vec3{std::max(coords.x - kernel_size, 0.f), coords.y, coords.z}),
-            tf(vec3{coords.x, std::min(coords.y + kernel_size, 1.f), coords.z}) -
-            tf(vec3{coords.x, std::max(coords.y - kernel_size, 0.f), coords.z})
-    };
-//    return glm::cross(glm::dvec3{1.0, 0.0, samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0}, glm::dvec3{0.0, 1.0, samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0});
-}
-
 template<std::size_t I>
 std::array<glm::dvec3, I> get_random_distributed_points_sphere(const glm::dvec3 &pos, double radius = 0.0001) {
     std::array<glm::dvec3, I> out;
@@ -429,6 +393,61 @@ auto monte_carlo_sample(const glm::dvec3 &pos, double radius, F &&func, Args &&.
     return std::accumulate(samples.begin(), samples.end(), R{}) * (1.0 / static_cast<double>(I));
 }
 
+/**
+ * Samples the normal force, meaning the force pushing away from surface. In our case, this is the constraint force
+ * of the haptic device.
+ * @return A dvec3 containing normal force, or std::nullopt if there's no force
+ */
+std::pair<float, std::optional<glm::dvec3>>
+sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
+                    const std::vector<glm::vec4> &tex_data, glm::uint mip_map_level = 0,
+                    float surface_height_multiplier = 1.f, bool normal_offset = false) {
+    const auto uv = glm::vec2{relative_coords};
+    const auto h = sample_height(uv, tex_dims, tex_data);
+    float height = relative_coords.z - h * surface_height_multiplier;
+    // If dist is positive, it means we're above the surface = no force applied
+//    if (0.f < height)
+//        return {height, std::nullopt};
+
+    // Surface normal
+
+    auto normal = surface_normal_from_gradient(uv, tex_dims, tex_data);
+
+//    if (normal_offset) {
+//        /**
+//         * Sample the normal at an offset from the height, using the sampled normal as an offset basis. The idea is that
+//         * the offset surface point is (hopefully) closer to the projected point.
+//         */
+//        const auto offset = 2.f * glm::vec2{value} / glm::vec2{tex_dims};
+//        const auto offset_value = sample_tex(glm::vec2{relative_coords} - offset, tex_dims, tex_data);
+//        normal = {offset_value};
+//    }
+
+    /**
+     * Modulate surface normal with surface scale:
+     * Surface normal is uniformly scaled in the plane axis, so the scaling acts as a regular scaling model matrix.
+     * But since these are normal vectors along the surface, they should be treated the same way as a
+     * "computer graphics normal vector", meaning they should be multiplied with the "normal matrix", the transpose
+     * inverse of the model matrix:
+     * N = (M^-1)^T => (({[1, 0, 0], [0, 1, 0], [0, 0, S]})^-1)^T
+     *  => [x, y, z] -> [x, y, z / S]
+     */
+    normal.z /= static_cast<double>(surface_height_multiplier);
+
+    // Normalize:
+    const auto norm = glm::length(normal);
+    normal = norm < 0.0001 ? glm::dvec3{0., 0.f, 1.0} : normal * (1.0 / norm);
+
+    if (glm::any(glm::isnan(normal)))
+        return {height, std::nullopt};
+
+
+    // Find distance to surface (not the same as height, as that is projected down):
+//    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
+
+    return {height, std::make_optional(normal)};
+}
+
 struct NormalLevelSampleResult {
     glm::dvec3 normal;
     float height;
@@ -442,7 +461,7 @@ struct NormalLevelResult {
 std::optional<NormalLevelSampleResult>
 sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
                     glm::dvec3 coords, unsigned int level, float surface_height_multiplier, bool normal_offset,
-                    double surface_force, float surface_softness, bool monte_carlo_sampling = false) {
+                    double surface_force, float surface_softness) {
     const auto &[dims, data] = tex_mip_maps.at(level);
 
 //    // Find a better estimation to closest point:
@@ -453,24 +472,25 @@ sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::Simu
     // 3-4. Calculate normal (constraint) force
     std::pair<float, std::optional<glm::dvec3>> sample_res{};
     auto &[surface_height, opt_normal_force] = sample_res;
-    if (monte_carlo_sampling) {
-        /// A bit convoluted with optional sums and stuff, but should work
-        const auto samples = monte_carlo_sample_arr<16>(coords, 0.0001, sample_normal_force, dims, data, level,
-                                                        surface_height_multiplier, normal_offset);
-        auto count = 0u;
-        for (const auto &[h, opt_n]: samples) {
-            if (opt_n) {
-                sample_res = {0u < count ? surface_height + h : h, {0u < count ? *opt_normal_force + *opt_n : *opt_n}};
-                ++count;
-            }
-        }
-        const auto c = static_cast<float>(count);
-        if (0u < count) {
-            surface_height /= c;
-            *opt_normal_force *= (1.0 / c);
-        }
-    } else
-        sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset);
+//    if (monte_carlo_sampling) {
+//        /// A bit convoluted with optional sums and stuff, but should work
+//        const auto samples = monte_carlo_sample_arr<16>(coords, 0.0001, sample_normal_force, dims, data, level,
+//                                                        surface_height_multiplier, normal_offset);
+//        auto count = 0u;
+//        for (const auto &[h, opt_n]: samples) {
+//            if (opt_n) {
+//                sample_res = {0u < count ? surface_height + h : h, {0u < count ? *opt_normal_force + *opt_n : *opt_n}};
+//                ++count;
+//            }
+//        }
+//        const auto c = static_cast<float>(count);
+//        if (0u < count) {
+//            surface_height /= c;
+//            *opt_normal_force *= (1.0 / c);
+//        }
+//    } else
+
+    sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset);
 
     simulation_steps.get_from_back<0>().surface_height = surface_height;
 

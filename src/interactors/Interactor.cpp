@@ -6,10 +6,7 @@
 
 using namespace molumes;
 
-Interactor::Interactor(Viewer* viewer) : m_viewer(viewer)
-{
-
-}
+Interactor::Interactor(Viewer* viewer) : m_viewer(viewer) {}
 
 Viewer * Interactor::viewer()
 {
@@ -26,9 +23,7 @@ bool Interactor::isEnabled() const
 	return m_enabled;
 }
 
-void Interactor::framebufferSizeEvent(int width, int height)
-{
-}
+void Interactor::framebufferSizeEvent(int width, int height) {}
 
 void Interactor::keyEvent(int key, int scancode, int action, int mods)
 {
@@ -40,19 +35,10 @@ void Interactor::keyEvent(int key, int scancode, int action, int mods)
         viewer()->openFile();
 }
 
-void Interactor::mouseButtonEvent(int button, int action, int mods)
-{
-}
+void Interactor::mouseButtonEvent(int button, int action, int mods) {}
 
-void Interactor::cursorPosEvent(double xpos, double ypos)
-{
-}
+void Interactor::cursorPosEvent(double xpos, double ypos) {}
 
-void Interactor::scrollEvent(double xoffset, double yoffset)
-{
-}
+void Interactor::scrollEvent(double xoffset, double yoffset) {}
 
-void Interactor::display()
-{
-}
-
+void Interactor::display() {}

@@ -42,8 +42,7 @@ namespace molumes {
         HapticParams m_params;
         bool m_haptic_enabled{false};
 
-        static MipMapLevel
-        generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data);
+        static MipMapLevel generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data);
 
         float m_ui_gravity_factor_value{3.4f};
 
@@ -62,7 +61,7 @@ namespace molumes {
         void display() override;
 
         template<std::size_t N = HapticMipMapLevels>
-        static auto generateMipmaps(const glm::uvec2& tex_dims, std::vector<glm::vec4>&& tex_data) {
+        static auto generateMipmaps(const glm::uvec2 &tex_dims, std::vector<glm::vec4> &&tex_data) {
             std::array<MipMapLevel, N> levels;
             levels.at(0) = std::make_pair(tex_dims, std::move(tex_data));
             for (glm::uint i = 1; i < N; ++i)

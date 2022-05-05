@@ -250,7 +250,7 @@ TileRenderer::TileRenderer(Viewer *viewer,
 
     m_colorMapLoaded = updateColorMap();
 
-    subscribe(*viewer, &CameraInteractor::m_view_matrix_changed, [this](bool _changed){
+    subscribe(*viewer, &CameraInteractor::m_view_matrix_changed, [this](bool _changed) {
         m_normals_parameters_changed = true;
     });
 }
@@ -394,7 +394,8 @@ void TileRenderer::display() {
     maxValRenderPass(modelViewProjectionMatrix, maxBounds, minBounds);
 
     // ====================================================================================== TILE NORMALS RENDER PASS ======================================================================================
-    const bool shouldRenderNormal = !m_debug_heightmap && tile != nullptr && m_renderTileNormals && m_normals_parameters_changed;
+    const bool shouldRenderNormal =
+            !m_debug_heightmap && tile != nullptr && m_renderTileNormals && m_normals_parameters_changed;
     if (shouldRenderNormal)
         normalRenderPass(modelViewProjectionMatrix, viewportSize);
 
@@ -1044,7 +1045,8 @@ void TileRenderer::renderGUI() {
     }
     if (ImGui::CollapsingHeader("Tiles", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char *tile_styles[]{"none", "square", "hexagon"};
-        m_normals_parameters_changed |= ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles, IM_ARRAYSIZE(tile_styles));
+        m_normals_parameters_changed |= ImGui::Combo("Tile Rendering", &m_selected_tile_style_tmp, tile_styles,
+                                                     IM_ARRAYSIZE(tile_styles));
         ImGui::Checkbox("Render Grid", &m_renderGrid);
         ImGui::SliderFloat("Grid Width", &m_gridWidth, 1.0f, 3.0f);
         m_normals_parameters_changed |= ImGui::SliderFloat("Tile Size", &m_tileSize_tmp, 1.0f, 100.0f);
@@ -1160,7 +1162,7 @@ void TileRenderer::setShaderDefines() {
 
                                                                          });
     std::stringstream ss;
-    for (const auto&[cond, val]: conditions) {
+    for (const auto &[cond, val]: conditions) {
         if (cond)
             ss << std::format("#define {}\n", val);
     }
@@ -1352,6 +1354,39 @@ TileRenderer::calculateDiscrepancy2D(const std::vector<float> &samplesX, const s
     return discrepancies;
 }
 
+GLubyte f2b(auto f) {
+    return static_cast<GLubyte>(static_cast<double>(std::numeric_limits<GLubyte>::max()) * std::clamp(f, 0.0, 1.0));
+}
+
+double b2f(auto b) {
+    return static_cast<double>(b) / static_cast<double>(std::numeric_limits<GLubyte>::max());
+}
+
+double sample_value(std::vector<GLubyte> &img, unsigned int width, unsigned int height, int x, int y) {
+    if (x < 0 || y < 0 || width <= static_cast<unsigned int>(x) || height <= static_cast<unsigned int>(y))
+        return 0.0;
+
+    const auto d = img.at(4 * (x + (height - y - 1) * width) + 3);
+    return b2f(d);
+}
+
+void generate_heightmap_normals(std::vector<GLubyte> &img, unsigned int width, unsigned int height) {
+    const auto sample = [&](int x, int y) { return sample_value(img, width, height, x, y); };
+    for (std::size_t y{0}; y < height; ++y) {
+        for (std::size_t x{0}; x < width; ++x) {
+            const auto dx = sample(static_cast<int>(x) + 1, static_cast<int>(y)) -
+                            sample(static_cast<int>(x) - 1, static_cast<int>(y));
+            const auto dy = sample(static_cast<int>(x), static_cast<int>(y) + 1) -
+                            sample(static_cast<int>(x), static_cast<int>(y) - 1);
+            auto normal = glm::normalize(
+                    glm::cross(glm::normalize(glm::dvec3{1.0, 0.0, dx}), glm::normalize(glm::dvec3{0.0, 1.0, dy})));
+            normal = normal * 0.5 + 0.5;
+            for (std::size_t i{0}; i < 3; ++i)
+                img.at(4 * (x + (height - y - 1) * width) + i) = f2b(normal[static_cast<glm::vec3::length_type>(i)]);
+        }
+    }
+}
+
 void TileRenderer::fileLoaded(const std::string &filename) {
     using namespace std::filesystem;
     const path filepath{filename};
@@ -1372,15 +1407,19 @@ void TileRenderer::fileLoaded(const std::string &filename) {
 
                     // Converting it to a fractional double in the middle, in case GLubyte != unsigned char
                     const auto f = static_cast<double>(img_pixel) / std::numeric_limits<unsigned char>::max();
-                    const auto value = static_cast<double>(std::numeric_limits<GLubyte>::max()) * f;
-                    processed_img.emplace_back(); processed_img.emplace_back(); processed_img.emplace_back();
-                    processed_img.push_back(static_cast<GLubyte>(value));
+                    processed_img.emplace_back();
+                    processed_img.emplace_back();
+                    processed_img.emplace_back();
+                    processed_img.push_back(f2b(f));
                 }
             }
 
+            generate_heightmap_normals(processed_img, width, height);
+
             // Manually set the texture of one of the frame_data structs (so mip maps will be generated from that in next offload renders)
-            auto& frame_data = m_normal_frame_data[0];
-            frame_data.texture->image2D(0, GL_RGBA32F, {width, height}, 0, GL_RGBA, GL_UNSIGNED_BYTE, processed_img.data());
+            auto &frame_data = m_normal_frame_data[0];
+            frame_data.texture->image2D(0, GL_RGBA32F, {width, height}, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                                        processed_img.data());
             frame_data.size = {width, height};
             frame_data.step = 0;
 
@@ -1533,8 +1572,8 @@ bool TileRenderer::offscreen_render() {
             // std::async to complete as the future destructor will automatically wait (std::async is magic)
             frame_data.tile_normal_async_task = std::async(std::launch::async,
                                                            [&channel = this->m_normal_tex_channel,
-                                                            size = frame_data.size,
-                                                            data = std::move(data)]() mutable {
+                                                                   size = frame_data.size,
+                                                                   data = std::move(data)]() mutable {
                                                                auto levels = HapticInteractor::generateMipmaps(
                                                                        glm::uvec2{size}, std::move(data));
                                                                channel.write(levels);
