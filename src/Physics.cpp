@@ -701,8 +701,13 @@ namespace molumes {
             current_simulation_step.intersection_plane = last_simulation_step.intersection_plane;
         } else if (!was_inside && INSIDE_SURFACE_DEPTH_THRESHOLD < depth) {
             const auto n = glm::normalize(normal_force);
-            current_simulation_step.intersection_plane = {{.normal = n, .pos = n * static_cast<double>(1.f - depth) + pos}};
-//            current_simulation_step.intersection_plane = {{.normal = n, .pos = project_to_surface(pos, normal_force, surface_height)}};
+//            current_simulation_step.intersection_plane = {{.normal = n, .pos = n * static_cast<double>(1.f - depth) + pos}};
+            /**
+             * d = h * cos(alpha), cos(alpha) = dot({0, 0, h}, ||n||) / (|{0, 0, h}| * 1) = h * ||n||_z / h =>
+             * d = h * ||n||_z
+             * p' = p + ||n|| * d => p + ||n|| * h * ||n||_z
+             */
+            current_simulation_step.intersection_plane = {{.normal = n, .pos = project_to_surface(pos, normal_force, -surface_height)}};
         }
 
         sum_forces += soft_normal_force;
