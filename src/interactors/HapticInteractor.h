@@ -22,8 +22,8 @@ namespace molumes {
     public:
         struct HapticParams {
             std::atomic<glm::vec3> finger_pos, force;
-            std::atomic<float> interaction_bounds{1.f}, surface_force{6.f}, surface_softness{0.016f},
-                    sphere_kernel_radius{0.001f}, friction_scale{0.23f}, surface_height_multiplier{0.2f},
+            std::atomic<float> interaction_bounds{1.f}, surface_force{6.f}, surface_softness{0.02f},
+                    sphere_kernel_radius{0.001f}, friction_scale{0.23f}, surface_height_multiplier{0.3f},
                     mip_map_scale_multiplier{1.5f};
             std::atomic<double> volume_z_multiplier{100.0};
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};

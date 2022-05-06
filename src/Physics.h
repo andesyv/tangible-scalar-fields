@@ -73,7 +73,7 @@ namespace molumes {
             glm::dvec3 pos; // Current position
             glm::dvec3 velocity; // Delta velocity from last frame (to current pos)
             glm::dvec3 normal_force{0.0, 0.0, 1.0};
-            float surface_height; // Height of pos relative to surface
+            float surface_height{1.f}; // Height of pos relative to surface (initialize to 1 (above surface))
             glm::dvec3 sticktion_point;
             glm::dvec3 surface_pos;
             glm::dvec3 surface_velocity;

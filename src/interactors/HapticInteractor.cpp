@@ -467,6 +467,12 @@ void HapticInteractor::display() {
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_pos);
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_force);
 
+    static bool once = false;
+    if (!once) {
+        viewer()->BROADCAST(&HapticInteractor::m_ui_surface_height_multiplier);
+        once = true;
+    }
+
     // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection
     static auto last_haptic_enabled = m_haptic_enabled;
     if (m_on_haptic_toggle && last_haptic_enabled != m_haptic_enabled) {

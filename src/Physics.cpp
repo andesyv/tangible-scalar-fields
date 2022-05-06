@@ -38,7 +38,7 @@ float smoothstep(float x) {
 }
 
 // returns signed distance to plane (negative is below)
-auto point_to_plane(const glm::vec3 &pos, const glm::vec3 &pl_norm, const glm::vec3 &pl_pos) {
+float point_to_plane(const glm::vec3 &pos, const glm::vec3 &pl_norm, const glm::vec3 &pl_pos) {
     glm::vec3 pl_to_pos = pos - pl_pos;
     return glm::dot(pl_to_pos, pl_norm);
 }
@@ -239,13 +239,17 @@ surface_normal_from_gradient(const glm::vec2 &uv, const glm::uvec2 &tex_dims, co
     return normalize(cross(normalize(dvec3{1.0, 0.0, g.x}), normalize(dvec3{0.0, 1.0, g.y})));
 }
 
-glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float height, float surface_softness = 0.f,
-                                 float min_force = 0.f) {
+// Returns the soft "depth" into the surface. 0<= if outside surface and 1 if inside
+float surface_depth(float height, float surface_softness = 0.f) {
     // Unsure about the coordinate system, so just setting max to 1 for now:
-    constexpr float max_dist = 1.f;
-    const auto t = smoothstep(std::min(height / (-max_dist * surface_softness), 1.f));
-    const float softness_interpolation =
-            surface_softness < 0.001f ? 1.f : std::lerp(std::clamp(min_force, 0.f, 1.f), 1.f, t);
+    constexpr float max_dist = -1.f;
+    return surface_softness < 0.001f ? 1.f : std::min(height / (max_dist * surface_softness), 1.f);
+//    return surface_softness < 0.001f ? 1.f : std::clamp(height / (max_dist * surface_softness), 0.f, 1.f);
+}
+
+glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float surface_depth, float min_force = 0.f) {
+    const auto t = smoothstep(surface_depth);
+    const float softness_interpolation = std::lerp(std::clamp(min_force, 0.f, 1.f), 1.f, t);
 
     return normal_force * static_cast<double>(softness_interpolation);
 }
@@ -393,12 +397,14 @@ auto monte_carlo_sample(const glm::dvec3 &pos, double radius, F &&func, Args &&.
     return std::accumulate(samples.begin(), samples.end(), R{}) * (1.0 / static_cast<double>(I));
 }
 
+using NormalLevelSampleResult = std::pair<float, std::optional<glm::dvec3>>;
+
 /**
  * Samples the normal force, meaning the force pushing away from surface. In our case, this is the constraint force
  * of the haptic device.
  * @return A dvec3 containing normal force, or std::nullopt if there's no force
  */
-std::pair<float, std::optional<glm::dvec3>>
+NormalLevelSampleResult
 sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
                     const std::vector<glm::vec4> &tex_data, glm::uint mip_map_level = 0,
                     float surface_height_multiplier = 1.f, bool normal_offset = false, bool pre_interpolative = true) {
@@ -453,18 +459,14 @@ sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims
     return {height, std::make_optional(normal)};
 }
 
-struct NormalLevelSampleResult {
-    glm::dvec3 normal;
-    float height;
-};
-
 struct NormalLevelResult {
     glm::dvec3 normal, soft_normal;
     float height;
 };
 
-std::optional<NormalLevelSampleResult>
-sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
+NormalLevelSampleResult
+sample_normal_level(const TextureMipMaps &tex_mip_maps,
+                    const SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
                     glm::dvec3 coords, unsigned int level, float surface_height_multiplier, bool normal_offset,
                     double surface_force, float surface_softness, bool pre_interpolative = true) {
     const auto &[dims, data] = tex_mip_maps.at(level);
@@ -475,7 +477,7 @@ sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::Simu
 
 
     // 3-4. Calculate normal (constraint) force
-    std::pair<float, std::optional<glm::dvec3>> sample_res{};
+    NormalLevelSampleResult sample_res{};
     auto &[surface_height, opt_normal_force] = sample_res;
 //    if (monte_carlo_sampling) {
 //        /// A bit convoluted with optional sums and stuff, but should work
@@ -495,28 +497,25 @@ sample_normal_level(const TextureMipMaps &tex_mip_maps, SizedQueue<Physics::Simu
 //        }
 //    } else
 
-    sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset, pre_interpolative);
-
-    simulation_steps.get_from_back<0>().surface_height = surface_height;
+    sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset,
+                                     pre_interpolative);
 
     // Early exit of there's no surface force (we're moving through air / empty space)
     if (!opt_normal_force)
-        return std::nullopt;
+        return sample_res;
 
     // Scale normal force with normal_force:
     auto normal_force = *opt_normal_force * surface_force;
 
-    // Save the unmodified normal:
-    simulation_steps.get_from_back<0>().normal_force = *opt_normal_force;
-    // Adjust normal by using the half of the last normal_vector (smoothes out big changes in normal, like a moving over a bump)
-    auto half_normal = simulation_steps.get_from_back<1>().normal_force + normal_force;
-    const auto half_normal_len = glm::length(half_normal);
-    if (0.001 < half_normal_len) {
-        half_normal *= surface_force / half_normal_len;
-        normal_force = half_normal;
-    }
+//    // Adjust normal by using the half of the last normal_vector (smoothes out big changes in normal, like a moving over a bump)
+//    auto half_normal = simulation_steps.get_from_back<1>().normal_force + normal_force;
+//    const auto half_normal_len = glm::length(half_normal);
+//    if (0.001 < half_normal_len) {
+//        half_normal *= surface_force / half_normal_len;
+//        normal_force = half_normal;
+//    }
 
-    return {{normal_force, surface_height}};
+    return {surface_height, {normal_force}};
 }
 
 std::optional<NormalLevelResult>
@@ -566,7 +565,8 @@ sample_volume(double surface_force, float surface_softness, const TextureMipMaps
         gradient *= surface_force / g_len;
 
     const float h = t - 1.f;
-    return {{.normal = gradient, .soft_normal = soften_surface_normal(gradient, h, surface_softness), .height = h}};
+    return {{.normal = gradient, .soft_normal = soften_surface_normal(gradient, surface_depth(h,
+                                                                                              surface_softness)), .height = h}};
 }
 
 namespace molumes {
@@ -613,9 +613,8 @@ namespace molumes {
         const auto coords = opt_relative_pos_coords(glm::vec3{pos}, pl_mat, glm::vec2{2.f});
         if (!coords) {
             // Apply a constant up-facing surface force outside of bounds (simulating an infinite plane)
-            sum_forces += soften_surface_normal(glm::dvec3{0.0, 0.0, surface_force},
-                                                point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]}),
-                                                surface_softness);
+            sum_forces += soften_surface_normal(glm::dvec3{0.0, 0.0, surface_force}, surface_depth(
+                    point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]}), surface_softness));
             return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
         }
 
@@ -649,22 +648,33 @@ namespace molumes {
                                                      volume_use_height_differences, mip_map_scale_multiplier);
             } else if (!above_volume) {
                 const glm::dvec3 c{coords->x, coords->y, coords->z + 0.25f};
-                const auto res = sample_normal_level(tex_mip_maps, m_simulation_steps, c,
-                                                     mip_map_level, surface_height_multiplier,
-                                                     normal_offset, surface_force, surface_softness);
-                sample_level_results = optional_chain(res, [=](const auto &r) -> std::optional<NormalLevelResult> {
-                    return {{r.normal, soften_surface_normal(r.normal, r.height, surface_softness, VOLUME_MAX_FORCE),
-                             r.height}};
-                });
+                const auto [h, opt_norm] = sample_normal_level(tex_mip_maps, m_simulation_steps, c,
+                                                               mip_map_level, surface_height_multiplier,
+                                                               normal_offset, surface_force, surface_softness);
+                sample_level_results = optional_chain(opt_norm,
+                                                      [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
+                                                          return {{n, soften_surface_normal(n, surface_depth(h,
+                                                                                                             surface_softness),
+                                                                                            VOLUME_MAX_FORCE), h}};
+                                                      });
             }
 
             // Singular surface:
         } else {
-            const auto res = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
-                                                 mip_map_level, surface_height_multiplier,
-                                                 normal_offset, surface_force, surface_softness, pre_interpolative_normal);
-            sample_level_results = optional_chain(res, [=](const auto &r) -> std::optional<NormalLevelResult> {
-                return {{r.normal, soften_surface_normal(r.normal, r.height, surface_softness, 0.f), r.height}};
+            const auto [h, opt_norm] = sample_normal_level(tex_mip_maps, m_simulation_steps, *coords,
+                                                           mip_map_level, surface_height_multiplier,
+                                                           normal_offset, surface_force, surface_softness,
+                                                           pre_interpolative_normal);
+            sample_level_results = optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
+                constexpr float INSIDE_SURFACE_DEPTH_THRESHOLD = 0.5f;
+                const auto &last_step = m_simulation_steps.get_from_back<1>();
+                const auto last_depth = surface_depth(last_step.surface_height, surface_softness);
+                const auto current_depth = surface_depth(h, surface_softness);
+                // If we passed through the surface last frame, use last normal
+                if (INSIDE_SURFACE_DEPTH_THRESHOLD < last_depth) {
+                  return {{last_step.normal_force, soften_surface_normal(last_step.normal_force, current_depth), h}};
+                } else
+                  return {{n, soften_surface_normal(n, current_depth), h}};
             });
         }
 
@@ -673,6 +683,9 @@ namespace molumes {
             return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
 
         auto [normal_force, soft_normal_force, surface_height] = *sample_level_results;
+        current_simulation_step.normal_force = normal_force;
+        current_simulation_step.surface_height = surface_height;
+
         sum_forces += soft_normal_force;
 
         // Note: Currently only uniform friction is implemented
