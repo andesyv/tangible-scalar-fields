@@ -77,6 +77,8 @@ namespace molumes {
             glm::dvec3 sticktion_point;
             glm::dvec3 surface_pos;
             glm::dvec3 surface_velocity;
+            struct Plane { glm::dvec3 normal; glm::dvec3 pos; };
+            std::optional<Plane> intersection_plane;
         };
 
     private:

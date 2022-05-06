@@ -569,6 +569,12 @@ sample_volume(double surface_force, float surface_softness, const TextureMipMaps
                                                                                               surface_softness)), .height = h}};
 }
 
+bool outside_surface(const glm::dvec3& pos, const glm::dvec3& pl_norm, const glm::dvec3& pl_pos, float surface_softness) {
+    constexpr float OUTSIDE_SURFACE_DEPTH_THRESHOLD = 0.1f;
+    const auto h = surface_depth(point_to_plane(pos, pl_norm, pl_pos), surface_softness);
+    return h < OUTSIDE_SURFACE_DEPTH_THRESHOLD;
+}
+
 namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
                                                   float surface_height_multiplier, FrictionMode friction_mode,
@@ -666,13 +672,13 @@ namespace molumes {
                                                            normal_offset, surface_force, surface_softness,
                                                            pre_interpolative_normal);
             sample_level_results = optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
-                constexpr float INSIDE_SURFACE_DEPTH_THRESHOLD = 0.5f;
                 const auto &last_step = m_simulation_steps.get_from_back<1>();
-                const auto last_depth = surface_depth(last_step.surface_height, surface_softness);
+//                const auto last_depth = surface_depth(last_step.surface_height, surface_softness);
                 const auto current_depth = surface_depth(h, surface_softness);
                 // If we passed through the surface last frame, use last normal
-                if (INSIDE_SURFACE_DEPTH_THRESHOLD < last_depth) {
-                  return {{last_step.normal_force, soften_surface_normal(last_step.normal_force, current_depth), h}};
+                if (last_step.intersection_plane) {
+                    const auto plane_depth = surface_depth(point_to_plane(pos, last_step.intersection_plane->normal, last_step.intersection_plane->pos), surface_softness);
+                  return {{last_step.normal_force, soften_surface_normal(last_step.normal_force, plane_depth), h}};
                 } else
                   return {{n, soften_surface_normal(n, current_depth), h}};
             });
@@ -685,6 +691,19 @@ namespace molumes {
         auto [normal_force, soft_normal_force, surface_height] = *sample_level_results;
         current_simulation_step.normal_force = normal_force;
         current_simulation_step.surface_height = surface_height;
+
+        // Check if still inside surface
+        const auto last_simulation_step = m_simulation_steps.get_from_back<1>();
+        constexpr float INSIDE_SURFACE_DEPTH_THRESHOLD = 0.9f;
+        const auto depth = surface_depth(surface_height, surface_softness);
+        const auto was_inside = last_simulation_step.intersection_plane.has_value();
+        if (was_inside && !outside_surface(pos, last_simulation_step.intersection_plane->normal, last_simulation_step.intersection_plane->pos, surface_softness)) {
+            current_simulation_step.intersection_plane = last_simulation_step.intersection_plane;
+        } else if (!was_inside && INSIDE_SURFACE_DEPTH_THRESHOLD < depth) {
+            const auto n = glm::normalize(normal_force);
+            current_simulation_step.intersection_plane = {{.normal = n, .pos = n * static_cast<double>(1.f - depth) + pos}};
+//            current_simulation_step.intersection_plane = {{.normal = n, .pos = project_to_surface(pos, normal_force, surface_height)}};
+        }
 
         sum_forces += soft_normal_force;
 
