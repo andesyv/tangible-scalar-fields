@@ -1380,13 +1380,15 @@ double sample_value(std::vector<GLubyte> &img, unsigned int width, unsigned int 
 }
 
 void generate_normals_from_heightmap(std::vector<GLubyte> &img, unsigned int width, unsigned int height) {
+    constexpr double CROSS_PRODUCT_MULT = 100.0;
+
     const auto sample = [&](int x, int y) { return sample_value(img, width, height, x, y); };
     for (std::size_t y{0}; y < height; ++y) {
         for (std::size_t x{0}; x < width; ++x) {
-            const auto dx = sample(static_cast<int>(x) + 1, static_cast<int>(y)) -
-                            sample(static_cast<int>(x) - 1, static_cast<int>(y));
-            const auto dy = sample(static_cast<int>(x), static_cast<int>(y) + 1) -
-                            sample(static_cast<int>(x), static_cast<int>(y) - 1);
+            const auto dx = (sample(static_cast<int>(x) + 1, static_cast<int>(y)) -
+                            sample(static_cast<int>(x) - 1, static_cast<int>(y))) * CROSS_PRODUCT_MULT;
+            const auto dy = (sample(static_cast<int>(x), static_cast<int>(y) + 1) -
+                            sample(static_cast<int>(x), static_cast<int>(y) - 1)) * CROSS_PRODUCT_MULT;
             auto normal = glm::normalize(
                     glm::cross(glm::normalize(glm::dvec3{1.0, 0.0, dx}), glm::normalize(glm::dvec3{0.0, 1.0, dy})));
             normal = normal * 0.5 + 0.5;
