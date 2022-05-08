@@ -582,7 +582,7 @@ bool outside_surface(const glm::dvec3& pos, const glm::dvec3& pl_norm, const glm
 
 namespace molumes {
     glm::dvec3 Physics::simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
-                                                  float surface_height_multiplier, FrictionMode friction_mode,
+                                                  float surface_height_multiplier, bool enable_friction,
                                                   unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
                                                   glm::dvec3 pos, bool normal_offset,
                                                   std::optional<float> gravity_factor,
@@ -590,7 +590,8 @@ namespace molumes {
                                                   std::optional<float> sphere_kernel_radius,
                                                   bool linear_volume_surface_force, bool monte_carlo_sampling,
                                                   double volume_z_multiplier, bool volume_use_height_differences,
-                                                  float mip_map_scale_multiplier, bool pre_interpolative_normal) {
+                                                  float mip_map_scale_multiplier, bool pre_interpolative_normal,
+                                                  bool intersection_constraint) {
         PROFILE("Physics - Sample force");
 
         /**
@@ -662,12 +663,16 @@ namespace molumes {
                 const auto [h, opt_norm] = sample_normal_level(tex_mip_maps, m_simulation_steps, c,
                                                                mip_map_level, surface_height_multiplier,
                                                                normal_offset, surface_force, surface_softness);
-                sample_level_results = optional_chain(opt_norm,
-                                                      [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
-                                                          return {{n, soften_surface_normal(n, surface_depth(h,
-                                                                                                             surface_softness),
-                                                                                            VOLUME_MAX_FORCE), h}};
-                                                      });
+                sample_level_results = optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
+                      const auto &last_step = m_simulation_steps.get_from_back<1>();
+                      const auto current_depth = surface_depth(h, surface_softness);
+                      // If we passed through the surface last frame, use last normal
+                      if (intersection_constraint && last_step.intersection_plane) {
+                          const auto plane_depth = surface_depth(point_to_plane(pos, last_step.intersection_plane->normal, last_step.intersection_plane->pos), surface_softness);
+                          return {{last_step.normal_force, soften_surface_normal(last_step.normal_force, plane_depth, VOLUME_MAX_FORCE), h}};
+                      } else
+                          return {{n, soften_surface_normal(n, current_depth, VOLUME_MAX_FORCE), h}};
+                });
             }
 
             // Singular surface:
@@ -678,10 +683,9 @@ namespace molumes {
                                                            pre_interpolative_normal);
             sample_level_results = optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
                 const auto &last_step = m_simulation_steps.get_from_back<1>();
-//                const auto last_depth = surface_depth(last_step.surface_height, surface_softness);
                 const auto current_depth = surface_depth(h, surface_softness);
                 // If we passed through the surface last frame, use last normal
-                if (last_step.intersection_plane) {
+                if (intersection_constraint && last_step.intersection_plane) {
                     const auto plane_depth = surface_depth(point_to_plane(pos, last_step.intersection_plane->normal, last_step.intersection_plane->pos), surface_softness);
                   return {{last_step.normal_force, soften_surface_normal(last_step.normal_force, plane_depth), h}};
                 } else
@@ -698,6 +702,25 @@ namespace molumes {
         current_simulation_step.surface_height = surface_height;
 
         // Check if still inside surface
+        if (intersection_constraint)
+            check_if_intersecting(surface_softness, pos, current_simulation_step, normal_force, surface_height);
+
+        sum_forces += soft_normal_force;
+
+        if (enable_friction) {
+            const auto surface_pos = project_to_surface(pos, normal_force, surface_height);
+            const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos,
+                                                        static_cast<double>(friction_scale),
+                                                        soft_normal_force);
+            sum_forces += friction;
+        }
+
+        return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
+    }
+
+    void Physics::check_if_intersecting(float surface_softness, const glm::dvec3 &pos,
+                                        Physics::SimulationStepData &current_simulation_step,
+                                        const glm::dvec3 &normal_force, float surface_height) {
         const auto last_simulation_step = m_simulation_steps.get_from_back<1>();
         constexpr float INSIDE_SURFACE_DEPTH_THRESHOLD = 0.9f;
         const auto depth = surface_depth(surface_height, surface_softness);
@@ -713,19 +736,6 @@ namespace molumes {
              */
             current_simulation_step.intersection_plane = {{.normal = n, .pos = pos + glm::dvec3{0.0, 0.0, -surface_height}}};
         }
-
-        sum_forces += soft_normal_force;
-
-        // Note: Currently only uniform friction is implemented
-        if (friction_mode == FrictionMode::Uniform) {
-            const auto surface_pos = project_to_surface(pos, normal_force, surface_height);
-            const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos,
-                                                        static_cast<double>(friction_scale),
-                                                        soft_normal_force);
-            sum_forces += friction;
-        }
-
-        return {pl_r_mat * glm::dvec4{sum_forces, 0.0}};
     }
 
     std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count) {

@@ -87,11 +87,15 @@ namespace molumes {
 
         [[nodiscard]] SimulationStepData &create_simulation_record(const glm::dvec3 &pos);
 
+        void check_if_intersecting(float surface_softness, const glm::dvec3 &pos,
+                                   SimulationStepData &current_simulation_step,
+                                   const glm::dvec3 &normal_force, float surface_height);
+
     public:
         glm::dvec3
         simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
                                   float surface_height_multiplier,
-                                  FrictionMode friction_mode, unsigned int mip_map_level,
+                                  bool enable_frction, unsigned int mip_map_level,
                                   const TextureMipMaps &tex_mip_maps,
                                   glm::dvec3 pos, bool normal_offset = false,
                                   std::optional<float> gravity_factor = std::nullopt,
@@ -99,7 +103,8 @@ namespace molumes {
                                   std::optional<float> sphere_kernel_radius = std::nullopt,
                                   bool linear_volume_surface_force = false, bool monte_carlo_sampling = true,
                                   double volume_z_multiplier = 100.0, bool volume_use_height_differences = false,
-                                  float mip_map_scale_multiplier = 1.5f, bool pre_interpolative_normal = true);
+                                  float mip_map_scale_multiplier = 1.5f, bool pre_interpolative_normal = true,
+                                  bool intersection_constraint = true);
     };
 
     std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels);

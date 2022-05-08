@@ -135,6 +135,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
     };
     const auto local_to_haptic = glm::inverse(haptic_to_local);
     Physics physics_simulation;
+    // Novint Falcon keyboard layout: 0 - middle button, 1 - left button, 2 - top button, 3 - right button
     HapticKeyHandler key_handler{{0}};
     key_handler.add_on_changed_event(0, [&haptic_params, old_mip_map = 0u](bool enabled) mutable {
         if (enabled) {
@@ -143,6 +144,16 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
         } else {
             haptic_params.mip_map_level.store(old_mip_map);
         }
+    });
+    key_handler.add_on_changed_event(1, [&haptic_params](bool enabled) {
+        const auto cur = haptic_params.mip_map_level.load();
+        if (enabled && cur != 0)
+            haptic_params.mip_map_level.store(cur - 1);
+    });
+    key_handler.add_on_changed_event(3, [&haptic_params](bool enabled) {
+        const auto cur = haptic_params.mip_map_level.load();
+        if (enabled && cur != HapticMipMapLevels - 1)
+            haptic_params.mip_map_level.store(cur + 1);
     });
 
 #ifdef DHD
@@ -222,15 +233,15 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
             world_force = physics_simulation.simulate_and_sample_force(
                     haptic_params.surface_force.load(), haptic_params.surface_softness.load(),
                     haptic_params.friction_scale.load(), haptic_params.surface_height_multiplier.load(),
-                    static_cast<FrictionMode>(haptic_params.friction_mode.load()), haptic_params.mip_map_level.load(),
-                    normal_tex_mip_maps, world_pos, haptic_params.normal_offset.load(),
-                    haptic_params.gravity_factor.load(),
+                    haptic_params.enable_friction.load(), haptic_params.mip_map_level.load(), normal_tex_mip_maps,
+                    world_pos, haptic_params.normal_offset.load(), haptic_params.gravity_factor.load(),
                     haptic_params.gradual_surface_accuracy.load() ? std::make_optional(
                             haptic_params.surface_volume_mip_map_count.load()) : std::nullopt,
                     haptic_params.sphere_kernel.load() ? std::make_optional(haptic_params.sphere_kernel_radius.load())
                                                        : std::nullopt, haptic_params.linear_volume_surface_force.load(),
                     haptic_params.monte_carlo_sampling.load(), haptic_params.volume_z_multiplier.load(),
-                    haptic_params.volume_use_height_differences.load(), haptic_params.mip_map_scale_multiplier.load());
+                    haptic_params.volume_use_height_differences.load(), haptic_params.mip_map_scale_multiplier.load(),
+                    haptic_params.pre_interpolative_normals.load(), haptic_params.intersection_constraint.load());
         }
 
         {
@@ -370,7 +381,7 @@ void HapticInteractor::display() {
         auto softness = m_params.surface_softness.load();
         int kernel_type = m_params.sphere_kernel.load() ? 1 : 0;
         m_ui_sphere_kernel_size = m_params.sphere_kernel_radius.load();
-        int friction_type = static_cast<int>(m_params.friction_mode.load());
+        bool enable_friction = m_params.enable_friction.load();
         float friction_scale = m_params.friction_scale.load();
         m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
         int input_space = static_cast<int>(m_params.input_space.load());
@@ -382,6 +393,7 @@ void HapticInteractor::display() {
         float volume_z_multiplier = static_cast<float>(m_params.volume_z_multiplier.load());
         auto volume_use_height_diffs = m_params.volume_use_height_differences.load();
         int normal_interpolation = static_cast<int>(m_params.pre_interpolative_normals.load());
+        bool intersection_constraint = m_params.intersection_constraint.load();
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
@@ -410,9 +422,9 @@ void HapticInteractor::display() {
                 m_params.gravity_factor.store(
                         gravity_enabled ? std::make_optional(m_ui_gravity_factor_value) : std::nullopt);
         }
-        if (ImGui::Combo("Friction", &friction_type, "None\0Uniform\0Directional"))
-            m_params.friction_mode.store(static_cast<unsigned int>(friction_type));
-        if (friction_type != 0 && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1.f))
+        if (ImGui::Checkbox("Friction", &enable_friction))
+            m_params.enable_friction.store(enable_friction);
+        if (enable_friction && ImGui::SliderFloat("Friction scale", &friction_scale, 0.f, 1.f))
             m_params.friction_scale.store(friction_scale);
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
@@ -446,6 +458,9 @@ void HapticInteractor::display() {
         }
         if (ImGui::Combo("Normal interpolation", &normal_interpolation, "Post-interpolation\0Pre-interpolation\0")) {
             m_params.pre_interpolative_normals.store(static_cast<bool>(normal_interpolation));
+        }
+        if (ImGui::Checkbox("Intersection constraint", &intersection_constraint)) {
+            m_params.intersection_constraint.store(intersection_constraint);
         }
 
         ImGui::EndMenu();
