@@ -262,6 +262,11 @@ auto get_relative_height(const glm::vec3 &relative_coords, const glm::uvec2 &tex
 
 // Projects a point in world space onto the surface specified by a normal_force vector and
 glm::dvec3 project_to_surface(const glm::dvec3 &world_pos, const glm::dvec3 &normal_force, float height) {
+    /**
+     * d = h * cos(alpha), cos(alpha) = dot({0, 0, h}, ||n||) / (|{0, 0, h}| * 1) = h * ||n||_z / h =>
+     * d = h * ||n||_z
+     * p' = p + ||n|| * d => p + ||n|| * h * ||n||_z
+     */
     // Find distance to surface (not the same as height, as that is projected down):
     const auto dist = -height * normal_force.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
     return world_pos + normal_force * dist;
@@ -702,12 +707,11 @@ namespace molumes {
         } else if (!was_inside && INSIDE_SURFACE_DEPTH_THRESHOLD < depth) {
             const auto n = glm::normalize(normal_force);
 //            current_simulation_step.intersection_plane = {{.normal = n, .pos = n * static_cast<double>(1.f - depth) + pos}};
-            /**
-             * d = h * cos(alpha), cos(alpha) = dot({0, 0, h}, ||n||) / (|{0, 0, h}| * 1) = h * ||n||_z / h =>
-             * d = h * ||n||_z
-             * p' = p + ||n|| * d => p + ||n|| * h * ||n||_z
+            /* Projecting in the direction of the normal runs the risk of placing a plane lower than the surface point,
+             * as the normal direction is an estimation of the surface and not completely accurate. Instead, just use
+             * position + the surface height as the position of the plane.
              */
-            current_simulation_step.intersection_plane = {{.normal = n, .pos = project_to_surface(pos, normal_force, -surface_height)}};
+            current_simulation_step.intersection_plane = {{.normal = n, .pos = pos + glm::dvec3{0.0, 0.0, -surface_height}}};
         }
 
         sum_forces += soft_normal_force;
