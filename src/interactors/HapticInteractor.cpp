@@ -324,6 +324,8 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
     m_thread = std::jthread{haptic_loop, std::ref(m_params), std::move(setup_results), std::move(normal_tex_channel)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
+
+    m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
 }
 
 HapticInteractor::~HapticInteractor() {
@@ -482,11 +484,9 @@ void HapticInteractor::display() {
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_pos);
     viewer()->BROADCAST(&HapticInteractor::m_haptic_global_force);
 
-    static bool once = false;
-    if (!once) {
+    do_once([this]() {
         viewer()->BROADCAST(&HapticInteractor::m_ui_surface_height_multiplier);
-        once = true;
-    }
+    });
 
     // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection
     static auto last_haptic_enabled = m_haptic_enabled;

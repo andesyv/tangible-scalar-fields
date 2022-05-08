@@ -127,6 +127,15 @@ namespace molumes {
                 m_ref->unbind(m_target, m_index);
         }
     };
+
+    template <typename F>
+    void do_once(F&& func) {
+        static bool done{false};
+        if (!done) {
+            func();
+            done = true;
+        }
+    }
 }
 
 #endif //MOLUMES_UTILS_H
