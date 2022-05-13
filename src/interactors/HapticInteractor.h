@@ -24,7 +24,7 @@ namespace molumes {
             std::atomic<glm::vec3> finger_pos, force;
             std::atomic<float> interaction_bounds{1.f}, surface_force{6.f}, surface_softness{0.031f},
                     sphere_kernel_radius{0.001f}, friction_scale{0.23f}, surface_height_multiplier{0.5f},
-                    mip_map_scale_multiplier{1.5f};
+                    mip_map_scale_multiplier{1.3f};
             std::atomic<double> volume_z_multiplier{100.0};
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};
             std::atomic<bool> enable_force{false}, sphere_kernel{true}, gradual_surface_accuracy{false},

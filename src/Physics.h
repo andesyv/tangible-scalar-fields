@@ -81,6 +81,11 @@ namespace molumes {
             std::optional<Plane> intersection_plane;
         };
 
+        struct NormalLevelResult {
+            glm::dvec3 normal, soft_normal;
+            float height;
+        };
+
     private:
         SizedQueue<SimulationStepData, 2> m_simulation_steps{};
         std::chrono::high_resolution_clock::time_point m_tp{std::chrono::high_resolution_clock::now()};
@@ -105,6 +110,16 @@ namespace molumes {
                                   double volume_z_multiplier = 100.0, bool volume_use_height_differences = false,
                                   float mip_map_scale_multiplier = 1.5f, bool pre_interpolative_normal = true,
                                   bool intersection_constraint = true);
+
+        std::optional<NormalLevelResult>
+        sample_normal(double surface_force, float surface_softness, float surface_height_multiplier,
+                      unsigned int mip_map_level,
+                      const TextureMipMaps &tex_mip_maps, const glm::dvec3 &pos, bool normal_offset,
+                      const std::optional<unsigned int> &surface_volume_mip_map_counts,
+                      const std::optional<float> &sphere_kernel_radius, bool monte_carlo_sampling,
+                      bool volume_use_height_differences, float mip_map_scale_multiplier, bool pre_interpolative_normal,
+                      bool intersection_constraint, const std::optional<glm::vec3> &coords,
+                      const float VOLUME_MAX_FORCE);
     };
 
     std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels);
