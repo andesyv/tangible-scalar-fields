@@ -73,7 +73,7 @@ namespace molumes {
         ~HapticInteractor() override;
 
         unsigned int m_mip_map_ui_level{0};
-        std::vector<int> m_ui_surface_volume_enabled_mip_maps;
+        std::vector<unsigned int> m_ui_surface_volume_enabled_mip_maps;
         int m_ui_surface_volume_mip_map_count{HapticMipMapLevels};
         glm::vec3 m_haptic_global_pos{}, m_haptic_global_force{};
         float m_ui_sphere_kernel_size, m_ui_surface_height_multiplier, m_ui_mip_map_scale_multiplier;

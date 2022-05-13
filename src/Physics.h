@@ -122,7 +122,7 @@ namespace molumes {
                       const float VOLUME_MAX_FORCE);
     };
 
-    std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels);
+    std::vector<unsigned int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels, unsigned int min_mip_map = 0);
 }
 
 #endif //MOLUMES_PHYSICS_H

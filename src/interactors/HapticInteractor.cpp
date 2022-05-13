@@ -374,6 +374,7 @@ void HapticInteractor::display() {
     Interactor::display();
 
     auto mip_map_level = static_cast<int>(m_params.mip_map_level.load());
+    bool enabled_mip_maps_changed = false;
 
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_params.interaction_bounds.load();
@@ -398,7 +399,7 @@ void HapticInteractor::display() {
 
         if (ImGui::SliderFloat("Interaction bounds", &interaction_bounds, 0.1f, 10.f))
             m_params.interaction_bounds.store(interaction_bounds);
-        ImGui::SliderInt("Mip map level", &mip_map_level, 0, HapticMipMapLevels - 1);
+        enabled_mip_maps_changed = ImGui::SliderInt("Mip map level", &mip_map_level, 0, HapticMipMapLevels - 1);
 
         if (ImGui::SliderFloat("Surface height multiplier", &m_ui_surface_height_multiplier, 0.01f, 2.f)) {
             m_params.surface_height_multiplier.store(m_ui_surface_height_multiplier);
@@ -434,11 +435,9 @@ void HapticInteractor::display() {
             viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mode);
         }
         if (m_ui_surface_volume_mode) {
-            if (ImGui::SliderInt("Surface volume mip map count", &surface_volume_mip_map_count, 2,
-                                 HapticMipMapLevels)) {
+            if (ImGui::SliderInt("Surface volume mip map count", &surface_volume_mip_map_count, 2, HapticMipMapLevels)) {
                 m_params.surface_volume_mip_map_count.store(static_cast<unsigned int>(surface_volume_mip_map_count));
-                m_ui_surface_volume_enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_count);
-                viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_enabled_mip_maps);
+                enabled_mip_maps_changed |= true;
             }
             if (ImGui::Checkbox("Linear force interpolation", &linear_volume_surface_force))
                 m_params.linear_volume_surface_force.store(linear_volume_surface_force);
@@ -469,9 +468,15 @@ void HapticInteractor::display() {
 
     // Have to check it here because it can be set both from within haptic thread and the UI:
     if (static_cast<unsigned int>(mip_map_level) != m_mip_map_ui_level) {
+        enabled_mip_maps_changed = true;
         m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
         m_params.mip_map_level.store(m_mip_map_ui_level);
         viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
+    }
+
+    if (enabled_mip_maps_changed) {
+        m_ui_surface_volume_enabled_mip_maps = generate_enabled_mip_maps(m_params.surface_volume_mip_map_count.load(), m_params.mip_map_level.load());
+        viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_enabled_mip_maps);
     }
 
     const auto m = glm::dmat3{viewer()->viewTransform()};

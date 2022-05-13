@@ -27,7 +27,7 @@ namespace molumes {
         unsigned int m_mip_map_level{0};
         float m_height_multiplier{1.f}, m_mip_map_scale_multiplier{1.5f};
         bool m_surface_volume_mode{false}, m_heightfield{false};
-        std::vector<int> m_surface_volume_enabled_mip_maps;
+        std::vector<unsigned int> m_surface_volume_enabled_mip_maps;
     };
 }
 

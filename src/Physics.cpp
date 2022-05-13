@@ -522,16 +522,16 @@ std::optional<Physics::NormalLevelResult>
 sample_volume(double surface_force, float surface_softness, const TextureMipMaps &tex_mip_maps,
               const std::optional<float> &sphere_kernel_radius, bool monte_carlo_sampling,
               const glm::vec3 &coords, unsigned int surface_volume_mip_map_counts, float t,
-              bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f) {
+              bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f, unsigned int min_mip_map = 0) {
     // Get upper and lower mip map levels:
-    const auto enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_counts);
+    const auto enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_counts, min_mip_map);
     const auto enabled_mip_maps_range_mult = static_cast<float>(surface_volume_mip_map_counts - 1);
 
     // t(z) = [0, 1], z = [-0.25, 0.25]
     const auto upper_j = static_cast<std::size_t>(std::ceil(t * enabled_mip_maps_range_mult));
     const auto lower_j = static_cast<std::size_t>(std::floor(t * enabled_mip_maps_range_mult));
-    auto upper_level = static_cast<unsigned int>(enabled_mip_maps.at(upper_j));
-    auto lower_level = static_cast<unsigned int>(enabled_mip_maps.at(lower_j));
+    auto upper_level = enabled_mip_maps.at(upper_j);
+    auto lower_level = enabled_mip_maps.at(lower_j);
 
     const auto f_f = t * enabled_mip_maps_range_mult - static_cast<float>(lower_j);
 
@@ -695,7 +695,7 @@ namespace molumes {
                 return sample_volume(surface_force * VOLUME_MAX_FORCE, surface_softness,
                                      tex_mip_maps, sphere_kernel_radius,
                                      monte_carlo_sampling, *coords, *surface_volume_mip_map_counts, t_h,
-                                     volume_use_height_differences, mip_map_scale_multiplier);
+                                     volume_use_height_differences, mip_map_scale_multiplier, mip_map_level);
             } else if (above_volume) {
                 return {};
             }
@@ -748,13 +748,13 @@ namespace molumes {
         }
     }
 
-    std::vector<int> generate_enabled_mip_maps(unsigned int enabled_count) {
-        std::vector<int> out;
+    std::vector<unsigned int> generate_enabled_mip_maps(unsigned int enabled_count, unsigned int min_mip_map) {
+        std::vector<unsigned int> out;
         out.reserve(enabled_count);
         for (unsigned int i{0}; i < enabled_count; ++i)
-            out.push_back(static_cast<int>(std::round(
-                    (HapticMipMapLevels - 1) * static_cast<float>(i) / static_cast<float>(enabled_count - 1) + 0.01f
-            )));
+            out.push_back(static_cast<unsigned int>(std::round(
+                    static_cast<float>((HapticMipMapLevels - 1 - min_mip_map) * i) / static_cast<float>(enabled_count - 1) + 0.01f
+            )) + min_mip_map);
         return out;
     }
 

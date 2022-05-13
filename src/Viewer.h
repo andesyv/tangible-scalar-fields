@@ -147,7 +147,7 @@ namespace molumes
         } m_sharedResources;
 
         using BroadcastHashType = std::size_t;
-        using BroadcastTypes = std::tuple<glm::vec3, unsigned int, float, bool, int, std::vector<int>>;
+        using BroadcastTypes = std::tuple<glm::vec3, unsigned int, float, bool, int, std::vector<unsigned int>>;
         std::map<BroadcastHashType, decltype(initSubscribers(BroadcastTypes{}))> m_subscribers{};
 
         /**
