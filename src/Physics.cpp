@@ -426,8 +426,8 @@ sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims
         normal = {value};
     }
     // If dist is positive, it means we're above the surface = no force applied
-//    if (0.f < height)
-//        return {height, std::nullopt};
+    if (0.f < height)
+        return {height, std::nullopt};
 
 //    if (normal_offset) {
 //        /**
@@ -681,16 +681,18 @@ namespace molumes {
                                                            mip_map_level, surface_height_multiplier,
                                                            normal_offset, surface_force, surface_softness,
                                                            pre_interpolative_normal);
-            sample_level_results = optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
-                const auto &last_step = m_simulation_steps.get_from_back<1>();
-                const auto current_depth = surface_depth(h, surface_softness);
-                // If we passed through the surface last frame, use last normal
-                if (intersection_constraint && last_step.intersection_plane) {
-                    const auto plane_depth = surface_depth(point_to_plane(pos, last_step.intersection_plane->normal, last_step.intersection_plane->pos), surface_softness);
-                  return {{last_step.normal_force, soften_surface_normal(last_step.normal_force, plane_depth), h}};
-                } else
-                  return {{n, soften_surface_normal(n, current_depth), h}};
-            });
+
+            const auto &last_step = m_simulation_steps.get_from_back<1>();
+            const auto current_depth = surface_depth(h, surface_softness);
+            // If we passed through the surface last frame, use last normal
+            if (intersection_constraint && last_step.intersection_plane) {
+                const auto plane_depth = surface_depth(point_to_plane(pos, last_step.intersection_plane->normal, last_step.intersection_plane->pos), surface_softness);
+                sample_level_results = {{last_step.normal_force, soften_surface_normal(last_step.normal_force, plane_depth), h}};
+            } else {
+                sample_level_results = optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
+                    return {{n, soften_surface_normal(n, current_depth), h}};
+                });
+            }
         }
 
         // We're above the (all) surface(s). In the air, return early.

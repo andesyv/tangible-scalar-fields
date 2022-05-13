@@ -308,9 +308,10 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 
 #endif // DHD
 
-HapticInteractor::HapticInteractor(Viewer *viewer,
-                                   ReaderChannel<TextureMipMaps> &&normal_tex_channel)
-        : Interactor(viewer) {
+HapticInteractor::HapticInteractor(Viewer *viewer, ReaderChannel<TextureMipMaps> &&normal_tex_channel)
+        : Interactor(viewer), m_ui_surface_height_multiplier{m_params.surface_height_multiplier.load()},
+          m_ui_sphere_kernel_size{m_params.sphere_kernel_radius.load()},
+          m_ui_mip_map_scale_multiplier{m_params.mip_map_scale_multiplier.load()} {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
 
@@ -324,8 +325,6 @@ HapticInteractor::HapticInteractor(Viewer *viewer,
     m_thread = std::jthread{haptic_loop, std::ref(m_params), std::move(setup_results), std::move(normal_tex_channel)};
     m_haptic_enabled = haptics_enabled.get();
 #endif
-
-    m_ui_surface_height_multiplier = m_params.surface_height_multiplier.load();
 }
 
 HapticInteractor::~HapticInteractor() {
@@ -344,7 +343,7 @@ void HapticInteractor::keyEvent(int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
         m_params.enable_force.store(!m_params.enable_force.load());
     else if (key == GLFW_KEY_U && action == GLFW_PRESS)
-        m_params.friction_mode.store(!m_params.friction_mode.load());
+        m_params.enable_friction.store(!m_params.enable_friction.load());
     else if (key == GLFW_KEY_G && action == GLFW_PRESS)
         m_params.gravity_factor.store(m_params.gravity_factor.load().has_value() ? std::nullopt : std::make_optional(
                 m_ui_gravity_factor_value));
