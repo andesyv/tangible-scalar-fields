@@ -137,13 +137,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
     Physics physics_simulation;
     // Novint Falcon keyboard layout: 0 - middle button, 1 - left button, 2 - top button, 3 - right button
     HapticKeyHandler key_handler{{0}};
-    key_handler.add_on_changed_event(0, [&haptic_params, old_mip_map = 0u](bool enabled) mutable {
-        if (enabled) {
-            old_mip_map = haptic_params.mip_map_level.load();
-            haptic_params.mip_map_level.store(HapticMipMapLevels - 1);
-        } else {
-            haptic_params.mip_map_level.store(old_mip_map);
-        }
+    key_handler.add_on_changed_event(0, [&haptic_params](bool enabled) {
+        haptic_params.surface_volume_mode.store(enabled);
     });
     key_handler.add_on_changed_event(1, [&haptic_params](bool enabled) {
         const auto cur = haptic_params.mip_map_level.load();
@@ -235,7 +230,7 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
                     haptic_params.friction_scale.load(), haptic_params.surface_height_multiplier.load(),
                     haptic_params.enable_friction.load(), haptic_params.mip_map_level.load(), normal_tex_mip_maps,
                     world_pos, haptic_params.normal_offset.load(), haptic_params.gravity_factor.load(),
-                    haptic_params.gradual_surface_accuracy.load() ? std::make_optional(
+                    haptic_params.surface_volume_mode.load() ? std::make_optional(
                             haptic_params.surface_volume_mip_map_count.load()) : std::nullopt,
                     haptic_params.sphere_kernel.load() ? std::make_optional(haptic_params.sphere_kernel_radius.load())
                                                        : std::nullopt, haptic_params.linear_volume_surface_force.load(),
@@ -375,6 +370,7 @@ void HapticInteractor::display() {
 
     auto mip_map_level = static_cast<int>(m_params.mip_map_level.load());
     bool enabled_mip_maps_changed = false;
+    auto old_ui_surface_volume_mode = m_ui_surface_volume_mode;
 
     if (ImGui::BeginMenu("Haptics")) {
         auto interaction_bounds = m_params.interaction_bounds.load();
@@ -430,10 +426,7 @@ void HapticInteractor::display() {
             m_params.friction_scale.store(friction_scale);
         if (ImGui::Combo("Input space", &input_space, "XZ-Aligned\0Camera Aligned"))
             m_params.input_space.store(input_space);
-        if (ImGui::Checkbox("Surface volume mode", &m_ui_surface_volume_mode)) {
-            m_params.gradual_surface_accuracy.store(m_ui_surface_volume_mode);
-            viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mode);
-        }
+        ImGui::Checkbox("Surface volume mode", &m_ui_surface_volume_mode);
         if (m_ui_surface_volume_mode) {
             if (ImGui::SliderInt("Surface volume mip map count", &surface_volume_mip_map_count, 2, HapticMipMapLevels)) {
                 m_params.surface_volume_mip_map_count.store(static_cast<unsigned int>(surface_volume_mip_map_count));
@@ -472,6 +465,16 @@ void HapticInteractor::display() {
         m_mip_map_ui_level = static_cast<unsigned int>(mip_map_level);
         m_params.mip_map_level.store(m_mip_map_ui_level);
         viewer()->BROADCAST(&HapticInteractor::m_mip_map_ui_level);
+    }
+
+    auto surface_volume_mode = m_params.surface_volume_mode.load();
+    if (surface_volume_mode != old_ui_surface_volume_mode) {
+        // value changed from haptic controller
+        m_ui_surface_volume_mode = surface_volume_mode;
+        viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mode);
+    } else if (old_ui_surface_volume_mode != m_ui_surface_volume_mode) {
+        m_params.surface_volume_mode.store(m_ui_surface_volume_mode);
+        viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_mode);
     }
 
     if (enabled_mip_maps_changed) {
