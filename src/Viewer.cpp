@@ -801,7 +801,7 @@ void Viewer::openFile(const std::string &path) {
     if (filepath.empty()) {
         const auto rootPath = std::filesystem::current_path() / "dat";
         auto fileDialog = pfd::open_file("Open file", rootPath.string(),
-                                         {"CSV Files", "*.csv", "Height-field images", "*.png *.jpg *.jpeg *.bmp"},
+                                         {"Height-field images", "*.png *.jpg *.jpeg *.bmp", "CSV Files", "*.csv"},
                                          pfd::opt::none);
         const auto result = fileDialog.result();
         if (result.empty())
