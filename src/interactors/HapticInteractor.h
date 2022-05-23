@@ -30,7 +30,7 @@ namespace molumes {
             std::atomic<bool> enable_force{false}, sphere_kernel{true}, surface_volume_mode{false},
                     normal_offset{false}, linear_volume_surface_force{false}, monte_carlo_sampling{false},
                     volume_use_height_differences{false}, pre_interpolative_normals{true},
-                    intersection_constraint{false}, enable_friction{false};
+                    intersection_constraint{false}, enable_friction{true};
             std::atomic<unsigned int> mip_map_level{0}, input_space{0}, surface_volume_mip_map_count{
                     HapticMipMapLevels / 3};
             std::atomic<glm::dmat3> view_mat_inv, view_mat;

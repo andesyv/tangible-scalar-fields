@@ -1466,6 +1466,8 @@ void TileRenderer::fileLoaded(const std::string &filename) {
         for (auto i = 1; i < ROUND_ROBIN_SIZE; ++i)
             m_normal_frame_data[i].step = 3;
     }
+
+    viewer()->forceOffloadRender();
 }
 
 void TileRenderer::updateData() {

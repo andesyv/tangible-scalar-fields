@@ -306,7 +306,8 @@ void haptic_loop(const std::stop_token &simulation_should_end, HapticInteractor:
 HapticInteractor::HapticInteractor(Viewer *viewer, ReaderChannel<TextureMipMaps> &&normal_tex_channel)
         : Interactor(viewer), m_ui_surface_height_multiplier{m_params.surface_height_multiplier.load()},
           m_ui_sphere_kernel_size{m_params.sphere_kernel_radius.load()},
-          m_ui_mip_map_scale_multiplier{m_params.mip_map_scale_multiplier.load()} {
+          m_ui_mip_map_scale_multiplier{m_params.mip_map_scale_multiplier.load()},
+          m_ui_surface_volume_enabled_mip_maps{generate_enabled_mip_maps(m_params.surface_volume_mip_map_count.load(), m_params.mip_map_level.load())} {
 #ifdef DHD
     std::cout << std::format("Running dhd SDK version {}", dhdGetSDKVersionStr()) << std::endl;
 
@@ -493,6 +494,7 @@ void HapticInteractor::display() {
 
     do_once([this]() {
         viewer()->BROADCAST(&HapticInteractor::m_ui_surface_height_multiplier);
+        viewer()->BROADCAST(&HapticInteractor::m_ui_surface_volume_enabled_mip_maps);
     });
 
     // Event such that haptic renderer can be disabled on runtime. For instance if the device loses connection
