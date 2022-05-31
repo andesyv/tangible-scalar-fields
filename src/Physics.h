@@ -77,13 +77,23 @@ namespace molumes {
             glm::dvec3 sticktion_point;
             glm::dvec3 surface_pos;
             glm::dvec3 surface_velocity;
-            struct Plane { glm::dvec3 normal; glm::dvec3 pos; };
+            struct Plane {
+                glm::dvec3 normal;
+                glm::dvec3 pos;
+            };
             std::optional<Plane> intersection_plane;
         };
 
         struct NormalLevelResult {
             glm::dvec3 normal, soft_normal;
             float height;
+
+            auto operator+=(const NormalLevelResult &rhs) {
+                normal += rhs.normal;
+                soft_normal += rhs.soft_normal;
+                height += rhs.height;
+                return *this;
+            }
         };
 
     private:
@@ -92,37 +102,33 @@ namespace molumes {
 
         [[nodiscard]] SimulationStepData &create_simulation_record(const glm::dvec3 &pos);
 
-        void check_if_intersecting(float surface_softness, const glm::dvec3 &pos,
-                                   SimulationStepData &current_simulation_step,
-                                   const glm::dvec3 &normal_force, float surface_height);
+        void update_itnersecting(float surface_softness, const glm::dvec3 &pos,
+                                 SimulationStepData &current_simulation_step,
+                                 const glm::dvec3 &normal_force, float surface_height);
 
     public:
         glm::dvec3
-        simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
-                                  float surface_height_multiplier,
-                                  bool enable_frction, unsigned int mip_map_level,
-                                  const TextureMipMaps &tex_mip_maps,
-                                  glm::dvec3 pos, bool normal_offset = false,
+        simulate_and_sample_force(double surface_force, float surface_softness, float surface_height_multiplier,
+                                  unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps, glm::dvec3 pos,
+                                  std::optional<float> friction_scale = std::nullopt,
                                   std::optional<float> gravity_factor = std::nullopt,
                                   std::optional<unsigned int> surface_volume_mip_map_counts = std::nullopt,
                                   std::optional<float> sphere_kernel_radius = std::nullopt,
-                                  bool linear_volume_surface_force = false, bool monte_carlo_sampling = true,
-                                  double volume_z_multiplier = 100.0, bool volume_use_height_differences = false,
-                                  float mip_map_scale_multiplier = 1.5f, bool pre_interpolative_normal = true,
-                                  bool intersection_constraint = true);
+                                  bool volume_use_height_differences = false, float mip_map_scale_multiplier = 1.5f,
+                                  bool pre_interpolative_normal = true, bool intersection_constraint = true);
 
         std::optional<NormalLevelResult>
-        sample_normal(double surface_force, float surface_softness, float surface_height_multiplier,
-                      unsigned int mip_map_level,
-                      const TextureMipMaps &tex_mip_maps, const glm::dvec3 &pos, bool normal_offset,
+        sample_normal(const glm::vec3 &coords, double surface_force, float surface_softness,
+                      float surface_height_multiplier,
+                      unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps, const glm::dvec3 &pos,
                       const std::optional<unsigned int> &surface_volume_mip_map_counts,
-                      const std::optional<float> &sphere_kernel_radius, bool monte_carlo_sampling,
+                      const std::optional<float> &sphere_kernel_radius,
                       bool volume_use_height_differences, float mip_map_scale_multiplier, bool pre_interpolative_normal,
-                      bool intersection_constraint, const std::optional<glm::vec3> &coords,
-                      const float VOLUME_MAX_FORCE);
+                      bool intersection_constraint);
     };
 
-    std::vector<unsigned int> generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels, unsigned int min_mip_map = 0);
+    std::vector<unsigned int>
+    generate_enabled_mip_maps(unsigned int enabled_count = HapticMipMapLevels, unsigned int min_mip_map = 0);
 }
 
 #endif //MOLUMES_PHYSICS_H

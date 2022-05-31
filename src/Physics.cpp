@@ -20,11 +20,6 @@ struct std::formatter<glm::vec<L, T, Q>> : std::formatter<std::string> {
     }
 };
 
-template<typename T, typename R>
-std::optional<R> optional_chain(const std::optional<T> &opt) {
-    return opt ? std::make_optional<R>(*opt) : std::nullopt;
-}
-
 template<typename T, typename F>
 auto optional_chain(const std::optional<T> &opt, F &&func) {
     return opt ? func(*opt) : std::nullopt;
@@ -51,18 +46,6 @@ pos_uvs_in_plane(const glm::vec3 &pos, const glm::vec3 &pl_tan, const glm::vec3 
     return {glm::dot(dir, pl_tan) / pl_dims.x, glm::dot(dir, pl_bitan) / pl_dims.y};
 }
 
-auto pos_uvs_in_plane(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
-    return pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims);
-}
-
-// returns uv as xy and signed distance as z for a position given a orientation matrix for a plane and it's dimensions
-glm::vec3 relative_pos_coords(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
-    return {
-            pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims),
-            point_to_plane(pos, glm::vec3{pl_mat[2]}, glm::vec3{pl_mat[3]})
-    };
-}
-
 std::optional<glm::vec2> opt_pos_uvs_in_plane(const glm::vec3 &pos, const glm::mat4 &pl_mat, const glm::vec2 &pl_dims) {
     const auto coords = pos_uvs_in_plane(pos, glm::vec3{pl_mat[0]}, glm::vec3{pl_mat[1]}, pl_dims);
     return (coords.x < 0.f || 1.f < coords.x || coords.y < 0.f || 1.f < coords.y) ? std::nullopt : std::make_optional(
@@ -86,14 +69,6 @@ get_pixel(const glm::uvec2 &coord, const glm::uvec2 tex_dims, const std::vector<
         return std::nullopt;
     return std::make_optional(tex_data.at(coord.y * tex_dims.x + coord.x));
 };
-
-// Uses the quaternion between two vectors to spherically interpolate between them. (quite more expensive than lerp)
-template<typename T>
-glm::vec<3, T, glm::defaultp>
-slerp(const glm::vec<3, T, glm::defaultp> &a, const glm::vec<3, T, glm::defaultp> &b, T t) {
-    const auto q = glm::angleAxis(t * std::acos(glm::dot(a, b)), glm::normalize(glm::cross(a, b)));
-    return q * a;
-}
 
 /**
  * @brief Convert UVs into rectangular UVs
@@ -201,8 +176,8 @@ glm::dvec2 sample_volume_gradient(const glm::vec3 &coords, const TextureMipMaps 
                                   std::array<unsigned int, 2> levels, float kernel_size = 0.001f,
                                   bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f) {
     using namespace glm;
-    const auto &tf = [&tex_mip_maps, levels, mip_map_scale_multiplier](const vec3 &coord) {
-        return sample_volume_tf(coord, tex_mip_maps, levels, mip_map_scale_multiplier);
+    const auto &tf = [&tex_mip_maps, levels, mip_map_scale_multiplier, use_height_differences](const vec3 &coord) {
+        return sample_volume_tf(coord, tex_mip_maps, levels, use_height_differences, mip_map_scale_multiplier);
     };
 
     if (glm::any(glm::lessThan(coords, glm::vec3{0.f})) || glm::any(glm::greaterThan(coords, glm::vec3{1.f})))
@@ -218,7 +193,6 @@ glm::dvec2 sample_volume_gradient(const glm::vec3 &coords, const TextureMipMaps 
             tf(vec3{coords.x, std::min(coords.y + kernel_size, 1.f), coords.z}) -
             tf(vec3{coords.x, std::max(coords.y - kernel_size, 0.f), coords.z})
     };
-//    return glm::cross(glm::dvec3{1.0, 0.0, samples[0] && samples[1] ? *samples[0] - *samples[1] : 0.0}, glm::dvec3{0.0, 1.0, samples[2] && samples[3] ? *samples[2] - *samples[3] : 0.0});
 }
 
 glm::dvec2 surface_gradient(const glm::vec2 &uv, const glm::uvec2 &tex_dims, const std::vector<glm::vec4> &tex_data,
@@ -252,12 +226,6 @@ glm::dvec3 soften_surface_normal(const glm::dvec3 &normal_force, float surface_d
     const float softness_interpolation = std::lerp(std::clamp(min_force, 0.f, 1.f), 1.f, t);
 
     return normal_force * static_cast<double>(softness_interpolation);
-}
-
-auto get_relative_height(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
-                         const std::vector<glm::vec4> &tex_data, float surface_height_multiplier = 1.f) {
-    const auto value = sample_height(glm::vec2{relative_coords}, tex_dims, tex_data);
-    return relative_coords.z - value * surface_height_multiplier;
 }
 
 // Projects a point in world space onto the surface specified by a normal_force vector and
@@ -335,47 +303,6 @@ auto calc_uniform_friction(SizedQueue<Physics::SimulationStepData, 2> &simulatio
     }
 }
 
-// Fibonacci sphere algorithm, inspired by https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
-std::vector<glm::dvec3> fibonacci_sphere(unsigned int count = 8, double radius = 1.0) {
-    // golden angle in radians
-    static const auto phi = std::numbers::pi * (3.0 - std::sqrt(5.0));
-    std::vector<glm::dvec3> points;
-    points.reserve(count);
-
-    for (auto i{0u}; i < count; ++i) {
-        const auto y = radius - (static_cast<double>(i) / static_cast<double>(count - 1)) * 2.0 * radius;
-        const auto y_radius = std::sqrt(radius - y * y);
-        const auto theta = phi * static_cast<double>(i);
-
-        points.emplace_back(std::cos(theta) * y_radius, std::sin(theta) * y_radius, y);
-    }
-
-    return points;
-}
-
-// Does a sphere sample around the center and chooses a new point that is closer to the surface within a specified radius
-glm::dvec3 find_closest_point_in_sphere(const glm::dvec3 &center, double radius, const TextureMipMaps &tex_mip_maps,
-                                        unsigned int level, float surface_height_multiplier) {
-    auto sample_points = fibonacci_sphere(18, radius);
-    for (auto &p: sample_points)
-        p += center;
-    sample_points.push_back(center);
-    std::pair<double, glm::dvec3> closest{std::numeric_limits<double>::max(), {}};
-
-    const auto &[dims, data] = tex_mip_maps.at(level);
-    for (const auto &p: sample_points) {
-        if (p.x < 0.0 || 1.0 < p.x || p.y < 0.0 || 1.0 < p.y)
-            continue;
-        const auto value = sample_tex(glm::vec2{p}, dims, data);
-        auto dist = std::abs(p.z - value.w * surface_height_multiplier);
-        if (dist < closest.first)
-            closest = {dist, p};
-    }
-
-    // Since we include the center, we should be guaranteed that at least 1 point will be closest
-    return closest.second;
-}
-
 template<std::size_t I>
 std::array<glm::dvec3, I> get_random_distributed_points_sphere(const glm::dvec3 &pos, double radius = 0.0001) {
     std::array<glm::dvec3, I> out;
@@ -384,35 +311,16 @@ std::array<glm::dvec3, I> get_random_distributed_points_sphere(const glm::dvec3 
     return out;
 }
 
-template<std::size_t I, typename F, typename ... Args>
-auto monte_carlo_sample_arr(const glm::dvec3 &pos, double radius, F &&func, Args &&... args) {
-    using R = decltype(func(pos, args...));
-    std::array<R, I> out;
-    const auto points = get_random_distributed_points_sphere<I>(pos, radius);
-    for (auto i{0u}; i < I; ++i)
-        out.at(i) = func(points.at(i), std::forward<Args>(args)...);
-    return out;
-}
-
-// Invokes a function will the call syntax F(pos, args), I times and returns the average result
-template<std::size_t I, typename F, typename ... Args>
-auto monte_carlo_sample(const glm::dvec3 &pos, double radius, F &&func, Args &&... args) {
-    using R = decltype(func(pos, args...));
-    const auto samples = monte_carlo_sample_arr<I>(pos, radius, std::forward<F>(func), std::forward<Args>(args)...);
-    return std::accumulate(samples.begin(), samples.end(), R{}) * (1.0 / static_cast<double>(I));
-}
-
 using NormalLevelSampleResult = std::pair<float, std::optional<glm::dvec3>>;
 
 /**
  * Samples the normal force, meaning the force pushing away from surface. In our case, this is the constraint force
  * of the haptic device.
- * @return A dvec3 containing normal force, or std::nullopt if there's no force
  */
 NormalLevelSampleResult
 sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims,
-                    const std::vector<glm::vec4> &tex_data, glm::uint mip_map_level = 0,
-                    float surface_height_multiplier = 1.f, bool normal_offset = false, bool pre_interpolative = true) {
+                    const std::vector<glm::vec4> &tex_data, float surface_height_multiplier = 1.f,
+                    bool pre_interpolative = true) {
     const auto uv = glm::vec2{relative_coords};
     float height{0.f};
     glm::dvec3 normal{};
@@ -429,16 +337,6 @@ sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims
     if (0.f < height)
         return {height, std::nullopt};
 
-//    if (normal_offset) {
-//        /**
-//         * Sample the normal at an offset from the height, using the sampled normal as an offset basis. The idea is that
-//         * the offset surface point is (hopefully) closer to the projected point.
-//         */
-//        const auto offset = 2.f * glm::vec2{value} / glm::vec2{tex_dims};
-//        const auto offset_value = sample_tex(glm::vec2{relative_coords} - offset, tex_dims, tex_data);
-//        normal = {offset_value};
-//    }
-
     /**
      * Modulate surface normal with surface scale:
      * Surface normal is uniformly scaled in the plane axis, so the scaling acts as a regular scaling model matrix.
@@ -452,77 +350,33 @@ sample_normal_force(const glm::vec3 &relative_coords, const glm::uvec2 &tex_dims
 
     // Normalize:
     const auto norm = glm::length(normal);
-    normal = norm < 0.0001 ? glm::dvec3{0., 0.f, 1.0} : normal * (1.0 / norm);
+    normal = norm < 0.0001 ? glm::dvec3{0., 0.0, 1.0} : normal * (1.0 / norm);
 
-    if (glm::any(glm::isnan(normal)))
-        return {height, std::nullopt};
-
-
-    // Find distance to surface (not the same as height, as that is projected down):
-//    const auto dist = -height * normal.z; // dist = dot(vec3{0., 0., 1.}, normal) * -height;
-
-    return {height, std::make_optional(normal)};
+    return {height, glm::any(glm::isnan(normal)) ? std::nullopt : std::make_optional(normal)};
 }
 
-NormalLevelSampleResult
-sample_normal_level(const TextureMipMaps &tex_mip_maps,
-                    const SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
-                    glm::dvec3 coords, unsigned int level, float surface_height_multiplier, bool normal_offset,
-                    double surface_force, float surface_softness, bool pre_interpolative = true) {
+NormalLevelSampleResult sample_normal_level(const TextureMipMaps &tex_mip_maps,
+                                            const SizedQueue<Physics::SimulationStepData, 2> &simulation_steps,
+                                            glm::dvec3 coords, unsigned int level, float surface_height_multiplier,
+                                            double surface_force, bool pre_interpolative = true) {
     const auto &[dims, data] = tex_mip_maps.at(level);
 
-//    // Find a better estimation to closest point:
-//    coords = find_closest_point_in_sphere(coords, 0.00001, tex_mip_maps, level,
-//                                          surface_height_multiplier);
-
-
-    // 3-4. Calculate normal (constraint) force
-    NormalLevelSampleResult sample_res{};
-    auto &[surface_height, opt_normal_force] = sample_res;
-//    if (monte_carlo_sampling) {
-//        /// A bit convoluted with optional sums and stuff, but should work
-//        const auto samples = monte_carlo_sample_arr<16>(coords, 0.0001, sample_normal_force, dims, data, level,
-//                                                        surface_height_multiplier, normal_offset);
-//        auto count = 0u;
-//        for (const auto &[h, opt_n]: samples) {
-//            if (opt_n) {
-//                sample_res = {0u < count ? surface_height + h : h, {0u < count ? *opt_normal_force + *opt_n : *opt_n}};
-//                ++count;
-//            }
-//        }
-//        const auto c = static_cast<float>(count);
-//        if (0u < count) {
-//            surface_height /= c;
-//            *opt_normal_force *= (1.0 / c);
-//        }
-//    } else
-
-    sample_res = sample_normal_force(coords, dims, data, level, surface_height_multiplier, normal_offset,
-                                     pre_interpolative);
+    const auto sample_res = sample_normal_force(coords, dims, data, surface_height_multiplier, pre_interpolative);
+    const auto &[surface_height, opt_normal_force] = sample_res;
 
     // Early exit of there's no surface force (we're moving through air / empty space)
     if (!opt_normal_force)
         return sample_res;
 
-    // Scale normal force with normal_force:
-    auto normal_force = *opt_normal_force * surface_force;
-
-//    // Adjust normal by using the half of the last normal_vector (smoothes out big changes in normal, like a moving over a bump)
-//    auto half_normal = simulation_steps.get_from_back<1>().normal_force + normal_force;
-//    const auto half_normal_len = glm::length(half_normal);
-//    if (0.001 < half_normal_len) {
-//        half_normal *= surface_force / half_normal_len;
-//        normal_force = half_normal;
-//    }
-
-    return {surface_height, {normal_force}};
+    return {surface_height, {*opt_normal_force * surface_force}};
 }
 
 std::optional<Physics::NormalLevelResult>
 sample_volume(double surface_force, float surface_softness, const TextureMipMaps &tex_mip_maps,
-              const std::optional<float> &sphere_kernel_radius, bool monte_carlo_sampling,
+              const std::optional<float> &sphere_kernel_radius,
               const glm::vec3 &coords, unsigned int surface_volume_mip_map_counts, float t,
-              bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f, unsigned int min_mip_map = 0) {
+              bool use_height_differences = false, float mip_map_scale_multiplier = 1.5f,
+              unsigned int min_mip_map = 0) {
     // Get upper and lower mip map levels:
     const auto enabled_mip_maps = generate_enabled_mip_maps(surface_volume_mip_map_counts, min_mip_map);
     const auto enabled_mip_maps_range_mult = static_cast<float>(surface_volume_mip_map_counts - 1);
@@ -535,38 +389,30 @@ sample_volume(double surface_force, float surface_softness, const TextureMipMaps
 
     const auto f_f = t * enabled_mip_maps_range_mult - static_cast<float>(lower_j);
 
-    glm::dvec2 g_2d{};
-    /// Monte carlo sampling should happen at the level above
-    /// (monte-carlo sampling should be able to happen between different mip map levels)
-//    if (monte_carlo_sampling) {
-//        g_2d = monte_carlo_sample<8>(glm::vec3{coords.x, coords.y, f_f}, 0.0001,
-//                                     sample_volume_gradient,
-//                                     tex_mip_maps, std::to_array({lower_level, upper_level}),
-//                                     sphere_kernel_radius ? *sphere_kernel_radius : 0.001f, use_height_differences);
-//    } else {
-//    }
-    g_2d = sample_volume_gradient(glm::vec3{coords.x, coords.y, f_f}, tex_mip_maps,
-                                  std::to_array({lower_level, upper_level}),
-                                  sphere_kernel_radius ? *sphere_kernel_radius : 0.001f, use_height_differences,
-                                  mip_map_scale_multiplier);
-    g_2d *= surface_force * -100.0;
+    glm::dvec2 gradient = sample_volume_gradient(glm::vec3{coords.x, coords.y, f_f}, tex_mip_maps,
+                                      std::to_array({lower_level, upper_level}),
+                                      sphere_kernel_radius ? *sphere_kernel_radius : 0.001f, use_height_differences,
+                                      mip_map_scale_multiplier);
+    // Multiply 2D gradient with an arbitrary scaling number
+    gradient *= surface_force * -100.0;
 
     const double depth = 1.0 - t;
-    // -x * (x-2) = 1 - (x-1)^2 = ease out function: http://gizma.com/easing/
-    glm::dvec3 gradient{g_2d, surface_force * (1.f + std::pow(depth - 1.f, 3.f))};
+    // ease out function based on http://gizma.com/easing/
+    // -x * (x-2) = 1 - (x-1)^2 => 1 + (x-1)^3
+    glm::dvec3 force{gradient, surface_force * (1.0 + std::pow(depth - 1.0, 3.0))};
 
     constexpr double EPSILON = 0.0001;
-    const double g_len = glm::length(gradient);
+    const double g_len = glm::length(force);
     if (g_len <= EPSILON)
         return std::nullopt;
 
     // Clamp down (for safety)
     if (surface_force < g_len)
-        gradient *= surface_force / g_len;
+        force *= surface_force / g_len;
 
     const float h = t - 1.f;
-    return {{.normal = gradient, .soft_normal = soften_surface_normal(gradient, surface_depth(h,
-                                                                                              surface_softness)), .height = h}};
+    return {{.normal = force, .soft_normal = soften_surface_normal(force, surface_depth(h,
+                                                                                        surface_softness)), .height = h}};
 }
 
 bool
@@ -577,15 +423,14 @@ outside_surface(const glm::dvec3 &pos, const glm::dvec3 &pl_norm, const glm::dve
 }
 
 namespace molumes {
-    glm::dvec3 Physics::simulate_and_sample_force(double surface_force, float surface_softness, float friction_scale,
-                                                  float surface_height_multiplier, bool enable_friction,
-                                                  unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps,
-                                                  glm::dvec3 pos, bool normal_offset,
+    glm::dvec3 Physics::simulate_and_sample_force(double surface_force, float surface_softness,
+                                                  float surface_height_multiplier, unsigned int mip_map_level,
+                                                  const TextureMipMaps &tex_mip_maps, glm::dvec3 pos,
+                                                  std::optional<float> friction_scale,
                                                   std::optional<float> gravity_factor,
                                                   std::optional<unsigned int> surface_volume_mip_map_counts,
                                                   std::optional<float> sphere_kernel_radius,
-                                                  bool linear_volume_surface_force, bool monte_carlo_sampling,
-                                                  double volume_z_multiplier, bool volume_use_height_differences,
+                                                  bool volume_use_height_differences,
                                                   float mip_map_scale_multiplier, bool pre_interpolative_normal,
                                                   bool intersection_constraint) {
         PROFILE("Physics - Sample force");
@@ -630,18 +475,40 @@ namespace molumes {
         assert(!glm::any(glm::lessThan(glm::vec2{*coords}, glm::vec2{0.f})) ||
                !glm::any(glm::greaterThan(glm::vec2{*coords}, glm::vec2{1.f})));
 
-        std::optional<NormalLevelResult> sample_level_results;
-        constexpr float VOLUME_MAX_FORCE = 0.5f;
         // Possible TODO: Monte carlo sampling somewhere around here (before t)
 
         // Surface volume (multiple surfaces)
-        sample_level_results = sample_normal(surface_force, surface_softness, surface_height_multiplier, mip_map_level,
-                                             tex_mip_maps,
-                                             pos, normal_offset, surface_volume_mip_map_counts, sphere_kernel_radius,
-                                             monte_carlo_sampling, volume_use_height_differences,
-                                             mip_map_scale_multiplier,
-                                             pre_interpolative_normal, intersection_constraint, coords,
-                                             VOLUME_MAX_FORCE);
+        std::optional<NormalLevelResult> sample_level_results;
+        // Monte-carlo sampling:
+        if (sphere_kernel_radius) {
+            static constexpr std::size_t SAMPLE_SIZE = 8;
+            const auto points = get_random_distributed_points_sphere<SAMPLE_SIZE>(*coords, *sphere_kernel_radius);
+            double count{0};
+            sample_level_results = std::make_optional(NormalLevelResult{});
+            for (auto i{0u}; i < SAMPLE_SIZE; ++i) {
+                const auto res = sample_normal(points.at(i), surface_force, surface_softness, surface_height_multiplier,
+                                               mip_map_level, tex_mip_maps, pos, surface_volume_mip_map_counts,
+                                               sphere_kernel_radius, volume_use_height_differences,
+                                               mip_map_scale_multiplier, pre_interpolative_normal,
+                                               intersection_constraint);
+                if (res) {
+                    *sample_level_results += *res;
+                    count += 1.0;
+                }
+            }
+
+            sample_level_results = 0.0 < count ?
+                                   std::make_optional(NormalLevelResult{
+                                           .normal = sample_level_results->normal / count,
+                                           .soft_normal = sample_level_results->soft_normal / count,
+                                           .height = sample_level_results->height / static_cast<float>(count)})
+                                               : std::nullopt;
+        } else
+            sample_level_results = sample_normal(*coords, surface_force, surface_softness, surface_height_multiplier,
+                                                 mip_map_level, tex_mip_maps, pos, surface_volume_mip_map_counts,
+                                                 sphere_kernel_radius, volume_use_height_differences,
+                                                 mip_map_scale_multiplier, pre_interpolative_normal,
+                                                 intersection_constraint);
 
         // We're above the (all) surface(s). In the air, return early.
         if (!sample_level_results)
@@ -653,14 +520,14 @@ namespace molumes {
 
         // Check if still inside surface
         if (intersection_constraint)
-            check_if_intersecting(surface_softness, pos, current_simulation_step, normal_force, surface_height);
+            update_itnersecting(surface_softness, pos, current_simulation_step, normal_force, surface_height);
 
         sum_forces += soft_normal_force;
 
-        if (enable_friction) {
+        if (friction_scale) {
             const auto surface_pos = project_to_surface(pos, normal_force, surface_height);
             const auto friction = calc_uniform_friction(m_simulation_steps, surface_pos,
-                                                        static_cast<double>(friction_scale),
+                                                        static_cast<double>(*friction_scale),
                                                         soft_normal_force);
             sum_forces += friction;
         }
@@ -669,47 +536,47 @@ namespace molumes {
     }
 
     std::optional<Physics::NormalLevelResult>
-    Physics::sample_normal(double surface_force, float surface_softness, float surface_height_multiplier,
-                           unsigned int mip_map_level, const TextureMipMaps &tex_mip_maps, const glm::dvec3 &pos,
-                           bool normal_offset, const std::optional<unsigned int> &surface_volume_mip_map_counts,
-                           const std::optional<float> &sphere_kernel_radius, bool monte_carlo_sampling,
+    Physics::sample_normal(const glm::vec3 &coords, double surface_force, float surface_softness,
+                           float surface_height_multiplier, unsigned int mip_map_level,
+                           const TextureMipMaps &tex_mip_maps, const glm::dvec3 &pos,
+                           const std::optional<unsigned int> &surface_volume_mip_map_counts,
+                           const std::optional<float> &sphere_kernel_radius,
                            bool volume_use_height_differences, float mip_map_scale_multiplier,
-                           bool pre_interpolative_normal, bool intersection_constraint,
-                           const std::optional<glm::vec3> &coords, const float VOLUME_MAX_FORCE) {
+                           bool pre_interpolative_normal, bool intersection_constraint) {
+        constexpr float VOLUME_MAX_FORCE = 0.5f;
+
         const bool volume_enabled = surface_volume_mip_map_counts.has_value();
         if (volume_enabled) {
-            float t{coords->z * 2.f + 0.5f}, t_h{t}; // z = [-0.25, 0.25]
-            bool above_volume = 1.f < t;
-            bool inside_volume = !above_volume && 0.f < t;
+            float t{coords.z * 2.f + 0.5f}; // z = [-0.25, 0.25]
 
-            if (inside_volume) {
+            // If above volume, we're in air. Return early
+            if (1.f < t)
+                return {};
+
+            // If inside volume:
+            if (0.f < t) {
+                // Check if when we sample the actual height we're still inside the volume
                 const auto &[floor_dims, floor_data] = tex_mip_maps.at(mip_map_level);
                 const auto floor_height =
-                        sample_height({coords->x, coords->y}, floor_dims, floor_data) * surface_height_multiplier -
+                        sample_height({coords}, floor_dims, floor_data) * surface_height_multiplier -
                         0.25f;
-                t_h = coords->z / (0.25f - floor_height) - floor_height / (0.25f - floor_height);
-                inside_volume = 0.f < t_h;
-            }
+                const float t_h = coords.z / (0.25f - floor_height) - floor_height / (0.25f - floor_height);
 
-            if (inside_volume) {
-                return sample_volume(surface_force * VOLUME_MAX_FORCE, surface_softness,
-                                     tex_mip_maps, sphere_kernel_radius,
-                                     monte_carlo_sampling, *coords, *surface_volume_mip_map_counts, t_h,
-                                     volume_use_height_differences, mip_map_scale_multiplier, mip_map_level);
-            } else if (above_volume) {
-                return {};
+                // If the actual height says we're still inside the volume:
+                if (0.f < t_h)
+                    return sample_volume(surface_force * VOLUME_MAX_FORCE, surface_softness, tex_mip_maps,
+                                         sphere_kernel_radius, coords, *surface_volume_mip_map_counts, t_h,
+                                         volume_use_height_differences, mip_map_scale_multiplier, mip_map_level);
             }
         }
 
         // Singular surface:
-        const glm::dvec3 c{coords->x, coords->y,  coords->z + (volume_enabled ? 0.25f : 0.f)};
-        const auto [h, opt_norm] = sample_normal_level(tex_mip_maps, m_simulation_steps, c,
-                                                       mip_map_level, surface_height_multiplier,
-                                                       normal_offset, surface_force, surface_softness,
+        const glm::dvec3 c{coords.x, coords.y, coords.z + (volume_enabled ? 0.25f : 0.f)};
+        const auto [h, opt_norm] = sample_normal_level(tex_mip_maps, m_simulation_steps, c, mip_map_level,
+                                                       surface_height_multiplier, surface_force,
                                                        pre_interpolative_normal);
 
         const auto &last_step = m_simulation_steps.get_from_back<1>();
-        const auto current_depth = surface_depth(h, surface_softness);
         const auto min_soft_force = volume_enabled ? VOLUME_MAX_FORCE : 0.f;
 
         // If we passed through the surface last frame, use last normal
@@ -721,14 +588,14 @@ namespace molumes {
                      h}};
         } else {
             return optional_chain(opt_norm, [=, h = h](const auto &n) -> std::optional<NormalLevelResult> {
-                return {{n, soften_surface_normal(n, current_depth, min_soft_force), h}};
+                return {{n, soften_surface_normal(n, surface_depth(h, surface_softness), min_soft_force), h}};
             });
         }
     }
 
-    void Physics::check_if_intersecting(float surface_softness, const glm::dvec3 &pos,
-                                        Physics::SimulationStepData &current_simulation_step,
-                                        const glm::dvec3 &normal_force, float surface_height) {
+    void Physics::update_itnersecting(float surface_softness, const glm::dvec3 &pos,
+                                      Physics::SimulationStepData &current_simulation_step,
+                                      const glm::dvec3 &normal_force, float surface_height) {
         const auto last_simulation_step = m_simulation_steps.get_from_back<1>();
         constexpr float INSIDE_SURFACE_DEPTH_THRESHOLD = 0.9f;
         const auto depth = surface_depth(surface_height, surface_softness);
@@ -744,7 +611,8 @@ namespace molumes {
              * position + the surface height as the position of the plane.
              */
             current_simulation_step.intersection_plane = {
-                    {.normal = n, .pos = pos + glm::dvec3{0.0, 0.0, -surface_height}}};
+                    {.normal = n, .pos = pos + glm::dvec3{0.0, 0.0, -surface_height}}
+            };
         }
     }
 
@@ -753,7 +621,8 @@ namespace molumes {
         out.reserve(enabled_count);
         for (unsigned int i{0}; i < enabled_count; ++i)
             out.push_back(static_cast<unsigned int>(std::round(
-                    static_cast<float>((HapticMipMapLevels - 1 - min_mip_map) * i) / static_cast<float>(enabled_count - 1) + 0.01f
+                    static_cast<float>((HapticMipMapLevels - 1 - min_mip_map) * i) /
+                    static_cast<float>(enabled_count - 1) + 0.01f
             )) + min_mip_map);
         return out;
     }
