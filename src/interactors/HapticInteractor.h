@@ -23,10 +23,10 @@ namespace molumes {
         struct HapticParams {
             std::atomic<glm::vec3> finger_pos, force;
             std::atomic<float> interaction_bounds{1.f}, surface_force{6.f}, surface_softness{0.031f},
-                    sphere_kernel_radius{0.001f}, friction_scale{0.23f}, surface_height_multiplier{0.35f},
+                    sphere_kernel_radius{0.008f}, friction_scale{0.23f}, surface_height_multiplier{0.35f},
                     mip_map_scale_multiplier{1.3f};
             std::atomic<std::optional<float>> gravity_factor{std::nullopt};
-            std::atomic<bool> enable_force{false}, monte_carlo_sampling{true}, surface_volume_mode{false},
+            std::atomic<bool> enable_force{false}, monte_carlo_sampling{false}, surface_volume_mode{false},
                     volume_use_height_differences{false}, pre_interpolative_normals{true},
                     intersection_constraint{false}, enable_friction{true};
             std::atomic<unsigned int> mip_map_level{0}, input_space{0}, surface_volume_mip_map_count{
@@ -43,7 +43,7 @@ namespace molumes {
 
         static MipMapLevel generate_single_mipmap(glm::uvec2 tex_dims, std::vector<glm::vec4> tex_data);
 
-        float m_ui_gravity_factor_value{3.4f};
+        float m_ui_gravity_factor_value{2.f};
 
     public:
         std::function<void(bool)> m_on_haptic_toggle{};
