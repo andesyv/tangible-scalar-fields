@@ -1,4 +1,11 @@
-# molumes
+# 3D Printing and Haptic Rendering of Scalar Fields
+
+This is the code for my master project which is divided into two parts: one that creates a 3D printable model from a hexplot visualization of a 2D scalar field and one that uses a haptic force-feedback device to render a 2D scalar field. Both parts are implemented in the same project which is an extension of the code for the *Honeycomb Plots* paper by Trautner et al. [[1]](#1). The different approaches have been implemented as different "views", which you can switch between using <kbd>Ctrl</kbd>+<kbd>←</kbd>/<kbd>→</kbd> or going to "*settings*" and then clicking the "*switch to ...*" button.
+
+## Views
+ - Honeycomb Plot 2D view - This is the view from the previous technique by Trautner et al. [[1]](#1) which takes a CSV file of bivariate scalar data (x and y values) as input and creates a Honeycomb plot
+ - 3D Printing view - Takes the *Honeycomb Plot 2D view* as input and constructs a 3D model that can be exported as an STL.
+ - Haptic Rendering - Takes the *Honeycomb Plot 2D view* or a grayscale heightmap as input and uses a force-feedback to haptically render it.
 
 ## Setup
 
@@ -7,14 +14,21 @@
 - [CMake](https://cmake.org)
 - [Git](https://git-scm.com)
 - Any C++20 compatible compiler (Microsoft Visual Studio 2019, GCC 11, Clang 14)
-  - Uses std::format, which currently only MSVC supports (see https://en.cppreference.com/w/cpp/compiler_support/20). std::format can be replaced with [fmt](https://github.com/fmtlib/fmt) for compilers that don't support it.
-- A graphics card capabable of running OpenGL 4.5
+- A graphics card capable of running OpenGL 4.5
+- For the haptic rendering part:
+  - [Force Dimension SDK](https://www.forcedimension.com/software/sdk) - the environment variable `DHD_HOME` should point to the root installation directory of the SDK (see [config/cmake-modules/FindDHD.cmake](./config/cmake-modules/FindDHD.cmake))
+  - A compatible force-feedback haptics device (3D Systems Phantom lineup, Force Dimension Omega, Novint Falcon, e.t.c.)
 
-### Windows
+### Option 1
+ - Build CMake project with option `AUTO_FETCH_AND_BUILD_DEPENDENCIES` set to ON:
+   - `mkdir build; cd build`
+   - `cmake .. -DAUTO_FETCH_AND_BUILD_DEPENDENCIES=ON; cmake --build . --config Release`
 
-- Open a shell and run `./fetch-libs.cmd` to download all dependencies.
-- Run `./build-libs.cmd` to build the dependencies.
-- Run `./copy-libs.cmd` to copy runtime dependencies to binary directory
+### Option 2
+#### Windows
+- Open a shell in the directory and run `./config/fetch-libs.cmd` to download all dependencies.
+- Run `./config/build-libs.cmd` to build the dependencies.
+- Run `./config/copy-libs.cmd` to copy runtime dependencies to binary directory
 - Either open the root folder as a CMake project in an IDE or manually build from command line:
   - *(Optional: )* Make a build folder and navigate to it: `mkdir build; cd build`
   - Build with CMake: `cmake ..; cmake --build . --config Debug`
@@ -26,10 +40,10 @@
 
 ## 3D Printing
 
-This branch of the molumes project features a hexplot visualization -> 3d print pipeline. Most of the logic for the pipeline happens inside the `CrystalRenderer` class which generates the geometry and visualizes a 3D preview. After suitable results are achieved, the `STLExporter` class can finally export the model as a printable STL file which can be run through some slicer software to generate g-code for a specific printer, which can then be read and printed by the printer.
+Most of the logic for this pipeline happens inside the `CrystalRenderer` class which generates the geometry and visualizes a 3D preview. After suitable results are achieved, the `STLExporter` class can finally export the model as a printable STL file (<kbd>Ctrl</kbd>+<kbd>S</kbd>) which can be run through a slicer software to generate toolpaths for a specific 3D printer which can then be read and printed by the printer.
 
 ### How it works
-After a 2D visualization of the data is finished, a compute shader generates a 3D copy by displacing each hexagon by the binned value in the z-axis and connecting every hexagon to it's neighbour via a quad. After this new surface has been created, the surface is then sent to a background CPU thread where a convex hull around each non-empty hexagon is calculated. This convex hull is then used by another compute shader which culls the hexagons outside of the hull and extrudes a surface from the boundary-line created from the convex hull down to become the base of the model. After that, additional compute shaders are run to create more geometry and transform the model. Finally the model is rendered, and sent back to the CPU where it's OpenGL vertices and triangles are exported as an STL file.
+After a 2D visualization of the data is finished, a compute shader generates a 3D copy by displacing each hexagon by the binned value in the z-axis and connecting every hexagon to its neighbor via a quad. After this new surface has been created, the surface is then sent to a background CPU thread where a convex hull around each non-empty hexagon is calculated. This convex hull is then used by another compute shader which culls the hexagons outside of the hull and extrudes a surface from the boundary-line created from the convex hull down to become the base of the model. After that, additional compute shaders are run to create more geometry and transform the model. Finally, the model is rendered and sent back to the CPU where its OpenGL vertices and triangles are exported as an STL file.
 
 ### Example
 Here's a small example of how one could use the pipeline, from dataset to final print:
@@ -50,3 +64,9 @@ Here's a small example of how one could use the pipeline, from dataset to final 
  - As mentioned in the example above, the pipeline only generates needed geometry. Holes and triangles that can be trivially fixed are left to the slicer to fill (if needed). If the slicer can't fix them automatically, a good tips is to use the free version of [Autodesk Netfabb](https://www.autodesk.com/products/netfabb/overview) to fix it (open model in Netfabb, and click *repair pair*).
  - The final geometrical structure of the STL file is almost self supporting. So unless you are printing it very large, there's typically no need for much infill.
  - The model is always built standing up, so there's normally no need for additional supports. Except for the concave/mirrored models where it may be beneficial to have supports on the lower half of the model.
+
+## Haptic Rendering
+Todo...
+
+# References
+<a id="1">[1]</a> T. Trautner, M. Sbardellati and S. Bruckner, "Honeycomb Plots: Enhancing Hexagonal Binning Plots with Spatialization Cues", *Eurographics Conference on Visualization (EuroVis) 2022*, 2022
