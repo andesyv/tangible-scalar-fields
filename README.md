@@ -77,5 +77,8 @@ Dry friction is calculated by placing a *sticktion point* when the device first 
 
 A volume representation is also created to give wind-like forces that display a course overview of the surface, enabling users to view high-level details by moving over the surface. The volume is built similar to a mipmap pyramid by stacking progressively smoothed surfaces on top of each other and trilinearly interpolate between the scalar values.
 
+## License
+The project is licensed under a simple [GPLv3 license](LICENSE.md).
+
 ## References
 <a id="1">[1]</a> T. Trautner, M. Sbardellati and S. Bruckner, "Honeycomb Plots: Enhancing Hexagonal Binning Plots with Spatialization Cues", *Eurographics Conference on Visualization (EuroVis) 2022*, 2022 (Note: Paper is not yet released as of 13/6/22)
