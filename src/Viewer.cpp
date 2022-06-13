@@ -126,32 +126,34 @@ Viewer::Viewer(GLFWwindow *window, Scene *scene) : m_window(window), m_scene(sce
     using NormalTexType = std::array<std::pair<glm::uvec2, std::vector<glm::vec4>>, HapticMipMapLevels>;
     ReaderChannel<NormalTexType> normal_tex_channel{};
 
-    m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
-    // 0:
-    m_renderers.emplace_back(std::make_unique<TileRenderer>(this,
-                                                            WriterChannel<NormalTexType>{
-                                                                    normal_tex_channel}));
-    // 1:
-    const auto crystalRendererPtr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(
+    // Renderers:
+    m_renderers.emplace_back(std::make_unique<TileRenderer>(this, WriterChannel<NormalTexType>{normal_tex_channel}));
+    const auto crystal_renderer_ptr = static_cast<CrystalRenderer *>(m_renderers.emplace_back(
             std::make_unique<CrystalRenderer>(this)).get());
-    crystalRendererPtr->setEnabled(false);
-    m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystalRendererPtr));
-    // 2:
-    auto haptic_renderer = static_cast<HapticRenderer *>(m_renderers.emplace_back(
+    const auto haptic_renderer_ptr = static_cast<HapticRenderer *>(m_renderers.emplace_back(
             std::make_unique<HapticRenderer>(this)).get());
-    m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this));
+    m_renderers.emplace_back(std::make_unique<GridSurfaceRenderer>(this))->setEnabled(false);
     m_renderers.emplace_back(std::make_unique<BoundingBoxRenderer>(this));
     m_renderers.emplace_back(std::make_unique<AxisRenderer>(this))->setEnabled(false);
-    auto &haptic_interactor = *static_cast<HapticInteractor *>(m_interactors.emplace_back(
+
+    // Interactors:
+    m_interactors.emplace_back(std::make_unique<CameraInteractor>(this));
+    m_interactors.emplace_back(std::make_unique<STLExporter>(this, crystal_renderer_ptr))->setEnabled(false);
+    const auto haptic_interactor_ptr = static_cast<HapticInteractor *>(m_interactors.emplace_back(
             std::make_unique<HapticInteractor>(this, std::move(normal_tex_channel))).get());
 
-    haptic_interactor.m_on_haptic_toggle = [haptic_renderer](bool enabled) { haptic_renderer->setEnabled(enabled); };
-    haptic_renderer->setEnabled(haptic_interactor.hapticEnabled());
 
-    int i = 1;
+    crystal_renderer_ptr->setEnabled(false);
+    haptic_interactor_ptr->m_on_haptic_toggle = [haptic_renderer_ptr](bool enabled) {
+        haptic_renderer_ptr->setEnabled(enabled);
+    };
+    haptic_interactor_ptr->setEnabled(false);
+    haptic_renderer_ptr->setEnabled(false);
+
 
     globjects::debug() << "Available renderers (use the number keys to toggle):";
 
+    int i = 1;
     for (const auto &r: m_renderers) {
         globjects::debug() << "  " << i << " - " << typeid(*r).name();
         ++i;
@@ -179,7 +181,9 @@ void Viewer::display() {
     }
 
     for (auto &i: m_interactors) {
-        i->display();
+        if (i->isEnabled()) {
+            i->display();
+        }
     }
 
     endFrame();
@@ -367,13 +371,11 @@ void Viewer::keyCallback(GLFWwindow *window, int key, int scancode, int action, 
                 bool enabled = viewer->m_renderers[index]->isEnabled();
 
                 if (enabled)
-                    std::cout << "Renderer " << index + 1 << " of type "
-                              << typeid(*viewer->m_renderers[index]).name() << " is now disabled." << std::endl
-                              << std::endl;
+                    std::cout << "Renderer " << index + 1 << " of type " << typeid(*viewer->m_renderers[index]).name()
+                              << " is now disabled." << std::endl << std::endl;
                 else
-                    std::cout << "Renderer " << index + 1 << " of type "
-                              << typeid(*viewer->m_renderers[index]).name() << " is now enabled." << std::endl
-                              << std::endl;
+                    std::cout << "Renderer " << index + 1 << " of type " << typeid(*viewer->m_renderers[index]).name()
+                              << " is now enabled." << std::endl << std::endl;
 
                 viewer->m_renderers[index]->setEnabled(!enabled);
             }
@@ -381,7 +383,9 @@ void Viewer::keyCallback(GLFWwindow *window, int key, int scancode, int action, 
 
 
         for (auto &i: viewer->m_interactors) {
-            i->keyEvent(key, scancode, action, mods);
+            if (i->isEnabled()) {
+                i->keyEvent(key, scancode, action, mods);
+            }
         }
     }
 }
@@ -755,17 +759,17 @@ void Viewer::mainMenu() {
         const auto getButtonLabel = [](uint index) -> std::string {
             switch (index) {
                 case 0:
-                    return "Switch to 3D view";
+                    return "Switch to 3D Printing View";
                 case 1:
-                    return "Switch to haptic view";
+                    return "Switch to Haptic Rendering View";
                 case 2:
                 default:
-                    return "Switch to 2D view";
+                    return "Switch to 2D Hexplot View";
             }
         };
         const auto buttonLabel = getButtonLabel(m_focusRenderer);
         if (ImGui::Button(buttonLabel.c_str()))
-            enumerateFocusRenderer();
+            enumerateView();
 
         ImGui::EndMenu();
     }
@@ -779,12 +783,26 @@ void Viewer::SetClipboardText(void *user_data, const char *text) {
     glfwSetClipboardString((GLFWwindow *) user_data, text);
 }
 
-void Viewer::enumerateFocusRenderer(bool inc) {
-    constexpr auto FOCUS_RENDER_COUNT = 3u;
-    m_renderers.at(m_focusRenderer)->setEnabled(false);
-    m_focusRenderer = !inc && m_focusRenderer == 0 ? FOCUS_RENDER_COUNT - 1 : (m_focusRenderer + (inc ? 1 : -1)) %
-                                                                              FOCUS_RENDER_COUNT;
-    m_renderers.at(m_focusRenderer)->setEnabled(true);
+void Viewer::enumerateView(bool inc) {
+    constexpr auto VIEW_COUNT = 3u;
+    static auto view_enabled_renderers =
+            std::to_array<std::set<std::size_t>, VIEW_COUNT>({{0},
+                                                              {1, 4},
+                                                              {2, 3, 4}});
+    static auto view_enabled_interactors =
+            std::to_array<std::set<std::size_t>, VIEW_COUNT>({{0},
+                                                              {0, 1},
+                                                              {0, 2}});
+
+    m_focusRenderer = !inc && m_focusRenderer == 0 ? VIEW_COUNT - 1 : (m_focusRenderer + (inc ? 1 : -1)) % VIEW_COUNT;
+    const auto enabled_renderers{view_enabled_renderers.at(m_focusRenderer)};
+    const auto enabled_interactors{view_enabled_interactors.at(m_focusRenderer)};
+
+    for (std::size_t i{0u}; i < m_renderers.size(); ++i)
+        m_renderers.at(i)->setEnabled(enabled_renderers.contains(i));
+    for (std::size_t i{0u}; i < m_interactors.size(); ++i)
+        m_interactors.at(i)->setEnabled(enabled_interactors.contains(i));
+
     forceOffloadRender();
 }
 

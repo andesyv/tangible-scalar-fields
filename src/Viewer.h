@@ -109,7 +109,7 @@ namespace molumes
 
         std::vector<std::unique_ptr<Renderer>> &getRenderers();
 
-        void enumerateFocusRenderer(bool inc = true);
+        void enumerateView(bool inc = true);
 
 		void saveImage(const std::string & filename) const;
 

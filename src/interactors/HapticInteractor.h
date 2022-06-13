@@ -16,7 +16,12 @@
 
 namespace molumes {
 /**
- * Enables interaction with haptic devices
+ * @brief This is the main class responsible for performing haptic rendering via a haptic force-feedback device.
+ * Rendering via a haptic device is done by interacting with the IO device itself, which is why this is an Interactor
+ * and not a Renderer.
+ * The HapticInteractor is responsible for the renderloop with the haptic force-feedback device, which it does
+ * by managing a separate thread. This means all communication from the rest of the program with the haptic device has
+ * to go via atomics. Most of the actual physics calculations are delegated to the Physics class.
  */
     class HapticInteractor : public Interactor {
     public:

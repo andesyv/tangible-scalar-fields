@@ -69,7 +69,7 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	}
     else if (m_ctrl && (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT) && action == GLFW_PRESS)
     {
-        viewer()->enumerateFocusRenderer(key == GLFW_KEY_RIGHT);
+        viewer()->enumerateView(key == GLFW_KEY_RIGHT);
     }
 	else if (m_shift && (key == GLFW_KEY_LEFT || key == GLFW_KEY_RIGHT || key == GLFW_KEY_UP || key == GLFW_KEY_DOWN) && action == GLFW_PRESS)
 	{
