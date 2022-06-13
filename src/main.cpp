@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 
     setContext(window);
 
-    const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/0_10_sampled_testdata_10.000.csv";
+    const std::string fileName = (argc > 1) ? std::string(argv[1]) : "./dat/Airports-Europe.csv";
 
 #ifndef NDEBUG
     // Enable debug logging

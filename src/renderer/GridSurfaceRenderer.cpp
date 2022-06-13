@@ -222,10 +222,10 @@ void GridSurfaceRenderer::display() {
     const auto state = stateGuard();
 
     static glm::uint tesselation = TESSELATION;
-    if (ImGui::BeginMenu("Grid plane")) {
+    if (ImGui::BeginMenu("Haptic Debug")) {
         auto ui_tess = static_cast<int>(tesselation);
         // Apparently, most hardware has their max tesselation level set to 64. Not a lot for a single plane, but a lot for individual triangles.
-        if (ImGui::DragInt("Tesselation", &ui_tess, 1.f, 1, 64))
+        if (ImGui::DragInt("Plane Tesselation", &ui_tess, 1.f, 1, 64))
             tesselation = static_cast<glm::uint>(ui_tess);
 
         ImGui::EndMenu();

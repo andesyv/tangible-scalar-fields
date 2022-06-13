@@ -33,16 +33,16 @@ namespace molumes {
         /// ------------------- GUI Parameters -------------------------------------------
         bool m_wireframe = false;
         bool m_renderHull = true;
-        bool m_tileNormalsEnabled = false;
+        bool m_tileNormalsEnabled = true;
         bool m_orientationNotchEnabled = false;
-        int m_renderStyleOption = 0;
-        int m_topRegressionPlaneAlignment{1}, m_bottomRegressionPlaneAlignment{1};
-        int m_geometryMode = 0;
+        int m_renderStyleOption = 1;
+        int m_topRegressionPlaneAlignment{2}, m_bottomRegressionPlaneAlignment{2};
+        int m_geometryMode = 3;
         float m_tileScale = 1.0f;
         float m_tileHeight = 0.5f;
-        float m_tileNormalsFactor = 1.0;
+        float m_tileNormalsFactor = 30.f;
         float m_extrusionFactor = 0.2f;
-        float m_valueThreshold = 0.f;
+        float m_valueThreshold = 0.128f;
         float m_cutValue = 0.5f;
         float m_cutWidth = 0.1f;
         float m_orientationNotchDepth = 1.f;
@@ -166,5 +166,7 @@ namespace molumes {
          * @return The matrix that transforms from local geometry space (from geometry shader) to world space
          */
         glm::mat4 getModelMatrix(bool mirrorFlip = false) const;
+
+        void resetLightTransform();
     };
 }

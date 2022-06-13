@@ -142,6 +142,8 @@ namespace molumes {
 
         void shadeRenderPass();
 
+        void resetLightTransform();
+
 
         // TILES CALC----------------------------------------------------------------
         void calculateTileTextureSize(const glm::mat4 &inverseModelViewProjectionMatrix);

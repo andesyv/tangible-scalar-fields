@@ -19,7 +19,6 @@ namespace molumes
 		virtual void display();
 
 		void resetViewTransform();
-		void setLightPosition();
 
 	private:
 

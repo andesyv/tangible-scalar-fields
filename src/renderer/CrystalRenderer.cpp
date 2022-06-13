@@ -81,8 +81,19 @@ CrystalRenderer::CrystalRenderer(Viewer *viewer) : Renderer(viewer) {
 void CrystalRenderer::setEnabled(bool enabled) {
     Renderer::setEnabled(enabled);
 
-    if (enabled)
-        viewer()->setPerspective(true);
+    if (!enabled)
+        return;
+
+    viewer()->setPerspective(true);
+    resetLightTransform();
+}
+
+void CrystalRenderer::resetLightTransform() {
+    const auto view_mat = viewer()->viewTransform();
+    const static auto d = -0.5f * 2.0f*std::sqrt(3.0f); // std::sqrt is not constexpr for some reason.
+    const static auto arcball_vector = glm::vec3{-0.575000, -0.677778, 0.458249} * d;
+    const glm::mat4 lightTransform = glm::inverse(view_mat) * glm::translate(glm::mat4{1.0f}, arcball_vector) * view_mat;
+    viewer()->setLightTransform(lightTransform);
 }
 
 void CrystalRenderer::display() {
@@ -624,7 +635,7 @@ void CrystalRenderer::drawGUI(bool &bufferNeedsResize) {
                 m_hexagonsUpdated = true;
             if (ImGui::SliderFloat("Cut width", &m_cutWidth, 0.f, 1.f))
                 m_hexagonsUpdated = true;
-        } else if (ImGui::SliderFloat("Value threshold", &m_valueThreshold, 0.f, 1.f))
+        } else if (ImGui::SliderFloat("Hull value threshold", &m_valueThreshold, 0.f, 1.f))
             m_hexagonsUpdated = true;
         // Doesn't work unless you actually generate the normal plane from the 2D view:
         if (ImGui::Checkbox("Align with regression plane", &m_tileNormalsEnabled))
