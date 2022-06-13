@@ -66,7 +66,16 @@ Here's a small example of how one could use the pipeline, from dataset to final 
  - The model is always built standing up, so there's normally no need for additional supports. Except for the concave/mirrored models where it may be beneficial to have supports on the lower half of the model.
 
 ## Haptic Rendering
-Todo...
+The haptic rendering view renders a two-dimensional scalar field on a force-feedback haptic device compatible with the [Force Dimension SDK](https://www.forcedimension.com/software/sdk) connected to the computer via forces simulating the surface. As mentioned in [Views](#views), you can view the scalar field output of the Honeycomb Plot View by opening a CSV file, or in this view, you can directly view a scalar field by opening a grayscale heightmap image. Load a file by going to **File** -> **Open File** or <kbd>Ctrl</kbd>+<kbd>O</kbd>.
 
-# References
-<a id="1">[1]</a> T. Trautner, M. Sbardellati and S. Bruckner, "Honeycomb Plots: Enhancing Hexagonal Binning Plots with Spatialization Cues", *Eurographics Conference on Visualization (EuroVis) 2022*, 2022
+### How it works
+The haptic rendering constructs a surface by using the scalar field as a displacement map for a plane and then conveys the sum of 3 physical forces through the force-feedback device: the normal force, the friction force and the gravity force.
+
+The position of the haptic device in the virtual environment is projected down onto the surface to find the texture coordinate on the surface and the height. If the height is negative ($h<0$) a normal force is applied to push the haptic device out from the surface. The normal force is calculated by finding the normal vector of the tangent plane at the heightfield position, similar to bump mapping, and multiplying it by a user-set force amount interpolated into the surface ($s_f$). The tangent plane normal is calculated using the partial derivatives found by taking the central differences.
+
+Dry friction is calculated by placing a *sticktion point* when the device first enters the surface, and then constantly dragging the user towards that point while also moving the point around to simulate dynamic friction. Gravity is a constant down-pulling force.
+
+A volume representation is also created to give wind-like forces that display a course overview of the surface, enabling users to view high-level details by moving over the surface. The volume is built similar to a mipmap pyramid by stacking progressively smoothed surfaces on top of each other and trilinearly interpolate between the scalar values.
+
+## References
+<a id="1">[1]</a> T. Trautner, M. Sbardellati and S. Bruckner, "Honeycomb Plots: Enhancing Hexagonal Binning Plots with Spatialization Cues", *Eurographics Conference on Visualization (EuroVis) 2022*, 2022 (Note: Paper is not yet released as of 13/6/22)
