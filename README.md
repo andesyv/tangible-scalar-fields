@@ -1,6 +1,6 @@
 # 3D Printing and Haptic Rendering of Scalar Fields
 
-This is the code for my master project which is divided into two parts: one that creates a 3D printable model from a hexplot visualization of a 2D scalar field and one that uses a haptic force-feedback device to render a 2D scalar field. Both parts are implemented in the same project which is an extension of the code for the *Honeycomb Plots* paper by Trautner et al. [[1]](#1). The different approaches have been implemented as different "views", which you can switch between using <kbd>Ctrl</kbd>+<kbd>←</kbd>/<kbd>→</kbd> or going to "*settings*" and then clicking the "*switch to ...*" button.
+This is the code for my master project (which you can read [here](doc/tangible_scalar_fields.pdf)) which is divided into two parts: one that creates a 3D printable model from a hexplot visualization of a 2D scalar field and one that uses a haptic force-feedback device to render a 2D scalar field. Both parts are implemented in the same project which is an extension of the code for the *Honeycomb Plots* paper by Trautner et al. [[1]](#1). The different approaches have been implemented as different "views", which you can switch between using <kbd>Ctrl</kbd>+<kbd>←</kbd>/<kbd>→</kbd> or going to "*settings*" and then clicking the "*switch to ...*" button.
 
 ## Views
  - Honeycomb Plot 2D view - This is the view from the previous technique by Trautner et al. [[1]](#1) which takes a CSV file of bivariate scalar data (x and y values) as input and creates a Honeycomb plot
@@ -75,10 +75,10 @@ The position of the haptic device in the virtual environment is projected down o
 
 Dry friction is calculated by placing a *sticktion point* when the device first enters the surface, and then constantly dragging the user towards that point while also moving the point around to simulate dynamic friction. Gravity is a constant down-pulling force.
 
-A volume representation is also created to give wind-like forces that display a course overview of the surface, enabling users to view high-level details by moving over the surface. The volume is built similar to a mipmap pyramid by stacking progressively smoothed surfaces on top of each other and trilinearly interpolate between the scalar values.
+A volume representation is also created to give wind-like forces that display a course overview of the surface, enabling users to view high-level details by moving over the surface. The volume is built similar to a mipmap pyramid by stacking progressively smoothed surfaces on top of each other and trilinear interpolating between the scalar values.
 
-## License
-The project is licensed under a simple [GPLv3 license](LICENSE.md).
+## License and Citing
+The project is licensed under a simple [GPLv3 license](LICENSE.md). The thesis itself (located [here](doc/tangible_scalar_fields.pdf) or [here (published by the University of Bergen)](https://hdl.handle.net/11250/3004277)) is under copyright by me, but feel free to use it however you like (as long as you give proper credit). The code can optionally be cited using the [citation file](CITATION.cff).
 
 ## References
-<a id="1">[1]</a> T. Trautner, M. Sbardellati and S. Bruckner, "Honeycomb Plots: Enhancing Hexagonal Binning Plots with Spatialization Cues", *Eurographics Conference on Visualization (EuroVis) 2022*, 2022 (Note: Paper is not yet released as of 13/6/22)
+<a id="1">[1]</a> T. Trautner, M. Sbardellati and S. Bruckner, "Honeycomb Plots: Enhancing Hexagonal Binning Plots with Spatialization Cues", *Eurographics Conference on Visualization (EuroVis) 2022*, 2022 (Note: Paper is not yet released as of 10/7/22)

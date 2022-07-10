@@ -1,0 +1,13 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Tangible Scalar Fields
+message: "If you use this software, you can optionally cite it using the metadata from this file."
+type: software
+authors:
+  - given-names: Anders
+    family-names: Syvertsen
+    email: anders@syvertsen.dev
+date-release: 2022-06-15
+url: "https://github.com/andesyv/tangible-scalar-fields"
